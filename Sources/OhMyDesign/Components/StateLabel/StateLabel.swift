@@ -59,7 +59,10 @@ public struct StateLabel<Label: View>: View {
             self.label
                 .coreFont(.footnote)
         }
-        .foregroundStyle(Color.contentOnEmphasis)
+        .foregroundStyle(
+            self.style == .draft || self.style == .inProgress
+                ? Color.contentPrimary : Color.contentOnEmphasis
+        )
         .padding(.horizontal, CoreSpacing.sm)
         .padding(.vertical, CoreSpacing.xxs)
         .background(

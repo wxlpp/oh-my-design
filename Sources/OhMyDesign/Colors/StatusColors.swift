@@ -37,7 +37,7 @@ public extension Color {
 
     /// 警示前景色：警告 / 待处理 / 待审阅文字。
     static let statusAttentionForeground: Color = Color("status-attention-fg", bundle: .module)
-    /// 警示实色背景。
+    /// 警示实色背景；标签文字搭配 `contentPrimary`，不要从前景色加透明度派生。
     static let statusAttentionEmphasis: Color = Color("status-attention-emphasis", bundle: .module)
     /// 警示弱化背景。
     static let statusAttentionMuted: Color = Color("status-attention-muted", bundle: .module)

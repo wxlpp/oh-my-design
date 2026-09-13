@@ -266,7 +266,7 @@
 | `Color.statusSuccessSubtle` | 成功淡背景。 |
 | `Color.statusSuccessBorder` | 边框色。 |
 | `Color.statusAttentionForeground` | 警示前景色：警告 / 待处理 / 待审阅文字。 |
-| `Color.statusAttentionEmphasis` | 警示实色背景。 |
+| `Color.statusAttentionEmphasis` | 警示实色背景；标签文字搭配 `contentPrimary`，不要从前景色加透明度派生。 |
 | `Color.statusAttentionMuted` | 警示弱化背景。 |
 | `Color.statusAttentionSubtle` | 警示淡背景。 |
 | `Color.statusAttentionBorder` | 边框色。 |
@@ -732,6 +732,7 @@
 ### `GlowSweep.swift`
 
 - **`GlowSweep`** *<Content: View>: View* — `GlowSweep { }` —— 一段辉光**沿内容边框转圈**，表示"正在生成 / 正在思考"。
+- *enum* **`GlowSweepActivity`**: `.active`, `.inactive` — 流光装饰的生命周期，不改变内容的可用性。
 
 ### `LightSweep.swift`
 
@@ -935,8 +936,8 @@
 | controlsize | 5 | 5 |
 | colors | 118 | 118 |
 | components | 91 | 91 |
-| enums | 29 | 29 |
-| enumcases | 108 | 108 |
+| enums | 30 | 30 |
+| enumcases | 110 | 110 |
 | protocols | 6 | 6 |
 | viewext | 41 | 41 |
 | styleext | 12 | 12 |
