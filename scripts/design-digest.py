@@ -23,7 +23,7 @@ FLOORS = {
     # 2026-09-08 设计系统配色回灌：colors +3（inkPrimary / dataAccent / dataAccentSubtle）、
     # components +1（InkSegmentedControlStyle）、viewext +1（View.coreAccent）、
     # styleext +3（SegmentedControlStyle 的 .glass / .plain / .ink 三个静态入口）。
-    "colors": 118, "components": 91, "enums": 29, "enumcases": 108,
+    "colors": 118, "components": 91, "enums": 30, "enumcases": 110,
     "protocols": 6, "viewext": 41, "styleext": 12, "others": 29,
 }
 
