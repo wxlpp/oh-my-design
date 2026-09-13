@@ -15,10 +15,12 @@
 
 | 值 | 默认 label | 图标 | 背景 / 前景 token |
 |---|---|---|---|
-| `.active` | Active | `circle.fill` | `statusSuccessEmphasis` / `statusSuccessForeground` |
-| `.draft` | Draft | `circle.dashed` | `statusAttentionEmphasis` / `statusAttentionForeground` |
-| `.completed` | Completed | `checkmark.circle.fill` | `statusDoneEmphasis` / `statusDoneForeground` |
-| `.cancelled` | Cancelled | `xmark.circle.fill` | `statusDangerEmphasis` / `statusDangerForeground` |
+| `.active` | Active | `circle.fill` | `statusSuccessEmphasis` / `contentOnEmphasis` |
+| `.draft` | Draft | `circle.dashed` | `statusAttentionEmphasis` / `contentPrimary` |
+| `.completed` | Completed | `checkmark.circle.fill` | `statusDoneEmphasis` / `contentOnEmphasis` |
+| `.cancelled` | Cancelled | `xmark.circle.fill` | `statusDangerEmphasis` / `contentOnEmphasis` |
+| `.inProgress` | In Progress | `arrow.triangle.2.circlepath` | `statusAttentionEmphasis` / `contentPrimary` |
+| `.error` | Error | `exclamationmark.triangle.fill` | `statusDangerEmphasis` / `contentOnEmphasis` |
 
 ## 预览 / Preview
 
