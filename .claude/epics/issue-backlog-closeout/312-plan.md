@@ -45,7 +45,7 @@
   登记表 `notes`；`BeforeAfterSlider` 计入 2：左右并排 / 上下并排）。
 - ⚠️ **全部走形态 D**（`styleSlot` / `styleEnum`）——`D-299-1` 修订回路未走完，
   禁形态 B public 协议。形态 D 成立条件：填了不覆盖比不填更糟。
-- 参考先例：`#355` 的 `NetworkGraph`（形态 D2）与登记表里已有 6 个形态 D 组件。
+- 参考先例：`#355` 的 `NetworkGraph`（形态 D2）与登记表里已有 7 个形态 D 组件（`styleEnum` 非空，含 `NetworkGraph`）。
 
 ## 阶段 3：判据收缩与同步
 
