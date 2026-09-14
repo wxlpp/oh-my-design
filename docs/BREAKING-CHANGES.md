@@ -6,7 +6,7 @@
 > `v0.4.0`（2026-07-24，Phase 2 新组件）、`v0.4.1`（2026-07-24，非破坏性收尾）、
 > `v0.5.0`（2026-07-24，文本入参统一——含破坏性变更）、
 > `v0.6.0`（2026-07-25，Separator.Inset 改名 + ProgressBar 弃用 + SettingsRowMetrics 公开——含破坏性变更）、
-> `v0.7.0`（2026-07-26，`semi-mobile-components` epic 10 新组件 + ProgressIndicator 增强/spinning + 收口的取色修正——纯新增，无破坏性变更）、
+> `v0.7.0`（2026-07-27，`semi-mobile-components` epic 10 新组件 + ProgressIndicator 增强/spinning + 收口的取色修正——纯新增，无破坏性变更）、
 > `v0.8.0`（2026-08-16，`component-contract` epic：把 5 组压扁成 Bool 的 API 还原成语义类型——**含破坏性变更**）、
 > `v0.9.0`（2026-09-01，形态 D2 扩展点落地（`#59` / `#60` / `#64` / `#65`）+ 守卫（`#48`）+
 > 可达类型登记表（`#72` / `#216`）：7 个已有 init / modifier 各加一个带默认值的形态参数
@@ -712,7 +712,7 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
 - **`CheckBox` / `Radio` 未选中态取色**（Issue #189）：从硬编码 `Color.gray`（`systemGray`，固定不透明）改为语义 token `Color.contentSecondary`（桥接系统 `.secondaryLabel`）。`CheckBox` 自 `v0.1.0` 发布，本次一并对齐（两组件文档均声明「同一套 token」，只改其一会造成成对组件视觉分叉）。观感变化：纯色背景下肉眼几乎不可辨；在 raised/tinted 背景上因 `.secondaryLabel` 的半透明特性会有轻微原生混色，并新增 Increase Contrast 无障碍适配——属修正硬编码色、非破坏。
 - **`DynamicTypeLayoutTests` 补 Rating/Radio/TagInput/Timeline 大字号断言**（Issue #188）：仅测试新增。
 
-## `0.7.0`（`semi-mobile-components` epic 收尾，2026-07-26）
+## `0.7.0`（`semi-mobile-components` epic 收尾，2026-07-27）
 
 **非破坏性** —— 全部为纯新增，无删除/改名/签名变更，对下游零破坏，无需迁移。
 
