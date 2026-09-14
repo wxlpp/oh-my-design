@@ -33,8 +33,8 @@
 采纳」（逐字：`let declared = scan.styleProtocolNames.contains(custom)` 与
 `if declared && !implementations.isEmpty`）。一个组件完全
 可以声明协议、登记表填上名字，而 `body` 里照旧硬渲染——J-2 照绿。#40 的移交清单第 1 条已把这条
-精度上限写在明处，本轮**主动不踩**（`Rating.body` 与 `RatingDisplay.body` 都真的经
-`style.makeBody(configuration:)` 渲染），但那是靠人自觉，不是靠判据。
+精度上限写在明处，本轮**主动不踩**（`Rating.swift`（`:39`）与 `RatingDisplay.swift`（`:21`）的 body 里逐字都是
+`AnyView(self.style.makeBody(`），但那是靠人自觉，不是靠判据。
 
 **交 #44**：评估是否值得把「组件是否消费该 style」做成机器判据（需要语义判断，成本明显更高），
 或至少在公约里写明这是一条**人来守**的规矩。
@@ -793,7 +793,7 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 
 **① 源码事实**：`DangerIcon`。public init() 零公开参数；body 为 `Image(systemName: "exclamationmark.circle.fill")` + `.foregroundStyle(Color.statusDangerForeground)` + `.accessibilityLabel(Text("Alert", bundle: .module))`；尺寸继承父容器字号。
 
-**② (A) 诚实枚举**：候选 1 = **三角形感叹号**（来源：SF Symbols exclamationmark.triangle.fill（与 circle.fill 并列提供）、Xcode issue navigator、Material Symbols warning），豁免路径：皮肤变体走通；作用域 ③ 落空（StateLabel 是文本状态标签、Badge 是状态色块，均不承担字形本身）。 候选 2 = **八边形/停止牌**（来源：SF Symbols exclamationmark.octagon.fill、Material dangerous、交通停止标志惯例），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **纯色圆点（无字形）**（来源：GitHub/Slack 的未读与告警红点），豁免路径：皮肤变体未走通（拿掉字形层，骨架不同）；作用域 ③ 落空（`SidebarStatusFooter` 的状态点是组件内部渲染——逐字 `Circle().fill(self.statusColor)`——登记表内无独立状态点组件）。
+**② (A) 诚实枚举**：候选 1 = **三角形感叹号**（来源：SF Symbols exclamationmark.triangle.fill（与 circle.fill 并列提供）、Xcode issue navigator、Material Symbols warning），豁免路径：皮肤变体走通；作用域 ③ 落空（StateLabel 是文本状态标签、Badge 是状态色块，均不承担字形本身）。 候选 2 = **八边形/停止牌**（来源：SF Symbols exclamationmark.octagon.fill、Material dangerous、交通停止标志惯例），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **纯色圆点（无字形）**（来源：GitHub/Slack 的未读与告警红点），豁免路径：皮肤变体未走通（拿掉字形层，骨架不同）；作用域 ③ 落空（`SidebarStatusFooter` 的状态点是组件内部渲染——`Circle()` + `.fill(self.statusColor)` 两句——登记表内无独立状态点组件）。
 
 **③ 皮肤变体交叉裁断**：候选 1、2 命中皮肤变体（同为『实心几何外框 + 内嵌感叹号 + 语义危险色』骨架，差异只是外框画法）；候选 3 非皮肤但只有 1 个 < 2 ⇒ 举得犹豫 ⇒ 落步骤 4。SF Symbols 同族并列提供 circle/triangle/octagon 三种外框是可当场核验的反例，『枚举为 0 的残余侧路』实测走不了。
 
@@ -892,14 +892,14 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 **④ 枚举为 0 的残余侧路**：不适用——本条举出 3 个真实业界候选，「为什么业界举不出」的
 可核验说明义务未触发。
 
-**⑤ (B) 判定**：佐证（命中皮肤变体裁断，只能作佐证）：把 footnote 灰换成 body 黑，这段字就从『对上面这组的说明』读成『正文内容的一部分』。Y=『正文内容』落在 :37-38 两个渲染事实上、不引兄弟组件名（SectionHeader 一词不出现在句中）。⚠️ 53-triage.md 曾标注本条为『委托方，Task 8 独立重走』（依赖兄弟 SectionHeader）——SectionHeader 在同批（本 task）已一并改判 tiebreaker，随本批与其余 11 条一并处置，见文末『落点口径说明』。
+**⑤ (B) 判定**：佐证（命中皮肤变体裁断，只能作佐证）：把 footnote 灰换成 body 黑，这段字就从『对上面这组的说明』读成『正文内容的一部分』。Y=『正文内容』落在 `SectionFooter` 的 `.coreFont(.footnote)` 与 `.foregroundStyle(Color.contentSecondary)` 两个渲染事实上、不引兄弟组件名（SectionHeader 一词不出现在句中）。⚠️ 53-triage.md 曾标注本条为『委托方，Task 8 独立重走』（依赖兄弟 SectionHeader）——SectionHeader 在同批（本 task）已一并改判 tiebreaker，随本批与其余 11 条一并处置，见文末『落点口径说明』。
 
 **⑥ 结论**：改判 `tiebreaker`（`kind`/`needsExtensionPoint` 不动）。回路：`D-53-9` / `R-24`。
 
 **⚠️ Task 8 补登记 addendum（只增不删，不动落点）**：本条已满足 `D-41-3`（『否决理由不可
 继承，对**所有**步骤都成立』）——本条对 `SectionFooter` 逐条走了①源码事实→②诚实枚举→③
 皮肤变体交叉裁断→⑤(B) 判定的完整独立路径（见上文①-⑤），(B) 佐证句的 Y 落在 `SectionFooter`
-自身 :37-38 两个渲染事实上、**不引** `SectionHeader` 一词，符合 `D-41-3` 的独立重走要求。
+自身的 `.coreFont(.footnote)` 与 `.foregroundStyle(Color.contentSecondary)` 两个渲染事实上、**不引** `SectionHeader` 一词，符合 `D-41-3` 的独立重走要求。
 『与 `SectionHeader` 同源、仅大小写/字重差异』这类委托句今后**只能作背景描述，不得再充当
 判定理由**——本条落点（`tiebreaker`）承重的是①-⑤各步骤自身的独立论证。独立论证详见
 `53-stress.md` 第 7 节（与上文『取证留痕』同一出处）。
@@ -979,7 +979,7 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 
 **① 源码事实**：`SidebarTagRow`。`public init(title:action:)`——只有文案与动作，无外观参数；leading『#』（逐字 `Text("#")` + `.coreFont(.title2)`）、trailing chevron（原注释自陈『装饰性指示箭头』，该注释随 `#328` 删除）都写死。结构性反证：本组件是私有共享骨架 `SidebarRow` 的一次实例化，leading/trailing 是该骨架的两个 `@ViewBuilder` 槽，同一骨架也被 SidebarNavigationRow/SidebarUtilityRow/SidebarDocumentRow 实例化。
 
-**② (A) 诚实枚举**：候选 1 = **标签字形前缀**（来源：SF Symbols tag.fill、Apple 提醒事项/邮件标签行、Things 3），豁免路径：皮肤变体走通（SidebarRow leading 槽换填充物）；作用域 ③ 对 SidebarUtilityRow（任意 SF Symbol 前缀的工具行，:239-240）满足 ⇒ 被正当排除。 候选 2 = **彩色圆点前缀**（来源：Linear label、Todoist 项目/标签色点、Notion 多选属性色点），豁免路径：皮肤变体走通（仍是 leading 槽的一种填法）；作用域 ③ 落空。 候选 3 = **无前缀的彩色 chip 行**（来源：Notion、Things 3 把标签渲染成 chip 而非行），豁免路径：皮肤变体未走通（不再是行结构）；作用域 ③ 对 Tag（自述 GitHub issue label 风格圆角矩形 chip）满足 ⇒ 被正当排除。
+**② (A) 诚实枚举**：候选 1 = **标签字形前缀**（来源：SF Symbols tag.fill、Apple 提醒事项/邮件标签行、Things 3），豁免路径：皮肤变体走通（SidebarRow leading 槽换填充物）；作用域 ③ 对 SidebarUtilityRow（任意 SF Symbol 前缀的工具行）满足 ⇒ 被正当排除。 候选 2 = **彩色圆点前缀**（来源：Linear label、Todoist 项目/标签色点、Notion 多选属性色点），豁免路径：皮肤变体走通（仍是 leading 槽的一种填法）；作用域 ③ 落空。 候选 3 = **无前缀的彩色 chip 行**（来源：Notion、Things 3 把标签渲染成 chip 而非行），豁免路径：皮肤变体未走通（不再是行结构）；作用域 ③ 对 Tag（自述 GitHub issue label 风格圆角矩形 chip）满足 ⇒ 被正当排除。
 
 **③ 皮肤变体交叉裁断**：两个候选被作用域条款正当排除后，本组件自己剩下候选 2（彩色圆点前缀），与现状共享逐字同一的 SidebarRow 源码骨架（:116-159）⇒ 不计入 ≥2 ⇒ 举得犹豫 ⇒ 落步骤 4。
 
@@ -1000,7 +1000,7 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 
 **② (A) 诚实枚举**：候选 1 = **实心填充按钮容器**（来源：Material Design 3 filled button、Apple .borderedProminent），豁免路径：皮肤变体走通；作用域 ① 落空（被点名的 Solid/Light/CircularGlass 三个 ButtonStyle 均不在 71 条登记表内）。 候选 2 = **描边/tonal 容器**（来源：Material 3 outlined/tonal button、Ant Design default 与 dashed 按钮），豁免路径：皮肤变体走通；作用域 ① 同样落空。 候选 3 = **无容器的纯文字按钮**（来源：Material text button、Apple .plain），豁免路径：皮肤变体未走通（去掉全部容器层）；作用域 ③ 落空。
 
-**③ 皮肤变体交叉裁断**：候选 1、2 命中皮肤变体（三者共享『调用方给定 shape 内缩填底 + 一层表面处理 + 一条描边 + 按压缩放』同一骨架，源码即 :80-93 四句固定次序，候选只换第 2 层画法）；非皮肤候选只剩候选 3，1 个 < 2 ⇒ 举得犹豫 ⇒ 落步骤 4。
+**③ 皮肤变体交叉裁断**：候选 1、2 命中皮肤变体（三者共享『调用方给定 shape 内缩填底 + 一层表面处理 + 一条描边 + 按压缩放』同一骨架，源码即 body 的固定四句次序，候选只换第 2 层画法）；非皮肤候选只剩候选 3，1 个 < 2 ⇒ 举得犹豫 ⇒ 落步骤 4。
 
 **④ 枚举为 0 的残余侧路**：不适用——本条举出 3 个真实业界候选，「为什么业界举不出」的
 可核验说明义务未触发。
@@ -1213,9 +1213,9 @@ label——两者共享同一「pill + 状态色即语义」骨架，`StateLabel
 
 ⚠️ **连带（J-2 守卫的到期通路，不是「改守卫迁就」）**：新条目进入 J-2 定义域
 （`judgeExtensionPoints` 的过滤子句 `entry.repo == "ohmydesign" && entry.kind == "semantic" && entry.needsExtensionPoint`）而扩展点 API 不存在 ⇒
-`ComponentExtensionPointGuard.swift` 的 `inspected.count`（`:60`）与块外 canary
-（`:87`）会红。J-2 自己的 doc comment（`:38-50`）正描述了这个形态并留了正门
-（`Toast` 是现成先例），`:91` 注释明写 `knownMissingExtensionPoints` 本就**随判定结论
+`ComponentExtensionPointGuard.swift` 的 `inspected.count` 断言与块外 canary
+会红。J-2 自己的 doc comment 正描述了这个形态并留了正门
+（`Toast` 是现成先例），同文件注释明写 `knownMissingExtensionPoints` 本就**随判定结论
 增删** ⇒ 本轮增补红名单 + 同步计数 + 改 `withKnownIssue` 文案，**授权范围仅此三处**。
 
 ⚠️ **承接**：扩展点实现见 **`wxlpp/oh-my-story#60`**（动 `Sources/`，是行为改变，与本

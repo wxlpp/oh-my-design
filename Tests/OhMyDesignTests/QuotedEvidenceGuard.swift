@@ -62,7 +62,7 @@ struct QuotedEvidenceGuard {
         ("docs/contract-defects.md", "Sources/OhMyDesign/Components/Style/Descriptions.swift", ".labeledContentStyle(.core)"),
         ("docs/contract-defects.md", "Sources/OhMyDesign/Components/Style/Descriptions.swift", "DescriptionsColumns"),
         ("docs/contract-defects.md", "Sources/OhMyDesign/Components/Style/Descriptions.swift", "DescriptionsDividerDensity"),
-        ("docs/contract-defects.md", "Sources/OhMyDesign/Components/Rating/Rating.swift", "makeBody("),
+        ("docs/contract-defects.md", "Sources/OhMyDesign/Components/Rating/Rating.swift", "AnyView(self.style.makeBody("),
         // ---- docs/component-registry.json ----
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/AvatarGroup/AvatarGroup.swift", "HStack(spacing: self.layout == .overlapped ? self.overlapOffset : CoreSpacing.xxs)"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Form/Form.swift", "Image(systemName: \"chevron.forward\")"),
@@ -73,7 +73,7 @@ struct QuotedEvidenceGuard {
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Toast/Toast.swift", "RoundedRectangle(cornerRadius: CoreRadius.large, style: .continuous)"),
         ("docs/component-registry.json", "Sources/OhMyDesignEffects/OrbitRing.swift", "static let ringCount: Int = 4"),
         ("docs/component-registry.json", "Sources/OhMyDesignEffects/OrbitRing.swift", "seats(particleScale:"),
-        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Style/CoreProgressViewStyle.swift", "CoreProgressViewStyle"),
+        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Style/CoreProgressViewStyle.swift", "public func makeBody(configuration: Configuration) -> some View"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Radio/Radio.swift", "与 `CheckBoxToggleStyle` 同套 token、方框换圆点"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Section/SectionFooter.swift", ".foregroundStyle(Color.contentSecondary)"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Sidebar/Sidebar.swift", "Image(systemName: \"ellipsis\")"),
@@ -116,7 +116,7 @@ struct QuotedEvidenceGuard {
         ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Button/styles/SolidButtonStyle.swift", "self.isEnabled ? self.role.onColor : .contentDisabled"),
         ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Button/styles/CoreBorderlessButtonStyle.swift", "onTapGesture(count: 1, perform: configuration.trigger)"),
         ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Button/styles/CoreBorderlessButtonStyle.swift", "CoreBorderlessButtonStyle"),
-        ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Toast/Toast.swift", "toastHost"),
+        ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Toast/Toast.swift", "@Entry public var toastHost: ToastHost? = nil"),
         ("docs/spikes/248-metal-packaging.md", "Tests/OhMyDesignTests/ColorAssetGuardTests.swift", "rawXcassetsAvailable"),
         // ---- 台账 JSON ----
         ("docs/bool-exemptions.json", "Sources/OhMyDesign/Modifier/FloatingGlassModifier.swift", "let glass = self.isInteractive ? Glass.regular.interactive() : Glass.regular"),

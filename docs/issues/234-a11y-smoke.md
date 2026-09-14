@@ -50,7 +50,7 @@ respring 后重启 App **仍然没有 VoiceOver 光标、没有字幕面板**。
 `.disabled` 产生的状态**能**看到（`enabled=false`）；而**既非角色也非状态**的 trait
 （`.allowsDirectInteraction` / `.causesPageTurn` / `.isModal` 等）两行都不覆盖——本仓没用到，
 所以上表只对**本仓用到的 trait** 成立。
-⚠️ **最好的例证是 `Radio.swift` 与 `Carousel.swift` 的两处 `.accessibilityAddTraits(… ? [.isButton, .isSelected] : .isButton)`**：它们一次调用里传
+⚠️ **最好的例证是 `Radio.swift` 与 `Carousel.swift`**：两者的 `.accessibilityAddTraits` 传 `[.isButton, .isSelected] : .isButton` 的三元形态，一次调用里传
 `[.isButton, .isSelected]` ⇒ **同一次调用一半可见、一半不可见**。
 | **朗读顺序 / 分组 / 转子** | ❌ | 需要真 VoiceOver |
 | **实际读出的语音** | ❌ | 同上 |

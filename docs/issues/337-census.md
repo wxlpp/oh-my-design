@@ -7,7 +7,7 @@ issue 评论只有汇总数（a4afd16：160 条 / 129 失真 / 18 成立 / 13 �
 ## 口径与复跑命令
 
 ```bash
-grep -rnoE '[A-Za-z0-9_/.-]+\.swift:[0-9]+(-[0-9]+)?' docs/ CLAUDE.md README.md AGENTS.md
+grep -rnoE '[A-Za-z0-9_/.-]+\.swift:[0-9]+(-[0-9]+)?' docs/ *.md
 ```
 
 - 射程：`docs/**`（含 `superpowers/` 与 `issues/`）+ 仓根全部 `*.md`；`.claude/` 下的
@@ -65,7 +65,7 @@ defects 44→46 / 234 16 / contract 15 / 杂项 16），**差异全在 `contract
 | `Sidebar.swift`（:355-363） | 纯漂移 | 改 `SidebarStatusFooter` 符号 + `Circle()…fill` 引文 |
 | `Form.swift`（:115-117） | 整段被删（注释） | 引文改 git 取回 + 现树可核 `.foregroundStyle(Color.statusDangerForeground)` |
 | `Descriptions.swift`（:99,112-122,…） | 纯漂移 | 删坐标串，改符号 + 公开 init 引文 |
-| `FloatingGlassModifier.swift`（:10-17,…）；`Sidebar.swift`（:404-406） | 纯漂移 + 超界（Sidebar 文件现 382 行） | 改 `public let shape: S` 引文；调用点改 `Toast.swift`/`ExtendedFloatButtonStyle.swift` 实况 |
+| `FloatingGlassModifier.swift`（:10-17,…）；`Sidebar.swift`（:404-406） | 纯漂移 + 超界（Sidebar 文件现 381 行） | 改 `public let shape: S` 引文；调用点改 `Toast.swift`/`FloatingGlassModifier.swift` 的 `#Preview` 实况 |
 | `Sidebar.swift`（:404-406） | 同上 | 同上 |
 | `Form.swift`（:27-75） | 纯漂移 | 改两个 init 的描述（去坐标） |
 | `SectionFooter.swift`（:20-41） | 纯漂移 | 改 3 modifier 逐字引文 |
@@ -152,7 +152,7 @@ defects 44→46 / 234 16 / contract 15 / 杂项 16），**差异全在 `contract
 | `Timeline.swift`（:64）/（:220）/ `Steps.swift`（:49） | 纯漂移 | 改引文（`@ViewBuilder node:` / `private var nodeContent` / `public enum StepsIndicatorStyle`） |
 | `Sidebar.swift`（:221） | 纯漂移 | 改引文（`systemImage: String,` + `trailingSystemImage: String? = nil,`） |
 | `ComponentJudgeScanner.swift`（:135-136） | 注释删 | 改「已删 + `bareTextTypeNames`」 |
-| `CodexEntry.swift`（:11-12）×3 /（:173 区） | 跨仓 | 删行号留引文 |
+| `CodexEntry.swift`（:11-12）×3（`:173` 一处属 revisions，见 §3） | 跨仓 | 删行号留引文 |
 | `Banner.swift`（:77）/ `SegmentedControl.swift`（:66） | 漂移（实为 :36 / :47） | 改 `public protocol …` 引文 |
 | `CrossRepoRegistryGuard.swift`（:98-105）×2 / `TextParamScan.swift`（:127）×2 | 跨仓 | 删行号；G-8 行总说明句改「行号已删（#337 体例）」 |
 | `ComponentRegistryGuard.swift`（:366） | 漂移 + 已带更正段 | 改「曾把扫描根硬编码为单根」（时态与下方更正段对齐） |
@@ -163,7 +163,7 @@ defects 44→46 / 234 16 / contract 15 / 杂项 16），**差异全在 `contract
 |---|---|---|
 | blossom 计划（5 条：`Package.swift`（:6-32）、`ColorGrade.swift`（:11-23）、`SurfaceColors.swift`（:49-67）、`FunctionalColor.swift`（:17-20）、`InteractionColors.swift`（:10-13）） | 漂移（已执行完的 plan，坐标仍在） | 去行号（文件级引用） |
 | async-button spec（3 条：`SolidButtonStyle.swift`（:40）、`BorderlessButtonStyle.swift`（:49）、`Toast.swift`（:287-289）） | 漂移 + 重构（改名 `CoreBorderlessButtonStyle`）+ 引文源已不在 | 补现状引文（disabled 分支 / `onTapGesture` / `toastHost`） |
-| `bool-exemptions.json`（2 条：`FloatingGlassModifier.swift`（:20）、`BottomInputBar.swift`（:468）） | 漂移 | 改引文（`let glass = …` / `autoShowSuggestions`）；baseline 计数不受影响（只改 reason 文本，已复核 `BoolExemptionGuard` 与棘轮只读计数） |
+| `bool-exemptions.json`（2 条：`FloatingGlassModifier.swift`（:20）、`BottomInputBar.swift`（:468）） | 漂移 | 改引文（`let glass = …` / `autoFocus: Bool = false`）；baseline 计数不受影响（只改 reason 文本，已复核 `BoolExemptionGuard` 与棘轮只读计数） |
 | `a11y-exemptions.json`（1 条：`TagInput.swift`（:105）） | 说明性（死豁免故事，位于 `_comment`） | 去行号（引文已在句中） |
 | `reachable-type-registry.json`（1 条：`CodexEntry.swift`（:11-12）） | 跨仓 | 删行号留引文 |
 | `spikes/248-metal-packaging.md`（1 条：`ColorAssetGuardTests.swift`（:70）） | 漂移（`.enabled` 今在 :40 区） | 去行号（引文已在句中） |
@@ -177,3 +177,13 @@ defects 44→46 / 234 16 / contract 15 / 杂项 16），**差异全在 `contract
 `CrossRepoRegistryGuard.swift`（×2）、`TextParamScan.swift`（×2）——全部指向对面仓
 `wxlpp/oh-my-story`。处置：删行号、保留/补齐逐字引文；登记在
 `QuotedEvidenceGuard.crossRepoCitations`（8 条符号级）。**不追进他仓**。
+
+## 八、变异实证与覆盖盲区（`#367` 评审 §5 登记）
+
+四组变异（先断言落盘、以 `swift test --filter` 退出码为准、事后 `git status` 与基线快照 diff 为零）：
+(a) 删源侧被引原文（`Sidebar.swift` 的 `Text("#")` → `Text("MUTATED")`）⇒ 红（出自源侧判据）；
+(b) 改文档侧引文一字（defects 的 `Image(systemName: "chevron.forward")` 全替）⇒ 红（唯一失败出自 doc 侧判据）；
+(c) 遮蔽族（被引处上方加行 + 等价拼写尾注）⇒ 绿；
+(d) 未登记假引用（探针原文：`<!-- mutation probe: Sidebar.swift 的 FAKE-QUOTE-NOT-REGISTERED（不在登记表） -->` 追加进本文件）⇒ 两判据均绿。
+
+⚠️ **未覆盖的盲区（如实登记）**：① 多现锚点（`DescriptionsColumns` 等名字级）**删被引的那一处仍绿**——判据是「全文包含」，语义如此（守卫注释已注明）；② 源侧「自愈」（把旧片段粘回注释即恢复绿）未测；③ (c) 遮蔽只在 md 上构造，两份 JSON 台账的 quote 未测；④ (d) 的探针原文此前未落盘，本条即其登记。
