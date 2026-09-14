@@ -66,9 +66,10 @@ struct EffectsEnergyRenderTests {
         #expect(baseline?.contains(where: { $0 != 0 }) == true,
                 "基线位图全 0 —— 相等断言会恒真")
 
+        // ⚠️ 本文件位图相等断言统一走容差入口（#317），勿改回逐字节 expectBitmapsEqual。
         for kind in ProcessingSweepKind.allCases {
             for phase in [ScenePhase.background, .inactive] {
-                expectBitmapsEqual(Self.wrapped(kind, phase: phase), baseline,
+                expectBitmapsEquivalent(Self.wrapped(kind, phase: phase), baseline, maxChannelDelta: 1,
                         "\(kind) 在 \(phase) 下仍然画了东西 —— NFR-7 的停摆没有落地")
             }
             expectBitmapsDiffer(Self.wrapped(kind, phase: .active), baseline,
@@ -235,7 +236,7 @@ struct ConfettiTests {
         #expect(empty != nil, "基线渲染失败，下面的相等断言会静默变绿")
         #expect(empty?.contains(where: { $0 != 0 }) == true, "基线位图全 0 —— 相等断言恒真")
 
-        expectBitmapsEqual(Self.pixels(Self.canvas(progress: 1)), empty,
+        expectBitmapsEquivalent(Self.pixels(Self.canvas(progress: 1)), empty, maxChannelDelta: 1,
                 "progress = 1 时还有彩纸 —— burst 结束后会永久残留")
         expectBitmapsDiffer(Self.pixels(Self.canvas(progress: 0.25)), empty,
                 "progress = 0.25 都画不出彩纸 —— 上一条相等断言是恒真的")
@@ -255,7 +256,7 @@ struct ConfettiTests {
         let explicitBlueTint = Self.pixels(Self.canvas(progress: 0.3, colors: [.green]).tint(.blue))
         #expect(explicitRedTint != nil && explicitBlueTint != nil,
                 "显式色板渲染失败，下面两条断言会静默变绿")
-        expectBitmapsEqual(explicitRedTint, explicitBlueTint,
+        expectBitmapsEquivalent(explicitRedTint, explicitBlueTint, maxChannelDelta: 1,
                 "给了显式色板还跟着 .tint 变 —— 调用方参数没有优先，取色多半绕过了 colors")
         expectBitmapsDiffer(explicitRedTint, red, "显式色板与回落 .tint 画出的东西一样 —— colors 参数没进渲染")
 
@@ -285,7 +286,7 @@ struct ConfettiTests {
 
         let terminal = Self.pixels(layer(.now.addingTimeInterval(-10)))
         #expect(terminal != nil, "ConfettiLayer 终帧渲染失败")
-        expectBitmapsEqual(terminal, empty, "burst 结束后 ConfettiLayer 仍有残留")
+        expectBitmapsEquivalent(terminal, empty, maxChannelDelta: 1, "burst 结束后 ConfettiLayer 仍有残留")
 
         let pinned = Self.pinnedBurstStart
         let red = Self.pixels(layer(pinned).tint(.red))
@@ -296,7 +297,7 @@ struct ConfettiTests {
         let green = Self.pixels(layer(pinned, colors: [.green]).tint(.red))
         let greenAgain = Self.pixels(layer(pinned, colors: [.green]).tint(.blue))
         #expect(green != nil && greenAgain != nil, "渲染失败，下面两条断言会静默变绿")
-        expectBitmapsEqual(green, greenAgain, "给了显式色板还跟着 .tint 变 —— 取色绕过了 colors")
+        expectBitmapsEquivalent(green, greenAgain, maxChannelDelta: 1, "给了显式色板还跟着 .tint 变 —— 取色绕过了 colors")
         expectBitmapsDiffer(green, red, "显式色板与回落 .tint 画出的东西一样 —— colors 没进渲染")
     }
 
@@ -324,7 +325,7 @@ struct ConfettiTests {
         for phase in [ScenePhase.background, .inactive] {
             let gated = Self.pixels(core(pinned, phase: phase))
             #expect(gated != nil, "\(phase) 下渲染失败")
-            expectBitmapsEqual(gated, resting, "\(phase) 下彩纸层仍在画 —— NFR-7 的停摆没有落地")
+            expectBitmapsEquivalent(gated, resting, maxChannelDelta: 1, "\(phase) 下彩纸层仍在画 —— NFR-7 的停摆没有落地")
         }
 
         let tintRed = Self.pixels(core(pinned).tint(.red))
@@ -332,7 +333,7 @@ struct ConfettiTests {
         let greenOnBlue = Self.pixels(core(pinned, colors: [.green]).tint(.blue))
         #expect(tintRed != nil && greenOnRed != nil && greenOnBlue != nil,
                 "渲染失败，下面两条断言会静默变绿")
-        expectBitmapsEqual(greenOnRed, greenOnBlue, "给了显式色板还跟着 .tint 变")
+        expectBitmapsEquivalent(greenOnRed, greenOnBlue, maxChannelDelta: 1, "给了显式色板还跟着 .tint 变")
         expectBitmapsDiffer(greenOnRed, tintRed,
                 "colors 参数没有从 ConfettiCore 传到画布 —— 公开的 colors: 是死参数")
     }
@@ -516,7 +517,7 @@ struct ConfettiTests {
         expectBitmapsDiffer(on, off,
                 "静态庆祝层没有跟着 active 变 —— 它的触发源不是 ConfettiCore 的 burstStart")
         expectBitmapsDiffer(on, empty, "active: true 也什么都没画 —— 上一条是恒真的")
-        expectBitmapsEqual(off, empty, "active: false 时静态层仍在画东西")
+        expectBitmapsEquivalent(off, empty, maxChannelDelta: 1, "active: false 时静态层仍在画东西")
     }
 
     @Test("Reduce Motion 分支渲染的是静态庆祝层，不是 no-op")

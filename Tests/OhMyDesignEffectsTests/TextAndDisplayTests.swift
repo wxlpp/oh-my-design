@@ -436,7 +436,8 @@ struct AnimatedMeshGradientTests {
         let paletteRed = Self.pixels(Self.body(colors: Self.palette).tint(.red))
         let paletteBlue = Self.pixels(Self.body(colors: Self.palette).tint(.blue))
         #expect(paletteRed != nil, "渲染失败")
-        expectBitmapsEqual(paletteRed, paletteBlue, "给了色板还跟着 .tint 变 —— 调用方参数没有生效")
+        // ⚠️ 本文件位图相等断言统一走容差入口（#317），勿改回逐字节 expectBitmapsEqual。
+        expectBitmapsEquivalent(paletteRed, paletteBlue, maxChannelDelta: 1, "给了色板还跟着 .tint 变 —— 调用方参数没有生效")
     }
 
     @Test("两组色板真的都接到渲染上：只换 alternateColors 位图必须变")
@@ -460,7 +461,7 @@ struct AnimatedMeshGradientTests {
         let red = Self.pixels(Self.body(alternateColors: Self.altPalette).tint(.red))
         let blue = Self.pixels(Self.body(alternateColors: Self.altPalette).tint(.blue))
         #expect(red != nil && blue != nil, "渲染失败，下面的相等断言会静默变绿")
-        expectBitmapsEqual(red, blue, "只给 alternateColors 时仍跟着 .tint 变 —— 与已登记的行为不符")
+        expectBitmapsEquivalent(red, blue, maxChannelDelta: 1, "只给 alternateColors 时仍跟着 .tint 变 —— 与已登记的行为不符")
     }
 
     @Test("色板恒被规整到 9 个（不足循环补齐、超出截断）")
@@ -495,7 +496,7 @@ struct AnimatedMeshGradientTests {
         #expect(baseline?.contains(where: { $0 != 0 }) == true, "基线位图全 0 —— 相等断言恒真")
 
         for phase in [ScenePhase.background, .inactive] {
-            expectBitmapsEqual(wrapped(phase), baseline, "\(phase) 下仍然画了东西 —— NFR-7 的停摆没有落地")
+            expectBitmapsEquivalent(wrapped(phase), baseline, maxChannelDelta: 1, "\(phase) 下仍然画了东西 —— NFR-7 的停摆没有落地")
         }
         expectBitmapsDiffer(wrapped(.active), baseline, "\(ScenePhase.active) 下也什么都没画 —— 上面的停摆断言是恒真的")
     }
@@ -1042,7 +1043,7 @@ struct ParticleTransitionTests {
         let empty = Self.pixels(Color.clear.frame(width: 160, height: 160).background(Color.surfaceRaised))
         #expect(empty != nil, "基线渲染失败，下面的相等断言会静默变绿")
         #expect(empty?.contains(where: { $0 != 0 }) == true, "基线位图全 0 —— 相等断言恒真")
-        expectBitmapsEqual(Self.pixels(Self.burst(progress: ParticleBurst.progress(phase: .identity))), empty,
+        expectBitmapsEquivalent(Self.pixels(Self.burst(progress: ParticleBurst.progress(phase: .identity))), empty, maxChannelDelta: 1,
                 "identity 相位还有粒子 —— 转场结束后会永久残留")
         expectBitmapsDiffer(Self.pixels(Self.burst(progress: 0.4)), empty,
                 "progress = 0.4 都画不出粒子 —— 上一条相等断言是恒真的")
@@ -1117,7 +1118,7 @@ struct ParticleTransitionTests {
         let direct = try #require(
             Self.pixels(Self.burst(progress: from + (to - from) * amount)), "渲染失败"
         )
-        expectBitmapsEqual(midFlight, direct, """
+        expectBitmapsEquivalent(midFlight, direct, maxChannelDelta: 1, """
         插值出来的那一帧与 `ParticleBurstLayer(progress: \(from + (to - from) * amount))`
         不同 —— `animatableData` 没有绑在 `progress` 上，插值改不动绘制。
         """)
@@ -1195,7 +1196,7 @@ struct ParticleTransitionTests {
             let withParticles = try #require(Self.chromePixels(phase: phase), "渲染失败：\(name)")
             let without = try #require(Self.chromePixels(phase: phase, count: 0), "渲染失败：\(name)/count=0")
             #expect(withParticles.contains(where: { $0 != 0 }) == true, "位图全 0 —— 相等断言恒真")
-            expectBitmapsEqual(withParticles, without, """
+            expectBitmapsEquivalent(withParticles, without, maxChannelDelta: 1, """
             相位 \(name) 下 chrome 与「粒子数为 0」版不同 —— 该相位的 progress 是
             \(ParticleBurst.progress(phase: phase))，两端的粒子 alpha 都应恒为 0。
             恒等相位画出粒子 = 转场结束后永久残留；端点画出粒子 = 一次 pop。
@@ -1215,9 +1216,10 @@ struct ParticleTransitionTests {
         expectBitmapsDiffer(red, blue, "空色板下换 .tint 位图不变 —— 取色没有走 .tint")
 
         let palette: [Color] = [.surfaceRaised, .contentPrimary]
-        expectBitmapsEqual(
+        expectBitmapsEquivalent(
             Self.pixels(Self.burst(progress: 0.4, colors: palette).tint(.red)),
             Self.pixels(Self.burst(progress: 0.4, colors: palette).tint(.blue)),
+            maxChannelDelta: 1,
             "给了色板还跟着 .tint 变 —— 调用方参数没有生效")
     }
 

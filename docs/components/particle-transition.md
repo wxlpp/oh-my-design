@@ -82,7 +82,7 @@ public extension Transition where Self == ParticleTransition {
 当时的 `ParticleBurstLayer` 是普通 `View`——不 conform `Animatable`、无 `TimelineView`
 ⇒ **中间进度根本到不了**（SwiftUI 只插值可动画属性，不插值 `Canvas` 的绘制内容），
 而两个端点的 alpha 恒为 0 ⇒ **粒子层是死代码**：三个相位下直接渲
-`ParticleTransitionChrome`，与「无粒子层版本」**逐字节相同**。用户实际只看到内容自身的
+`ParticleTransitionChrome`，与「无粒子层版本」**逐字节相同**（#317 起判据走容差）。用户实际只看到内容自身的
 `scaleEffect` + `opacity`，「一圈粒子飞散」从未发生过。
 
 ## 粒子靠什么动起来：`Animatable`
@@ -106,12 +106,12 @@ public extension Transition where Self == ParticleTransition {
 
 - `ParticleTransitionTests.chromeDrawsParticlesMidFlight`（**承重**）——把 SwiftUI 的
   插值步骤原样跑一遍（取两端 `animatableData`、`interpolate(towards:amount:)`、写回），
-  结果必须画得出粒子，且必须与直接用中间进度构造的层**逐字节相同**。
+  结果必须画得出粒子，且必须与直接用中间进度构造的层**逐字节相同**（#317 起判据走容差）。
   走存在类型 `any View & Animatable` ⇒ 撤掉 `Animatable` 一致性是**运行时判红**。
 - `ParticleTransitionTests.particleLayerSurvivesTheWholeTransition`——源码钉住
   overlay 门控恰为 `self.count > 0`，且 `body(content:)` 里不出现 `progress > 0`。
 - `ParticleTransitionTests.chromeAtRealPhasesDrawsNothing`——三个真实相位下 chrome
-  与「粒子数为 0」版逐字节相同（把 `identityFrameDrawsNothing` 从绘制层抬到 chrome 本体；
+  与「粒子数为 0」版逐字节相同（#317 起判据走容差；把 `identityFrameDrawsNothing` 从绘制层抬到 chrome 本体；
   上一版那条从不经过 chrome，对 `if drawsParticles` 分支**零可见性**）。
 - `ParticleTransitionTests.identityFrameDrawsNothing`——绘制层那一层，带"中途必须画得出"的互锁。
 

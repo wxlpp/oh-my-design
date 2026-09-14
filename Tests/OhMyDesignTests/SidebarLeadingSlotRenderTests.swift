@@ -23,15 +23,32 @@ struct SidebarLeadingSlotRenderTests {
         #endif
     }
 
+    // ⚠️ 返回**原始 RGBA**（CGContext 解码）而非 PNG/TIFF 编码流：
+    // 容差判据的逐通道 ±1 LSB 模型只对通道字节成立，编码流上无界（#317）。
     private func pixels(_ view: some View) -> Data? {
         let renderer = ImageRenderer(content: view)
         renderer.scale = 1
         #if canImport(UIKit)
-        return renderer.uiImage?.pngData()
+        guard let cg = renderer.uiImage?.cgImage else { return nil }
         #else
-        guard let rep = renderer.nsImage?.tiffRepresentation else { return nil }
-        return rep
+        var rect = CGRect(origin: .zero, size: renderer.nsImage?.size ?? .zero)
+        guard let cg = renderer.nsImage?.cgImage(forProposedRect: &rect, context: nil, hints: nil)
+        else { return nil }
         #endif
+        let w = cg.width, h = cg.height
+        guard w > 0, h > 0 else { return nil }
+        var buffer = [UInt8](repeating: 0, count: w * h * 4)
+        let drawn = buffer.withUnsafeMutableBytes { raw -> Bool in
+            guard let base = raw.baseAddress, let ctx = CGContext(
+                data: base, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else { return false }
+            ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        guard drawn else { return nil }
+        return Data(buffer)
     }
 
     private func row(
@@ -99,8 +116,9 @@ struct SidebarLeadingSlotRenderTests {
         let trash = self.pixels(self.row(.textOnly, systemImage: "trash"))
 
         #expect(blank != nil, "渲染失败 —— 本平台无法量测，不得当作通过")
-        expectBitmapsEqual(blank, gear, ".textOnly 仍受 systemImage 影响：\"\" 与 gearshape 位图不同")
-        expectBitmapsEqual(blank, trash, ".textOnly 仍受 systemImage 影响：\"\" 与 trash 位图不同")
+        // ⚠️ 相等断言走容差入口（#317）：行内文案字形 AA 边在本平台无逐字节确定性。
+        expectBitmapsEquivalent(blank, gear, maxChannelDelta: 1, ".textOnly 仍受 systemImage 影响：\"\" 与 gearshape 位图不同")
+        expectBitmapsEquivalent(blank, trash, maxChannelDelta: 1, ".textOnly 仍受 systemImage 影响：\"\" 与 trash 位图不同")
     }
 
     @Test("候选 2 的组合：行尾字形真的占了位，且不影响 leading 侧差值")

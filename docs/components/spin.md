@@ -71,7 +71,7 @@ keyframe 值，不回 `initialValue`**，而 `rotationEffect(.degrees(360))` **�
 
 判据是 `MicroInteractionAPITests.terminalFrameIsIdentity`：用 `KeyframeTimeline` 对
 **生产代码里那条真轨道**求 `value(time: duration)`，再喂给**真取角函数**，
-最后把结果角度渲染出来与裸视图逐字节比。
+最后把结果角度渲染出来与裸视图逐字节比（#317 起判据走容差）。
 
 ## 取色（FR-8）
 
