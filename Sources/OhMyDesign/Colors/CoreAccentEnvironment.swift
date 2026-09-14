@@ -41,8 +41,25 @@ public extension View {
 // MARK: - on-accent 派生（单一来源）/ On-accent derivation
 
 extension Color {
+    /// 派生压 `accent` 之上的前景色。
+    ///
+    /// 墨色（黑 / 白极性）accent 走 `contentOnAccent`（`systemBackground`），与 `#356`
+    /// 之前的静态 token 逐字节一致；其余颜色按相对亮度
+    /// `L = 0.2126R + 0.7152G + 0.0722B` 分档：L < 0.5 → `.white`，否则 `.black`。
+    /// ⚠️ 只判解析后 RGB 三通道全部落在 0 / 1 的 ±0.001 内（纯黑 / 纯白极性）——
+    /// 饱和色路径不受影响，`CoreAccentOnAccentTests` 蓝 / 黄两组断言钉着这一点。
+    /// ⚠️ 不能判「通道 == 0 / == 1 精确相等」：iOS 上 `label` 深色档经色彩空间换算
+    /// 解析出的通道不是精确 1.0（实测 isInk 漏判、派生落到 `.black`，iOS 腿
+    /// `derivationMatchesReckoning` 红）；三系数在 Float 单精度下相加也不保证
+    /// 恰为 1.0。±0.001 容差只吞视觉上就是黑 / 白的颜色（chroma ≤ 0.001）。
     static func onAccent(for accent: Color, in environment: EnvironmentValues) -> Color {
         let resolved = accent.resolve(in: environment)
+        let epsilon: Float = 0.001
+        let isInk = (abs(resolved.red) < epsilon && abs(resolved.green) < epsilon
+            && abs(resolved.blue) < epsilon)
+            || (abs(resolved.red - 1) < epsilon && abs(resolved.green - 1) < epsilon
+                && abs(resolved.blue - 1) < epsilon)
+        if isInk { return .contentOnAccent }
         let luminance = 0.2126 * resolved.red + 0.7152 * resolved.green + 0.0722 * resolved.blue
         return luminance < 0.5 ? .white : .black
     }

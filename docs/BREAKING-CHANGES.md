@@ -25,15 +25,15 @@
 （`coreAccent(_ color: Color, on: Color? = nil)`）——与 `v0.9.0` 那 7 处同形：
 对已应用调用点零影响，对未应用的函数引用是破坏性变更。
 
-- **`on` 缺省（`nil`）时按 accent 在当前外观下的相对亮度自动选黑 / 白**：
-  `L = 0.2126R + 0.7152G + 0.0722B`，L < 0.5 → `.white`，否则 `.black`。
+- **`on` 缺省（`nil`）时自动选前景**：墨色（黑 / 白极性）accent 走 `contentOnAccent`
+  特判——与 `0.10.0` 的静态 token **逐字节相同**；其余颜色按 accent 在当前外观下的
+  相对亮度分档，`L = 0.2126R + 0.7152G + 0.0722B`，L < 0.5 → `.white`，否则 `.black`。
   消费点：`SolidButtonStyle` 的 `.primary` 前景（新公开
   `ButtonRoleStyleRole.resolvedOnColor(accent:on:environment:)`）与
   `InkSegmentedControlStyle` 选中段文字。
   ⚠️ **行为变化**：`0.10.0` 章节登记的「主题色应为近单色」约束解除——
   `.coreAccent(<饱和色>)` 下深色模式前景不再是近黑字压饱和底，而是按亮度自动反色
-  （系统蓝两档白字、黄两档黑字）；显式 `on` 则原样使用。墨色 accent（默认）行为
-  不变（派生恰好复现 `contentOnAccent` 的极性）。
+  （系统蓝两档白字、黄两档黑字）；显式 `on` 则原样使用。
 - **`contentOnAccent` 保留**作静态回退；其余四个 role 的底色是明暗镜像的
   `ColorGrade` 色阶，前景仍走 `contentOnAccent`、不吃 `on`。
 - 新增 `@Entry var coreAccentOn: Color? = nil`（`nil` = 缺省派生）。

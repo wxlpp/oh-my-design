@@ -27,15 +27,16 @@ struct CoreAccentOnAccentTests {
         #endif
     }
 
-    /// 验算（计划设计要点）：墨色 light L=0 → 白（= systemBackground light）、
-    /// dark L=1 → 黑（= systemBackground dark）；系统蓝 L≈0.41 → 两档白（#357 的
-    /// 修复点：此前深色档是近黑字压蓝底）；黄 L≈0.93 → 两档黑。
+    /// 验算（计划设计要点）：墨色是黑 / 白极性 ⇒ 走 `contentOnAccent` 特判
+    /// （与 #356 之前的静态 token 逐字节一致）；系统蓝 → 两档白（#357 的修复点：
+    /// 此前深色档是近黑字压蓝底）——L 两腿都 < 0.5：iOS ≈0.41，macOS ≈0.45
+    /// （实测 0.4536 / 0.4789，两档）；黄 L≈0.93 → 两档黑。
     @Test("六组 (accent × scheme) 派生与验算一致")
     func derivationMatchesReckoning() {
-        #expect(Color.onAccent(for: .inkPrimary, in: Self.environment(.light)) == .white,
-                "墨色 light 应派生白")
-        #expect(Color.onAccent(for: .inkPrimary, in: Self.environment(.dark)) == .black,
-                "墨色 dark 应派生黑")
+        #expect(Color.onAccent(for: .inkPrimary, in: Self.environment(.light)) == Color.contentOnAccent,
+                "墨色 light 应走 contentOnAccent 特判")
+        #expect(Color.onAccent(for: .inkPrimary, in: Self.environment(.dark)) == Color.contentOnAccent,
+                "墨色 dark 应走 contentOnAccent 特判")
         #expect(Color.onAccent(for: Self.systemBlue, in: Self.environment(.light)) == .white,
                 "系统蓝 light 应派生白")
         #expect(Color.onAccent(for: Self.systemBlue, in: Self.environment(.dark)) == .white,
@@ -91,24 +92,21 @@ struct CoreAccentOnAccentTests {
         )
     }
 
-    /// 墨色 accent 下派生与 contentOnAccent（systemBackground）同值——「墨色 accent
-    /// 行为与现状一致」这条验收的机器证据。
-    /// ⚠️ 只在 iOS 腿逐字节断言：macOS 的 systemBackground 取 windowBackgroundColor，
-    /// 深色档是 #1E1E1E 而非纯黑，与派生的 .black 不同值；两平台极性一致，
-    /// macOS 腿由上面 6 组断言兜住。
-    @Test("墨色 accent 派生与 contentOnAccent 同值（iOS 腿）")
+    /// 墨色 accent 下派生与 contentOnAccent（systemBackground）**逐字节同值**——
+    /// 「墨色 accent 行为与现状一致」这条验收的机器证据。墨色走特判（返回静态
+    /// `contentOnAccent` 本身），所以本断言两腿都成立——macOS 的 systemBackground
+    /// 深色档是 #1E1E1E 而非纯黑，正因如此特判才必须返回 token 而不是派生 `.black`。
+    @Test("墨色 accent 派生与 contentOnAccent 逐字节同值")
     func inkDerivationReproducesContentOnAccent() {
-        #if canImport(UIKit)
-            for scheme in [ColorScheme.light, .dark] {
-                let environment = Self.environment(scheme)
-                let derived = Color.onAccent(for: .inkPrimary, in: environment)
-                    .resolve(in: environment)
-                let statusQuo = Color.contentOnAccent.resolve(in: environment)
-                #expect(
-                    derived == statusQuo,
-                    "\(scheme)：墨色 accent 派生 \(derived) 与 contentOnAccent \(statusQuo) 不同值——现状被改变了"
-                )
-            }
-        #endif
+        for scheme in [ColorScheme.light, .dark] {
+            let environment = Self.environment(scheme)
+            let derived = Color.onAccent(for: .inkPrimary, in: environment)
+                .resolve(in: environment)
+            let statusQuo = Color.contentOnAccent.resolve(in: environment)
+            #expect(
+                derived == statusQuo,
+                "\(scheme)：墨色 accent 派生 \(derived) 与 contentOnAccent \(statusQuo) 不同值——现状被改变了"
+            )
+        }
     }
 }

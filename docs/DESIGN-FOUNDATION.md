@@ -177,15 +177,16 @@ macOS `NSColor.textColor`。⚠️ macOS 取 `textColor` **而不是** `labelCol
 （`@Entry var coreAccent` + `@Entry var coreAccentOn`），四个衍生态自动跟随；
 静态 `Color.accent` 是环境不可达时的回退值。
 
-**on-accent 前景（`#357`）。** `coreAccent(_:on:)` 的 `on` 参数可选：缺省（`nil`）按 accent
-在**当前外观**下解析出的 RGBA 算相对亮度 `L = 0.2126R + 0.7152G + 0.0722B`，
-**L < 0.5 → `.white`，否则 `.black`**；显式 `on` 原样使用（两档同值）。
-验算：墨色 accent 在 light 下 L=0 → 白（= `systemBackground` light）、dark 下 L=1 → 黑
-（= `systemBackground` dark）——墨色行为与 `#356` 现状一致；系统蓝 L≈0.41 → 两档白
-（`#357` 的修复点：此前深色档是近黑字压蓝底）；黄 L≈0.93 → 两档黑。
-⚠️ macOS 上「墨色 dark 派生黑」与 `systemBackground` 的深色档（`windowBackgroundColor`，
-#1E1E1E）**不是逐字节同值**，只是极性一致。消费点：`SolidButtonStyle` 的 `.primary`
-前景（经 `ButtonRoleStyleRole.resolvedOnColor(accent:on:environment:)`）与
+**on-accent 前景（`#357`）。** `coreAccent(_:on:)` 的 `on` 参数可选：缺省（`nil`）时，
+墨色（黑 / 白极性）accent 走 `contentOnAccent` 特判——与 `#356` 之前的静态 token
+**逐字节一致**；其余颜色按 accent 在**当前外观**下解析出的 RGBA 算相对亮度
+`L = 0.2126R + 0.7152G + 0.0722B` 分档，**L < 0.5 → `.white`，否则 `.black`**；
+显式 `on` 原样使用（两档同值）。⚠️ 特判只认解析后 RGB 三通道全部落在 0 / 1 的
+±0.001 内的**纯黑 / 纯白极性**（数学上等价于 L == 0 / L == 1 的容差版；
+通道精确相等会漏判——iOS 上 `label` 深色档换算后不是精确 1.0），饱和色路径不受影响。
+验算：系统蓝 L 两腿都 < 0.5（iOS ≈0.41，macOS ≈0.45）→ 两档白（`#357` 的修复点：
+此前深色档是近黑字压蓝底）；黄 L≈0.93 → 两档黑。消费点：`SolidButtonStyle` 的
+`.primary` 前景（经 `ButtonRoleStyleRole.resolvedOnColor(accent:on:environment:)`）与
 `InkSegmentedControlStyle` 选中段文字。`contentOnAccent` 保留作静态回退——其余四个
 role 的底色是明暗镜像的 `ColorGrade` 色阶，前景仍走它、不吃 `on`。派生公式是 internal
 `Color.onAccent(for:in:)`，与四个 accent 派生态同源的原则一致（单一来源）。
