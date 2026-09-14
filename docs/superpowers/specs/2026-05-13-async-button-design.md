@@ -169,7 +169,7 @@ private struct LoadingAccessibilityModifier: ViewModifier {
 ### 关键决策
 
 - **用 `.allowsHitTesting(!isRunning)`，不用 `.disabled(isRunning)`**：
-  - 既有 4 个 ButtonStyle 在 disabled 时会把 label `foregroundStyle` 设为 `Color.contentDisabled`（见 `SolidButtonStyle.swift` 的 disabled 分支：`self.isEnabled ? self.role.onColor : .contentDisabled`）。如果用 `.disabled(isRunning)`，loading 期间 label 和继承 `foregroundStyle` 的 spinner 都会变灰——直接打脸下一条 "spinner 继承 ButtonStyle 配色"。
+  - 既有 4 个 ButtonStyle 在 disabled 时会把 label `foregroundStyle` 设为 `Color.contentDisabled`（见 `SolidButtonStyle.swift` 的 `foregroundColor`：`self.isEnabled` 为真走 `? self.role.resolvedOnColor(`、为假走 `.contentDisabled`）。如果用 `.disabled(isRunning)`，loading 期间 label 和继承 `foregroundStyle` 的 spinner 都会变灰——直接打脸下一条 "spinner 继承 ButtonStyle 配色"。
   - `.allowsHitTesting(!isRunning)` 拦掉再次点击，但不传播 `\.isEnabled`，label 保持正常色、spinner 也跟着保持正常色。
   - VoiceOver 不再把按钮报告为 "dimmed"——用 `accessibilityValue("Loading")` 补回 loading 语义。
 - **额外 `guard !isRunning` 防御**：

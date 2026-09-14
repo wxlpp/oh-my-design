@@ -113,7 +113,7 @@ struct QuotedEvidenceGuard {
         ("docs/components/orbiting-logos.md", "Sources/OhMyDesignEffects/OrbitRing.swift", "static let ringCount: Int = 4"),
         ("docs/components/orbiting-logos.md", "Sources/OhMyDesignEffects/OrbitRing.swift", "seats(particleScale:"),
         // ---- docs/superpowers/ ----
-        ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Button/styles/SolidButtonStyle.swift", "self.isEnabled ? self.role.onColor : .contentDisabled"),
+        ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Button/styles/SolidButtonStyle.swift", "? self.role.resolvedOnColor("),
         ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Button/styles/CoreBorderlessButtonStyle.swift", "onTapGesture(count: 1, perform: configuration.trigger)"),
         ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Button/styles/CoreBorderlessButtonStyle.swift", "CoreBorderlessButtonStyle"),
         ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Toast/Toast.swift", "@Entry public var toastHost: ToastHost? = nil"),

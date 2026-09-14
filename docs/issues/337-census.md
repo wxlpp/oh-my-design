@@ -40,7 +40,7 @@ defects 44→46 / 234 16 / contract 15 / 杂项 16），**差异全在 `contract
 | 删除坐标（纯定位、无引文） | 其余 | 如「（非必需但已做）」 |
 | 抄错改正 | 1 | `App/Sources/ComponentData.swift`（原引 `:418` 是空行，实际在 `:430`） |
 
-**验证**：修复后复跑同一条命令 ⇒ **0 命中**；`BareLineRefGate` 的 allowance 已清零
+**验证**：修复后复跑同一条命令 ⇒ **0 命中**（口径：`docs/` + 仓根 `*.md`）；`BareLineRefGate` 的 allowance 已清零
 （升级为零容忍）。引文侧由 `Tests/OhMyDesignTests/QuotedEvidenceGuard.swift` 逐条回扫
 （90 条本仓登记 + 8 条跨仓登记）——登记表按「**源侧 + 文档侧都要逐字命中**」双侧核：
 源侧是方案字面（「被引原文仍在源文件」），文档侧防「引文在文档里被悄悄改写」；
