@@ -71,7 +71,6 @@ struct SingleSourceOfTruthGuard {
                 ("docs/component-contract-revisions.md", 1),
                 ("docs/component-registry.json", 1),
                 ("docs/components/ring-chart.md", 1),
-                (".claude/epics/issue-backlog-closeout/312-plan.md", 2),
             ]
         ),
     ]
