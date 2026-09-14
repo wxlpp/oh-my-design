@@ -99,8 +99,9 @@ struct SidebarLeadingSlotRenderTests {
         let trash = self.pixels(self.row(.textOnly, systemImage: "trash"))
 
         #expect(blank != nil, "渲染失败 —— 本平台无法量测，不得当作通过")
-        expectBitmapsEqual(blank, gear, ".textOnly 仍受 systemImage 影响：\"\" 与 gearshape 位图不同")
-        expectBitmapsEqual(blank, trash, ".textOnly 仍受 systemImage 影响：\"\" 与 trash 位图不同")
+        // ⚠️ 相等断言走容差入口（#317）：行内文案字形 AA 边在本平台无逐字节确定性。
+        expectBitmapsEquivalent(blank, gear, maxChannelDelta: 1, ".textOnly 仍受 systemImage 影响：\"\" 与 gearshape 位图不同")
+        expectBitmapsEquivalent(blank, trash, maxChannelDelta: 1, ".textOnly 仍受 systemImage 影响：\"\" 与 trash 位图不同")
     }
 
     @Test("候选 2 的组合：行尾字形真的占了位，且不影响 leading 侧差值")

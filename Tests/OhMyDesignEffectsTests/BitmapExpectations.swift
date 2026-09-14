@@ -108,7 +108,7 @@ nonisolated func bitmapExpectationMessage<Bytes: Collection>(
 
 // MARK: - 容差相等（Issue #358 / #317）
 
-/// 逐通道最大偏差 —— `a` 与 `b` 长度须相同，返回 `nil` 表示任一侧未渲染。
+/// 逐通道最大偏差 —— `a` 与 `b` 长度须相同，返回 `nil` 表示任一侧未渲染或长度不同。
 nonisolated func bitmapMaxChannelDelta<Bytes: Collection>(_ a: Bytes?, _ b: Bytes?) -> Int?
 where Bytes.Element == UInt8 {
     bitmapDifferenceMetrics(a, b)?.maxChannelDelta
@@ -128,6 +128,13 @@ nonisolated func bitmapDifferenceMetrics<Bytes: Collection>(_ a: Bytes?, _ b: By
     return (a.count, differingCount, maxDelta)
 }
 
+/// 差异字节上限 —— `maxDifferingFraction` 作用于 `byteCount`，向下取整。
+/// 抽成纯函数是为了让 J5 守卫的 fixture 与生产入口**共用同一份公式**，
+/// 而不是各自重写一遍常数。
+nonisolated func bitmapDifferingCap(byteCount: Int, maxDifferingFraction: Double) -> Int {
+    Int((Double(byteCount) * maxDifferingFraction).rounded(.down))
+}
+
 /// 断言两张位图**在光栅化噪声以内**相同：逐通道偏差不超过 `maxChannelDelta`，
 /// 且差异字节数不超过总字节数的 `maxDifferingFraction`（默认 1%）。
 ///
@@ -136,11 +143,14 @@ nonisolated func bitmapDifferenceMetrics<Bytes: Collection>(_ a: Bytes?, _ b: By
 /// 都不稳定（`#358` 实测：同参数连渲两次，3/20000 像素差 ±1）。
 ///
 /// `#317` 实测机理与阈值：macOS 离屏渲染的首渲（冷缓存）变体与稳定输出之间
-/// 差 ≤ 59 字节、每处 1 个 LSB（柔光带 AA 边缘 42–59 字节、SF Symbol 边缘 3 字节）
-/// —— 逐字节形式在本平台不成立。噪声占帧 0.037% < 上限 1%（27 倍余量）。
+/// 差 42–59 字节、每处 1 个 LSB（测在 `MaskRevealRenderTests.framed` 的 200×200 帧
+/// = 160000 B 上，柔光带 AA 边缘；SF Symbol 边缘在 80000 B 帧上差 3 字节）
+/// —— 逐字节形式在本平台不成立。噪声占帧 0.026–0.037% < 上限 1%。
 /// **差异字节上限不能省**：全帧 0.4% α 的隐藏层泄漏实测 maxDelta=1、count=25%
-/// —— 只钉最大偏差会把它当噪声放过去。真实缺陷的最小签名（占帧 ≥ 25% 或
-/// maxDelta ≥ 2）距上限 ≥ 25 倍。
+/// —— 只钉最大偏差会把它当噪声放过去。已实测的缺陷签名：0.4% α 泄漏占帧 25%、
+/// 插值未绑 progress 占帧 2.2–3.6%（Δ≥171）、其余 Δ≥2 ⇒ 距上限 2.2–25 倍。
+/// ⚠️ 按设计放行的带宽：Δ=1 且覆盖 ≤1% 字节的**亚视觉**泄漏（≈0.4% α 且 ≤1% 区域）
+/// 两条臂都抓不到——可见泄漏（Δ≥2）必被抓。这是登记过的取舍，不是待修的洞。
 nonisolated func expectBitmapsEquivalent<Bytes: Collection & Equatable>(
     _ a: Bytes?,
     _ b: Bytes?,
@@ -166,7 +176,9 @@ nonisolated func expectBitmapsEquivalent<Bytes: Collection & Equatable>(
         )
         return
     }
-    let maxDiffering = Int((Double(metrics.byteCount) * maxDifferingFraction).rounded(.down))
+    let maxDiffering = bitmapDifferingCap(
+        byteCount: metrics.byteCount, maxDifferingFraction: maxDifferingFraction
+    )
     #expect(
         metrics.maxChannelDelta <= maxChannelDelta && metrics.differingCount <= maxDiffering,
         Comment(rawValue: bitmapExpectationMessage(

@@ -896,20 +896,25 @@ struct BitmapEquivalenceToleranceGuard {
 
     /// `#317` 实测的首渲变体噪声形态：柔光带 AA 边缘 42–59 字节、逐通道 ±1，
     /// 占 160000 字节帧的 0.037% —— 必须在 1% 上限之内。
+    /// fixture 帧长对齐实测帧（`MaskRevealRenderTests.framed` 200×200 = 160000 B），
+    /// 上限用生产入口**共用**的 `bitmapDifferingCap`，不重写公式。
     @Test("#317 首渲变体噪声（59/160000 字节、±1）落在差异字节上限内")
     func firstRenderVariantNoiseIsWithinTheCap() {
+        #expect(bitmapDifferingCap(byteCount: 160_000, maxDifferingFraction: 0.01) == 1600,
+                "cap 公式与既有阈值不符 —— 要么公式漂了，要么这条 fixture 没跟上")
         var clean = [UInt8](repeating: 128, count: 160_000)
         var variant = clean
         for i in 0..<59 { variant[i] &+= 1 }
         let m = bitmapDifferenceMetrics(clean, variant)
         #expect(m != nil && m!.maxChannelDelta == 1 && m!.differingCount == 59,
                 "构造失当：噪声签名应是 59 字节 × ±1，实得 \(m as Any)")
-        let cap = Int((160_000.0 * 0.01).rounded(.down))
+        let cap = bitmapDifferingCap(byteCount: 160_000, maxDifferingFraction: 0.01)
         #expect(m!.differingCount <= cap, "59 字节噪声超出上限 \(cap) —— 容差过紧，会照红")
     }
 
-    /// `#317` 实测的 0.4% α 隐藏层泄漏：每像素 1 个通道 ±1 ⇒ maxDelta=1 但
+    /// `#317` 实测的 0.4% α 隐藏层泄漏：每像素 1 个通道 −1 ⇒ maxDelta=1 但
     /// count=25% —— 只钉最大偏差会把它当噪声放过去，差异字节上限必须抓得住。
+    /// ⚠️ fixture 按**实测字节签名**构造（每像素 1 通道 −1），不模拟合成数学。
     @Test("#317 全帧 0.4% α 泄漏（maxDelta=1、count=25%）超出差异字节上限")
     func wholeFrameOneLSBLeakExceedsTheCap() {
         var clean = [UInt8]()
@@ -922,7 +927,7 @@ struct BitmapEquivalenceToleranceGuard {
         let m = bitmapDifferenceMetrics(clean, leaked)
         #expect(m != nil && m!.maxChannelDelta == 1 && m!.differingCount == 40_000,
                 "构造失当：0.4% 泄漏签名应是 40000 字节 × ±1，实得 \(m as Any)")
-        let cap = Int((160_000.0 * 0.01).rounded(.down))
+        let cap = bitmapDifferingCap(byteCount: 160_000, maxDifferingFraction: 0.01)
         #expect(m!.differingCount > cap, "0.4% 泄漏未超过上限 \(cap) —— 上限值把它放过去了")
     }
 }
