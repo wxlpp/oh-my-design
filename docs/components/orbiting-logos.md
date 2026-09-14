@@ -272,14 +272,14 @@ OrbitingLogos(brands) { brand in
 ⚠️ **`#315` 终审 I-3 换掉了这里的论据（结论不变）**：上一版拿「低电量档下每环点数直接减半」
 当依据，而那句说的**是另一个量** —— 减半的是 `dotsPerRing`（每环**点数**，23 → 12；
 `OrbitingLogos.swift` 的 `dotsPerRing` × `RenderPolicy.particleScale == 0.5`），
-而**环数** `OrbitRing.ringCount` 是 `static let ringCount: Int = 4`（`OrbitRing.swift:44`）、
+而**环数** `OrbitRing.ringCount` 是 `static let ringCount: Int = 4`（逐字）、
 **恒定、根本不吃电量**。⇒ 改用真正管用的依据：按补充规则 1「判『装饰』时须写明依据，源码或
 a11y 的自陈不足以定性」，此处**不援引**它的 `accessibilityHidden(true)` 自陈，而看它承不承载
 语义 —— **点环不映射任何调用方数据**（`items` 只喂 logo，环点位置由 `OrbitRing` 的常量几何
 算出），取色只按环上角度在 `.tint` 上做明暗波 ⇒ 不表达任何内容语义 ⇒ **装饰**。补充规则 2
 的对象是**槽**（「承载内容的子视图位置」），装饰层的计数变化不适用 ⇒ **不计入**。
-⚠️ **反向事实一并写出（诚实枚举义务）**：`OrbitingLogos.swift:275-293` 明写「logo 必须坐在
-这一档真的画出来的环点上」，`seatCount` 由 `particleScale` 经 `OrbitRing.seats(particleScale:)`
+⚠️ **反向事实一并写出（诚实枚举义务）**：原注释明写「logo 必须坐在
+这一档真的画出来的环点上」（该句随 `#328` 删除），`seatCount` 由 `particleScale` 经 `OrbitRing.seats(particleScale:)`
 推出 ⇒ **点环的点数直接决定调用方 logo 的落点**（低电量下座位 23 → 12）。它**不推翻**「装饰」
 这个结论 —— layout 依赖 ≠ 承载语义，环点仍不表达任何调用方数据 —— 但读者有权看到这一条。
 

@@ -395,9 +395,13 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 
 ### 「更正传播」约定（`#287`）
 
-⚠️ **判据引用不再有机器兜底**：核对「文档里写的『类型 + 点 + 成员』引用真的存在」的
-那条判据（原 `Tests/OhMyDesignTests/JudgementReferenceGuard.swift`）已随注释精简一并
-删除。`docs/` 与本文件里的判据引用现在**全靠人工**——引一条之前先 grep 确认它还在。
+⚠️ **判据引用不再有机器兜底**（`#337` 起部分改观）：核对「文档里写的『类型 + 点 + 成员』
+引用真的存在」的那条判据（原 `Tests/OhMyDesignTests/JudgementReferenceGuard.swift`）已随
+注释精简一并删除。`#337` 已把**活文档里引源码的引用**统一改成「文件 + 逐字引文」形态，
+并装上机器兜底 `Tests/OhMyDesignTests/QuotedEvidenceGuard.swift`（登记「文档 → 源文件 →
+被引原文」三列，逐条回扫原文仍在源文件；`docs/issues/337-census.md` 是普查清单，
+`BareLineRefGate` 同批清零后升级为零容忍）。⚠️ **该守卫管不到的引用**（判据名、类型 +
+点 + 成员这类符号引用；跨仓引用）**仍全靠人工**——引一条之前先 grep 确认它还在。
 
 - ⚠️ **更正 / 撤回一处声称时，必须 grep 该判据名或该理由的关键词，确认三处落点同步**：
   源码注释、`docs/components/*.md`、`docs/component-registry.json` 的 `notes`。

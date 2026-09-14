@@ -169,11 +169,11 @@ private struct LoadingAccessibilityModifier: ViewModifier {
 ### 关键决策
 
 - **用 `.allowsHitTesting(!isRunning)`，不用 `.disabled(isRunning)`**：
-  - 既有 4 个 ButtonStyle 在 disabled 时会把 label `foregroundStyle` 设为 `Color.contentDisabled`（见 `SolidButtonStyle.swift:40`）。如果用 `.disabled(isRunning)`，loading 期间 label 和继承 `foregroundStyle` 的 spinner 都会变灰——直接打脸下一条 "spinner 继承 ButtonStyle 配色"。
+  - 既有 4 个 ButtonStyle 在 disabled 时会把 label `foregroundStyle` 设为 `Color.contentDisabled`（见 `SolidButtonStyle.swift` 的 disabled 分支：`self.isEnabled ? self.role.onColor : .contentDisabled`）。如果用 `.disabled(isRunning)`，loading 期间 label 和继承 `foregroundStyle` 的 spinner 都会变灰——直接打脸下一条 "spinner 继承 ButtonStyle 配色"。
   - `.allowsHitTesting(!isRunning)` 拦掉再次点击，但不传播 `\.isEnabled`，label 保持正常色、spinner 也跟着保持正常色。
   - VoiceOver 不再把按钮报告为 "dimmed"——用 `accessibilityValue("Loading")` 补回 loading 语义。
 - **额外 `guard !isRunning` 防御**：
-  - `BorderlessButtonStyle` 是 `PrimitiveButtonStyle`，用 `.onTapGesture(count: 1, perform: configuration.trigger)` 触发（`BorderlessButtonStyle.swift:49`）。即使外层 `.allowsHitTesting` 拦掉了主路径，在跨平台/手势冲突的边界场景下，在 Button action 闭包内加一句 guard 是廉价兜底。
+  - `BorderlessButtonStyle` 是 `PrimitiveButtonStyle`，用 `.onTapGesture(count: 1, perform: configuration.trigger)` 触发（现名 `CoreBorderlessButtonStyle`，逐字）。即使外层 `.allowsHitTesting` 拦掉了主路径，在跨平台/手势冲突的边界场景下，在 Button action 闭包内加一句 guard 是廉价兜底。
 - **spinner 颜色继承 ButtonStyle**：不在 `AsyncButton` 内显式设 `.tint(...)`，让 `ProgressView` 继承外部 `ButtonStyle` 设置的 `foregroundStyle`。
   - 由于上一条选择了 `.allowsHitTesting` 而非 `.disabled`，`foregroundStyle` 不会被切到 disabled 配色，spinner 颜色正确。
   - **仍需验证**：`ProgressView(.circular)` 实际是否响应 `foregroundStyle`（底层可能是 `UIActivityIndicatorView`）。若不响应，回退：手动 `.tint(.contentOnAccent)` / `.tint(role.color)`，会引入对具体 style 的轻度耦合。Preview 实测决定。
@@ -195,7 +195,7 @@ private struct LoadingAccessibilityModifier: ViewModifier {
 
 1. **显式 `onError`** → 调用 `onError(error)`。
 2. **`onError == nil` 且环境 `\.toastHost` 存在** → `toastHost.show(error.localizedDescription, level: .danger)`。
-3. **两者都没有** → 静默（匹配 Toast 系统的"未挂 host 即无声忽略"原则，见 `Toast.swift:287-289`）。
+3. **两者都没有** → 静默（匹配 Toast 系统的"未挂 host 即无声忽略"原则，见 `Toast.swift` 的 `toastHost` 环境值）。
 
 ### CancellationError
 

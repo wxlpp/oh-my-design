@@ -76,7 +76,7 @@ native:      Suite "Colorset 资源存在性守卫" passed      （17 色相×10
 swiftbuild:  该 suite 在输出里整个消失
 ```
 
-**原因**：`Tests/OhMyDesignTests/ColorAssetGuardTests.swift:70` 的
+**原因**：`ColorAssetGuardTests.swift` 的
 `.enabled(if: rawXcassetsAvailable)` 只在 `Resources.xcassets/` **以目录形式**存在时启用。
 swiftbuild 调 `actool` 把它编成 `Assets.car` ⇒ 判据 false ⇒ 整个 suite 跳过。
 而 xcodebuild iOS 腿本来就是 `.car` 形态、同样跳过 ⇒ **整腿切换后，
