@@ -52,7 +52,7 @@ import OhMyDesignEffects
 ⚠️ **层 2 / 层 3 分开不是"多一层"，是本簇 Reduce Motion 判据能不能存在的前提**：
 `\.accessibilityReduceMotion` 在 `EnvironmentValues` 上**只读**，测试里注不进去。
 层 3 把它降成一个普通 `Bool` 实参之后，判据才能把**同一个相位**分别用
-`isReduced: true` / `false` 渲两遍逐字节比较——「降级真的去掉了运动」与
+`isReduced: true` / `false` 渲两遍比较（#317 起判据走容差）——「降级真的去掉了运动」与
 「降级不是 no-op」这两句话才有位图证据，而不是只剩源码扫描。
 
 判据：`chromeOnlyRelaysReduceMotion`（层 2 读到的 `reduceMotion` 次数必须恰好等于
@@ -103,7 +103,7 @@ SwiftUI 的 attribute graph 在两个出口之间对不上号 ⇒ 动画退化�
 
 判据：`motionModifiersAnimateOnThePhaseValue`（`animatableData` 就是相位值）
 + `interpolationIsContinuousNotAnEndpointJump`（三个插值点彼此可辨、都不等于端点，
-且与"直接用中间相位值构造"的那一帧逐字节相同）
+且与"直接用中间相位值构造"的那一帧逐字节相同——#317 起判据走容差）
 + `boingOvershootSurvivesInterpolation`（**渲染出来的**中间帧内容面积大于恒等帧）。
 
 ## 相位契约
@@ -121,7 +121,7 @@ SwiftUI 的 attribute graph 在两个出口之间对不上号 ⇒ 动画退化�
 - 纯函数那一半：`identityPhaseIsExactlyNeutral`（`==` 而不是"约等于"——用容差会把
   「阻尼窗从 `(1-u)²` 换成 `exp(-ku)`」这类退化放过去，实测该变异会让恒等处不再为 0）；
 - 位图那一半：`identityFrameIsIndistinguishableFromPlainContent`（恒等帧与
-  「一层 modifier 都不套」的裸内容**逐字节相同**）。
+  「一层 modifier 都不套」的裸内容**逐字节相同**——#317 起判据走容差）。
   ⚠️ 这一条抓的是纯函数看不见的东西——实测往层 3 加一句无条件的 `.blur(radius: 0.5)`，
   纯函数判据与 `MicroInteractionReduceMotionGuard` **全绿**，只有它判红。
 
@@ -158,7 +158,7 @@ direction(of:) // Edge → 单位方向向量（三条位移转场共用一份 s
 **承重判据 `reduceMotionLeavesExactlyTheCrossFade`** 一次断三句话，缺一条另两条都能被绕过：
 
 1. 降级真的改变了什么（`reduced != full`）——否则门控是摆设；
-2. 降级后剩下的**恰好**是那条淡入淡出（`reduced == 只加 .opacity 的对照组`，逐字节）；
+2. 降级后剩下的**恰好**是那条淡入淡出（`reduced == 只加 .opacity 的对照组`，容差）；
 3. 降级不是 no-op（降级后两个不同相位仍然彼此不同）。
 
 ⚠️ 第 2 条同时守住了 `blur(` / `scaleEffect(x:y:)` 这些
@@ -252,7 +252,7 @@ direction(of:) // Edge → 单位方向向量（三条位移转场共用一份 s
 
 「SwiftUI 的转场机制**确实**会拾取这些 `animatableData` 并逐帧重求 `body`」是一个
 **运行期动画事实**，`ImageRenderer` 拍静态帧、结构上观测不到。本簇判据钉到的是
-「插值这一步的输入输出正确」+「插出来的帧与直接构造的同相位帧逐字节相同」，
+「插值这一步的输入输出正确」+「插出来的帧与直接构造的同相位帧逐字节相同」（#317 起判据走容差），
 两者合起来是必要条件，**不是充分条件**。真正的确认只能靠 `App/` 预览宿主肉眼看
 （六个 `#Preview` 各自带一个切换按钮）。⇒ 与 `particle-transition.md` 同一条登记。
 

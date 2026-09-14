@@ -93,7 +93,7 @@ macOS 实测（红叠蓝、完全揭示、取中心像素）：
 承重的只有那一列的三个布尔值。
 
 判据：`BeforeAfterSliderTests.endpointRenderIsIndependentOfTheHiddenLayer`
-——`fraction = 1` 时换掉 `after` 的颜色，位图一个字节都不许变。
+——`fraction = 1` 时换掉 `after` 的颜色，位图在 ±1 LSB 容差内不许变（#358 起容差、#317 起加差异字节上限）。
 ⚠️ 它钉的是**端点**（`fraction = 1`），上面那条亚像素差异**不在它射程内**。
 ⚠️ #276 原文建议的「`fraction = 1` 的位图与只渲染 `before` 逐字节相同」**做不到**：
 绘制层在任何 fraction 上都还画着把手，"只渲染 before"里没有它 ⇒ 那条会因错误的原因永远判红。

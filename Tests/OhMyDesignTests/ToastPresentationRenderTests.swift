@@ -183,7 +183,8 @@ struct ToastPresentationRenderTests {
         let top = self.overlayPixels(.centeredHUD, edge: .top)
         let bottom = self.overlayPixels(.centeredHUD, edge: .bottom)
         #expect(top != nil, "渲染失败 —— 不得当作通过（否则本条会因两张空图而恒真）")
-        expectBitmapsEqual(top, bottom,
+        // ⚠️ 相等断言走容差入口（#317）：toast 文案字形 AA 边在本平台无逐字节确定性。
+        expectBitmapsEquivalent(top, bottom, maxChannelDelta: 1,
                 ".centeredHUD 下 edge 仍在影响渲染 —— 「edge 静默无效」的定案在像素层面为假")
     }
 
