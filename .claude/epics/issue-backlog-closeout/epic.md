@@ -5,7 +5,7 @@ created: 2026-09-14T00:33:25Z
 updated: 2026-09-14T00:33:25Z
 progress: 0%
 prd: .claude/prds/issue-backlog-closeout.md
-github: https://github.com/wxlpp/oh-my-design/issues/361
+github: https://github.com/wxlpp/oh-my-design/issues/363
 ---
 
 # Epic: issue-backlog-closeout

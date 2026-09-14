@@ -7,4 +7,4 @@
 | `.claude/epics/issue-backlog-closeout/337.md` | [#337](https://github.com/wxlpp/oh-my-design/issues/337) | open |
 | `.claude/epics/issue-backlog-closeout/317.md` | [#317](https://github.com/wxlpp/oh-my-design/issues/317) | open |
 | `.claude/epics/issue-backlog-closeout/312.md` | [#312](https://github.com/wxlpp/oh-my-design/issues/312) | open |
-| epic | [#361](https://github.com/wxlpp/oh-my-design/issues/361) | open |
+| epic | [#361](https://github.com/wxlpp/oh-my-design/issues/363) | open |
