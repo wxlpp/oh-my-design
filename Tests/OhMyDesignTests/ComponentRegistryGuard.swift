@@ -54,9 +54,14 @@ struct ComponentRegistryGuard {
 
     // MARK: - 缓办台账：步骤 2 枚举未完成的条目（PR #297 终审 I-2）
 
-    static let pendingStep2FollowUpIssue: String? = nil
+    static let pendingStep2FollowUpIssue: String? = "#299"
 
-    static let knownPendingStep2Enumeration: Set<String> = []
+    /// ⚠️ **`#279` 加进 `GlassSymbol`**（`OhMyDesignShaders`）：它是本 target 里唯一候选形态
+    /// **会引入承载内容的子视图**的一件（成就徽章用例的「加等级环 / 加绶带文字」按三分法属槽差异、
+    /// 本该计入 ≥2），而同 target 另外五件背景是单层全幅装饰、槽与排布两轴结构上为空
+    /// ⇒ 正当落 tiebreaker。`#279` 是扫描根收口 task、**没做**停止规则要求的候选枚举
+    /// ⇒ 与 `#270` 那 6 条同因，同挂承接 issue。
+    static let knownPendingStep2Enumeration: Set<String> = ["GlassSymbol"]
 
     static func pendingStep2Components(in entries: [Entry]) -> Set<String> {
         Set(entries.filter { $0.decidedBy == "pendingStep2" }.map(\.component))
@@ -318,8 +323,8 @@ struct ComponentRegistryGuard {
         #expect(Set(entries.map(\.component)).count == entries.count,
                 "登记表存在重名 component 条目——差集判据会把重名静默吞掉")
 
-        #expect(entries.filter { $0.repo == "ohmydesign" }.count == 62,
-                "OhMyDesign 侧条目数不是 62（#270 扩扫描根到三个 target，Effects 11 + Charts 4 共 15 条按判定法补录后由 47 变为 62）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
+        #expect(entries.filter { $0.repo == "ohmydesign" }.count == 68,
+                "OhMyDesign 侧条目数不是 68（#270 扩扫描根到三个 target，Effects 11 + Charts 4 共 15 条按判定法补录后由 47 变为 62；#279 扩到第四根 OhMyDesignShaders，按判定法补录 6 条后由 62 变为 68——点名 8 个但实测进 components 的是 6 个：Starfield 随 #281 整件删除、RefractiveGlass 不是 `public struct: View` 而是入口点）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
         #expect(entries.filter { $0.repo == "storyui" }.count == 25,
                 "StoryUI 侧条目数不是 25——CI 无法跨仓核对源码，这条固定计数断言是 #43 落地前唯一挡「静默删条目」的机器判据，不得放宽为 print")
 
@@ -343,13 +348,13 @@ struct ComponentRegistryGuard {
         `decidedBy: pendingStep2` 的条目集合变了：实际 \(pendingStep2.sorted())，        已知 \(Self.knownPendingStep2Enumeration.sorted())。
         `pendingStep2` 的含义是「公约步骤 2 的候选枚举与来源核验尚未完成，本条不声称任何出口，        按可逆的一侧（prescriptive / 不给扩展点）缓办登记」——它是**台账**，不是判定结论。
         · 变小：若某条真的补完了枚举，落点应改成 step1/step2/step3/tiebreaker 之一，        并同步从本表移除；若只是把标记删掉，那是把缓办伪装成已判。
-        · 变大：又出现了一条跳过枚举的条目 —— 须在 notes 里写明成因，并挂进一个**尚未关闭**的承接 issue        （`pendingStep2FollowUpIssue`，`#315` 终审 I-6 后为 nil，须当轮显式指定；`#299` 将随 PR #315 关闭，不得复用）。
+        · 变大：又出现了一条跳过枚举的条目 —— 须在 notes 里写明成因，并挂进一个**尚未关闭**的承接 issue        （`pendingStep2FollowUpIssue`，`#315` 终审 I-6 后须当轮显式指定，不得复用已关闭的承接口）。
         """)
 
         for e in entries where e.decidedBy == "pendingStep2" {
             guard let followUp = Self.pendingStep2FollowUpIssue else {
                 Issue.record("""
-                出现了 pendingStep2 条目 \(e.component)，但 pendingStep2FollowUpIssue 仍是 nil。                缓办必须挂在一个**尚未关闭**的承接 issue 上 —— 请先把该常量改成本轮的 issue 号                （⚠️ `#299` 将随 PR #315 关闭，不得复用），再挂条目。
+                出现了 pendingStep2 条目 \(e.component)，但 pendingStep2FollowUpIssue 仍是 nil。                缓办必须挂在一个**尚未关闭**的承接 issue 上 —— 请先把该常量改成本轮的 issue 号                （⚠️ 不得复用已关闭的承接口），再挂条目。
                 """)
                 continue
             }
