@@ -13,7 +13,7 @@ import os
 import re
 import sys
 
-TARGETS = ["OhMyDesign", "OhMyDesignEffects", "OhMyDesignCharts"]
+TARGETS = ["OhMyDesign", "OhMyDesignEffects", "OhMyDesignCharts", "OhMyDesignShaders"]
 
 # 当前钉法是**精确值**，不是留有余量的下界：任何删除即判红，任何新增也判红并要求
 # 有人看一眼再改数。随源码变动时连同 PR 正文写明增减理由。
@@ -23,8 +23,11 @@ FLOORS = {
     # 2026-09-08 设计系统配色回灌：colors +3（inkPrimary / dataAccent / dataAccentSubtle）、
     # components +1（InkSegmentedControlStyle）、viewext +1（View.coreAccent）、
     # styleext +3（SegmentedControlStyle 的 .glass / .plain / .ink 三个静态入口）。
-    "colors": 118, "components": 91, "enums": 30, "enumcases": 110,
-    "protocols": 6, "viewext": 41, "styleext": 12, "others": 29,
+    # 2026-09-14 shader 集成（stage-2 移植）：TARGETS 加 OhMyDesignShaders ⇒
+    # components 91→97（6 个 public struct: View）、enums 30→41、enumcases 110→144、
+    # viewext 41→44（View.refractiveGlass / glassOrb / halftone）、others 29→30。
+    "colors": 118, "components": 97, "enums": 41, "enumcases": 144,
+    "protocols": 6, "viewext": 44, "styleext": 12, "others": 30,
 }
 
 # 组件判定：conformance 列表里出现这些名字之一，或以 Style 结尾。

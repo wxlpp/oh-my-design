@@ -845,12 +845,65 @@
 
 - **`RingChart`** *<Value: ChartValue>: View* — 活动环。
 
+## `OhMyDesignShaders`
+
+### `DotGrid.swift`
+
+- **`DotGrid`** *: View* — 规则点阵背景，可选同心波呼吸。
+- *enum* **`DotGrid.Spacing`**: `.loose`, `.regular`, `.tight` — 点距。
+
+### `FractalClouds.swift`
+
+- **`FractalClouds`** *: View* — 分形云层背景。
+- *enum* **`FractalClouds.Density`**: `.soft`, `.regular`, `.turbulent` — 云的细腻程度。
+
+### `GlassOrb.swift`
+
+- *enum* **`GlassOrbSize`**: `.small`, `.regular`, `.large` — 放大镜的尺寸。
+- *enum* **`GlassOrbMagnification`**: `.gentle`, `.regular`, `.strong` — 放大倍率。
+
+### `GlassSymbol.swift`
+
+- **`GlassSymbol`** *: View* — 渲染成折射玻璃的 SF Symbol。
+
+### `Halftone.swift`
+
+- *enum* **`HalftoneDot`**: `.fine`, `.regular`, `.coarse` — 网点粗细。
+
+### `InkSmoke.swift`
+
+- **`InkSmoke`** *: View* — 墨烟背景。
+- *enum* **`InkSmoke.Density`**: `.faint`, `.regular`, `.heavy` — 丝缕强度。
+
+### `LiquidChrome.swift`
+
+- **`LiquidChrome`** *: View* — 液态铬背景。
+- *enum* **`LiquidChrome.Density`**: `.wide`, `.regular`, `.fine` — 带的疏密。
+
+### `OhMyDesignShaders.swift`
+
+- *enum* **`ShaderLibraryError`**: `.noMetalDevice`, `.libraryMissing`, `.functionMissing` — 加载检查失败的原因。
+- *enum* **`OhMyDesignShaders`** — `OhMyDesignShaders` 的命名空间与模块标识。
+
+### `Plasma.swift`
+
+- **`Plasma`** *: View* — 程序化等离子背景。
+- *enum* **`Plasma.Density`**: `.subtle`, `.regular`, `.dense` — 视觉密度。
+
+### `RefractiveGlass.swift`
+
+- *enum* **`RefractiveGlassStrength`**: `.subtle`, `.regular`, `.pronounced` — 折射强度。
+
+### `ShaderSupport.swift`
+
+- *enum* **`ShaderMotion`**: `.still`, `.calm`, `.regular`, `.lively` — 运动速度档位。
+
 
 ---
 
 # Modifier / Transition 入口点
 
-共 41 个（按 `Host.member` 去重，含参重载算一条）。
+共 44 个（按 `Host.member` 去重，含参重载算一条）。
 
 | target | 入口 | 说明 |
 |---|---|---|
@@ -895,6 +948,9 @@
 | `OhMyDesignEffects` | `.spin` on `View` | `trigger` 变化时旋转一整圈。 |
 | `OhMyDesignEffects` | `.spray` on `View` | `trigger` 变化时向上喷出一束符号粒子。 |
 | `OhMyDesignEffects` | `.swoosh` on `Transition` | 带动态模糊的穿行转场（默认从右侧进、左侧出）。 |
+| `OhMyDesignShaders` | `.glassOrb` on `View` | 在本视图上放一枚跟手的玻璃珠放大镜。 |
+| `OhMyDesignShaders` | `.halftone` on `View` | 把本视图印成半调网屏。 |
+| `OhMyDesignShaders` | `.refractiveGlass` on `View` | 把本视图渲染成一片折射玻璃。 |
 
 
 ---
@@ -935,11 +991,11 @@
 | elevation | 4 | 4 |
 | controlsize | 5 | 5 |
 | colors | 118 | 118 |
-| components | 91 | 91 |
-| enums | 30 | 30 |
-| enumcases | 110 | 110 |
+| components | 97 | 97 |
+| enums | 41 | 41 |
+| enumcases | 144 | 144 |
 | protocols | 6 | 6 |
-| viewext | 41 | 41 |
+| viewext | 44 | 44 |
 | styleext | 12 | 12 |
-| others | 29 | 29 |
+| others | 30 | 30 |
 

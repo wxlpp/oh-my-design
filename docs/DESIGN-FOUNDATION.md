@@ -1,0 +1,223 @@
+# Design Foundation — Apple HIG
+
+| Field | Value |
+|---|---|
+| Reference | [Apple Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines) |
+| Adopted at | `0.3.0`（epic `coredesign-native-foundation`，Issue #116） |
+| Previously | `docs/PRIMER_VERSION.md`（GitHub Primer Primitives `v11.8.0`）—— 已删除，本文件是其替代物 |
+
+## Why this exists
+
+OhMyDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.com/primer/primitives) 为视觉北极星，`docs/PRIMER_VERSION.md` 锁定具体 tag 作为 token 取值的单一依据。`0.3.0` 把这套地基整体换成 **Apple Human Interface Guidelines**：字号交还系统文本样式、圆角与控件尺寸对齐 HIG 的触控与容器标度、语义色尽量改指系统色 API，而不是维护一套自有色板。
+
+与 Primer 版本锁定不同，Apple HIG 不是一个可钉版本号的 git tag——它是一套持续演进的设计原则 + 一批稳定的系统 API（`Font.TextStyle`、`UIColor`/`NSColor` 语义色族、`ControlSize`）。本文件因此不记录"锁定到哪个版本"，而是记录**每个 token 与哪条 HIG 原则 / 哪个系统 API 对应，以及取值背后的理由**——这是下游评估升级影响、以及未来维护者理解"这个数字为什么是这个数字"的依据。
+
+> 本文件是**视觉地基**（token 取值理由）。组件的 **API 地基**——参数该长什么形状、
+> 何时给样式扩展点——在 [`component-contract.md`](component-contract.md)。
+
+## Token 源映射表
+
+| OhMyDesign token | Apple HIG / 系统 API 依据 |
+|---|---|
+| `CoreTypography` | 直接取 `Font.TextStyle`（`largeTitle` … `caption2`），字号 / 行高 / 字重 / Dynamic Type 缩放全部交给系统，不再手写字号表 |
+| `CoreRadius` | HIG 圆角标度惯例（squircle / continuous corner），4 档 + `CoreShape` 统一 `.continuous` 出口 |
+| `CoreControlMetrics.height` | HIG 触控目标建议：常规交互控件最小可点击区域 ≈44pt，密集 chrome 收紧到 28–32pt，CTA 类放宽到 50–56pt |
+| `CoreControlMetrics.{horizontal,vertical}Padding` | 贴近系统按钮的视觉密度，全部落在 `CoreSpacing.*` 命名档位上 |
+| `CoreElevation` | HIG 的分层原则——层级优先靠 material（毛玻璃）与 separator 表达，阴影只用于真正悬浮的内容（popover / 菜单） |
+| `SurfaceColors` / `ContentColors` / `BorderColors` / `FillColors` | 直接改指系统语义色 API（`systemGroupedBackground` 族、`label` 族、`separator` 族、`systemFill` 族），随系统外观与对比度设置自动更新 —— ⚠️ **本行已失真**（PR #262 第 3 轮终审 I-1）：`FillColors` 现含三个**非系统色**的派生 / 定值 token —— `skeletonBase` / `skeletonHighlight`（#162）与 `specularHighlight`（#262）。 |
+| `InteractionColors.accent` 及衍生族 | 改指 `Color.inkPrimary`（墨色），衍生态用 `Color.mix(with: .surfaceBase)` / `.opacity()` 对 `accent` 本身调制，见下节 |
+| `StatusColors` / `secondaryAccent` / `neutralAccent` | **显式定案：不改指系统色**——Apple HIG 没有"5 态状态色板"或"第二强调色"的系统概念，继续由 `ColorGrade`（第 1 层资源调色板）供色 |
+
+## 各 token 家族的取值理由
+
+### 字体（`CoreTypography`）
+
+12 档直接对应 `Font.TextStyle`：`largeTitle` / `title` / `title2` / `title3` / `headline` / `body` / `callout` / `subheadline` / `footnote` / `caption` / `captionMono`（`.caption` + 等宽 design）/ `caption2`。字号、行高、字重、Dynamic Type 缩放全部由系统决定，本文件不再维护任何手写字号表——这是与 Primer 版本最核心的差异：Primer 时代 `CoreTypography` 携带 `size` / `lineSpacing` / `tracking` 三件套并用 `@ScaledMetric` 模拟缩放；现在这一整套机制（`Spec` 结构体、`*LineSpacing` / `*Tracking` 常量、`Token.fixedFont`）已删除，`.coreFont(_:)` 的调用形态保留但内部直取系统文本样式。
+
+### 圆角（`CoreRadius` + `CoreShape`）
+
+`none 0 / small 6 / medium 10 / large 16 / xLarge 22`。HIG 没有 `.none` 档（直角通常靠省略圆角实现），`.none` 是 OhMyDesign 扩展，方便在统一类型签名下表达"无圆角"。`xLarge`(22) 当前零消费，是为 Dialog / Modal / Sheet 类容器预留的标度，不是缺陷——库内目前没有这类容器，也没有发现现有场景本该用 22pt 却被迫停在 16pt。
+
+**`.continuous` 角样式必须经 `CoreShape.rounded(_:)` 统一出口**：只改半径数值拿不到 Apple 的 squircle 观感，角样式要在每个 `RoundedRectangle` 构造点显式指定，漏一处就是一处风格不一致的元素。`Sources` 内裸 `RoundedRectangle(` 调用已收敛为 0（唯一例外是 `CoreShape.rounded` 自身的实现）。`ConcentricRectangle`（iOS 26+）为嵌套于已知容器的元素预留，容器侧配合 `.containerShape(_:)` 声明——当前零采纳，同样是"标度先于需求"而非遗漏。
+
+### 控件尺寸（`CoreControlMetrics`）
+
+高度 `mini 28 / small 32 / regular 44 / large 50 / extraLarge 56`。核心判断是把 `regular` 抬到 HIG 的 **44pt 最小触控目标**——这不是某个调用点选错档，而是整个 token 族的设计意图：把全部主要交互控件（`ListRow`、`SearchField`、`SegmentedControl` 容器）统一到 44pt 下限，`SegmentedControl` 因此会把原生 `UISegmentedControl` 包装成高于其固有高度的外框，这是有意的。
+
+横向 padding `mini=8 / small=12 / regular=16 / large=16 / extraLarge=24`：`regular` 起给出更舒展的横向留白，贴近 Apple 系统按钮的视觉密度。纵向 padding `mini=4 / small=4 / regular=12 / large=16 / extraLarge=16`：具体哪些档位由 `frame(minHeight:)` 地板决定、哪些由 padding 撑高决定，取决于平台与 Dynamic Type 档位——iOS 默认档下 `mini`/`small` 由地板决定，`regular` 及以上由 padding 决定；macOS 因系统文本样式明显更小，五档全部由地板决定。详细算式见 `Sources/OhMyDesign/Tokens/CoreControlMetrics.swift` 的文档注释。
+
+### 阴影（`CoreElevation`）
+
+4 档语义不变（`none` / `small` / `medium` / `large`），文档注释里的 Primer 考据已替换为 HIG 依据：resting 档（`small` / `medium`）刻意调低 blur 与 y-offset，日常静止内容（Badge、卡片、列表行）不应"浮起"，层级交给 material + separator 表达；`large` 保留给真正的浮层（popover、菜单）。深色模式阴影不透明度 ≥ 浅色的 2 倍是常见工程实践，用于补偿深色背景下低对比阴影"消失"的问题。
+
+### 语义色（`SurfaceColors` / `ContentColors` / `BorderColors` / `FillColors`）
+
+绝大多数 token 直接改指系统语义色 API，随系统外观、对比度设置自动更新，不再由 OhMyDesign 自建 colorset 供色：
+
+- `SurfaceColors`：`surfaceCanvas` / `surfaceRaised` / `surfaceElevated` 三档统一走 `systemGroupedBackground` 族（`systemGroupedBackground` / `secondarySystemGroupedBackground` / `tertiarySystemGroupedBackground`），`surfaceCanvasInset` 改指 `FillColors.tertiaryFill`——其官方 HIG 语义（输入字段/搜索栏/按钮）与实际消费点（头像环、进度条轨道）精确对应。
+- `ContentColors`：全部指向系统 `label` 族（`label` / `secondaryLabel` / `tertiaryLabel` / `quaternaryLabel` / `placeholderText` / `link`）；`contentInverse` / `contentOnDanger` / `contentOnEmphasis` **仍**固定为 `.white`——它们的消费点均为**固定饱和色**背景（状态色 emphasis、调用方传入的 tile 底色），白字对比度可靠。⚠️ **`contentOnAccent` 已于 2026-09-08 改为 `.systemBackground`**（随主题反转）：accent 墨色化后它压在墨底上，白字在浅色模式下不可读。⇒ 这四个 token **不再同值**，按消费点区分：坐在 `accent` 上的走 `contentOnAccent`，坐在固定饱和色上的走 `contentOnEmphasis`。
+- `BorderColors`：`separator` / `opaqueSeparator` 两族。`borderFocus` / `borderSelected` **在 `0.2.0` 就已指向 `accent`**（各自独立的固定蓝 colorset 是更早的 Issue #93 删的，不是本次改造）；它们的指向始终不变，但实际取值随 `accent` 走——⚠️ 2026-09-08 起 `accent` 是**墨色**（`inkPrimary`），不再是宿主 `AccentColor`；`focusRing` 与 Sidebar 选中态因此读环境 `\.coreAccent`。 `borderSubtle` 取 `separator.opacity(0.28)` 而非直接等于 `opaqueSeparator`，是为了保持 `subtle(0.28) < muted(0.42) < default(1.0) < strong` 的既有强弱梯度，避免与字面顺序倒挂。
+- `FillColors`：`systemFill` 族四档（`systemFill` / `secondarySystemFill` / `tertiarySystemFill` / `quaternarySystemFill`），本就是系统色，未改动。
+
+⚠️ **`MaskColors` 不属于本节（`#276` 新增，一个 token）**：`Color.maskOpaque` 是给 `.mask { … }` 用的**不透明基色**，唯一契约是 **α = 1**。它**不是一个颜色决定**——`mask` 只吃 alpha 通道，RGB 不参与合成（实测 `.mask { Color.black }` 与 `.mask { Color.white }` 逐字节相同），取白是任意的。
+之所以必须单列一个 token：Effects 层此前拿 `Color.primary` 当遮罩基色，而 `label` 族**不是满不透明的**——macOS/AppKit `labelColor` 实测 α = 0.8471（iOS/UIKit `label` 实测 1.0），`mask` 每处因此在 macOS 上额外乘 0.847。判据 `MaskOpaqueTokenTests` 在明暗两端守着 α = 1；新增 `.mask` 点位由 `MaskSiteRegistryGuard` 强制登记。
+
+**macOS 降级**：AppKit 没有 grouped background 系列。`systemGroupedBackground` 现降级到 `windowBackgroundColor`（此前误降级到与 `secondarySystemGroupedBackground` 相同的 `controlBackgroundColor`。⚠️ **`#120` 改的只是指向（身份层）**：`windowBackgroundColor` 与 `controlBackgroundColor` 在本代 macOS 上**取值本来就相同**，所以「画布与 raised 同色」这个现象 `#120` 没改变、在 AppKit 下也改变不了——macOS 上 raised 与 canvas 今天只靠 `.surface` 的 border 与 radius 区分）。⚠️ **`SystemBackgroundColorsMacOSTests` 守的是二者不再指向同一个 `NSColor`（身份层），不是它们的取值可辨**——逐位取值见下节。此处原写「守卫二者在浅色/深色下均可辨」，`#239` 证伪，已更正。`secondarySystemGroupedBackground` / `tertiarySystemGroupedBackground` 保持 `controlBackgroundColor`。
+
+#### ⚠️⚠️ macOS 上这些 token 的**实际取值**（`#239` 实测，2026-09-07）
+
+判据历来在 `Color` **身份**层比（`Color.surfaceCanvas != Color.surfaceCard`），
+`#226` 又补了一层在**底层 `NSColor` 名字**上比 —— **两层都按 `#120` 的设计工作**
+（用来抓「有人把分支改回同一个 `NSColor`」）。`#239` 把它们**解析成 RGBA** 量了一遍。
+
+⚠️ **这些 token 在 macOS 上同值不是新发现**：`SystemBackgroundColors.swift` 里
+**6 个成员各自的 `///` 文档注释**（`#328` 引入）与 `SurfaceColors.swift` 都写着，
+`#239` 正文自己也写了「像素级同色」。`#239` 的增量是两条
+——**给它装上机器判据**，以及**指出若干判据的消息是取值层说法而断言是身份层**。
+
+**实测环境**：macOS 26.3.1（25D2128），辅助功能「增强对比度」「减少透明度」**均关闭**
+（`defaults read com.apple.universalaccess` 两个键均不存在 ⇒ 取默认值「关」）。
+⚠️ **本次没有开启后的对照数据**：下表的 α 与那条「五路取值相同」**是否随这两项变，未实测**
+——别把这句读成「已知会变」，也别读成「已知不变」。
+
+| SurfaceKind | token | 浅色 | 深色 |
+|---|---|---|---|
+| `.canvas` | `surfaceCanvas` → `windowBackgroundColor` | `#FFFFFFFF` | `#1E1E1EFF` |
+| `.content` / `.card` / `.grouped` | `surfaceCard` → `controlBackgroundColor` | **`#FFFFFFFF`** | **`#1E1E1EFF`** |
+| `.canvasSubtle` · `.sidebar` | 同上 | **同上** | **同上** |
+| `.control` | `surfaceInteractive` → `tertiarySystemFill` | `#0000000C`（α .047） | `#FFFFFF0C` |
+| `.floating` | `surfaceOverlay` → `secondarySystemFill` | `#00000014`（α .078） | `#FFFFFF14` |
+| `.panel` | `surfacePanel` → `quaternarySystemFill` | `#00000007`（α .027） | `#FFFFFF07` |
+
+**两条结论**：
+
+1. ✅ **`.floating` 与 `.canvas` 取值确实不同**（一个是 α .078 的填充、一个不透明）
+   —— 这正是 `#239` 要验的那条命题，PRD v1 那个「`.floating == .canvas` on macOS」塌缩没有回来。
+2. ⚠️⚠️ **但 `.canvas` 与 `.content` / `.card` / `.canvasSubtle` / `.sidebar` 取值逐位相同**
+   （`windowBackgroundColor` 与 `controlBackgroundColor` 在本代 macOS 上同值），
+   **而判据 `macOSCanvasStandsApart` 的消息写着「塌缩」这种取值层说法** —— 它判的是
+   **身份比较**，与 `macOSFillTokensAreDistinct` 是**同一机制**，但**按 `#120` 的设计如此**
+   ⇒ **断言没错，错的是消息措辞**。
+   ⇒ `#239` 加了 `macOSFiveWayCollapseIsRealAtValueLevel` **在取值层如实钉住这个塌缩**，
+   并把 `macOSCanvasStandsApart` / `groupedBackgroundsDiffer` / `semanticSurfacesDiffer`
+   **三条的失败消息**从「塌缩 / 完全隐形 / 不可辨」改成「指向了同一个 `Color`」
+   （**测试名只改了 `macOSCanvasStandsApart` 一条**，另两条的 `@Test` 标题仍是「…不同色」
+   ——它们描述的就是身份层，本来没错），**断言一律不动**。
+
+⚠️ **取值这一层的判据一律无条件断言，不做「退化就跳过」的分叉。**
+**理由**：`#120` 描述的退化形态是「塌成**同一** fallback RGBA」——同值但**不透明**，
+任何靠 `opacity > 0` 的探针都判不出来，一分叉就等于给判据装了个恒真的跳过开关。
+逐条见 `resolutionIsAppearanceSensitive` 的失败消息。
+而那条「无 WindowServer 会话会塌成 fallback」的前提本身**复现不出来**（源头是 `#120` 的
+文件头注，已随 `#328` 删除，但 `docs/BREAKING-CHANGES.md` 与 `.claude/` 下的 PRD / epic
+沿用了它）：`sandbox-exec`
+拒掉 windowserver 的 mach-lookup 后 `CGSessionCopyCurrentDictionary()` 确为 nil，
+六个 `NSColor` 的解析值仍与 GUI 会话逐位相同；拒读 `SystemAppearance.bundle` 则是**硬崩**。
+且本仓早就在这条腿上无条件依赖 AppKit 系统色解析（`MaskOpaqueTokenTests` 断言
+`Color.primary` α == 0.8471、`AccentDerivationTests` 断言明暗互异）——⚠️ 措辞要准：
+**断言本身无条件、没有跳过分支**，但 `MaskOpaqueTokenTests` 的**期望值按平台分叉**
+（`#if canImport(UIKit)` 取 1.0、`#else` 取 0.8471）。⚠️ 「CI 上一直是绿的」这句**没有逐次核过**；
+`#239` 落地时核到的是两次 CI run，三条新判据**零 SKIP、全部 passed**。
+
+⚠️ **这仍然不是渲染证据**：`resolve(in:)` 拿的是 token 的解析值，不是屏幕上的像素。
+`#239` 附带要验的「macOS 浅色下 `.floating` 的 `secondarySystemFill` 读作浮起还是凹陷」
+是**观感**问题，需要 macOS 截图链路，本仓仍然没有
+（`scripts/run-snapshots.sh` 硬绑 `platform=iOS Simulator`，`App/project.yml` 两个 target
+都是 `platform: iOS`）⇒ **已按 `#239` owner 的书面指示改写为独立工作项
+[#341](https://github.com/wxlpp/oh-my-design/issues/341)**，不是就地丢掉。
+
+#### ⚠️ `#237` 裁决：三档填充**不靠底色区分**——如实承认，不拉阶梯
+
+`#237` 给了两条出路：**① 把阶梯真正拉开**（如 `.control` 升 `secondaryFill`）、
+**② 在 doc 里如实承认「档位区分靠 border + radius，不靠底色」**。
+现状是两头都不占：既没拉开，doc 又暗示底色能区分。**用户裁决走 ②。**
+
+⇒ **本节就是那次承认**：`.control` / `.floating` / `.panel` 三档的区分**主要来自
+`border` 与 `cornerRadius`，不是填充色**。设计与评审都不应指望用底色判档。
+
+**实测**（`#237` 的逐像素采样，三档叠在 `.canvas` 上，**iOS**）：
+
+| 档位 | 浅色（灰阶） | 深色（灰阶） |
+|---|---|---|
+| `.floating` | **—** ⚠️ 未测：浅色走不透明 `systemBackground`，不在同一族里 | 38 |
+| `.control`（`tertiaryFill`） | 227 | 28 |
+| `.panel`（`quaternaryFill`） | 232 | 21 |
+
+- **浅色**：`.control` 与两邻档各差**约 5 个灰阶**，整个阶梯**只占约 10 个灰阶**
+  ⇒ 并排都难分，单独出现不可能判档。
+- **深色**：并排勉强可分、**单独不可分**；⚠️⚠️ 而且 **`.control` `(28,28,30)` 与
+  `.content` `(28,28,29)` 逐位近同** —— **控件表面在深色下塌进内容表面**，
+  只剩 `borderSubtle` 与小圆角在撑。
+
+⚠️⚠️ **机器判据抓不到这一族，别拿它们当反证**：三档 RGB 几乎相同
+（`#787880` / `#767680` / `#747480`），区分几乎**全靠 α**；而 `SurfaceContrastTests`
+在 `Color.Resolved` 层比较，**α 不同即算 distinct ⇒ 平凡通过**。
+⇒ 「判据绿」说明不了「肉眼能分」。同理 `SurfaceKindAlphaContractGuard`（`#345`）
+只守 `0 < α < 1` 这个**档位契约**，同样不是可辨性的证据。
+
+⚠️ **`#225` 之后新增的一个副作用一并登记**：`.floating` 已按外观分道（浅色走不透明
+`systemBackground`），于是**浅色阶梯方向劈叉** —— `.floating` 变亮、`.panel` 仍变暗。
+「填充族在浅色下读作凹陷」这条批评现在**单独落在 `.panel` 头上**，比 `#225` 之前更显眼。
+
+⚠️ **本条不为「合并档位」背书**：三档在**语义**上仍是三档（`SurfaceModifier` 的
+`border` / `cornerRadius` 两个 switch 对它们取值不同），只是**底色不承担区分职责**。
+
+### accent 衍生族（Task #120 交接，本节是承诺落盘的取值理由）
+
+⚠️ **本节已被 2026-09-08 的设计系统配色回灌改写。** 下面先记新裁决，`#120` 的原文作为
+历史记账保留在小节末尾——它解释了「为什么衍生态不能各取固定色阶」，那半仍然成立。
+
+**现状：`accent` = `Color.inkPrimary`（墨色）。** 第 2 层新增该桥接：iOS `UIColor.label` /
+macOS `NSColor.textColor`。⚠️ macOS 取 `textColor` **而不是** `labelColor`——本机实测前者
+两种外观 α 均为 `1.0000`、后者均为 `0.8471`，RGB 相同。用 `labelColor` 会让下面每个比例都
+落不准（`.opacity(0.22)` 实得 `0.1864`）并让实心按钮在 macOS 上透底。
+`AccentDerivationTests.derivationPreservesOpacity`（α > 0.95）是这个选择的机器验证点。
+
+**不再跟随宿主 `AccentColor`。** 宿主换色走 `View.coreAccent(_:)`（`@Entry var coreAccent`），
+四个衍生态自动跟随；静态 `Color.accent` 是环境不可达时的回退值。
+⚠️ **主题色应为近单色（黑 / 白极性）**：`contentOnAccent` 取 `systemBackground`，
+传入饱和色时深色模式下前景会是近黑色压在该饱和色上。本版本不提供 on-accent 环境钩子——后续处置见 `#357`。
+
+**衍生态混合目标改为 `surfaceBase`（朝向背景），方向与 `#120` 相反。** 墨色处在明度极值，
+「更远离背景」不可能成立（实测用 `.primary` 作基色时明度**零位移**，只剩 α 衰减）。
+比例：hover `0.18` / pressed `0.30` / disabled `.opacity(0.22)` / subtle `.opacity(0.08)`。
+公式收成 `Color.accentHover(from:)` 等四个 internal `static func`——静态 token 与
+`ButtonRoleStyleRole` 都调它，两处各写一遍必然漂而且不会报错。
+
+**新增 `dataAccent`（系统蓝）与 `dataAccentSubtle`。** 图表环、tag 这类**靠色相携带含义**
+的东西跟着墨色 accent 走会读成**禁用** ⇒ 单开一个不跟随 accent 的数据色，
+`OhMyDesignCharts` 四个图表的 `tint` 默认实参指向它。
+
+**`secondaryAccent` 族改为 `grey7/8/9/2`**（原 `lightBlue5/6/7/2`）。
+附带：`DotSphere` / `CharSphere` 的**预览**把 `secondaryAccent` 当第二色用，
+配色从「墨 + 浅蓝」变成「墨 + 灰」——仅预览，不影响 API。
+⚠️ 这让它与 `neutralAccent`（`grey5/6/7/2`）在两个档位上**结构相等**
+（`secondaryAccent` == `neutralAccentPressed`、两族 disabled 同为 `grey2`）——
+**有意接受**，下面那段「避免库内两套灰阶互不对应」的原理由已因此失真。
+
+---
+
+以下为 `#120` 原文（历史记账）：
+
+`accent` 从固定的 OhMyDesign 品牌蓝（`Color.brand5`）改为 `Color.accentColor`——库跟随宿主 App 在 Asset Catalog 里设置的 `AccentColor`，而不是自带一套固定品牌色。衍生态（`accentHover` / `accentPressed` / `accentDisabled` / `accentSubtleBackground`）因此不能再各取固定色阶（宿主可以把 `AccentColor` 设成任意色相，一个固定色阶不再是"它更亮一档的样子"），改为对 `accent` 本身做明度 / 不透明度调制：
+
+- **`accentHover` = `accent.mix(with: .primary, by: 0.15)`，`accentPressed` = `accent.mix(with: .primary, by: 0.25)`**——混合基色取 `.primary`（浅色模式≈黑、深色模式≈白）而非固定的黑或白，是为了复现旧 `brand` 色阶**外观自适应反转**的双向行为：实测旧 `brand6`（hover）浅色 `#0062D6` 比 `brand5` 深、深色 `#65B2FC` 比 `brand5` 浅——也就是"朝远离背景的方向走一档"，而不是恒定变亮或恒定变暗。用固定的白/黑混合会在其中一个外观模式下把 accent 推向背景色、收窄对比度；`.primary` 一个基色即可复现这一双向行为。`pressed` 比 `hover` 混合比例更高（0.25 vs 0.15），复现"按下态离背景更远一档"。
+- **`accentDisabled` = `accent.opacity(0.35)`**——对 accent 本身降低不透明度，与 Apple 系统控件的禁用惯例一致：保持色相、只降低存在感，而不像 pressed 那样改变明度方向。
+- **`accentSubtleBackground` = `accent.opacity(0.12)`**——同样走不透明度调制而非明度混合：不透明度会让底层背景透出来，在浅色与深色画布上都能读出"淡淡的强调色调"；若改用与 `accentHover` 一致的白混合调制，会在深色背景上变成一块突兀的发亮浅色色块。
+- **`selectionBackgroundEmphasis` 改指实心 `accent`**（此前借道 `accentDisabled`）——"强调选中"与"禁用"是两种不同语义，借道禁用色的淡出效果会造成语义倒挂。
+
+**显式定案：`secondaryAccent` / `neutralAccent` 两族保留品牌色阶，不随 accent 动态化。** Apple HIG 没有"第二强调色"或独立的中性强调色系统概念——只有单一的 `AccentColor`。`secondaryAccent` 服务于 `ButtonRoleStyleRole.secondary`（次要按钮角色），是 OhMyDesign 自有的一套品牌色阶，语义上独立于宿主 App 的强调色：即使宿主把 `AccentColor` 换成任意颜色，"次要按钮"仍应保持库自身统一的视觉身份。`neutralAccent` 同理保留 `ColorGrade.grey` 一系而非改指系统灰，是为了避免库内出现两套灰阶互不对应。`light-blue-5` / `grey-5` 等 colorset 本身已带 light/dark 双值，明暗自适应链路与系统色等价，只是取值来自 OhMyDesign 自己的调色板。
+
+### 状态色（`StatusColors`）
+
+5 组状态色（accent / success / attention / danger / done）× 4–5 个变体（fg / emphasis / muted / subtle[/border]）在 Apple HIG 里没有系统对应物——不存在"系统级的成功色/警示色语义色板"这类桥接目标，24 个 token 全部保持自有 colorset 取值，不改指系统色。
+
+**深色模式 subtle 变体 alpha 修复（视觉终审 #125）**：四个 `status-*-subtle`（accent / success / attention / danger）加 `status-done-subtle`，共 5 个 colorset 的深色 alpha 此前统一为 `0.067`——6.7% 的色叠在纯黑画布上（深色下 `surfaceCanvas` = `systemGroupedBackground` = 纯黑）几乎不可见，四个语义档位无法区分。对照组是 Badge 的 neutral 档用 `secondaryFill`（深色 α=0.32），早已验证在三种父容器两种外观下均可辨——五个 status subtle 统一改深色 alpha 为 **0.280**，同一量级，并加 `statusSubtleFillsAreDistinguishableInDark` 守卫（断言深色 α > 0.15、与画布不同色、四档两两可分）。
+
+## 决策记录
+
+- **2026-07-21 ~ 2026-07-23**（epic `coredesign-native-foundation`，Issue #116）——把地基从 Primer 换成 Apple HIG：删除 6 个 GitHub 专用组件与 Blossom trait / `CoreGradient`（Issue #117 / #118），重铸字体 / 圆角 / 控件尺寸 / 阴影 token（Issue #119），重铸语义色层与 accent 衍生族（Issue #120），组件调用点机械迁移（Issue #121），token 换值逐点复核（Issue #122），可访问性收尾（Issue #123），代码注释清理（Issue #124），视觉终审与修复（Issue #125），文档 / CI / 版本收尾（本文件，Issue #126）。发布 `0.3.0`。
+
+## 后续再锁定的注意事项
+
+与 Primer 版本锁定不同，Apple HIG 本身没有版本号可钉——但**系统 API 的具体渲染结果**会随 iOS / macOS 系统版本演进（字号、行高、系统色的实际 RGBA 值历史上发生过变化）。本仓库的部署目标固定为 iOS 26 / macOS 26，token 文件里的取值理由建立在这一代系统行为之上；未来若部署目标上调，应重新核对本文件记录的取值理由是否仍然成立，而不是假定系统 API 名称不变就等价于视觉效果不变。
