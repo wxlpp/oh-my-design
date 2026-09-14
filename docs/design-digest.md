@@ -78,7 +78,7 @@
 - 第 3 层大多数 token 直接指系统语义色（`label` / `separator` / `systemFill` /
   `systemGroupedBackground` 族），取值随**外观、增强对比度、平台**在运行期变；
   `accent` 是**墨色**（`inkPrimary`：iOS `label` / macOS `textColor`），不再取宿主
-  `AccentColor`；宿主要换色走 `View.coreAccent(_:)`，四个派生态自动跟随。
+  `AccentColor`；宿主要换色走 `View.coreAccent(_:on:)`，四个派生态自动跟随。
   ⚠️ 图表 / tag 走 `dataAccent`（系统蓝），刻意不跟随 accent——墨色的环会读成禁用。
   原型里只能快照某一档。
 - `SystemBackgroundColors` 那 6 个 token 在 **macOS 上全部同值**——分层背景只在 iOS 成立。
@@ -474,7 +474,7 @@
 - **`SegmentedControl`** *<Item: Hashable>: View* — GitHub-like density on an Apple-native control surface. 外观由环境注入的 `SegmentedControlStyle` 决定，默认 `GlassSegmentedControlStyle`。
 - **`GlassSegmentedControlStyle`** *: SegmentedControlStyle* — 默认外观：Liquid Glass 外壳。
 - **`PlainSegmentedControlStyle`** *: SegmentedControlStyle* — 纯色外壳外观（此前 `glass: false`）。
-- **`InkSegmentedControlStyle`** *: SegmentedControlStyle* — 墨色外观：选中段是实心 `coreAccent` 胶囊 + 反色文字（`contentOnAccent`）。
+- **`InkSegmentedControlStyle`** *: SegmentedControlStyle* — 墨色外观：选中段是实心 `coreAccent` 胶囊 + on-accent 文字（缺省按 accent 亮度 派生黑 / 白，`View.coreAccent(_:on:)` 的 `on` 参数可覆盖）。
 - *protocol* **`SegmentedControlStyle`** — `SegmentedControl` 视觉外观的扩展点，形态对齐 `BannerStyle` / Apple `ButtonStyle`。
 - *struct* **`SegmentedControlStyleConfiguration`** — 传给 `SegmentedControlStyle.makeBody` 的上下文：类型擦除的分段数据 + 选择回调。
 - *struct* **`SegmentedControlStyleConfiguration.Segment`** — 单个分段的类型擦除表示。
@@ -913,7 +913,7 @@
 | `.solid` | `ButtonStyle` | `SolidButtonStyle` | 构造主操作按钮样式。 |
 | `.glass` | `SegmentedControlStyle` | `GlassSegmentedControlStyle` | 默认外观：Liquid Glass 外壳。 |
 | `.plain` | `SegmentedControlStyle` | `PlainSegmentedControlStyle` | 纯色外壳外观。 |
-| `.ink` | `SegmentedControlStyle` | `InkSegmentedControlStyle` | 墨色外观：实心 accent 胶囊 + 反色文字。 |
+| `.ink` | `SegmentedControlStyle` | `InkSegmentedControlStyle` | 墨色外观：实心 accent 胶囊 + on-accent 文字（缺省按 accent 亮度派生黑 / 白， `View.coreAccent(_:on:)` 的 `on` 参数可覆盖）。 |
 | `.core` | `DisclosureGroupStyle` | `CoreDisclosureGroupStyle` | OhMyDesign 的默认 `DisclosureGroup` 外观：chevron 走 `.tint`，展开内容 作 leading 缩进（贴近原生，不加卡片）。 |
 | `.core` | `LabelStyle` | `CoreLabelStyle` | OhMyDesign 的默认 `Label` 外观：icon 走 `.tint`、title 走默认前景色。 |
 | `.core` | `LabeledContentStyle` | `CoreLabeledContentStyle` | OhMyDesign 的默认 `LabeledContent` 外观：label 走 `contentSecondary`， content 走 `contentPrimary`（描述列表惯例：字段名弱化、值强化）。 |

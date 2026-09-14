@@ -241,7 +241,8 @@ public extension SegmentedControlStyle where Self == PlainSegmentedControlStyle 
 }
 
 public extension SegmentedControlStyle where Self == InkSegmentedControlStyle {
-    /// 墨色外观：实心 accent 胶囊 + 反色文字。
+    /// 墨色外观：实心 accent 胶囊 + on-accent 文字（缺省按 accent 亮度派生黑 / 白，
+    /// `View.coreAccent(_:on:)` 的 `on` 参数可覆盖）。
     nonisolated static var ink: InkSegmentedControlStyle { InkSegmentedControlStyle() }
 }
 
