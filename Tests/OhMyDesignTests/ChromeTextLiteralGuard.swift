@@ -120,7 +120,7 @@ struct ChromeTextLiteralGuard {
                 "Something went wrong"
             )
             """, "Something went wrong"),
-            ("限定形态 `SwiftUI.Label(\"…\", systemImage:)`（仓内 `Tag.swift:219` 在用）", """
+            ("限定形态 `SwiftUI.Label(\"…\", systemImage:)`（仓内 `Tag.swift` 在用）", """
             import SwiftUI
             let l = SwiftUI.Label("verified", systemImage: "checkmark.seal.fill")
             """, "verified"),
