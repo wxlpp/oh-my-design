@@ -7,10 +7,305 @@
 > `v0.5.0`（2026-07-24，文本入参统一——含破坏性变更）、
 > `v0.6.0`（2026-07-25，Separator.Inset 改名 + ProgressBar 弃用 + SettingsRowMetrics 公开——含破坏性变更）、
 > `v0.7.0`（2026-07-26，`semi-mobile-components` epic 10 新组件 + ProgressIndicator 增强/spinning + 收口的取色修正——纯新增，无破坏性变更）、
-> `v0.8.0`（2026-08-16，`component-contract` epic：把 5 组压扁成 Bool 的 API 还原成语义类型——**含破坏性变更**）。
-> 本文件早期版本曾写「本库当前无外部版本 tag」——那在 `v0.1.0` 之前成立，之后未同步，已更正。
+> `v0.8.0`（2026-08-16，`component-contract` epic：把 5 组压扁成 Bool 的 API 还原成语义类型——**含破坏性变更**）、
+> `v0.9.0`（2026-09-01，形态 D2 扩展点落地（`#59` / `#60` / `#64` / `#65`）+ 守卫（`#48`）+
+> 可达类型登记表（`#72` / `#216`）：7 个已有 init / modifier 各加一个带默认值的形态参数
+> ——**对已应用调用点零影响，但对未应用的函数引用是破坏性变更**）。
+> `v0.10.0`（2026-09-09，仓库与模块改名为 OhMyDesign + 设计系统配色 / 样式回灌 +
+> `NetworkGraph` 布局扩展点（`#312`）+ 删除 `SurfaceKind.overlay`（`#238`）+ NFR-7 能耗策略表
+> 下沉（`#271`）+ 画廊场景化配色 + `coredesign-leftover-closeout` epic（`#220`）
+> ——**含破坏性变更，所有 `import` 都要改**；本版共 7 个章节，见下）。
+> ⚠️ 本清单**失真过两次**：早期版本写「本库当前无外部版本 tag」（`v0.1.0` 之前成立、之后未同步）；
+> 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
+> 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
-## 未发布（`coredesign-leftover-closeout` epic，Issue #220）
+## `0.10.0`（2026-09-09）——仓库与模块改名为 OhMyDesign
+
+**含破坏性变更，且是本版影响面最大的一条：所有 `import` 都要改。** 已随 `v0.10.0` 发布。
+
+| 旧 | 新 |
+|---|---|
+| 仓库 `github.com/wxlpp/CoreDesign` | `github.com/wxlpp/oh-my-design` |
+| 包名 `CoreDesign` | `OhMyDesign` |
+| product / module `CoreDesign` | `OhMyDesign` |
+| product / module `CoreDesignEffects` | `OhMyDesignEffects` |
+| product / module `CoreDesignCharts` | `OhMyDesignCharts` |
+| 预览宿主 `CoreDesignPreview` | `OhMyDesignPreview` |
+| bundle id 前缀 `com.coredesign` | `com.ohmydesign` |
+| `docs/component-registry.json` 的 `repo` 字段 `"coredesign"` | `"ohmydesign"` |
+| SwiftPM checkout 目录名 / 包 identity `CoreDesign` | `oh-my-design` |
+
+下游改法：
+
+```diff
+- .package(url: "https://github.com/wxlpp/CoreDesign", from: "0.9.0"),
++ .package(url: "https://github.com/wxlpp/oh-my-design", from: "0.10.0"),
+
+- import CoreDesign
++ import OhMyDesign
+```
+
+⚠️ **`Core` 前缀的公开符号一律未改**（`CoreElevation` / `CoreTypography` /
+`CoreControlMetrics` / `CoreMenuButton` / `.coreAccent(_:)` / `.core` 系列 control style
+……）。它们表达的是「核心 / 内建」语义，不是仓库名 ⇒ 改名不波及，下游这部分调用点零改动。
+
+⚠️ 后两行是**跨仓契约**，本仓 CI 只 checkout 本仓 ⇒ 对面仓（`wxlpp/oh-my-story` 的
+`CrossRepoRegistryGuard` 按 `repo` 值筛条目、按 checkout 目录名定位本仓登记表）在这条
+分叉上**零信号**，须人工去对面仓核一次。
+
+⚠️ 旧仓库名在 GitHub 上的重定向是**会过期的外部状态**（截至 2026-09-09 有效；任何人新建
+一个 `wxlpp/CoreDesign` 就会打断它），不要当长期契约。而 `import CoreDesign` **没有**任何
+兼容垫片，不改就编译不过。
+
+## `0.10.0`（2026-09-09）——设计系统配色 / 样式回灌
+
+**含破坏性变更。** 已随 `v0.10.0` 发布。
+
+### token 取值变更（不改签名，但下游观感会变）
+
+| token | 旧 | 新 |
+|---|---|---|
+| `Color.accent` | `Color.accentColor`（跟随宿主 `AccentColor`） | `Color.inkPrimary`（墨色；iOS `label` / macOS `textColor`）。宿主换色改走 `View.coreAccent(_:)` |
+| `accentHover` / `accentPressed` | `mix(with: .primary, by: 0.15 / 0.25)`（远离背景） | `mix(with: .surfaceBase, by: 0.18 / 0.30)`（**朝向背景**，方向反转） |
+| `accentDisabled` | `.opacity(0.35)` | `.opacity(0.22)` |
+| `accentSubtleBackground` | `.opacity(0.12)` | `.opacity(0.08)` |
+| `contentOnAccent` | `.white` | `.systemBackground`（随主题反转） |
+| `contentLink` | `.link`（系统蓝） | `.label`。⚠️ 本仓无链接下划线约定 ⇒ 链接与正文视觉上**不可区分**，是登记在案的缺口 |
+| `success` | `green5` | 系统绿 |
+| `info` | `blue5` | `.label` |
+| `secondaryAccent` 族 | `lightBlue5/6/7/2` | `grey7/8/9/2` |
+| 四个图表的 `tint` 默认实参 | `.accent` | `.dataAccent`（系统蓝） |
+
+⚠️ `contentOnEmphasis` / `contentInverse` / `contentOnDanger` **保持 `.white`**——
+它们压的是固定饱和色背景，一刀切会让深色下变成黑字压红 / 橙 / 绿底。
+⚠️ `warning` / `danger` 两族 8 个 token **不动**：它们被 `ButtonRoleStyleRole` 消费，
+基色换系统色而派生态留色阶会让同一按钮 rest 与 pressed 分属两个色相族。
+
+### 签名变更
+
+- **`tint` / `color` 参数改 `Color? = nil`**（`nil` 时回落环境 `\.coreAccent`）：
+  `SpinningModifier.init` 与其 **`public let tint` 存储属性**、`View.spinning(...)`、
+  `ProgressIndicator` 三个 init、`View.ping(...)`、`View.rise(...)`、`View.focusRing(...)`。
+  ⚠️ **读取存储属性的下游要改**：`SpinningModifier(...).tint` 现在是 `Color?`
+  （本仓 `scripts/downstream-probe` 已同步）。调用点因 optional 提升不受影响。
+- **`Card.init` 新增 `elevation: CoreElevation.Level = .small`**——与 `v0.9.0` 那 7 处同形：
+  对已应用调用点零影响，对未应用的函数引用是破坏性变更。⚠️ 默认值不是 `.none`：
+  `Card` 现在**默认带一层浅投影**，这是逐条确认过的单点越界（背离「静置内容不浮起」），
+  `elevation: .none` 一行退回。
+- **`ButtonRoleStyleRole` 新增** `resolvedColor(accent:isEnabled:isPressed:)` 与 `onColor`。
+  旧 `resolvedColor(isEnabled:isPressed:)` 与三个无参属性**保留**并委托新重载。
+
+### 行为变更
+
+- **`SearchField` 内部改用平台原生控件**（iOS `UISearchTextField` / macOS `NSSearchField`）。
+  公开 API `SearchField(text:placeholder:onSubmit:)` 源码兼容。
+  清除按钮与其 a11y 名改由系统提供 ⇒ 移除 internal `clearLabel(for:)` 与
+  `Localizable.strings` 的 `"Clear %@"`；`.focusRing` 撤除（系统自绘焦点态）。
+- **Sidebar 选中态扁平化**：去 `floatingGlass` + `borderSelected` 描边 + `coreShadow(.medium)`，
+  改为 `accentSubtleBackground` 填充。这是对 `#226`「保持现状」的改判，
+  依据是 `#226` 自己写下的重议条件（见 `docs/components/sidebar.md`）。
+- **`ListRow` 竖向 padding 12 → 8**（本处调用改 `CoreSpacing.sm`，
+  **未动共享的 `CoreControlMetrics.verticalPadding`**）。44pt 触控下限不变
+  ⇒ 单行行观感不变，只有多行 / 带副标题的行收紧。
+- **`SegmentedControl` 新增 `InkSegmentedControlStyle`** 与 `.glass` / `.plain` / `.ink`
+  三个静态入口。**默认仍是 `GlassSegmentedControlStyle`**，不变。
+
+### 新增
+
+`Color.inkPrimary`（第 2 层）、`Color.dataAccent` / `dataAccentSubtle`、
+`EnvironmentValues.coreAccent` + `View.coreAccent(_:)`。
+
+⚠️ **`coreAccent(_:)` 的主题色应为近单色（黑 / 白极性）。** `contentOnAccent` 取
+`systemBackground`，只在墨色 accent 上正确；传入**饱和色**时深色模式下前景会是近黑色
+压在该饱和色上。本版本**不提供** on-accent 的环境钩子（要修需加 `coreAccent(_:on:)`
+或按亮度派生 `onColor`，是独立的 API 决定）——已登记为 `#357`。
+
+⚠️ **`SearchField.onSubmit` 在 macOS 上的触发时机**：走 `NSSearchField` 后仅在**回车**
+触发，与 iOS 及旧的 SwiftUI `.onSubmit` 一致。⚠️ 实现上**不得**改用 `target` / `action`
+——`sendsWholeSearchString` 默认 `false` 会让它逐键触发，且清除按钮会再触发两次空串。
+
+---
+
+## `0.10.0`（2026-09-09）——Issue #312：`NetworkGraph` 的布局形态扩展点
+
+**含破坏性变更（与 `v0.9.0` 那 7 处同形）** —— `NetworkGraph.init` 新增
+`layout: NetworkGraphLayout = .force`。
+
+- **对已应用的调用点零影响**：参数带默认值，`NetworkGraph(nodes:edges:)` 照常编译。
+- **对未应用的函数引用是破坏性变更**：把 `NetworkGraph.init` 当函数值取（`let f = NetworkGraph.init`）
+  或写死 `(nodes:edges:title:tint:)` 的完整签名时，类型变了。
+- **新增 public 类型** `NetworkGraphLayout`（`.force` / `.circular` / `.grid` / `.layered`）。
+  ⚠️ **非 `@frozen`** ⇒ **将来加 case 也是破坏性变更**（下游穷举 `switch` 不写
+  `@unknown default` 就编译红），届时要在本文件另起一条。
+
+理由与判定过程见 `docs/components/network-graph.md` 与登记表 `NetworkGraph.notes`。
+
+## `0.10.0`（2026-09-09）——Issue #238：删除 `SurfaceKind.overlay`
+
+**含破坏性变更** —— `SurfaceKind` 删除 **1** 个 public case：`.overlay`。
+
+数字由 `scripts/api-surface-diff.sh` 得出（与 `#271` 那章同一格式）：
+
+```bash
+bash scripts/api-surface-diff.sh 42a872a
+#   - 删除  EnumElement    overlay
+#   EXIT=1
+```
+
+⚠️ **该脚本不在 CI 里**（`grep -rn api-surface .github` 零命中）⇒ 这个数是**人工跑的**，
+没有机器兜底。
+
+### 为什么删而不是改语义
+
+`.overlay` 的 doc 写着「**覆盖层表面，如菜单与 popover**」，而它自 `#220` 起走 `quaternaryFill`
+—— **iOS** 实测 α **0.078（浅）/ 0.180（深）**，即约 **92% 透明**，**且没有任何模糊**
+（⚠️ macOS 侧是 `#00000007` / `#FFFFFF07`，α ≈ .027、约 97% 透明——更淡，不是同一个数）。
+⚠️ 叠在纯色底上看着只是「淡一点的面」（`#225` 的合成对照预览正是这么漏掉它的），
+**叠在文字内容上会整片 ghosting**。⇒ **名字在邀请一种它做不到的用法。**
+
+⚠️ `.overlay` 与 `.panel` **今天就是全等的两个 case**（同 background / border / radius，
+`SurfaceModifier` 的三个 switch 逐条相同），而 `.panel` 的 doc 本就是「兼容别名」。
+⇒ 删掉误导的那个、把诚实的那个扶正，**取值零变化**。
+
+### ⚠️ 为什么是**硬删**而不是 `@available(*, deprecated, renamed:)`
+
+本仓两种先例都有：`ProgressBar` 是**弃用**（`v0.6.0`，source-compatible、带警告、
+「保留至下游迁移完成后移除」），`#271` 是**硬删** 31 条。本次选硬删，理由：
+
+**`#238` 的核心是「名字本身在邀请误用」。** 弃用别名会让 `.overlay` **继续留在补全列表里**
+（只是带删除线），而那正是要消除的东西 —— 一个仍能被打出来、doc 还写着「如菜单与 popover」
+的名字。⇒ 弃用能消除**破坏**，消除不了**邀请**。
+
+⚠️ **代价照录**：`renamed:` 弃用可以做到**零编译破坏 + 下游一键 fix-it**
+（终审实测：`@available(*, deprecated, renamed: "panel") static var overlay: SurfaceKind { .panel }`
+可编译，调用方只得 warning）。**我们放弃了这个代价更低的路径**，换取名字彻底消失。
+
+### 迁移
+
+`.surface(.overlay)` → `.surface(.panel)`，**渲染结果逐位相同**。
+
+⚠️ 本仓内 `SurfaceKind.overlay` **零调用点**（`App/` / `docs/component-registry.json` /
+`docs/components/*.md` 均无）。⚠️ **理由要写准**：`git grep '\.overlay\b'` 的其余命中
+**绝大多数是 SwiftUI 的 `View.overlay { }` / `.overlay(alignment:)` modifier 调用**
+（AvatarGroup / Badge / Skeleton / BorderModifier 等十几个文件），另有少数属于
+`SpinningPresentation` —— 初稿把它们**全部**说成 `SpinningPresentation`，那是错的。
+⇒ 删除对本仓零改动，只影响外部调用方。
+
+### 菜单 / popover 该用什么
+
+⚠️ **不在 `SurfaceKind` 的射程内** —— 走系统 `Menu` / `.popover`（iOS 26 原生玻璃）。
+
+⚠️ **初稿这里写的是「thick material 或 `floatingGlass`」，那是指向空处**：
+`thick material` **不是本库的任何 API 或 token**（指的是裸 SwiftUI `.thickMaterial`）；
+`floatingGlass` 在本仓的消费点全是 `Toast` / `FloatButton` / `Sidebar` 选中行 /
+`BottomInputBar` 这类**小面积浮动 chrome**，**没有任何菜单 / popover / 大面积文字层的
+用法、预览或判据** ⇒ 它能不能承载菜单，本仓**没有证据**。
+⇒ 与其把人指向一个未经验证的替代品，不如明说这件事**不由 `SurfaceKind` 承担**。
+
+⚠️ 顺带登记一条设计决定的变更：`docs/superpowers/specs/2026-05-14-native-primer-telegram-taste-design.md`
+里「popover 与 menu | floating | overlay」那一行，在 `.overlay` 删除后**在 `SurfaceKind` 里
+不再有对应**。
+
+## `0.10.0`（2026-09-09）——Issue #271：NFR-7 通用能耗策略表下沉
+
+**含破坏性变更** —— `OhMyDesignEffects` **删除 31 条** public 声明、新增 5 条；
+`OhMyDesign` 删除 **0** 条、新增 28 条。两侧数字由 `scripts/api-surface-diff.sh` 各跑一次得出：
+
+```bash
+MODULE=OhMyDesignEffects bash scripts/api-surface-diff.sh <base>   # 删除侧
+bash scripts/api-surface-diff.sh <base>                            # 新增侧（默认 MODULE=OhMyDesign）
+```
+
+⚠️ **必须跑两次**：脚本的 `MODULE` 默认是 `OhMyDesign`，只跑默认那次**看不到任何删除**
+——本次的删除全在 `OhMyDesignEffects`。
+
+### 主题：把「任何常驻渲染件都要」的那半张表移出动效层
+
+原裁决（`#252`）逐字：「别让只想要 shader 的消费者链上整个 `OhMyDesignEffects` product」。
+当时只下沉了两个**信号键**，而从信号推出「画不画 / 降不降帧」的策略表仍在 Effects
+⇒ `shipswift-shaders` 的 B-2 只有两条路：`import OhMyDesignEffects`（推翻下沉的全部理由），
+或自己把同一条映射再写一遍（本仓反复在堵的「两处各写一遍必然漂」）。
+
+| 删除（`OhMyDesignEffects` 的 **public** 声明） | 替代（`OhMyDesign`） |
+|---|---|
+| `EffectsEnergyState` | `EnergyState` |
+| `EffectsEnergyState.init(scenePhase:powerMode:)` | `EnergyState.init(scenePhase:isLowPower:)` |
+| `EffectsEnergyState.powerMode`（属性） | `EnergyState.isLowPower`（`Bool`） |
+| `EffectsEnergyState.scenePhase` | `EnergyState.scenePhase`（不变） |
+| `EffectsEnergyState.policy` | `EnergyState.policy` |
+| `EffectsEnergyState.resolve(injectedScenePhase:systemScenePhase:injectedPowerMode:)` | `EnergyState.resolve(injectedScenePhase:systemScenePhase:lowPowerModeOverride:)` |
+| `EffectsRenderPolicy`（含三个 case） | `RenderPolicy` |
+| `EffectsRenderPolicy.drawsAnything` / `.minimumInterval` | `RenderPolicy` 同名成员（下沉） |
+| `EffectsRenderPolicy.usesGlow` / `.particleScale` | **仍在 Effects**，改挂 `extension RenderPolicy` |
+| `EffectsPowerMode`（整个类型，含 `.standard` / `.lowPower`） | **无替代** —— 边界改用 `Bool` |
+| `EffectsPowerMode.current` | `ProcessInfo.processInfo.isLowPowerModeEnabled` |
+
+⚠️ **本表只列 public 声明**。`#271` 同时改名 / 移动了几个 **internal** 声明
+（`EffectsPresentation` → `MotionPresentation`（并**转为 public**）、其 `.none` → `.hidden`、
+`frozenIfPeriodIsDegenerate(_:)`、`presentation(reduceMotion:)`、`EffectsPowerMode.lifted(from:)`），
+**对下游不构成破坏** —— 它们在 `main` 上就取不到。列在这里只为改名时能查到去向。
+
+### 两处需要动手改的
+
+1. **`powerMode:` → `isLowPower:`**：`EffectsPowerMode` 已删除，边界改用 `Bool`。
+   读 `EffectsPowerMode.current` 的调用点改读 `ProcessInfo.processInfo.isLowPowerModeEnabled`；
+   环境键 `\.lowPowerModeOverride` 本身就是 `Bool?`，直接传即可。
+2. **`import`**：只用通用策略表的消费者现在**只需 `import OhMyDesign`**
+   —— 这正是本次改动的全部目的。
+
+### 为什么不留 typealias 兼容层
+
+最硬的理由不是「0.x 先例」，而是**模块外实际消费者为零**
+—— 唯一消费者是 `scripts/downstream-probe` 自己。留别名等于把两个名字都变成永久承诺。
+
+### 一并付出的代价
+
+`OhMyDesign` 新增 **3 条** Bool 豁免（`EnergyState.init#isLowPower` /
+`resolve#lowPowerModeOverride` / `presentation#reduceMotion`），棘轮基线 32 → 35。
+⚠️ **本仓惯例是每轮把棘轮压小，本次是反向抬 3**，逐条理由见 `docs/bool-exemptions.json`。
+
+---
+
+## `0.10.0`（2026-09-09）——画廊场景化配色 PR
+
+**纯新增 + 一处行为变更 + 一处已修正的观感回归。**
+
+### 行为变更（对下游编译零感知，但语义变了）
+
+`.spinning(..., presentation: .topBar)` **不再响应外层 `.tint(_:)`**，改走 `tint:` 参数。
+
+原本 `.topBar` 的顶条用 `.fill(.tint)` 从**环境**取色，而 `.overlay` / `.inline` 经
+`ProgressIndicator` 走内层显式 tint、本就吞掉外层 `.tint(_:)` ⇒ 同一 modifier 的三个形态
+取色行为分裂（`SpinningModifier` 自己的文档把这条当作「为什么自绘」的反对论据之一）。
+本次把三者统一到 `tint:` 参数通路。**下游若写过
+`.spinning(true, presentation: .topBar).tint(.orange)`，需改成
+`.spinning(true, presentation: .topBar, tint: .orange)`** —— 不报错，只是不再变橙。
+
+### 新增（对已应用调用点零影响）
+
+| 符号 | 变更 |
+|---|---|
+| `RingChart.init(_:goal:title:tint:colors:)` | 新增 `colors: [Color] = []`，逐环取色。⚠️ **正交性代价**：`colors` 非空时 `tint` 完全不生效 |
+| `ProgressIndicator.init(tint:)` / `init(text:tint:)` ×2 | 三个 init 各新增 `tint: Color = .accent` |
+| `View.spinning(_:text:presentation:tint:)` | 新增 `tint: Color = .accent` |
+| `SpinningModifier.tint` / `.init(..., tint:)` | 新增 `public let` 与 init 参数 |
+| `TopBarIndicator.tint` | 新增（internal 类型） |
+
+⚠️ **一处罕见的源码破坏**：带默认值的参数对**已应用**的调用点零影响，但对**未应用**的
+`.init` 引用是硬破坏。实测 `let f: () -> ProgressIndicator = ProgressIndicator.init`
+报 `cannot convert value of type '(Color) -> …' to specified type '() -> …'`。
+`scripts/downstream-probe` 全绿（`EXIT=0`），但它只覆盖已应用调用点，对这条无射程。
+
+### 已修正、未外泄的观感回归
+
+`RingChart` 轨道一度写成 `ringColor(at:).opacity(0.18)`，而 `ringColor` 在 `colors` 为空时
+已压过一次阶梯 ⇒ **二次相乘**，第 6 环轨道 α 从 0.18 掉到 0.018（10 倍）。
+终审 C-1 抓到，已改为取本环**基色**再压 0.18，`colors` 为空时逐字节等于旧值。
+判据 `RingChartColorsGuard.emptyColorsKeepsTrackOpacityConstant` 钉住这条。
+
+---
+
+## `0.10.0`（2026-09-09）——`coredesign-leftover-closeout` epic，Issue #220
 
 **对下游编译零感知，仅改观感。** 不删除、不重命名任何公开符号；三处「同名换值」。
 
@@ -43,13 +338,154 @@
 
 三档 RGB 几乎相同（`#787880` / `#767680` / `#747480`），**区分几乎全靠 α**。
 
-改后 distinct 数（**必带平台与外观限定**）：**iOS 深色 6 / iOS 浅色 5 / macOS 5**。
+改后 distinct 数（**必带平台与外观限定**）：**iOS 深色 6 / iOS 浅色 4 /
+macOS 身份层 5、取值层 4**。
+
+> ⚠️ **「iOS 浅色 5」是本行原写的数，已失真**：`#225`（`eb3efbd`）把 `.floating` 改成
+> **按外观分道**后，iOS 浅色的 `.floating` 落到 `systemBackground`、与 `.content` 同值
+> ⇒ distinct 由 5 变 4，判据 `SurfaceContrastTests.surfaceKindTokensAreFourDistinctInLight` 同次改成
+> `resolved.count == 4`（**引方法名不引行号**——行号会漂，见 `#337`）。
+> 而 `eb3efbd` **一个 docs 文件都没碰**（`git show --stat`）⇒ 这份活文档漏接了那次更正，
+> 直到 `#239` 才补上。
 
 > ⚠️ **三个数字不同量纲**：iOS 两个是 `Color.Resolved` **逐位**实测（模拟器上取值）；
-> macOS 那个是 **token 身份层**——AppKit 无 WindowServer 会话时颜色会塌成同一
-> fallback RGBA，故 macOS 侧刻意不解析、只比 `Color` 承载的 `NSColor` 是否同一常量。已知的相等项均为系统色族的物理下限，已钉成显式断言：iOS 浅色 `.canvas == .sidebar`；macOS 下 `.content` / `.card` / `.grouped` / `.canvasSubtle` / `.sidebar` 五路同落 `controlBackgroundColor`；全平台 `.overlay == .panel`（二者走同一 token，border 与 radius 也相同）。
+> **macOS 那个 5 是 token 身份层**的数——只比 `Color` 承载的 `NSColor` 是否同一常量。
+> ⚠️ **macOS 侧的取值层数字是 4，不是 5**（`#239` 实测）：`.canvas` 与 `.content` / `.card` /
+> `.grouped` / `.canvasSubtle` / `.sidebar` 五路**解析值逐位相同**，`windowBackgroundColor`
+> 与 `controlBackgroundColor` 在本代 macOS 上同值 ⇒ 取值层是「五路碰撞 + 三档 fill」= 4。
+> ⚠️ 本行原写「AppKit 无 WindowServer 会话时颜色会塌成同一 fallback RGBA，故 macOS 侧刻意
+> 不解析」——`#239` **两句都推翻**：macOS 侧现在有无条件的取值层判据（在 CI 上跑），
+> 而那个前提复现不出来（拒掉 windowserver 的 mach-lookup 后取值逐位不变；拒读
+> `SystemAppearance.bundle` 是硬崩不是塌缩）。逐条见 `docs/DESIGN-FOUNDATION.md`。
+> 已知的相等项均为系统色族的物理下限，已钉成显式断言：iOS 浅色 `.canvas == .sidebar`
+> **与 `.floating == .content`**（后者是 `#225` 分道的结果，正是让浅色 5 变 4 的那一对）；
+> macOS 下 `.content` / `.card` / `.grouped` / `.canvasSubtle` / `.sidebar` 五路同落
+> `controlBackgroundColor`；全平台 `.overlay == .panel`（二者走同一 token，border 与 radius 也相同）。
 
 > **本条只担保「解析值不同」，不担保「肉眼可辨」**。三档填充的 RGB 几乎相同、只靠 α 区分，逐位判据会平凡通过；观感结论由视觉复核（Issue #225）给出。
+
+## `0.9.0`（形态参数化：7 个 API 各加一个带默认值的形态参数，2026-09-01）
+
+**含破坏性变更 —— 但只对一种调用形态。** 删除 **7 条 public 声明**、新增 56 条。
+本节清单**不是凭 diff 印象写的**：由 `scripts/api-surface-diff.sh` 从 `v0.8.0` 与 `v0.9.0`
+各提取一次 public 表面后做集合差得出（比较键是 `(usr, declAttributes)`，见该脚本文件头
+「不要把比较器换回 `swift-api-digester -diagnose-sdk`」那段——它是**破坏性变更检测器**，
+新增声明一行都不报）。`v0.8.0..v0.9.0` 共 143 个提交。
+
+复现：
+
+```bash
+git worktree add /tmp/cd-v090 --detach v0.9.0
+cp <本仓>/scripts/api-surface-diff.sh /tmp/cd-v090/scripts/   # v0.9.0 的树上 scripts/ 已存在
+( cd /tmp/cd-v090 && bash scripts/api-surface-diff.sh v0.8.0 )
+git worktree remove --force /tmp/cd-v090                      # worktree 记录留在调用者仓库里，要清
+```
+
+（`api-surface-diff.sh` 是 `#245` 之后才加的，v0.9.0 的树上没有该文件，需拷进去。）
+
+⚠️ **本块只覆盖 `OhMyDesign` 一个模块**（脚本的 `MODULE` 默认值）。对 v0.9.0 是完整的
+——`v0.8.0` 与 `v0.9.0` 的 `Package.swift` **都只有一个 library product**，多 target 是
+v0.9.0 之后才拆的。⇒ **下一个版本照抄本块会静默只测三分之一**，多 product 之后须
+`MODULE=OhMyDesignEffects bash …` 之类对每个 module 各跑一次。
+
+### 本次无同名换值 / 行为变更
+
+⚠️ **上面那个脚本对这一类结构性失明**：它比的是 `(usr, declAttributes)`，
+符号名与签名不变的取值 / 观感变更**一条都不报**——与本文件后面警告的
+`downstream-probe` 盲区同型。所以「跑了脚本」不等于「全查过」。以下是另行查证的结果：
+
+- `git diff --name-only v0.8.0 v0.9.0 -- Sources/` 共 **7 个文件**：`AvatarGroup` /
+  `Sidebar` / `Steps` / `Timeline` / `Toast` 五个组件 + `SpinningModifier` +
+  `en.lproj/Localizable.stringsdict`；**`Tokens/` 与 `Colors/` 零改动**。
+- `Timeline.nodeColumnWidth` **取值**仍是 24（声明多了 `nonisolated`，值未动）；
+  `AvatarGroup` 的 `overlapOffset`（−6 / −8 / −10）与 `avatarSize`（20 / 24 / 32 / 40）
+  两张 ramp 表逐行相同。
+- 20 个新 enum case **全部归属那 6 个新枚举**，既有 public enum 一个 case 都没加
+  ⇒ `0.8.0` 节里 `SurfaceKind.grouped` 那条「加 case 打断下游穷尽 switch」的坑本次不适用。
+
+### 主题：把「只有一种长相」的组件参数化成多形态
+
+7 处删除同源——都是给已有的 init / modifier **插入一个带默认值的形态参数**，
+并配套新增一个语义枚举：
+
+| v0.8.0 | v0.9.0 | 新增的形态枚举 |
+|---|---|---|
+| `AvatarGroup.init(max:avatars:)` | `init(max:layout:avatars:)` | `AvatarGroupLayout`（`overlapped` / `spaced` / `grid` / `countOnly`） |
+| `Timeline.init(items:)` | `init(items:layout:)` | `TimelineLayout`（`vertical` / `alternate` / `horizontal` / `grouped`） |
+| `Steps.init(items:currentIndex:axis:indicatorStyle:)` | `…:presentation:)` | `StepsPresentation`（`steps` / `segmentedBar` / `navigation` / `text`） |
+| `SidebarUtilityRow.init(systemImage:title:trailingSystemImage:action:)` | `…:trailingSystemImage:presentation:action:` | `SidebarUtilityRowPresentation`（`iconLeading` / `textOnly`） |
+| `SpinningModifier.init(isActive:text:)` | `init(isActive:text:presentation:)` | `SpinningPresentation`（`overlay` / `topBar` / `inline`） |
+| `View.spinning(_:text:)` | `spinning(_:text:presentation:)` | 同上 |
+| `View.toastHost(edge:)` | `toastHost(edge:presentation:)` | `ToastPresentation`（`floatingCapsule` / `fullWidthBanner` / `centeredHUD`） |
+
+### 迁移：绝大多数调用方**不需要改任何东西**
+
+新参数都带默认值，且默认值就是 v0.8.0 的行为 ⇒ **已应用**的调用点逐字不动即可编译。
+
+⚠️ **唯一会红的是「未应用」的函数引用**（把 init / 方法当一等函数值传递）。实测：
+
+```swift
+// v0.8.0 上通过，v0.9.0 上硬红
+let items: [TimelineItem] = []
+let make: ([TimelineItem]) -> Timeline = Timeline.init
+_ = make(items)
+```
+
+报错形态：
+
+```
+cannot convert value of type '([TimelineItem], TimelineLayout) -> Timeline'
+                 to specified type '([TimelineItem]) -> Timeline'
+```
+
+⚠️ **前缀随调用方的隔离语境变，别拿上面这行逐字 grep 自己的报错**（三种语境实测）：
+
+| 调用方语境 | 报错里的类型 |
+|---|---|
+| nonisolated | `([TimelineItem], TimelineLayout) -> Timeline` |
+| `@MainActor` | `@MainActor ([TimelineItem], TimelineLayout) -> Timeline` |
+
+**迁移写法**：改成显式闭包，把默认值补齐。
+
+```swift
+let make: ([TimelineItem]) -> Timeline = { Timeline(items: $0) }
+```
+
+⚠️ **两处参数是插在中间而不是追加的**（`init(max:` **`layout:`** `avatars:)`、
+`…trailingSystemImage:` **`presentation:`** `action:`），对已应用的调用点仍无影响。
+⚠️ 理由**不是**「Swift 按标签匹配」——**那是假的**，实测
+`S(currentIndex: 0, items: [])` 报 `argument 'items' must precede argument 'currentIndex'`。
+真实理由是：**插入保持了原有标签之间的相对顺序**，且新参数有默认值可省略。
+（照「按标签匹配」推会得出「签名随便重排也安全」这个相反结论，故此处写明。）
+
+⚠️ 未应用引用的破坏面里，现实中真会被伤到的是 `Timeline.init` 与
+`SidebarUtilityRow.init`；`AvatarGroup.init` 的 `avatars` 是
+`@ViewBuilder … @escaping () -> Avatars` 且类型泛型于 `Avatars`，几乎不会有人对它做未应用引用。
+
+### 新增（非破坏）
+
+| 构成 | 数 |
+|---|---|
+| 6 个语义枚举（`TypeNominal`） | 6 |
+| 它们的 enum case | 20 |
+| `hashValue` / `hash(into:)` / `__derived_enum_equals`（各 6） | 18 |
+| `AllCases` / `allCases`（只有 `ToastPresentation` 与 `SidebarUtilityRowPresentation` 是 `CaseIterable`） | 4 |
+| 新签名的 init | 5 |
+| 新签名的 modifier（`spinning` / `toastHost`） | 2 |
+| **`SpinningModifier.presentation`** | **1** |
+| 合计 | **56** |
+
+⚠️ 最后一条容易漏：`SpinningModifier` 是六个组件里**唯一**把形态参数也暴露成
+`public let` 的，其余五个的对应存储属性是 internal、根本不进 dump。
+⇒ 下游多了一个可读的公开属性。
+
+> **为什么是一次 minor 而不是 1.0.0**：本库 0.x 阶段以 minor 携带破坏性变更，
+> `v0.3.0`（6 个组件删除 + `Blossom` trait 删除 + 9 个字体 token 改名，见下方该节自述）、
+> `v0.5.0` / `v0.6.0` / `v0.8.0` 已有**四次**先例。
+> ⚠️ `0.8.0` 节写的「已有两次先例」同样少算了 `0.3.0`；头部 tag 清单里 `v0.3.0`
+> 也没有「含破坏性变更」标记，与该节自述冲突——**既存不一致，本次未收**。
+
+---
 
 ## `0.8.0`（`component-contract` epic 试点改造，2026-08-16）
 
@@ -97,7 +533,7 @@ func surface(_ kind: SurfaceKind) -> some View
 **在新 API 下没有等价替代**。之所以只补 `.grouped` 一个 case 而不铺满 9×2 的积空间：
 **本仓 + 跨仓（StoryUI）实测 7 处产品调用点 100% 落在 `.content` 上**——按用到的点建模、
 不按可能的组合建模。（口径：**产品代码**的显式调用点，不含测试与 `#Preview`；
-其中 CoreDesign 侧 1 处、StoryUI 侧 6 处。）
+其中 OhMyDesign 侧 1 处、StoryUI 侧 6 处。）
 若你在用其他 kind 的无描边组合，请提 issue——那会是一个新的容器角色，需要单独命名。
 
 #### B2. `Card(bordered:)` → `Card(kind:)`
@@ -230,7 +666,7 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
 }
 ```
 
-`SurfaceKind` 是 public、非 `@frozen` 的 enum，且 CoreDesign 以 SwiftPM 源码分发、
+`SurfaceKind` 是 public、非 `@frozen` 的 enum，且 OhMyDesign 以 SwiftPM 源码分发、
 **不开 library evolution** ⇒ **下游若对它做穷尽 `switch`，加一个 case 就编译不过**
 （`switch must be exhaustive`）。
 
@@ -315,8 +751,8 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
 - `PinCode` 隐藏承接输入的 `TextField` 补 `.fixedSize()`——此前在某些外层宽度大于格子行实际宽度的场景下（如宿主画廊详情页）会撑满可用宽度，导致其 0.01 透明度的文字内容露出到格子行左侧边界之外（Phase 3 视觉复查发现，截图可见「重影」，非本次改动引入，已一并修复）。
 - 各组件 `docs/components/*.md` 结尾「运行 `run-snapshots.sh` 生成于 `docs/snapshots`」的样板措辞统一订正——与 `phase0-decisions.md` §3 的实际生成路径（默认模式依赖 `App/Sources/Previews.swift` 注册；组件自带 `#Preview` 走 `KEEP_LIBRARY_SNAPSHOTS=1` 到本地 scratch 目录）对齐（本 PR 共订正 32 个 `docs/components/*.md`，含既有组件）。
 - `ToastHostTests` 时序 flaky 修复：`.serialized` trait + buffer 从 0.3–0.5s 放宽到 0.8–1.2s（`Suite` 与整套测试并跑时的调度抖动会吃掉窄余量）。
-- Steps/Timeline 连线宽度对 phase0-decisions「hairline」的有意偏离（`Timeline` 取 `CoreBorderWidth.thin`、`Steps` 横向连线取 `.thick`）在各自源文件 doc comment 中已有记录，本次未额外改动。
-- `%lld steps` 复数摘要键（Phase 0 预登记）裁决**不消费**——已在 `Steps.swift` doc comment 中记录理由（每步已有「N of M」位置播报，容器层再插入总览摘要需要重新设计 accessibility 树分层，收益与改动面不成比例）；键保留在 `.stringsdict` 供未来复用。
+- Steps/Timeline 连线宽度对 phase0-decisions「hairline」的有意偏离（`Timeline` 取 `CoreBorderWidth.thin`、`Steps` 横向连线取 `.thick`）本次未额外改动。
+- `%lld steps` 复数摘要键（Phase 0 预登记）裁决**不消费**——理由：每步已有「N of M」位置播报，容器层再插入总览摘要需要重新设计 accessibility 树分层，收益与改动面不成比例；键保留在 `.stringsdict` 供未来复用。
 
 ## `0.6.0`（收尾攒项 2/5/8，2026-07-25）
 
@@ -336,7 +772,7 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
 
 ### 新增（非破坏）
 
-- `SettingsRowMetrics` 从 `internal` 改为 **`public`**——让调用方把自定义行/内容对齐到 `SettingsRow` 的网格（图标列宽 `iconSquareSize`、分隔线 inset `iconAlignedDividerInset` / `textAlignedDividerInset` 等），不必抄魔数（SC#10「不写 CoreDesign 之外样式代码」对自定义行的支撑）。
+- `SettingsRowMetrics` 从 `internal` 改为 **`public`**——让调用方把自定义行/内容对齐到 `SettingsRow` 的网格（图标列宽 `iconSquareSize`、分隔线 inset `iconAlignedDividerInset` / `textAlignedDividerInset` 等），不必抄魔数（SC#10「不写 OhMyDesign 之外样式代码」对自定义行的支撑）。
 
 ## `0.5.0`（文本入参统一，2026-07-24）
 
@@ -388,7 +824,7 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
 
 ### 改名的 token
 
-`CoreTypography.Token` 9 个改名档位，映射逐字沿用 `.claude/epics/coredesign-native-foundation/119.md` 定案（不做二次判断）：
+`CoreTypography.Token` 9 个改名档位，映射逐字沿用 `.claude/epics/archived/coredesign-native-foundation/119.md` 定案（不做二次判断）：
 
 | 旧名 | 新名 |
 |---|---|
@@ -460,7 +896,7 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
 
 | Token | 旧实现 | 新实现 |
 |---|---|---|
-| `Color.accent` | `Color.brand5`（CoreDesign 固定品牌蓝） | `Color.accentColor`（跟随宿主 App 的 `AccentColor` 资源） |
+| `Color.accent` | `Color.brand5`（OhMyDesign 固定品牌蓝） | `Color.accentColor`（跟随宿主 App 的 `AccentColor` 资源） |
 | `Color.accentHover` | `Color.brand6`（固定色阶） | `accent.mix(with: .primary, by: 0.15)`（对宿主 accent 动态调制） |
 | `Color.accentPressed` | `Color.brand7`（固定色阶） | `accent.mix(with: .primary, by: 0.25)` |
 | `Color.accentDisabled` | `Color.brand2`（固定色阶） | `accent.opacity(0.35)` |
@@ -507,7 +943,7 @@ Phase 1 视觉终审（#125）与 #136 查明 `.surface(.content)` → `surfaceC
 | 删除 | 替代 |
 |---|---|
 | `EmptyState`（组件） | SwiftUI `ContentUnavailableView` / UIKit `UIContentUnavailableView`（见 [components/empty-state.md](components/empty-state.md)） |
-| `KeyboardReadable` 协议及其默认实现 | 无 CoreDesign 替代；键盘高度用 `keyboardLayoutGuide` 或自建 publisher |
+| `KeyboardReadable` 协议及其默认实现 | 无 OhMyDesign 替代；键盘高度用 `keyboardLayoutGuide` 或自建 publisher |
 | `View.dismissKeyboardOnTap(enabled:onKeyboardDismissed:)` | 同上 |
 | `HideKeyboardOnTapGesture` | 同上 |
 | `View.resignFirstResponder()` / `View.becomeFirstResponder()` | 直接用 UIKit/AppKit 的 first responder API |
@@ -521,4 +957,4 @@ Phase 1 视觉终审（#125）与 #136 查明 `.surface(.content)` → `surfaceC
 |---|---|
 | `bordered(style:width:)` → `bordered(style:width:shape:)` | 新增 `shape` 参数（默认 `Rectangle()`）；同时描边从 `stroke` 改 `strokeBorder`，边框向内收 `width/2` |
 
-> **零引用验证**：上述删除的符号已在真实下游 `any-writer` 实测零引用（排除其 vendored CoreDesign 副本）。唯一无法用 grep 覆盖的是 `anyWriterFirstResponderNotification` 的**字符串键**——已单独在上表标注。
+> **零引用验证**：上述删除的符号已在真实下游 `any-writer` 实测零引用（排除其 vendored OhMyDesign 副本）。唯一无法用 grep 覆盖的是 `anyWriterFirstResponderNotification` 的**字符串键**——已单独在上表标注。

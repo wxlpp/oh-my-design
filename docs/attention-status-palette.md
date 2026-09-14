@@ -1,0 +1,3 @@
+# 警示状态实色
+
+按App作者提供的GitHub移动端参考，亮色statusAttentionEmphasis改为金黄#D1A72D。暗色维持原实色。文字前景statusAttentionForeground仍用于白底警示正文，保持可读性；实色标签搭配contentPrimary。StateLabel的draft/inProgress同步使用该前景。App的待审阅与需修改共用这组语义，禁止继续使用yellow3原子色或将棕色前景透明化充当状态底色。

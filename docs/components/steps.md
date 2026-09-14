@@ -54,7 +54,7 @@
 
 ## 预览 / Preview
 
-运行 `scripts/run-snapshots.sh`（默认模式）后，预览图落地 `docs/snapshots/`——但前提是该组件已在 `App/Sources/Previews.swift` 注册（导出文件名形如 `CoreDesignPreview_<组件名>.png`）；组件源码内自带的 `#Preview` 仅用于开发期本地预览，或经 `KEEP_LIBRARY_SNAPSHOTS=1 scripts/run-snapshots.sh` 导出到本地 scratch 目录做逐组件视觉核对（不写入 docs/snapshots，见 `.claude/epics/semi-mobile-components/phase0-decisions.md` §3）。
+运行 `scripts/run-snapshots.sh`（默认模式）后，预览图落地 `docs/snapshots/`——但前提是该组件已在 `App/Sources/Previews.swift` 注册（导出文件名形如 `OhMyDesignPreview_<组件名>.png`）；组件源码内自带的 `#Preview` 仅用于开发期本地预览，或经 `KEEP_LIBRARY_SNAPSHOTS=1 scripts/run-snapshots.sh` 导出到本地 scratch 目录做逐组件视觉核对（不写入 docs/snapshots，见 `.claude/epics/semi-mobile-components/phase0-decisions.md` §3）。
 
 ## 使用示例 / Usage
 
@@ -97,7 +97,7 @@ Steps(items: items, currentIndex: 1, axis: .vertical, presentation: .navigation)
 // 纯文本：只消费 items.count 与 currentIndex，逐条标题不渲染
 Steps(items: items, currentIndex: 1, presentation: .text)   // 「2 of 4」
 
-// 导航式同样响应 .tint —— 当前块底色走 .tint，不写死 Color.accentColor
+// 导航式同样响应 .tint —— 当前块底色走 .tint，不写死 Color.accent
 Steps(items: items, currentIndex: 1, presentation: .navigation)
     .tint(.orange)
 ```
@@ -137,7 +137,7 @@ VoiceOver 读法不该变。
 ## 视觉 Token
 
 - 完成态 / 当前态指示器强调色：`.tint`（`TintShapeStyle`，响应环境 `.tint(_:)`，
-  未显式设置时解析为宿主 App 的 `Color.accentColor`）
+  未显式设置时解析为 SwiftUI 的默认 tint）
 - 错误态（`StepItem.isError == true`）：**忽略**进行态，固定走
   `StatusColors`（`Color.statusDangerEmphasis` 填充 / `Color.contentOnDanger` 前景 /
   `Color.statusDangerForeground` 标题文字），对应 `StatusLevel.danger` 映射

@@ -7,7 +7,7 @@
 ## 为什么必须做这件事
 
 **Shadertoy 的默认许可是 CC BY-NC-SA 3.0——完全禁止商用**，除非 shader 源码
-开头有注释声明了别的许可。CoreDesign 以 MIT 分发，**与 CC BY-NC-SA 不兼容**
+开头有注释声明了别的许可。OhMyDesign 以 MIT 分发，**与 CC BY-NC-SA 不兼容**
 （既禁商用，又有传染性 share-alike）。
 
 ### ✅ 官方条款原文（**#280 补齐；本节的地基条款自此有一手内容**）
@@ -118,7 +118,7 @@ clean-room 重写这条出口上。」
 | `已追到兼容许可 · Apache-2.0` | 追到原始实现，许可为 Apache-2.0 | 可移植；**须转载 LICENSE + `NOTICE`，并标注修改**（§4(a)(b)(d)） |
 | `自研实现` | 属**效果类别**（非某人的具体设计），按**下方**《第三条出路》的**六轴**差异化自研 | 五轴之外**必过第六条轴（函数体）**；参数面须从 CoreDesign 概念推出。⚠️ 上一版这里写「**上方**…**五轴**」——方位与轴数两处都错（第 5 轮终审 I2），而这是本档位的**操作性定义**，只读裁定方法一节的人拿到的就是被证伪的旧标准 |
 | `待追溯` | 尚未用上面《方法论教训》的方法追过；⚠️ **或已追到具名上游、但该上游没有任何许可声明**（第 6 轮终审 S2 补的限定：`NeuroNoise` / `Water` 就是这一形态——追是追到了，卡在无法正向裁定许可，**照字面读会白白重追一轮**）| **不得据现状落地**；先追一轮。⚠️ 若属后一形态，"追一轮"的内容不是再找上游，而是**取得许可或换实现**（见《#280 的落地前核验》⑥-B 给 `Water` 列的两个出口）|
-| `不落地` | 追过且追不到兼容来源，也无具名参考实现 | 不进 `CoreDesignShaders` |
+| `不落地` | 追过且追不到兼容来源，也无具名参考实现 | 不进 `OhMyDesignShaders` |
 
 ⚠️ **`Apache-2.0` 是第 1 版遗漏的档位**（第 1 版只列 MIT / BSD / PD / CC0）。它与 MIT
 分发兼容，但**义务更多**：保留 LICENSE、保留 NOTICE、标注修改。
@@ -233,10 +233,10 @@ clean-room 重写这条出口上。」
 
 ### 差异化的五个轴（每一条都是本仓/PRD 既有约束，不是为此临时发明的；⚠️ 其中「颜色」轴的**机器判尚未存在**，见该行注）
 
-| 轴 | 上游（paper / ShaderKit / Shadertoy） | CoreDesign 自研 |
+| 轴 | 上游（paper / ShaderKit / Shadertoy） | OhMyDesign 自研 |
 |---|---|---|
 | **颜色** | shader 内部调色板 / uniform 传一组固定色 | **只吃 `.tint` 与第 3/4 层语义 token**（FR-8 禁色相字面量）。⚠️ **`EffectsColorLiteralGuard` 目前只存在于 PRD/epic 文档，本仓无实现**——它**将由** #246 / PR #265（`A0-3` 守卫建设，尚未合入 `epic/shipswift-foundation`）**交付后**机器判；在那之前 FR-8 是**人工评审判**，不得当作已有的机器闸 |
-| **参数集** | `u_stepsPerColor` / `u_colorGlow` / `u_distortion` 等上游自创的调参面 | 按 CoreDesign 概念表达：`controlSize`、`CoreSpacing` 尺度、语义枚举（Bool 走 J-1 禁令） |
+| **参数集** | `u_stepsPerColor` / `u_colorGlow` / `u_distortion` 等上游自创的调参面 | 按 OhMyDesign 概念表达：`controlSize`、`CoreSpacing` 尺度、语义枚举（Bool 走 J-1 禁令） |
 | **API 形态** | `.colorEffect(ShaderLibrary.xxx(...))` 裸暴露 | 裸名 `public struct: View` + `#Preview`，与 `Badge` / `Card` 同构 |
 | **动效契约** | 无 | Reduce Motion / Reduce Transparency / 后台 / 低电量**四条降级路径从第一行就在** |
 | **代码风格** | 英文注释、无 `self.` | 中英混排注释、显式 `self.`、`// MARK: -` |
@@ -422,7 +422,7 @@ BigWings 的那些**最有辨识度**的部分本仓**一个都没有**——3×
 
 #### ⚠️⚠️ 决定性的旁证：**接触与复制已由本仓自己的注释确立**
 
-`CoreDesignShaders.metal` 文件头逐字记着，`hash21` 的**第一版**是
+`OhMyDesignShaders.metal` 文件头逐字记着，`hash21` 的**第一版**是
 `fract(p * float2(123.34, 456.21)); p += dot(p, p + 45.32)`。
 **那正是上面这份 CC BY-NC-SA 文件里 `Hash21` 的常量，逐字符一致。**
 
@@ -456,9 +456,9 @@ hash 层后来被换掉了（现为 Wang/Reed 构造，见表 A），**但星场
 
 | 落点 | 处置 |
 |---|---|
-| `Sources/CoreDesignShaders/Starfield.swift` | 整份删除 |
-| `CoreDesignShaders.metal` 的 `// MARK: - Starfield` 段 | 整段删除（含 `coreDesignStarfield`） |
-| `CoreDesignShaders.metal` 的 `hash21` 溢出说明 | 改述——原文拿 `Starfield.Density.dense` 当算例，改为不依赖已撤件的表述 |
+| `Sources/OhMyDesignShaders/Starfield.swift` | 整份删除 |
+| `OhMyDesignShaders.metal` 的 `// MARK: - Starfield` 段 | 整段删除（含 `coreDesignStarfield`） |
+| `OhMyDesignShaders.metal` 的 `hash21` 溢出说明 | 改述——原文拿 `Starfield.Density.dense` 当算例，改为不依赖已撤件的表述 |
 | `DotGrid.swift` 头注释的「同 `Starfield`」 | 去掉交叉引用 |
 | `PlasmaTests.swift` | 入口清单去 `"coreDesignStarfield"`、测试名「七个入口」→「六个」、删 `Starfield.Density` 单调性断言、头注释的 bundle 计数 18 → 17 |
 | `RenderProofTests.swift` | `Background` 去 `.starfield`、测试名「六个背景」→「五个」、全图扫描那条设计说明改为不依赖已撤件 |
@@ -495,8 +495,8 @@ hash 层后来被换掉了（现为 Wang/Reed 构造，见表 A），**但星场
 
 #### 撤回范围与代价（`Starfield`）
 
-**删除**：`Sources/CoreDesignShaders/Starfield.swift`（整份）·
-`CoreDesignShaders.metal` 的 `// MARK: - Starfield` 段（`coreDesignStarfield`）。
+**删除**：`Sources/OhMyDesignShaders/Starfield.swift`（整份）·
+`OhMyDesignShaders.metal` 的 `// MARK: - Starfield` 段（`coreDesignStarfield`）。
 ⚠️ `cd::hash21` / `cd::hash22` / `cd::wangHash` **留下**——`hash22` 目前只有
 `Starfield` 一个调用方，但 `hash21` 经 `valueNoise` → `fbm` 被另外三件使用；
 且这三个原语自身已 `已追到兼容许可`，不随本件走。
@@ -509,7 +509,7 @@ hash 层后来被换掉了（现为 Wang/Reed 构造，见表 A），**但星场
 两表 · `ACKNOWLEDGEMENTS.md` · `epic.md` 的「已落地的 8 个」。
 
 **代价**：⚠️ **公开 API 破坏 = 0**——`origin/main` 的 `Sources/` 下只有 `CoreDesign`
-一个目录，`CoreDesignShaders` 从未随任何 tag 发布 ⇒ 撤的是**尚未发布**的 API；
+一个目录，`OhMyDesignShaders` 从未随任何 tag 发布 ⇒ 撤的是**尚未发布**的 API；
 仓内下游引用 = 0（`App/project.yml` 只 link product，`downstream-probe` 有意未接）。
 
 #### ⚠️ 唯一的替代方案（如实列出，不替 owner 拍板）
@@ -646,9 +646,9 @@ merge 前评审复核」**，且「分档有争议时一律按强档处理」。
 
 | 文件 | 量 | 内容 |
 |---|---|---|
-| `Sources/CoreDesignShaders/RefractiveGlass.swift` | 145 行（整份）| `RefractiveGlassModifier` · `public enum RefractiveGlassStrength` · `public func View.refractiveGlass(corner:strength:rim:isEnabled:)` · `#Preview` |
-| `Sources/CoreDesignShaders/GlassSymbol.swift` | 107 行（整份）| `public struct GlassSymbol`（**唯一消费者**）|
-| `Sources/CoreDesignShaders/CoreDesignShaders.metal` | 第 338–447 行（110 行）| `cd::roundedBoxSDF` + `coreDesignRefractiveGlass`。⚠️ `cd::edgeWidth` **留下**——`DotGrid` / `LiquidChrome` 还在用；`cd::roundedBoxSDF` 只有这一个调用方，随之删 |
+| `Sources/OhMyDesignShaders/RefractiveGlass.swift` | 145 行（整份）| `RefractiveGlassModifier` · `public enum RefractiveGlassStrength` · `public func View.refractiveGlass(corner:strength:rim:isEnabled:)` · `#Preview` |
+| `Sources/OhMyDesignShaders/GlassSymbol.swift` | 107 行（整份）| `public struct GlassSymbol`（**唯一消费者**）|
+| `Sources/OhMyDesignShaders/OhMyDesignShaders.metal` | 第 338–447 行（110 行）| `cd::roundedBoxSDF` + `coreDesignRefractiveGlass`。⚠️ `cd::edgeWidth` **留下**——`DotGrid` / `LiquidChrome` 还在用；`cd::roundedBoxSDF` 只有这一个调用方，随之删 |
 
 **改测试**：
 
@@ -666,11 +666,11 @@ merge 前评审复核」**，且「分档有争议时一律按强档处理」。
 **代价评估**：
 
 - ✅ **公开 API 破坏 = 0**：`origin/main` 的 `Sources/` 下**只有 `CoreDesign` 一个目录**
-  （`git ls-tree -d --name-only origin/main Sources/`），`CoreDesignShaders` 从未随任何
+  （`git ls-tree -d --name-only origin/main Sources/`），`OhMyDesignShaders` 从未随任何
   tag 发布过 ⇒ 撤的是**尚未发布**的 API。
-- ✅ **仓内下游引用 = 0**：`App/project.yml` 只 link `product: CoreDesignShaders`，
-  **不引用任何被撤符号**；`scripts/downstream-probe` **有意未接** `CoreDesignShaders`。
-- ❌ 落地件 **8 → 6**；`CoreDesignShaders` 失去唯一的 `layerEffect` 类效果
+- ✅ **仓内下游引用 = 0**：`App/project.yml` 只 link `product: OhMyDesignShaders`，
+  **不引用任何被撤符号**；`scripts/downstream-probe` **有意未接** `OhMyDesignShaders`。
+- ❌ 落地件 **8 → 6**；`OhMyDesignShaders` 失去唯一的 `layerEffect` 类效果
   （其余 6 个全是 `colorEffect` 背景层）⇒ `SwiftUI::Layer` 通路在本仓**零覆盖**，
   连带失去上面那三条预乘正确性的回归证据。
 - ❌ 约 **350 行**源码 + 测试删除。
@@ -778,7 +778,7 @@ u_color1, u_color2, u_color3,      // shader 自带调色板
 u_iterations, u_warpStrength
 ```
 
-**CoreDesign 自研的形态**（调参面是「设计系统概念」）：
+**OhMyDesign 自研的形态**（调参面是「设计系统概念」）：
 
 ```swift
 /// 程序化等离子背景。
@@ -1708,7 +1708,7 @@ LiquidMetal）在本表里无一可落地，全部是 `待追溯`** ⇒ 分母�
 3. **逐常量 grep 必须前置** —— 它比五轴便宜一个数量级，六次命中全部来自这一步（#261 四次 + #280 两次），
    而第 1 版把它放在最后。
 
-⚠️ **本表与 #261 的引用关系是双向的**：#261 共 **5 处**引用本文件（`CoreDesignShaders.metal` ×3、`Plasma.swift` ×1、`Starfield.swift` ×1，即 **1 个 metal + 2 个 Swift 文件**）
+⚠️ **本表与 #261 的引用关系是双向的**：#261 共 **5 处**引用本文件（`OhMyDesignShaders.metal` ×3、`Plasma.swift` ×1、`Starfield.swift` ×1，即 **1 个 metal + 2 个 Swift 文件**）
 （⚠️ 上一版写「三个 Swift 文件共四处」，两个数都错——而本表的立身之本正是「逐常量 grep 比五轴便宜一个数量级」，这一段却是没 grep 就写下的，第 2 轮终审 I-b），而本文件的《共享原语的逐项出处》是 #261 写出来的。⇒ **#261 不得先于本 PR 合入**
 （该前置已写在 #261 的描述顶部）。
 
@@ -1825,7 +1825,7 @@ README 逐字 "**Some**"）。本 task **照常落地**，并在 `ACKNOWLEDGEMEN
 
 ## ⚠️ #261 合入前必须同步改口径的代码注释（第 2 轮终审 C-6）
 
-`shaders-plasma:Sources/CoreDesignShaders/CoreDesignShaders.metal` 的 `fbm` 注释
+`shaders-plasma:Sources/OhMyDesignShaders/OhMyDesignShaders.metal` 的 `fbm` 注释
 逐字写着「与 **The Book of Shaders 第 13 章**…**逐行同构**」。
 本表已撤回该说法（见《The Book of Shaders 的许可实查》），但**合入顺序是本 PR 先、
 #261 后** ⇒ 按现状 #261 会带着一份**对 `All rights reserved` 来源的书面逐行同构自认**
