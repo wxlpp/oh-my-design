@@ -54,7 +54,7 @@ struct ComponentRegistryGuard {
 
     // MARK: - 缓办台账：步骤 2 枚举未完成的条目（PR #297 终审 I-2）
 
-    static let pendingStep2FollowUpIssue: String? = "#299"
+    static let pendingStep2FollowUpIssue: String? = "#368"
 
     /// ⚠️ **`#279` 加进 `GlassSymbol`**（`OhMyDesignShaders`）：它是本 target 里唯一候选形态
     /// **会引入承载内容的子视图**的一件（成就徽章用例的「加等级环 / 加绶带文字」按三分法属槽差异、
