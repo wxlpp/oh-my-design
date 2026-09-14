@@ -56,11 +56,16 @@ public nonisolated enum ButtonRoleStyleRole: Sendable, Equatable {
         }
     }
 
-    /// 压在本 role 底色之上的前景色。
+    /// 压在本 role 底色之上的前景色的**静态回退**（`contentOnAccent`）。
     ///
-    /// **五个 role 的底色全部随外观翻转明暗**——`.primary` 是墨色 accent，
-    /// 其余四个取自 `ColorGrade`，而 `ColorGrade` 是明暗镜像的（grade N 浅色 ==
-    /// grade 9−N 深色）⇒ 前景必须跟着翻转，一律走 `contentOnAccent`（`systemBackground`）。
+    /// ⚠️ **样式侧不读本属性**——`SolidButtonStyle` 走
+    /// `resolvedOnColor(accent:on:environment:)`（`#357`）：`.primary` 的底色是 accent
+    /// （可能饱和），前景按 accent 亮度派生黑 / 白、显式 `on` 覆盖。本属性只在环境
+    /// 不可达时作回退。
+    ///
+    /// **其余四个 role 的底色全部随外观翻转明暗**——它们取自 `ColorGrade`，而
+    /// `ColorGrade` 是明暗镜像的（grade N 浅色 == grade 9−N 深色）⇒ 前景必须跟着翻转，
+    /// 一律走 `contentOnAccent`（`systemBackground`）。
     ///
     /// iOS 腿实测对比度（白字 vs 反转），是这条裁决的依据：
     ///
@@ -84,6 +89,27 @@ public nonisolated enum ButtonRoleStyleRole: Sendable, Equatable {
         case .primary, .secondary, .tertiary, .warning, .danger:
             .contentOnAccent
         }
+    }
+
+    /// 压在本 role 底色之上的前景色，样式侧入口（`SolidButtonStyle`）。
+    ///
+    /// `.primary` 的底色是 accent ⇒ 显式 `on` 原样使用；缺省按 accent 在当前环境下
+    /// 解析出的相对亮度自动选黑 / 白（`Color.onAccent(for:in:)`，L < 0.5 → 白）——
+    /// 饱和色 accent 在深色模式不再压近黑字（`#357`）。其余四个 role 的底色是明暗
+    /// 镜像的 `ColorGrade` 色阶，`contentOnAccent` 恰好正确 ⇒ 保持不变，也不吃 `on`。
+    ///
+    /// - Parameters:
+    ///   - accent: 当前强调色，通常来自 `@Environment(\.coreAccent)`。
+    ///   - on: 显式 on-accent 前景，通常来自 `@Environment(\.coreAccentOn)`。
+    ///   - environment: 用于解析 accent 的当前外观（至少含 `colorScheme`）。
+    @MainActor
+    public func resolvedOnColor(
+        accent: Color,
+        on: Color?,
+        environment: EnvironmentValues
+    ) -> Color {
+        guard self == .primary else { return .contentOnAccent }
+        return on ?? Color.onAccent(for: accent, in: environment)
     }
 
     /// 按交互状态解析出最终颜色 / Resolve the color for a given interaction state.

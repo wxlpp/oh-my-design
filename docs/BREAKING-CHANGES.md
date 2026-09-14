@@ -19,6 +19,25 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.10.0`）——Issue #357：`coreAccent` on-accent 通路
+
+**源码兼容，行为有变。** `View.coreAccent(_:)` 增加可选 `on` 参数
+（`coreAccent(_ color: Color, on: Color? = nil)`）——与 `v0.9.0` 那 7 处同形：
+对已应用调用点零影响，对未应用的函数引用是破坏性变更。
+
+- **`on` 缺省（`nil`）时自动选前景**：墨色（黑 / 白极性）accent 走 `contentOnAccent`
+  特判——与 `0.10.0` 的静态 token **逐字节相同**；其余颜色按 accent 在当前外观下的
+  相对亮度分档，`L = 0.2126R + 0.7152G + 0.0722B`，L < 0.5 → `.white`，否则 `.black`。
+  消费点：`SolidButtonStyle` 的 `.primary` 前景（新公开
+  `ButtonRoleStyleRole.resolvedOnColor(accent:on:environment:)`）与
+  `InkSegmentedControlStyle` 选中段文字。
+  ⚠️ **行为变化**：`0.10.0` 章节登记的「主题色应为近单色」约束解除——
+  `.coreAccent(<饱和色>)` 下深色模式前景不再是近黑字压饱和底，而是按亮度自动反色
+  （系统蓝两档白字、黄两档黑字）；显式 `on` 则原样使用。
+- **`contentOnAccent` 保留**作静态回退；其余四个 role 的底色是明暗镜像的
+  `ColorGrade` 色阶，前景仍走 `contentOnAccent`、不吃 `on`。
+- 新增 `@Entry var coreAccentOn: Color? = nil`（`nil` = 缺省派生）。
+
 ## `0.10.0`（2026-09-09）——仓库与模块改名为 OhMyDesign
 
 **含破坏性变更，且是本版影响面最大的一条：所有 `import` 都要改。** 已随 `v0.10.0` 发布。

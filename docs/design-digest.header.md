@@ -78,7 +78,7 @@
 - 第 3 层大多数 token 直接指系统语义色（`label` / `separator` / `systemFill` /
   `systemGroupedBackground` 族），取值随**外观、增强对比度、平台**在运行期变；
   `accent` 是**墨色**（`inkPrimary`：iOS `label` / macOS `textColor`），不再取宿主
-  `AccentColor`；宿主要换色走 `View.coreAccent(_:)`，四个派生态自动跟随。
+  `AccentColor`；宿主要换色走 `View.coreAccent(_:on:)`，四个派生态自动跟随。
   ⚠️ 图表 / tag 走 `dataAccent`（系统蓝），刻意不跟随 accent——墨色的环会读成禁用。
   原型里只能快照某一档。
 - `SystemBackgroundColors` 那 6 个 token 在 **macOS 上全部同值**——分层背景只在 iOS 成立。
