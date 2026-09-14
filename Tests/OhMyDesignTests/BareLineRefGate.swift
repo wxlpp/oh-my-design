@@ -54,10 +54,21 @@ struct BareLineRefGate {
         }
         // 仓根全部 `*.md`（⚠️ 不是只有 CLAUDE.md / README.md —— `AGENTS.md` 是
         // `CLAUDE.md` 的 Codex 镜像，同样是活文档）
-        for url in (try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? []
-        where url.pathExtension == "md" {
+        let rootEntries: [URL]
+        do {
+            rootEntries = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+        } catch {
+            // ⚠️ 读不出来要判红，不 `try?` 静默吞 —— 静默会把「仓根整体消失」读成「零违规」。
+            Issue.record("仓根列举失败：\(error) —— 扫描面消失时「零违规」是假的")
+            rootEntries = []
+        }
+        for url in rootEntries where url.pathExtension == "md" {
             files.append(url)
         }
+
+        // ⚠️ **扫描面地板**（对照同仓成例：NFR-4 的 `scannedFiles > 50`）：
+        // 只查「根存在」挡不住「文件整体没被枚举到」——那样 loops 一次不进、零命中即绿。
+        #expect(files.count >= 100, "只扫到 \(files.count) 个 md/json —— 扫描面消失时「零违规」是假的")
 
         var actual: [String: [String]] = [:]
         for url in files {

@@ -16,13 +16,14 @@ struct QuotedEvidenceGuard {
     /// 引逐字片段漂了会 `grep` 得 0 命中（读者**知道**自己没核到）。判据按「整段逐字 + 名字」
     /// 匹配，**不按行号 / 形状**。
     ///
-    /// ⚠️ **登记面**：`docs/` 与仓根 `*.md` 里**所有以逐字引文形态写下的源码引用**（`#337`
-    /// 改写后共 90 条）；纯文件级引用、跨仓引用、史料性坐标叙述不构成逐字声称、不入表
-    /// （跨仓清单见 `crossRepoCitations`）。签名简写（如 `init(title:action:)`）按名字级收。
+    /// ⚠️ **登记面**：`#337` 改写后**选定的登记子集**（本批全部以逐字引文形态写下的源码引用）；
+    /// 纯文件级引用、跨仓引用、史料性坐标叙述不构成逐字声称、不入表（跨仓清单见
+    /// `crossRepoCitations`）；**未登记为引文的符号引用仍靠人工**。签名简写（如
+    /// `init(title:action:)`）按名字级收。**不写死条数**（表允许增长）。
     ///
     /// ⚠️ **表本身必须 fail-closed**：清单漏登记只会静默少测一条 —— 所以另有一条判据核
-    /// 「表非空」「quote 非空」「源文件落在已知扫描面内」「doc 文件存在」；而**新增引用**的
-    /// 拦截由 `BareLineRefGate`（同批清零后已升级为零容忍）承担。
+    /// 「表非空」「quote 非空」「源文件落在已知扫描面内」「doc 文件存在」；而**新增裸行号
+    /// 引用**的拦截由 `BareLineRefGate`（同批清零后已升级为零容忍）承担。
     private nonisolated static let citations: [(doc: String, source: String, quote: String)] = [
         // ---- docs/contract-defects.md ----
         ("docs/contract-defects.md", "Sources/OhMyDesign/Modifier/SurfaceModifier.swift", "case canvasSubtle"),
@@ -119,7 +120,7 @@ struct QuotedEvidenceGuard {
         ("docs/spikes/248-metal-packaging.md", "Tests/OhMyDesignTests/ColorAssetGuardTests.swift", "rawXcassetsAvailable"),
         // ---- 台账 JSON ----
         ("docs/bool-exemptions.json", "Sources/OhMyDesign/Modifier/FloatingGlassModifier.swift", "let glass = self.isInteractive ? Glass.regular.interactive() : Glass.regular"),
-        ("docs/bool-exemptions.json", "Sources/OhMyDesign/Components/BottomInputBar/BottomInputBar.swift", "autoShowSuggestions"),
+        ("docs/bool-exemptions.json", "Sources/OhMyDesign/Components/BottomInputBar/BottomInputBar.swift", "autoFocus: Bool = false"),
         ("docs/a11y-exemptions.json", "Sources/OhMyDesign/Components/TagInput/TagInput.swift", ".accessibilityLabel(Text(self.placeholder))"),
     ]
 

@@ -845,7 +845,7 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 `53-survey.md` 证据行 6。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：`FloatingGlassModifier`。public struct 带 `public let shape: S`（任意 InsettableShape）+ `public let isInteractive: Bool`；`View.floatingGlass(in:isInteractive:)` 的参数默认值只是 Capsule（逐字：`in shape: some InsettableShape = Capsule(style: .continuous)`），仓内实际调用点传过 `CoreShape.rounded(CoreRadius.large)`（`ExtendedFloatButtonStyle.swift`；`Toast.swift` 的 `.centeredHUD` 用 `RoundedRectangle(cornerRadius: CoreRadius.large, style: .continuous)`）。body 三层：inset(by:).fill(.background.opacity(0.64)) + .glassEffect(glass,in:shape) + overlay(strokeBorder(borderSubtle))。
+**① 源码事实**：`FloatingGlassModifier`。public struct 带 `public let shape: S`（任意 InsettableShape）+ `public let isInteractive: Bool`；`View.floatingGlass(in:isInteractive:)` 的参数默认值只是 Capsule（逐字：`in shape: some InsettableShape = Capsule(style: .continuous)`），仓内实际调用点传过 `Rectangle()`、`RoundedRectangle(cornerRadius: CoreRadius.large, style: .continuous)`（`Toast.swift` 的三种 presentation）与 `CoreShape.rounded(CoreRadius.large)`（`FloatingGlassModifier.swift` 的 `#Preview`）。body 三层：inset(by:).fill(.background.opacity(0.64)) + .glassEffect(glass,in:shape) + overlay(strokeBorder(borderSubtle))。
 
 **② (A) 诚实枚举**：候选 1 = **不透明面 + 投影（elevation）**（来源：Material Design 3 elevation/surface tint、Android FAB/bottom sheet），豁免路径：皮肤变体走通（同为『shape 轮廓 + 一层背景处理 + 一条边缘描边』骨架）；作用域 ③ 落空（Card 承担的是内容表面而非浮层）。 候选 2 = **半透明模糊/振动材质（非玻璃）**（来源：iOS 7–17 UIBlurEffect、macOS NSVisualEffectView（Liquid Glass 直接前身，真实在产）），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **纯描边无填充浮层框**（来源：Ant Design/Bootstrap popover 默认白底细描边），豁免路径：皮肤变体走通；作用域 ③ 落空。
 
@@ -1446,7 +1446,7 @@ task），且会阻断 #54。
    ⚠️⚠️ **本项已由 `5241175`（2026-08-23）解除**（详见本节下方《✅ 已裁》裁断二）：
    形态 D 已正式承认，`ComponentJudgeRules` 的 `judgeExtensionPoints` 今天有**四条**分支
    —— `customStyleProtocol` / `nativeProtocol` / **`styleSlot`** / **`styleEnum`**，
-   登记表里已有 **6 个组件**走 `styleEnum`（`AvatarGroup` / `SidebarUtilityRow` /
+   登记表里已有 **7 个组件**走 `styleEnum`（`AvatarGroup` / `NetworkGraph` / `SidebarUtilityRow` /
    `SpinningModifier` / `Steps` / `Timeline` / `Toast`），全部满足 J-2。
    ⇒ **「必发 public 协议」这条压力不存在了**；`#312` 那 5 条走形态 D **即可满足 J-2**。⚠️ 但「满足 J-2」不等于「落点不变」——`RingChart` 的落点另有一条独立的翻转路径，
 见本文件 `D-299-1` 的重判表（那是**判定**问题，与用什么形态落地扩展点无关）。

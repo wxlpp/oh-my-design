@@ -61,7 +61,7 @@
   },
   {
     "parameter": "View.bottomInputBar#autoFocus",
-    "reason": "出现时是否自动聚焦输入框。⚠️ 这一条是 39.md 简报漏列的第七个 Bool（`BottomInputBar` 的 `autoShowSuggestions`），由扫描器实测补入。删除不成立：自动聚焦与否是调用场景的真实分歧（弹出式输入要，常驻输入栏不要）。正确形态是走 3.4 环境值或与 externalFocus 合并成一个焦点策略类型，改造归属：epic component-contract 收尾时另开任务。",
+    "reason": "出现时是否自动聚焦输入框。⚠️ 这一条是 39.md 简报漏列的第七个 Bool（`BottomInputBar` 的 `autoFocus: Bool = false`），由扫描器实测补入。删除不成立：自动聚焦与否是调用场景的真实分歧（弹出式输入要，常驻输入栏不要）。正确形态是走 3.4 环境值或与 externalFocus 合并成一个焦点策略类型，改造归属：epic component-contract 收尾时另开任务。",
     "decidedBy": "wxlpp",
     "decidedOn": "2026-08-13"
   },
