@@ -134,6 +134,54 @@ struct CoreAccentRenderTests {
         }
     }
 
+    @Test("显式 on 真的流进 solid(.primary) 的前景——缺省派生与显式 on 渲染不同")
+    func explicitOnFlowsThroughModifier() throws {
+        func button(on: Color?) -> some View {
+            Button("Go") {}
+                .buttonStyle(.solid(role: .primary))
+                .coreAccent(.blue, on: on)
+                .frame(width: 120, height: 44)
+        }
+        for scheme in [ColorScheme.light, .dark] {
+            let derived = try #require(
+                Self.pixels(button(on: nil), scheme: scheme),
+                "\(scheme)：渲染失败"
+            )
+            let explicit = try #require(
+                Self.pixels(button(on: .yellow), scheme: scheme),
+                "\(scheme)：渲染失败"
+            )
+            expectBitmapsDiffer(
+                Array(derived), Array(explicit),
+                "\(scheme)：显式 on 没有改变 solid(.primary) 的前景——on 参数没接进样式"
+            )
+        }
+    }
+
+    @Test(".ink 分段选中段文字吃显式 on——缺省派生与显式 on 渲染不同")
+    func inkSegmentedOnFlowsThrough() throws {
+        func control(on: Color?) -> some View {
+            SegmentedControl(items: ["A", "B"], selection: .constant("A"), title: { $0 })
+                .segmentedControlStyle(.ink)
+                .coreAccent(.blue, on: on)
+                .frame(width: 200)
+        }
+        for scheme in [ColorScheme.light, .dark] {
+            let derived = try #require(
+                Self.pixels(control(on: nil), scheme: scheme),
+                "\(scheme)：渲染失败"
+            )
+            let explicit = try #require(
+                Self.pixels(control(on: .yellow), scheme: scheme),
+                "\(scheme)：渲染失败"
+            )
+            expectBitmapsDiffer(
+                Array(derived), Array(explicit),
+                "\(scheme)：显式 on 没有改变 .ink 分段选中段文字——on 参数没接进选中段前景"
+            )
+        }
+    }
+
     @Test("Card 的 elevation 档位真的改变渲染")
     func cardElevationChangesRendering() throws {
         // ⚠️ 只在 iOS 腿判：投影色取自 `CoreElevation` 的 4 个 shadow colorset，

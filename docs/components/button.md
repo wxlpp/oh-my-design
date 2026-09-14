@@ -45,7 +45,7 @@ Button("Delete") {}
 - 字号 / padding / icon：由 `@Environment(\.controlSize)` 通过 `CoreControlMetrics` 决定
 - SolidButton 背景：`role.resolvedColor(accent:isEnabled:isPressed:)`，`accent` 取自环境 `\.coreAccent`
   ⚠️ 只有 `.primary` role 跟随 `coreAccent`；其余四个 role 有意留在自有色阶（`secondaryAccent` / `neutralAccent` / `warning*` / `danger*`）
-- SolidButton 前景：`role.onColor`——`.primary` 用 `contentOnAccent`（随主题反转），其余四 role 用 `contentOnEmphasis`（白）
+- SolidButton 前景：`role.resolvedOnColor(accent:on:environment:)`——`.primary` 缺省按 accent 在当前外观下的亮度派生黑 / 白（`View.coreAccent(_:on:)` 的 `on` 参数可覆盖），其余四 role 走 `contentOnAccent`（随主题反转）
 - SolidButton 阴影：`CoreElevation.small`
 - LightButton 暗色：`.glassEffect(.regular)`；亮色：`Color.surfaceInteractive` + `CoreElevation.small`
 - CoreBorderlessButtonStyle 无视觉容器（无背景/边框/阴影），但字号、padding 与命中区仍走 `CoreControlMetrics` token

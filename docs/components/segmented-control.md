@@ -16,7 +16,7 @@ Token 化的分段控件 / Token-styled segmented control.
 |---|---|---|
 | `.glass`（默认） | `GlassSegmentedControlStyle` | Liquid Glass 外壳；iOS 走原生 `UISegmentedControl` + `UIGlassEffect` |
 | `.plain` | `PlainSegmentedControlStyle` | 纯色外壳 |
-| `.ink` | `InkSegmentedControlStyle` | 选中段是实心 `coreAccent` 胶囊 + 反色文字 |
+| `.ink` | `InkSegmentedControlStyle` | 选中段是实心 `coreAccent` 胶囊 + on-accent 文字（缺省按 accent 亮度派生黑 / 白，`coreAccent(_:on:)` 的 `on` 参数可覆盖） |
 
 ⚠️ **`.ink` 不是默认**：web 版设计系统用墨色胶囊是因为浏览器渲染不了 Liquid Glass，
 那是渲染基座的代偿而非升级。⚠️ `.ink` 走 SwiftUI 回退路径，**不走** iOS 的原生控件
