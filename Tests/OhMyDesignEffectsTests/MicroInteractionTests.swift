@@ -100,7 +100,8 @@ struct MicroInteractionAPITests {
                 .confetti(trigger: 1)
         )
         #expect(bare != nil && stacked != nil, "渲染失败，下面的相等断言会静默变绿")
-        expectBitmapsEqual(bare, stacked, "叠加 9 个微交互后静息位图变了 —— 有效果在静息态就在画东西")
+        // ⚠️ 本文件位图相等断言统一走容差入口（#317），勿改回逐字节 expectBitmapsEqual。
+        expectBitmapsEquivalent(bare, stacked, maxChannelDelta: 1, "叠加 9 个微交互后静息位图变了 —— 有效果在静息态就在画东西")
     }
 
     @Test("静息态：九个各自单独用、三种内容都不改变位图")
@@ -120,7 +121,7 @@ struct MicroInteractionAPITests {
                 ("confetti", Self.stablePixels(content.confetti(trigger: 1))),
             ]
             for (name, pixels) in cases {
-                expectBitmapsEqual(pixels, bare, "\(name) 在 \(contentName) 上静息就改变了位图")
+                expectBitmapsEquivalent(pixels, bare, maxChannelDelta: 1, "\(name) 在 \(contentName) 上静息就改变了位图")
             }
         }
         check("Text", Text("x"))
@@ -134,7 +135,7 @@ struct MicroInteractionAPITests {
         let verbatim = Self.stablePixels(Text(verbatim: resolved))
         let viaKey = Self.stablePixels(Text(LocalizedStringKey(resolved)))
         #expect(verbatim != nil && viaKey != nil, "渲染失败，下面的相等断言会静默变绿")
-        expectBitmapsEqual(verbatim, viaKey, "Bundle.main 查不到该键时未原样回落 —— rise 文档写的绕行方式失效")
+        expectBitmapsEquivalent(verbatim, viaKey, maxChannelDelta: 1, "Bundle.main 查不到该键时未原样回落 —— rise 文档写的绕行方式失效")
         let applied = Self.stablePixels(
             Text("x").rise(trigger: 1, text: LocalizedStringKey(resolved))
         )
@@ -182,7 +183,7 @@ struct MicroInteractionAPITests {
             let detail = "Spin(\(direction)) 终帧转到 \(turns)°，取角后是 \(angle)° —— "
                 + "不是恒等，动画结束后会永久残留一个变换"
             #expect(angle == 0, "\(detail)")
-            expectBitmapsEqual(Self.stablePixels(Text("x").rotationEffect(.degrees(angle))), bare,
+            expectBitmapsEquivalent(Self.stablePixels(Text("x").rotationEffect(.degrees(angle))), bare, maxChannelDelta: 1,
                     "Spin(\(direction)) 终帧角 \(angle)° 施加后位图与裸视图不同")
         }
         expectBitmapsDiffer(Self.stablePixels(Text("x").rotationEffect(.degrees(37))), bare,
@@ -194,7 +195,7 @@ struct MicroInteractionAPITests {
             ShineBand.track()
         }
         let terminal = timeline.value(time: timeline.duration)
-        expectBitmapsEqual(Self.stablePixels(Self.shinePinned(Text("x"), progress: terminal)), bare,
+        expectBitmapsEquivalent(Self.stablePixels(Self.shinePinned(Text("x"), progress: terminal)), bare, maxChannelDelta: 1,
                 "Shine 终帧 progress = \(terminal) —— 光带没有完全扫出界，会永久留在内容上")
         expectBitmapsDiffer(Self.stablePixels(Self.shinePinned(Text("x"), progress: 0)), bare,
                 "钉帧路径在 progress = 0 都量不出光带 —— 上一条相等断言是恒真的")
@@ -239,7 +240,7 @@ struct MicroInteractionAPITests {
             .ping(trigger: 3.14)
         let stacked = Self.stablePixels(v)
         #expect(stacked != nil)
-        expectBitmapsEqual(stacked, Self.stablePixels(Text("x")))
+        expectBitmapsEquivalent(stacked, Self.stablePixels(Text("x")), maxChannelDelta: 1)
     }
 }
 
@@ -294,7 +295,7 @@ struct MicroInteractionACContractTests {
         let bare = MicroInteractionAPITests.stablePixels(Text("x"))
         let wrapped = MicroInteractionAPITests.stablePixels(Shine { Text("x") })
         #expect(bare != nil && wrapped != nil, "渲染失败，下面的相等断言会静默变绿")
-        expectBitmapsEqual(bare, wrapped, "Shine 容器在静息态就改变了位图")
+        expectBitmapsEquivalent(bare, wrapped, maxChannelDelta: 1, "Shine 容器在静息态就改变了位图")
     }
 
     @Test("Shine 容器必须委托给 .shine(trigger:)，不得绕过它自建一套（RM 降级由 modifier 承载）")

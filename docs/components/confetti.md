@@ -206,7 +206,7 @@ burst 起始时刻存在 `@State var burstStart: Date?` 里，`ConfettiBurst.hol
 对 `burstStart` 做 `if let` 时被构造、状态机等的是 `ConfettiBurst.holdDuration(presentation:)`
 算出的那个 `hold` 且随后清空），
 加上两条渲染判据：
-"没有 burst 时与裸视图逐字节相同"，以及"burst 早已结束的那一帧与空基线逐字节相同"。
+"没有 burst 时与裸视图逐字节相同"（#317 起判据走容差），以及"burst 早已结束的那一帧与空基线逐字节相同"（#317 起判据走容差）。
 
 ## a11y 分工（FR-13）
 

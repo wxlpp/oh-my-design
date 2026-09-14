@@ -106,32 +106,46 @@ nonisolated func bitmapExpectationMessage<Bytes: Collection>(
     return comment.isEmpty ? summary : "\(comment)\n\(summary)"
 }
 
-// MARK: - 容差相等（Issue #358）
+// MARK: - 容差相等（Issue #358 / #317）
 
 /// 逐通道最大偏差 —— `a` 与 `b` 长度须相同，返回 `nil` 表示任一侧未渲染。
 nonisolated func bitmapMaxChannelDelta<Bytes: Collection>(_ a: Bytes?, _ b: Bytes?) -> Int?
 where Bytes.Element == UInt8 {
+    bitmapDifferenceMetrics(a, b)?.maxChannelDelta
+}
+
+/// 逐通道最大偏差与差异字节数 —— 长度须相同，返回 `nil` 表示任一侧未渲染或长度不同。
+nonisolated func bitmapDifferenceMetrics<Bytes: Collection>(_ a: Bytes?, _ b: Bytes?)
+-> (byteCount: Int, differingCount: Int, maxChannelDelta: Int)? where Bytes.Element == UInt8 {
     guard let a, let b, a.count == b.count else { return nil }
+    var differingCount = 0
     var maxDelta = 0
     for (lhs, rhs) in zip(a, b) {
         let delta = Int(lhs) > Int(rhs) ? Int(lhs) - Int(rhs) : Int(rhs) - Int(lhs)
+        if delta != 0 { differingCount += 1 }
         if delta > maxDelta { maxDelta = delta }
     }
-    return maxDelta
+    return (a.count, differingCount, maxDelta)
 }
 
-/// 断言两张位图**在光栅化噪声以内**相同：逐通道偏差不超过 `maxChannelDelta`。
+/// 断言两张位图**在光栅化噪声以内**相同：逐通道偏差不超过 `maxChannelDelta`，
+/// 且差异字节数不超过总字节数的 `maxDifferingFraction`（默认 1%）。
 ///
 /// ⚠️ **不要拿它替换 `expectBitmapsEqual`**。只用在「两张图按构造应当逐像素同值、
 /// 但画面里含抗锯齿的字形 / 曲线边缘」的地方——那种边缘的量化舍入在**同一份输入**上
 /// 都不稳定（`#358` 实测：同参数连渲两次，3/20000 像素差 ±1）。
 ///
-/// 判据强度未被削弱：本函数钉的是**逐通道最大偏差**，不是「差异像素数」。
-/// 真正的图层渗透会以饱和色按 α 合成上来，偏差是几十到上百，`maxChannelDelta: 1` 照样判红。
+/// `#317` 实测机理与阈值：macOS 离屏渲染的首渲（冷缓存）变体与稳定输出之间
+/// 差 ≤ 59 字节、每处 1 个 LSB（柔光带 AA 边缘 42–59 字节、SF Symbol 边缘 3 字节）
+/// —— 逐字节形式在本平台不成立。噪声占帧 0.037% < 上限 1%（27 倍余量）。
+/// **差异字节上限不能省**：全帧 0.4% α 的隐藏层泄漏实测 maxDelta=1、count=25%
+/// —— 只钉最大偏差会把它当噪声放过去。真实缺陷的最小签名（占帧 ≥ 25% 或
+/// maxDelta ≥ 2）距上限 ≥ 25 倍。
 nonisolated func expectBitmapsEquivalent<Bytes: Collection & Equatable>(
     _ a: Bytes?,
     _ b: Bytes?,
     maxChannelDelta: Int,
+    maxDifferingFraction: Double = 0.01,
     _ comment: @autoclosure () -> String = "",
     sourceLocation: SourceLocation = #_sourceLocation
 ) where Bytes.Element == UInt8 {
@@ -144,7 +158,7 @@ nonisolated func expectBitmapsEquivalent<Bytes: Collection & Equatable>(
         )
         return
     }
-    guard let delta = bitmapMaxChannelDelta(a, b) else {
+    guard let metrics = bitmapDifferenceMetrics(a, b) else {
         #expect(
             Bool(false),
             Comment(rawValue: bitmapExpectationMessage("两张位图长度不同，无法逐通道比较。" + comment(), a, b)),
@@ -152,10 +166,13 @@ nonisolated func expectBitmapsEquivalent<Bytes: Collection & Equatable>(
         )
         return
     }
+    let maxDiffering = Int((Double(metrics.byteCount) * maxDifferingFraction).rounded(.down))
     #expect(
-        delta <= maxChannelDelta,
+        metrics.maxChannelDelta <= maxChannelDelta && metrics.differingCount <= maxDiffering,
         Comment(rawValue: bitmapExpectationMessage(
-            "逐通道最大偏差 \(delta) > 容差 \(maxChannelDelta)。" + comment(), a, b
+            "逐通道最大偏差 \(metrics.maxChannelDelta) > 容差 \(maxChannelDelta)，"
+            + "或差异字节 \(metrics.differingCount) > 上限 \(maxDiffering)"
+            + "（\(String(format: "%.3g", maxDifferingFraction * 100))% 的帧）。" + comment(), a, b
         )),
         sourceLocation: sourceLocation
     )

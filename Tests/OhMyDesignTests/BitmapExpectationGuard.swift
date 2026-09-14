@@ -859,14 +859,16 @@ private nonisolated final class XCTAssertFinder: SyntaxVisitor {
     }
 }
 
-// MARK: - J5：容差入口自证（Issue #358）
+// MARK: - J5：容差入口自证（Issue #358 / #317）
 
 @Suite("J5：expectBitmapsEquivalent 的容差不吞真实差异")
 struct BitmapEquivalenceToleranceGuard {
     /// ⚠️ 本组判据的存在理由：`#358` 把两条 `expectBitmapsEqual` 换成了
-    /// `expectBitmapsEquivalent(maxChannelDelta: 1)`。**放宽判据必须自证没放宽过头**
+    /// `expectBitmapsEquivalent(maxChannelDelta: 1)`，`#317` 把差异字节上限
+    /// （默认 1% 的帧）加进了该入口。**放宽判据必须自证没放宽过头**
     /// ——否则「测试变绿」只说明阈值调软了，不说明缺陷不在。
-    /// 这里直接测底层的纯函数 `bitmapMaxChannelDelta`，不经 `#expect` 副作用。
+    /// 这里直接测底层的纯函数 `bitmapMaxChannelDelta` / `bitmapDifferenceMetrics`，
+    /// 不经 `#expect` 副作用。
 
     @Test("光栅化噪声（逐通道 ±1）落在容差内")
     func rasterNoiseIsWithinTolerance() {
@@ -890,5 +892,37 @@ struct BitmapEquivalenceToleranceGuard {
     func mismatchedLengthIsNotZeroDelta() {
         #expect(bitmapMaxChannelDelta([1, 2, 3] as [UInt8], [1, 2] as [UInt8]) == nil)
         #expect(bitmapMaxChannelDelta(nil as [UInt8]?, [1] as [UInt8]) == nil)
+    }
+
+    /// `#317` 实测的首渲变体噪声形态：柔光带 AA 边缘 42–59 字节、逐通道 ±1，
+    /// 占 160000 字节帧的 0.037% —— 必须在 1% 上限之内。
+    @Test("#317 首渲变体噪声（59/160000 字节、±1）落在差异字节上限内")
+    func firstRenderVariantNoiseIsWithinTheCap() {
+        var clean = [UInt8](repeating: 128, count: 160_000)
+        var variant = clean
+        for i in 0..<59 { variant[i] &+= 1 }
+        let m = bitmapDifferenceMetrics(clean, variant)
+        #expect(m != nil && m!.maxChannelDelta == 1 && m!.differingCount == 59,
+                "构造失当：噪声签名应是 59 字节 × ±1，实得 \(m as Any)")
+        let cap = Int((160_000.0 * 0.01).rounded(.down))
+        #expect(m!.differingCount <= cap, "59 字节噪声超出上限 \(cap) —— 容差过紧，会照红")
+    }
+
+    /// `#317` 实测的 0.4% α 隐藏层泄漏：每像素 1 个通道 ±1 ⇒ maxDelta=1 但
+    /// count=25% —— 只钉最大偏差会把它当噪声放过去，差异字节上限必须抓得住。
+    @Test("#317 全帧 0.4% α 泄漏（maxDelta=1、count=25%）超出差异字节上限")
+    func wholeFrameOneLSBLeakExceedsTheCap() {
+        var clean = [UInt8]()
+        var leaked = [UInt8]()
+        for i in 0..<160_000 {
+            let v = UInt8(i % 4 == 0 ? 242 : (i % 4 == 3 ? 255 : 247))
+            clean.append(v)
+            leaked.append(i % 4 == 0 ? v &- 1 : v)
+        }
+        let m = bitmapDifferenceMetrics(clean, leaked)
+        #expect(m != nil && m!.maxChannelDelta == 1 && m!.differingCount == 40_000,
+                "构造失当：0.4% 泄漏签名应是 40000 字节 × ±1，实得 \(m as Any)")
+        let cap = Int((160_000.0 * 0.01).rounded(.down))
+        #expect(m!.differingCount > cap, "0.4% 泄漏未超过上限 \(cap) —— 上限值把它放过去了")
     }
 }
