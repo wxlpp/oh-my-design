@@ -135,6 +135,10 @@ nonisolated func bitmapDifferingCap(byteCount: Int, maxDifferingFraction: Double
     Int((Double(byteCount) * maxDifferingFraction).rounded(.down))
 }
 
+/// 差异字节上限的默认比例 —— 抽成常量是为了让守卫能钉住
+/// 「默认值没被悄悄调松」（改默认参数本身不会让任何 fixture 变红）。
+nonisolated let bitmapDefaultMaxDifferingFraction: Double = 0.01
+
 /// 断言两张位图**在光栅化噪声以内**相同：逐通道偏差不超过 `maxChannelDelta`，
 /// 且差异字节数不超过总字节数的 `maxDifferingFraction`（默认 1%）。
 ///
@@ -155,7 +159,7 @@ nonisolated func expectBitmapsEquivalent<Bytes: Collection & Equatable>(
     _ a: Bytes?,
     _ b: Bytes?,
     maxChannelDelta: Int,
-    maxDifferingFraction: Double = 0.01,
+    maxDifferingFraction: Double = bitmapDefaultMaxDifferingFraction,
     _ comment: @autoclosure () -> String = "",
     sourceLocation: SourceLocation = #_sourceLocation
 ) where Bytes.Element == UInt8 {

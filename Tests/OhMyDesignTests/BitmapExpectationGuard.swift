@@ -900,8 +900,12 @@ struct BitmapEquivalenceToleranceGuard {
     /// 上限用生产入口**共用**的 `bitmapDifferingCap`，不重写公式。
     @Test("#317 首渲变体噪声（59/160000 字节、±1）落在差异字节上限内")
     func firstRenderVariantNoiseIsWithinTheCap() {
+        #expect(bitmapDefaultMaxDifferingFraction == 0.01,
+                "默认上限比例被改了 —— 改默认参数不会让任何调用点变红，只能在这里钉")
         #expect(bitmapDifferingCap(byteCount: 160_000, maxDifferingFraction: 0.01) == 1600,
                 "cap 公式与既有阈值不符 —— 要么公式漂了，要么这条 fixture 没跟上")
+        #expect(bitmapDifferingCap(byteCount: 150, maxDifferingFraction: 0.01) == 1,
+                "取整方向漂了（150×0.01=1.5，向下取整必须得 1，nearest/up 得 2）")
         var clean = [UInt8](repeating: 128, count: 160_000)
         var variant = clean
         for i in 0..<59 { variant[i] &+= 1 }
