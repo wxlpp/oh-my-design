@@ -52,6 +52,31 @@ struct OrbitingLogosLayoutFormTests {
         }
     }
 
+    @Test("ringRadius(…layout:)：.multiRing 下圈距加宽，.outerRing / .ellipse 与旧公式逐位相同")
+    func ringRadiusWidensOnlyForMultiRing() {
+        let size = 300.0
+        for ring in 0..<OrbitRing.ringCount {
+            let legacy = max(0, size * 0.5 * 0.86 - Double(ring) * size * 0.5 * 0.075)
+            for layout in [OrbitingLogosLayout.outerRing, .ellipse] {
+                let radius = OrbitRing.ringRadius(ring: ring, size: size, layout: layout)
+                #expect(abs(radius - legacy) < 1e-9,
+                        "layout=\(layout) ring=\(ring)：应与旧公式逐位相同，实为 \(radius) vs \(legacy)")
+            }
+            let defaulted = OrbitRing.ringRadius(ring: ring, size: size)
+            #expect(abs(defaulted - legacy) < 1e-9, "不传 layout 的默认值应与旧公式逐位相同")
+        }
+
+        for ring in 1..<OrbitRing.ringCount {
+            let outerRingRadius = OrbitRing.ringRadius(ring: ring, size: size, layout: .outerRing)
+            let multiRingRadius = OrbitRing.ringRadius(ring: ring, size: size, layout: .multiRing)
+            #expect(multiRingRadius < outerRingRadius,
+                    "ring=\(ring)：.multiRing 的圈距应比 .outerRing 更宽（半径更小），实为 \(multiRingRadius) vs \(outerRingRadius)")
+        }
+        #expect(OrbitRing.ringRadius(ring: 0, size: size, layout: .multiRing)
+                == OrbitRing.ringRadius(ring: 0, size: size, layout: .outerRing),
+                "最外圈（ring 0）不受圈距变化影响")
+    }
+
     @Test(".ellipse 下全部 logo 点落在同一个椭圆上")
     func ellipseLogosLieOnTheEllipse() {
         let side = 300.0

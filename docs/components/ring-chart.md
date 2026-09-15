@@ -78,10 +78,11 @@ RingChart(rings, goal: 500, layout: .segmentedRings)
 事后改成可配是 source-breaking（加关联值），须走一次 BREAKING-CHANGES 登记。
 
 ⚠️ **`.bars` / `.stackedBar` 都不画连续弧**：`.bars` 是 N 行独立的水平 `Capsule` 进度条
-（轨道 `trackColor(at:)`、进度 `ringColor(at:)`，宽度按行内比例居中）；`.stackedBar` 是
-一条水平轨道（`Color.tertiaryFill`）上从左至右依次叠放 N 段（段宽按
-`RingChart.stackedWidths(progresses:trackWidth:)` 均分总宽），**语义仍是「完成度」**：
-轨道总长代表 N × goal，段序 = 值序。
+（轨道 `trackColor(at:)`、进度 `ringColor(at:)`，宽度按行内比例居中，条高上限 24pt）；
+`.stackedBar` 是一条水平轨道（`trackColor(at: 0)`，条高同样封顶 24pt）上从左至右依次
+叠放 N 段（段宽按 `RingChart.stackedWidths(progresses:trackWidth:)` 均分总宽，段间
+overlay 一条 `CoreBorderWidth.thick` 宽的 `Color.surfaceBase` 分隔线读出段界），
+**语义仍是「完成度」**：轨道总长代表 N × goal，段序 = 值序。
 
 ⚠️ **取色函数不随 layout 变化**：四个 layout 共用同一份 `ringBaseColor(at:)` /
 `trackColor(at:)` / `ringColor(at:)`——`RingChartColorsGuard` 的三条不变量对四个 layout

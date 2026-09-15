@@ -75,8 +75,9 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
         // 用 `GeometryReader` 显式算出正方形边长，而不是靠 `.aspectRatio(1, .fit)` 在
         // 多块 × 6 行 × 7 列的嵌套 HStack/VStack 里隐式协商——与 `dailyColumnsBars` 同一套做法，
         // 边长同时受块宽（多块分摊总宽）与行高两个方向约束，取较小者更直接。
+        // `blockGap` 用 `CoreSpacing.lg`（不是 `.sm`）——块间距要读得出月边界，评审 I-2。
         let gap: CGFloat = 3
-        let blockGap = CoreSpacing.sm
+        let blockGap = CoreSpacing.lg
         return GeometryReader { proxy in
             let blockCount = max(blocks.count, 1)
             let totalBlockGaps = blockGap * CGFloat(max(blocks.count - 1, 0))
@@ -98,6 +99,9 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
                     }
                 }
             }
+            // 内容按实际尺寸收缩后由 `GeometryReader` 顶左锚定摆放——补 `.frame(max…, alignment: .center)`
+            // 让它像 `.weeks` 一样居中，不留大块死区（评审 I-1）。
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
     }
 
@@ -118,6 +122,8 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
                     }
                 }
             }
+            // 同 `monthCalendarGrid`：补居中，理由同上（评审 I-1）。
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
     }
 

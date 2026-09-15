@@ -124,8 +124,10 @@ struct RadarChartLayoutFormTests {
         for i in 1..<points.count {
             #expect(points[i].x > points[i - 1].x, "条长（x）未随值单调递增：\(points.map(\.x))")
         }
-        #expect(abs(points[0].x - Self.size.width * 0.15) < 0.001,
-                "v = 0 时条长应为地板 0.15 × usableW，实为 \(points[0].x)")
+        let inset = Self.size.width * 0.11
+        let usableW = Self.size.width - inset * 2
+        #expect(abs(points[0].x - (inset + usableW * 0.15)) < 0.001,
+                "v = 0 时条长应为地板 0.15 × usableW（留白后起点在 inset），实为 \(points[0].x)")
     }
 
     @Test("view 路径：退化输入下 renderPlan 为 nil；同一份 5 维数据在四个形态下给出互异的 plan")

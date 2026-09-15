@@ -239,7 +239,7 @@ where Data.Element: Identifiable {
             logoIndex: index, logoCount: self.items.count, dotsPerRing: seats, turns: self.turns
         ) + Double(ring) * 0.4
         return OrbitRing.point(
-            angle: angle, radius: OrbitRing.ringRadius(ring: ring, size: side), center: middle,
+            angle: angle, radius: OrbitRing.ringRadius(ring: ring, size: side, layout: self.layout), center: middle,
             aspect: OrbitRing.aspect(for: self.layout)
         )
     }
@@ -262,7 +262,7 @@ where Data.Element: Identifiable {
             let tintShading = context.resolve(.style(.tint))
             let aspect = OrbitRing.aspect(for: self.layout)
             for ring in 0..<OrbitRing.ringCount {
-                let radius = OrbitRing.ringRadius(ring: ring, size: side)
+                let radius = OrbitRing.ringRadius(ring: ring, size: side, layout: self.layout)
                 let diameter = OrbitRing.dotDiameter(ring: ring, size: side)
                 for index in 0..<perRing {
                     let angle = OrbitRing.angle(index: index, of: perRing, turns: self.turns, ring: ring)

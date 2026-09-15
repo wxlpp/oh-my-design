@@ -35,9 +35,12 @@ nonisolated enum OrbitRing {
         return (t < 0 ? t + period : t) / period
     }
 
-    static func ringRadius(ring: Int, size: Double) -> Double {
+    /// - Parameter layout: `.multiRing` 下圈距加宽（`0.075` → `0.15`），
+    ///   让多轨道读得出来；`.outerRing` / `.ellipse` 只用得到 `ring == 0`，
+    ///   圈距与它们无关，几何逐位不变（评审 I-5）。
+    static func ringRadius(ring: Int, size: Double, layout: OrbitingLogosLayout = .outerRing) -> Double {
         let outer = size * 0.5 * 0.86
-        let step = size * 0.5 * 0.075
+        let step = size * 0.5 * (layout == .multiRing ? 0.15 : 0.075)
         return max(0, outer - Double(ring) * step)
     }
 

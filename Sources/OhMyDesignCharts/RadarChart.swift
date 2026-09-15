@@ -119,8 +119,11 @@ public struct RadarChart<Value: ChartValue>: View {
 
         return ZStack {
             ForEach(0..<count, id: \.self) { i in
-                let diameter = outer * (1 - Double(i) / Double(count)) * 2
-                let width = outer / Double(count) * 0.6
+                // 轨道分布 `[outer×0.35, outer]`（不是 `[outer/n, outer]`）——n 越大，
+                // 旧公式的最内圈半径会缩到与描边线宽同量级，弧退化成一个钩子（评审 I-4）。
+                let midRadius = outer * (1 - Double(i) / Double(count) * 0.65)
+                let diameter = midRadius * 2
+                let width = outer * 0.65 / Double(count) * 0.6
                 let fraction = 0.85 * (normalized[i] * 0.85 + 0.15)
 
                 Circle()
@@ -163,7 +166,8 @@ public struct RadarChart<Value: ChartValue>: View {
                 .stroke(Color.dividerDefault, lineWidth: CoreBorderWidth.hairline)
             }
 
-            ForEach(1...4, id: \.self) { row in
+            // `0...4`（不是 `1...4`）：补上 0 那条底部基线，评审 M-2。
+            ForEach(0...4, id: \.self) { row in
                 Path { path in
                     let gy = bottom - usableH * Double(row) / 4
                     path.move(to: CGPoint(x: inset, y: gy))
@@ -190,14 +194,19 @@ public struct RadarChart<Value: ChartValue>: View {
     }
 
     private static func barsView(normalized: [Double], size: CGSize, tint: Color) -> some View {
+        // 与 `.parallel` 同款水平留白（评审 M-1）——网格线贴着画布边缘时，
+        // 落在边缘的那条竖线只画出了一半描边宽度，读起来像被裁掉了。
         let count = normalized.count
+        let inset = size.width * 0.11
+        let usableW = size.width - inset * 2
         let rowHeight = size.height / Double(count)
         let barHeight = min(rowHeight * 0.7, rowHeight)
 
         return ZStack {
-            ForEach(1...4, id: \.self) { col in
+            // `0...4`（不是 `1...4`）：留白后左缘不再是画布边界，需要单独画一条基线。
+            ForEach(0...4, id: \.self) { col in
                 Path { path in
-                    let gx = size.width * Double(col) / 4
+                    let gx = inset + usableW * Double(col) / 4
                     path.move(to: CGPoint(x: gx, y: 0))
                     path.addLine(to: CGPoint(x: gx, y: size.height))
                 }
@@ -205,12 +214,12 @@ public struct RadarChart<Value: ChartValue>: View {
             }
 
             ForEach(0..<count, id: \.self) { i in
-                let length = size.width * (normalized[i] * 0.85 + 0.15)
+                let length = usableW * (normalized[i] * 0.85 + 0.15)
                 let y = rowHeight * (Double(i) + 0.5)
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
                     .fill(tint)
                     .frame(width: length, height: barHeight)
-                    .position(x: length / 2, y: y)
+                    .position(x: inset + length / 2, y: y)
             }
         }
     }
@@ -325,7 +334,7 @@ extension RadarChart {
             let center = CGPoint(x: size.width / 2, y: size.height / 2)
             let outer = min(size.width, size.height) / 2 * 0.78
             return (0..<count).map { i in
-                let midRadius = outer * (1 - Double(i) / Double(count))
+                let midRadius = outer * (1 - Double(i) / Double(count) * 0.65)
                 let sweep = 2 * Double.pi * 0.85 * (normalized[i] * 0.85 + 0.15)
                 let angle = -Double.pi / 2 + sweep
                 return CGPoint(
@@ -346,9 +355,11 @@ extension RadarChart {
                 return CGPoint(x: x, y: y)
             }
         case .bars:
+            let inset = size.width * 0.11
+            let usableW = size.width - inset * 2
             let rowHeight = size.height / Double(count)
             return (0..<count).map { i in
-                let x = size.width * (normalized[i] * 0.85 + 0.15)
+                let x = inset + usableW * (normalized[i] * 0.85 + 0.15)
                 let y = rowHeight * (Double(i) + 0.5)
                 return CGPoint(x: x, y: y)
             }

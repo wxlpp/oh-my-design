@@ -170,15 +170,24 @@ public struct RingChart<Value: ChartValue>: View {
 
     @ViewBuilder
     private func stackedBarView(plan: RingChartPlan, size: CGSize) -> some View {
-        let height = min(size.height.isFinite ? max(size.height, 0) : 0, 32)
+        // 条高与 `.bars` 统一为同一上限（24pt），评审 I-3。
+        let height = min(size.height.isFinite ? max(size.height, 0) : 0, 24)
         ZStack(alignment: .leading) {
             Capsule()
-                .fill(Color.tertiaryFill)
+                .fill(self.trackColor(at: 0))
                 .frame(width: max(size.width, 0), height: height)
             HStack(spacing: 0) {
                 ForEach(Array(plan.stackedWidths.enumerated()), id: \.offset) { index, width in
                     self.ringColor(at: index)
                         .frame(width: max(width, 0), height: height)
+                        // 段间分隔线，读得出段的边界（评审 I-3）；最后一段不画尾缘线。
+                        .overlay(alignment: .trailing) {
+                            if index < plan.stackedWidths.count - 1 {
+                                Rectangle()
+                                    .fill(Color.surfaceBase)
+                                    .frame(width: CoreBorderWidth.thick)
+                            }
+                        }
                 }
             }
             .clipShape(Capsule())
