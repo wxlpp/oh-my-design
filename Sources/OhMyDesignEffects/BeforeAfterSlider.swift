@@ -92,8 +92,12 @@ nonisolated enum BeforeAfterSweep {
     }
 
     static func fraction(dragX: CGFloat, width: CGFloat) -> CGFloat {
-        guard width > 0 else { return Self.initialFraction }
-        return Self.clamp01(dragX / width)
+        Self.fraction(dragCoordinate: dragX, extent: width)
+    }
+
+    static func fraction(dragCoordinate: CGFloat, extent: CGFloat) -> CGFloat {
+        guard extent > 0 else { return Self.initialFraction }
+        return Self.clamp01(dragCoordinate / extent)
     }
 
     static func revealWidth(fraction: CGFloat, width: CGFloat) -> CGFloat {
@@ -105,6 +109,18 @@ nonisolated enum BeforeAfterSweep {
     }
 
     static func clamp01(_ value: CGFloat) -> CGFloat { min(1, max(0, value)) }
+
+    /// 分隔轴——`.stacked` 是竖轴，其余两个形态是横轴。
+    static func axis(for layout: BeforeAfterSliderLayout) -> Axis {
+        layout == .stacked ? .vertical : .horizontal
+    }
+
+    /// 并排 / 堆叠形态下两个窗格各自的长度：和为 `max(0, extent)`，`extent ≤ 0` 时两者为 0。
+    static func paneExtents(fraction: CGFloat, extent: CGFloat) -> (first: CGFloat, second: CGFloat) {
+        let clampedExtent = max(0, extent)
+        let first = Self.clamp01(fraction) * clampedExtent
+        return (first, clampedExtent - first)
+    }
 }
 
 // MARK: - 揭示裁剪（**裁剪**，不是 alpha 遮罩）
@@ -152,38 +168,160 @@ struct BeforeAfterSliderHandle: View {
     }
 }
 
+// ⚠️ 与 BeforeAfterSliderHandle 是两份独立几何，不靠 rotationEffect 转——本文件零 motionCalls 子串。
+struct BeforeAfterSliderStackedHandle: View {
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(Color.contentOnEmphasis)
+                .frame(height: BeforeAfterSweep.dividerWidth)
+            Circle()
+                .fill(Color.contentOnEmphasis)
+                .frame(width: BeforeAfterSweep.handleDiameter, height: BeforeAfterSweep.handleDiameter)
+                .overlay {
+                    Image(systemName: "arrow.up.and.down")
+                        .font(.system(size: CoreControlMetrics.iconSize(for: .mini), weight: .semibold))
+                        .foregroundStyle(Color.contentPrimary)
+                }
+        }
+        .frame(minWidth: BeforeAfterSweep.handleHitSize, minHeight: BeforeAfterSweep.handleHitSize)
+        .contentShape(Rectangle())
+    }
+}
+
 // MARK: - 绘制层（不含手势与状态）
 
 struct BeforeAfterSliderBody<Before: View, After: View>: View {
     let fraction: CGFloat
     let labels: BeforeAfterSliderLabels
+    let layout: BeforeAfterSliderLayout
     let before: Before
     let after: After
 
+    init(
+        fraction: CGFloat,
+        labels: BeforeAfterSliderLabels,
+        layout: BeforeAfterSliderLayout = .overlay,
+        before: Before,
+        after: After
+    ) {
+        self.fraction = fraction
+        self.labels = labels
+        self.layout = layout
+        self.before = before
+        self.after = after
+    }
+
     var body: some View {
         GeometryReader { proxy in
-            let width = proxy.size.width
-            let reveal = BeforeAfterSweep.revealWidth(fraction: self.fraction, width: width)
-
-            ZStack(alignment: .topLeading) {
-                self.after
-                    .frame(width: width, height: proxy.size.height)
-                    .clipped()
-
-                self.before
-                    .frame(width: width, height: proxy.size.height)
-                    .clipped()
-                    .clipShape(BeforeAfterRevealClip(width: reveal))
-
-                self.labelOverlay(width: width)
-
-                HStack(spacing: 0) {
-                    Color.clear
-                        .frame(width: BeforeAfterSweep.leadingInset(fraction: self.fraction, width: width))
-                    BeforeAfterSliderHandle()
-                    Spacer(minLength: 0)
-                }
+            switch self.layout {
+            case .overlay:
+                self.overlayBody(size: proxy.size)
+            case .sideBySide:
+                self.sideBySideBody(size: proxy.size)
+            case .stacked:
+                self.stackedBody(size: proxy.size)
             }
+        }
+    }
+
+    // MARK: - .overlay（现状）
+
+    private func overlayBody(size: CGSize) -> some View {
+        let reveal = BeforeAfterSweep.revealWidth(fraction: self.fraction, width: size.width)
+
+        return ZStack(alignment: .topLeading) {
+            self.after
+                .frame(width: size.width, height: size.height)
+                .clipped()
+
+            self.before
+                .frame(width: size.width, height: size.height)
+                .clipped()
+                .clipShape(BeforeAfterRevealClip(width: reveal))
+
+            self.labelOverlay(width: size.width)
+
+            HStack(spacing: 0) {
+                Color.clear
+                    .frame(width: BeforeAfterSweep.leadingInset(fraction: self.fraction, width: size.width))
+                BeforeAfterSliderHandle()
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    // MARK: - .sideBySide
+
+    private func sideBySideBody(size: CGSize) -> some View {
+        let extents = BeforeAfterSweep.paneExtents(fraction: self.fraction, extent: size.width)
+
+        return ZStack(alignment: .topLeading) {
+            HStack(spacing: 0) {
+                self.before
+                    .frame(width: extents.first, height: size.height)
+                    .clipped()
+                    .overlay(alignment: .topLeading) { self.paneChip(self.beforeLabelText) }
+                    .clipped()
+                self.after
+                    .frame(width: extents.second, height: size.height)
+                    .clipped()
+                    .overlay(alignment: .topLeading) { self.paneChip(self.afterLabelText) }
+                    .clipped()
+            }
+
+            HStack(spacing: 0) {
+                Color.clear
+                    .frame(width: BeforeAfterSweep.leadingInset(fraction: self.fraction, width: size.width))
+                BeforeAfterSliderHandle()
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    // MARK: - .stacked
+
+    private func stackedBody(size: CGSize) -> some View {
+        let extents = BeforeAfterSweep.paneExtents(fraction: self.fraction, extent: size.height)
+
+        return ZStack(alignment: .topLeading) {
+            VStack(spacing: 0) {
+                self.before
+                    .frame(width: size.width, height: extents.first)
+                    .clipped()
+                    .overlay(alignment: .topLeading) { self.paneChip(self.beforeLabelText) }
+                    .clipped()
+                self.after
+                    .frame(width: size.width, height: extents.second)
+                    .clipped()
+                    .overlay(alignment: .topLeading) { self.paneChip(self.afterLabelText) }
+                    .clipped()
+            }
+
+            VStack(spacing: 0) {
+                Color.clear
+                    .frame(height: BeforeAfterSweep.leadingInset(fraction: self.fraction, width: size.height))
+                BeforeAfterSliderStackedHandle()
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    // MARK: - 标签：.overlay 走跨两侧的居中标签对，.sideBySide / .stacked 各窗格自带一枚
+
+    private var beforeLabelText: Text? {
+        switch self.labels {
+        case .hidden: nil
+        case .standard: Text(BeforeAfterSliderLabels.defaultBefore)
+        case let .shown(before, _): Text(before)
+        }
+    }
+
+    private var afterLabelText: Text? {
+        switch self.labels {
+        case .hidden: nil
+        case .standard: Text(BeforeAfterSliderLabels.defaultAfter)
+        case let .shown(_, after): Text(after)
         }
     }
 
@@ -213,6 +351,15 @@ struct BeforeAfterSliderBody<Before: View, After: View>: View {
         .accessibilityHidden(true)
     }
 
+    @ViewBuilder
+    private func paneChip(_ text: Text?) -> some View {
+        if let text {
+            self.chip(text)
+                .padding(CoreSpacing.sm)
+                .accessibilityHidden(true)
+        }
+    }
+
     private func chip(_ text: Text) -> some View {
         text
             .font(.caption2.weight(.semibold))
@@ -229,6 +376,7 @@ struct BeforeAfterSliderBody<Before: View, After: View>: View {
 /// 优化前后的截图对照。
 public struct BeforeAfterSlider<Before: View, After: View>: View {
     private let labels: BeforeAfterSliderLabels
+    private let layout: BeforeAfterSliderLayout
     private let before: Before
     private let after: After
 
@@ -242,14 +390,17 @@ public struct BeforeAfterSlider<Before: View, After: View>: View {
 
     /// - Parameters:
     ///   - labels: 两侧标签的取值域，默认 `.standard`。见 `BeforeAfterSliderLabels`。
-    ///   - before: 分隔线**左侧**露出的内容（"之前"）。
-    ///   - after: 分隔线**右侧**露出的内容（"之后"）。
+    ///   - layout: 排布形态，默认 `.overlay`（现状：两层叠放、分隔线裁切）。见 `BeforeAfterSliderLayout`。
+    ///   - before: 分隔线**左侧 / 上侧**露出的内容（"之前"）。
+    ///   - after: 分隔线**右侧 / 下侧**露出的内容（"之后"）。
     public init(
         labels: BeforeAfterSliderLabels = .standard,
+        layout: BeforeAfterSliderLayout = .overlay,
         @ViewBuilder before: () -> Before,
         @ViewBuilder after: () -> After
     ) {
         self.labels = labels
+        self.layout = layout
         self.before = before()
         self.after = after()
     }
@@ -259,6 +410,7 @@ public struct BeforeAfterSlider<Before: View, After: View>: View {
             BeforeAfterSliderBody(
                 fraction: self.fraction,
                 labels: self.labels,
+                layout: self.layout,
                 before: self.before,
                 after: self.after
             )
@@ -267,9 +419,10 @@ public struct BeforeAfterSlider<Before: View, After: View>: View {
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
                         self.hasInteracted = true
-                        self.fraction = BeforeAfterSweep.fraction(
-                            dragX: value.location.x, width: proxy.size.width
-                        )
+                        let axis = BeforeAfterSweep.axis(for: self.layout)
+                        let extent = axis == .vertical ? proxy.size.height : proxy.size.width
+                        let coordinate = axis == .vertical ? value.location.y : value.location.x
+                        self.fraction = BeforeAfterSweep.fraction(dragCoordinate: coordinate, extent: extent)
                     }
             )
         }
@@ -314,6 +467,27 @@ public struct BeforeAfterSlider<Before: View, After: View>: View {
     }
 }
 
+// MARK: - 布局形态扩展点（#312 · 形态 D2）
+
+/// `BeforeAfterSlider` 的排布形态。
+///
+/// ⚠️ **本枚举是 `#312` 给 `BeforeAfterSlider` 补的样式扩展点**（形态 D2 配置枚举）——
+/// `#299` 步骤 2 枚举出的两个业界替代形态各对应一个 case，来源见 `docs/components/before-after-slider.md`
+/// 的 `#299` 重判小节。
+///
+/// ⚠️ **「配置枚举可演进」不是零代价**：本枚举**非 `@frozen`**，加 case 对下游任何
+/// 穷举 `switch` 都是 source-breaking（下游要写 `@unknown default` 才免疫）。
+public nonisolated enum BeforeAfterSliderLayout: Sendable, Equatable, CaseIterable {
+    /// 默认：两层叠放在同一块画布上，`before` 按分隔线位置裁切揭示（现状形态）。
+    case overlay
+    /// 左右并排两幅完整图——分隔线只改两个窗格的宽度比，两侧内容都不被裁切成"半张图"。
+    /// 业界来源：Adobe Lightroom Classic 的 Before & After left/right 视图。
+    case sideBySide
+    /// 上下并排两幅完整图，主轴由横改纵，拖拽与把手随之切到竖向。
+    /// 业界来源：Adobe Lightroom Classic 的 Before & After top/bottom 视图。
+    case stacked
+}
+
 #Preview("BeforeAfterSlider") {
     BeforeAfterSlider {
         Rectangle().fill(Color.surfaceRaised)
@@ -342,6 +516,29 @@ public struct BeforeAfterSlider<Before: View, After: View>: View {
             Rectangle().fill(Color.secondaryFill)
         }
         .frame(width: 300, height: 120)
+    }
+    .padding(CoreSpacing.xxl)
+}
+
+#Preview("BeforeAfterSlider — .sideBySide / .stacked") {
+    VStack(spacing: CoreSpacing.xl) {
+        BeforeAfterSlider(layout: .sideBySide) {
+            Rectangle().fill(Color.surfaceRaised)
+                .overlay { Image(systemName: "photo").font(.system(size: 32)).foregroundStyle(Color.contentTertiary) }
+        } after: {
+            Rectangle().fill(Color.secondaryFill)
+                .overlay { Image(systemName: "wand.and.stars").font(.system(size: 32)).foregroundStyle(.tint) }
+        }
+        .frame(width: 300, height: 160)
+
+        BeforeAfterSlider(layout: .stacked) {
+            Rectangle().fill(Color.surfaceRaised)
+                .overlay { Image(systemName: "photo").font(.system(size: 32)).foregroundStyle(Color.contentTertiary) }
+        } after: {
+            Rectangle().fill(Color.secondaryFill)
+                .overlay { Image(systemName: "wand.and.stars").font(.system(size: 32)).foregroundStyle(.tint) }
+        }
+        .frame(width: 220, height: 260)
     }
     .padding(CoreSpacing.xxl)
 }

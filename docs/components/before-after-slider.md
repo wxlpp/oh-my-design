@@ -18,6 +18,7 @@ import OhMyDesignEffects
 public struct BeforeAfterSlider<Before: View, After: View>: View {
     public init(
         labels: BeforeAfterSliderLabels = .standard,
+        layout: BeforeAfterSliderLayout = .overlay,
         @ViewBuilder before: () -> Before,
         @ViewBuilder after: () -> After
     )
@@ -29,6 +30,54 @@ public enum BeforeAfterSliderLabels {
     case shown(before: LocalizedStringKey, after: LocalizedStringKey)
 }
 ```
+
+## 布局形态扩展点（`#312` · 形态 D2）
+
+```swift
+public nonisolated enum BeforeAfterSliderLayout: Sendable, Equatable, CaseIterable {
+    case overlay      // 默认：两层叠放、分隔线裁切揭示（现状形态）
+    case sideBySide   // 左右并排两幅完整图（业界来源：Lightroom Classic left/right）
+    case stacked      // 上下并排两幅完整图（业界来源：Lightroom Classic top/bottom）
+}
+
+BeforeAfterSlider(layout: .sideBySide) { … } after: { … }
+```
+
+⚠️ **并排形态下 `fraction` 的语义是「分隔线位置」，不是「揭示比例」**：`.overlay` 里
+`fraction` 驱动的是 `before` 层的裁切宽度；`.sideBySide` / `.stacked` 里两个窗格各自
+拿到完整、**未被裁切**的内容，`fraction` 只决定两个窗格的尺寸比
+（`BeforeAfterSweep.paneExtents(fraction:extent:)`）。拖拽、
+`accessibilityAdjustableAction`、入场扫动三者都只认 `fraction` 这一个值，换形态不换语义
+——公约边界条款「样式不得携带行为」在这里落地为：三个 case 共用同一套手势 / a11y / 摆动代码，
+只有 `paneExtents` 与 `revealWidth` 两条几何公式的调用位置不同。
+
+⚠️ **`.stacked` 竖向把手是另一份几何，不是把横向把手转 90°**：本文件在
+`MicroInteractionReduceMotionGuard.approvedNoMotion` 名单里，判据要求文件内**零**
+`rotationEffect(` 等 `motionCalls` 子串 ⇒ `BeforeAfterSliderStackedHandle` 直接画一条
+横向分隔条 + 圆 + `arrow.up.and.down` 图标，不复用 `BeforeAfterSliderHandle` 加旋转。
+两个把手视图各自独立，靠 `BeforeAfterSweep.axis(for:)` 在 `BeforeAfterSliderBody` 里选用。
+
+⚠️ **`.sideBySide` / `.stacked` 下每个窗格各自带一枚 chip**（`before` 窗格左上角、`after`
+窗格左上角），不是 `.overlay` 那种跨两侧居中的一对；窗格过窄时 chip 被裁切、不换行
+（`paneChip` 在 `.overlay(alignment: .topLeading)` 之后再套一次 `.clipped()`）。
+
+⚠️ **加 case 是 source-breaking**：`BeforeAfterSliderLayout` 非 `@frozen`，下游穷举
+`switch` 不写 `@unknown default` 就会编译红 ⇒ 加 case 要走 BREAKING-CHANGES 登记
+（仍比 public 协议可撤——那个发出去就收不回）。
+
+⚠️ **本条不适用 `D-299-1`**：前后对比滑块在 Apple 平台上没有任何框架级承担者，见下方
+`#299` 重判小节末尾的既有登记。
+
+判据：`Tests/OhMyDesignEffectsTests/BeforeAfterLayoutFormTests.swift`
+——`paneExtents` 的和 / 钳位 / 均分 / 退化输入四条，`fraction(dragCoordinate:extent:)`
+与既有 `fraction(dragX:width:)` 的回归，`axis(for:)` 的三 case 映射，以及走 view 实际路径
+的位图判据（三种形态两两不同、`.overlay` 与省略 `layout:` 的默认行为等价）。
+
+### 为什么是形态 D2（配置枚举）而不是 public 协议
+
+`#312` 有一条**排序约束**：在 `D-299-1` 的修订回路走完前**不得走形态 B**——public 协议
+受祖父条款约束、**发布后不可撤**，而枚举与槽**可演进**。逐条见
+`docs/contract-defects.md` 的 `D-299-1` 与 `#312`。
 
 ## 哪边画哪一层
 
@@ -321,9 +370,11 @@ Before & After 视图（`Y` = left/right、`Option/Alt + Y` = top/bottom、`Shif
 ⇒ (A) 不成立、成因② ⇒ 按步骤 3 门槛
 「(A) 不成立 ⇒ 重跑步骤 2」重跑一次 ⇒ 落**出口 1**：语义组件、需要扩展点。
 
-⚠️ **扩展点尚未落地**：按 `Toast` 与 #59 的同款成法登记进
-`ComponentExtensionPointGuard.knownMissingExtensionPoints`，实现移交 **`#312`**。
-这不是「塞回红名单让判据闭嘴」—— 该集合的成文语义就是「**有承接 issue 的**已知缺口」。
+⚠️ **扩展点已由 `#312` 落地**（形态 D2 配置枚举 `BeforeAfterSliderLayout`，三个 case：
+`.overlay` 默认 / `.sideBySide` / `.stacked`，见上方《布局形态扩展点》）。
+⚠️ **`ComponentExtensionPointGuard.knownMissingExtensionPoints` 摘除属于阶段 B 集成范围**
+——本组件源码 / 判据 / 本文档由 `#312` 阶段 A 独立 worktree 落地，registry 三字段与红名单
+收缩在阶段 B 一并同步，本节先如实登记「源码侧已落地」，不声称红名单已经摘除。
 
 ⚠️ **本条不适用 `D-299-1`**（那条缺口是四个图表专有的）：前后对比滑块在 Apple 平台上
 没有任何框架级承担者。`BeforeAfterSliderLabels` 仍是**标签内容**取值域、不是外观配置枚举，
