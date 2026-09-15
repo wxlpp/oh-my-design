@@ -327,6 +327,9 @@
 > 1 条（`OrbitingLogos`）落**步骤 4**；判定法结论已产出、扩展点实现未跟上，移交 `#312`。
 > ⚠️ **再一次更新（`#312`）：现为 4 条** —— `NetworkGraph` 已以形态 D2（`NetworkGraphLayout`）
 > 补上扩展点并移出红名单，其余 4 条仍在 `#312` 下。
+> ⚠️ **再一次更新（`#312` 收口）**：`OrbitingLogos` 经修订回路翻至出口 1（`R-49`），
+> J-2 定义域 **17** 条、全部满足；五条扩展点全部以形态 D2 落地，`knownMissingExtensionPoints`
+> **收成空集**后连同 `extensionPointFollowUpIssue` 一并删除、`withKnownIssue` 块按到期机制删除。
 > 上句「全部收口」是 `#65` 当时的记录，按只增不改的成法保留；
 > > #60 已 closed。⇒ `step3` 条目数 **33 → 28**（移出的：`SidebarStatusFooter` /
 > `SidebarUtilityRow` / `SpinningModifier` / `Steps` / `Timeline`）。
@@ -1049,6 +1052,10 @@ enum，同样算被压扁的取值域，归入本条——`step: Double` 只是�
 > ⚠️ **这一次正是那句「将来若再出现已知缺口」的兑现** —— 它写下时是前瞻句，`#299` 把它
 > 变成了实测：块重建了、`inspected.count` 由 `== 11` 改 `== 16`、块外 canary 的固定集合
 > 由空集改 5 条。逐条见 `docs/contract-defects.md` 的 `D-270-1` `#299` 处置段。
+> ⚠️ **再一次更新（`#312` 收口）**：`OrbitingLogos` 经修订回路翻至出口 1（`R-49`），
+> J-2 定义域 **17** 条、全部满足；五条扩展点全部以形态 D2 落地，`knownMissingExtensionPoints`
+> **收成空集**后连同 `extensionPointFollowUpIssue` 一并删除、`withKnownIssue` 块按到期机制删除
+> ⇒ 回到上面 `#65` 那段「主判据裸 `#expect(missing.isEmpty)`」的落账方式。
 | **J-3** 标注 `nativeProtocol` 的组件作用域内不得有自有样式协议 | `Tests/OhMyDesignTests/NativeProtocolPurityGuard.swift` | `nativeProtocol != nil && repo == ohmydesign`，实测 **1** 条（`ProgressIndicator`） | 零违规。⚠️ 1 条输入的判据靠非空断言挡不住「探针退化成恒空」⇒ 另设**绿色正对照**（把探针反向施加到 `Banner` / `SegmentedControl`，必须命中）。判据**消费**该探针而不内联重写，正对照的红因此能推到判据的探测能力上（规则层 `j3JudgeConsumesTheProbe` 钉住这条结构约束） |
 | **FR-4** public init 的裸文本参数必须有分类条目 | `Tests/OhMyDesignTests/ComponentTextParamGuard.swift`；⚠️ **StoryUI 侧另有实现**：`oh-my-story` 的 `TextParamGuard` / `TextParamScan`（`#67`） | 宿主可解析到 `repo == ohmydesign` 登记表条目的 public `init`，实测覆盖 29 条。⚠️ **StoryUI 侧的定义域是「结构可达性传递闭包」，不是本行的字面定义域**（`#67` 的定义性扩展）：种子 = 25 个 `repo == "storyui"` 登记组件，沿 public init 参数类型走、剥壳后**跟进本包声明的类型**，到不动点。**理由**：StoryUI 的组件 init 形如 `ChapterCard.init(state: ChapterCardState)`，字面定义域**结构性地漏掉它几乎全部的文案面**。⚠️ **不是按名字后缀（`*State`）画线** —— 那违反本公约 J-3 的「识别是**结构性的**，不是名字匹配」，且 `CodexCard.init(state: CodexEntryState)` 而 `CodexEntryState.init(entry:type:)` **零文本参数** ⇒ 名字后缀口径对**整个 Codex 家族覆盖为 0**。⚠️ 本仓（OhMyDesign）侧**未改**定义域 | 4 条已知违规（三条 Sidebar row 的 `systemImage` + `SidebarUtilityRow.trailingSystemImage`）——与 `LabelIcon.systemName` 同类的 SF Symbol 标识符，但 `notes` 未点名 ⇒ 缺陷已报回 #38 |
 
@@ -1596,6 +1603,9 @@ CLAUDE.md 的《源码守卫的扫描根有三个入口》一节已更正过同�
 `RingChart`，实现移交 `#312`）。⇒ 本段上方那条「Charts 走 b 会触发整条 J-2 链」的预判
 **兑现了**，只是晚了一个 issue：`#270` 因落点全是 `prescriptive` 而没触发，`#299`
 补完枚举后触发。第 6 条 `OrbitingLogos` 落**步骤 4**，仍不进定义域。
+⚠️ **再一次更新（`#312` 收口）**：`OrbitingLogos` 经修订回路翻至出口 1（`R-49`）、进 J-2 定义域
+⇒ `inspected.count` **16 → 17**；五条扩展点全部以形态 D2 落地，`knownMissingExtensionPoints`
+**收成空集**后删除。上段是 `#299` 当时的记录，不改写。
 
 ⚠️⚠️ **本段是 `#270` 当时的记录，`#299` 后已过期，见上方注记**（`#315` 终审 I-7 补）：
 下面的「15 条全部 `kind: prescriptive`」现已**不成立** —— 其中 5 条（`ActivityHeatmap` /
@@ -1717,3 +1727,7 @@ PR #297 终审 S-4 实测证伪，本段改写**：按 `ComponentRegistryGuard.t
   进定义域），`knownMissingExtensionPoints` 现为 **5 条**（⚠️ **`#312` 起为 4 条**：
   `NetworkGraph` 已补上扩展点移出；`inspected.count` 仍是 16，定义域没变）。其余八个计数 `#299` **一个都没动**
   （只改 `decidedBy` / `kind` / `needsExtensionPoint` / `notes`，不增删条目、不动文本参数）。
+  ⚠️ **再一次更新（`#312` 收口）**：`OrbitingLogos` 经修订回路翻至出口 1（`R-49`），J-2
+  `inspected.count` **17**、全部满足；`knownMissingExtensionPoints` **收成空集**后连同
+  `extensionPointFollowUpIssue` 一并删除、`withKnownIssue` 块按到期机制删除。其余八个计数 `#312` 同样没动
+  （`OrbitingLogos` 只改 `decidedBy` / `kind` / `needsExtensionPoint` / `styleEnum` / `notes`）。

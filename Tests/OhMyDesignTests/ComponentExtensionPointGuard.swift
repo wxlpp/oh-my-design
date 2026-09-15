@@ -18,20 +18,14 @@ enum ComponentJudgeSources {
 
 @Suite("J-2 样式扩展点")
 struct ComponentExtensionPointGuard {
-    static let knownMissingExtensionPoints: Set<String> = [
-        "ActivityHeatmap", "BeforeAfterSlider", "RadarChart", "RingChart",
-    ]
-
-    static let extensionPointFollowUpIssue = "#312"
-
     @Test("J-2：语义组件必须有样式扩展点（原生协议采纳 或 自有协议定义+使用）")
     func semanticComponentsHaveExtensionPoint() throws {
         let entries = try ComponentRegistryGuard.loadRegistry()
         let scan = try ComponentJudgeSources.scan()
         let result = judgeExtensionPoints(entries: entries, scan: scan)
 
-        #expect(result.inspected.count == 16,
-                "J-2 定义域实测 16 条（ActivityHeatmap/AvatarGroup/Banner/BeforeAfterSlider/NetworkGraph/ProgressIndicator/RadarChart/Rating/RatingDisplay/RingChart/SegmentedControl/SidebarUtilityRow/SpinningModifier/Steps/Timeline/Toast），实际 \(result.inspected.count) 条：\(result.inspected)")
+        #expect(result.inspected.count == 17,
+                "J-2 定义域实测 17 条（ActivityHeatmap/AvatarGroup/Banner/BeforeAfterSlider/NetworkGraph/OrbitingLogos/ProgressIndicator/RadarChart/Rating/RatingDisplay/RingChart/SegmentedControl/SidebarUtilityRow/SpinningModifier/Steps/Timeline/Toast），实际 \(result.inspected.count) 条：\(result.inspected)")
         #expect(!result.satisfied.isEmpty,
                 "没有任何语义组件被判为『扩展点存在』—— 扫描器失效时也会长这样，这不是零违规")
         #expect(result.satisfied["ProgressIndicator"]?.contains("ProgressViewStyle") == true,
@@ -42,44 +36,27 @@ struct ComponentExtensionPointGuard {
                 "customStyleProtocol 通路（第二例）未走通：\(result.satisfied["SegmentedControl"] ?? "(缺)")")
         #expect(result.satisfied["RatingDisplay"]?.contains("RatingStyle") == true,
                 "customStyleProtocol 通路（#41 新增的第三例，与 Rating 复用同一个协议）未走通：\(result.satisfied["RatingDisplay"] ?? "(缺)")")
+        #expect(result.satisfied["RadarChart"]?.contains("RadarChartLayout") == true,
+                "styleEnum 通路（#312 形态 D2）未走通：\(result.satisfied["RadarChart"] ?? "(缺)")")
+        #expect(result.satisfied["RingChart"]?.contains("RingChartLayout") == true,
+                "styleEnum 通路（#312 形态 D2）未走通：\(result.satisfied["RingChart"] ?? "(缺)")")
+        #expect(result.satisfied["ActivityHeatmap"]?.contains("ActivityHeatmapLayout") == true,
+                "styleEnum 通路（#312 形态 D2）未走通：\(result.satisfied["ActivityHeatmap"] ?? "(缺)")")
+        #expect(result.satisfied["BeforeAfterSlider"]?.contains("BeforeAfterSliderLayout") == true,
+                "styleEnum 通路（#312 形态 D2）未走通：\(result.satisfied["BeforeAfterSlider"] ?? "(缺)")")
+        #expect(result.satisfied["OrbitingLogos"]?.contains("OrbitingLogosLayout") == true,
+                "styleEnum 通路（#312 形态 D2，裁定翻至出口 1 后进定义域）未走通：\(result.satisfied["OrbitingLogos"] ?? "(缺)")")
 
-        withKnownIssue("4 条待补的扩展点，移交 #312（#299 重判落出口 1，实现未跟上）") {
-            #expect(result.missing.isEmpty, "这些语义组件缺样式扩展点：\n\(result.diagnostics.joined(separator: "\n"))")
-        }
-
-        #expect(Set(result.missing) == Self.knownMissingExtensionPoints,
+        #expect(result.missing.isEmpty,
                 """
-                J-2 违规集合变了：实际 \(result.missing.sorted())，已知 \(Self.knownMissingExtensionPoints.sorted())。\
-                ⚠️ 已知集合现为 4 条（`#299` 重判落出口 1、实现移交 `#312`）；`#65` 收口后它曾是空集。\
-                ⚠️ `NetworkGraph` 已由 `#312` 以形态 D2 补上 `NetworkGraphLayout`，从本集合移出。\
-                红了意味着新增了缺扩展点的语义组件 ⇒ 要么补扩展点，要么在公约 §2 走一次判定\
-                （允许得出形态 C「承认差异存在、本轮不开扩展点」，须在 notes 写明理由）。\
-                ⚠️ **不要**为了让它变绿而把新条目塞回 knownMissingExtensionPoints —— 那个集合的\
-                存在意义是「有承接 issue 的已知缺口」，不是消音器
+                J-2 出现缺口 \(result.missing.count) 条：\(result.missing.sorted())。
+                \(result.diagnostics.joined(separator: "\n"))
+                已知缺口集合已于 `#312` 收成空集并删除（五条扩展点全部以形态 D2 落地）。\
+                新缺口 ⇒ 要么补扩展点，要么在公约 §2 走一次判定\
+                （允许得出形态 C「承认差异存在、本轮不开扩展点」，须在 notes 写明理由）；\
+                确需暂缓时，挂一个**尚未关闭**的承接 issue，再照公约 §4 重建 \
+                knownMissingExtensionPoints + withKnownIssue（只包住本句）
                 """)
-
-        for component in Self.knownMissingExtensionPoints {
-            guard let entry = entries.first(where: { $0.component == component }) else {
-                Issue.record("已知缺口条目 \(component) 已不在登记表里 —— 请同步更新 knownMissingExtensionPoints")
-                continue
-            }
-            #expect(entry.kind == "semantic" && entry.needsExtensionPoint,
-                    "\(component) 不再是『semantic + 要扩展点』（kind=\(entry.kind), needs=\(entry.needsExtensionPoint)）—— 任务书明令不得靠改登记表让 J-2 闭嘴")
-            #expect(entry.nativeProtocol == nil && entry.customStyleProtocol == nil,
-                    "\(component) 已经填上了协议字段但源码没跟上，或反之 —— 请重新核对，不要留在已知缺口里")
-        }
-
-        let missingFollowUp = Self.knownMissingExtensionPoints
-            .filter { component in
-                guard let entry = entries.first(where: { $0.component == component }) else { return false }
-                return !entry.notes.contains(Self.extensionPointFollowUpIssue)
-            }
-            .sorted()
-        #expect(missingFollowUp.isEmpty, """
-        这些条目在 knownMissingExtensionPoints 里，但 notes 没写承接 issue 号 \(Self.extensionPointFollowUpIssue)：\
-        \(missingFollowUp)。缺口没有落点等于永久缺口，也正是「把新条目塞回红名单让判据闭嘴」的形态。\
-        正确处置是补扩展点（然后从本集合删名字），或在 notes 里写明承接 issue。
-        """)
 
         let bothProtocolFields = entries.filter {
             $0.repo == "ohmydesign" && $0.nativeProtocol != nil && $0.customStyleProtocol != nil
@@ -100,10 +77,8 @@ struct ComponentExtensionPointGuard {
         for (component, reason) in result.satisfied.sorted(by: { $0.key < $1.key }) {
             print("J-2 ✓ \(component)：\(reason)")
         }
-        print("J-2 已知缺口 \(result.missing)"
-              + (result.missing.isEmpty
-                 ? "（**空集** —— 扩展点缺口已全部收口）"
-                 : "（待补扩展点，承接 issue \(Self.extensionPointFollowUpIssue)）"))
+        print("J-2 缺口 \(result.missing)"
+              + (result.missing.isEmpty ? "（**空集** —— 扩展点缺口已全部收口）" : "（见上方失败消息）"))
         print("⚠️ J-2 跳过 storyui \(result.skippedRepos["storyui"] ?? 0) 条：CI 只 checkout 本仓，跨仓核对移交 #43。")
     }
 }

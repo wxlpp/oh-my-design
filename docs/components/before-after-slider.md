@@ -372,10 +372,12 @@ Before & After 视图（`Y` = left/right、`Option/Alt + Y` = top/bottom、`Shif
 
 ⚠️ **扩展点已由 `#312` 落地**（形态 D2 配置枚举 `BeforeAfterSliderLayout`，三个 case：
 `.overlay` 默认 / `.sideBySide` / `.stacked`，见上方《布局形态扩展点》）。
-⚠️ **`ComponentExtensionPointGuard.knownMissingExtensionPoints` 摘除属于阶段 B 集成范围**
-——本组件源码 / 判据 / 本文档由 `#312` 阶段 A 独立 worktree 落地，registry 三字段与红名单
-收缩在阶段 B 一并同步，本节先如实登记「源码侧已落地」，不声称红名单已经摘除。
+本条已从 `ComponentExtensionPointGuard.knownMissingExtensionPoints` 移出（曾按 `Toast` 与 #59
+的同款成法暂登记在那里；该集合随 `#312` 收口为空集后已整体删除），登记表 `styleEnum` 填
+`BeforeAfterSliderLayout`。
+⚠️ **有意不发 public 协议**（形态 B）：`#312` 的排序约束要求 `D-299-1` 的修订回路走完前不得发布
+不可撤的协议，配置枚举可演进。判据：`BeforeAfterLayoutFormTests`。
 
 ⚠️ **本条不适用 `D-299-1`**（那条缺口是四个图表专有的）：前后对比滑块在 Apple 平台上
 没有任何框架级承担者。`BeforeAfterSliderLabels` 仍是**标签内容**取值域、不是外观配置枚举，
-`styleEnum` 仍留空。
+故不填进 `styleEnum`（`styleEnum` 填的是 `#312` 落地的 `BeforeAfterSliderLayout`）。

@@ -2582,6 +2582,20 @@ SwiftUI 的 `ProgressView(value:)`）。它们不是「本设计系统的一个�
 ⚠️ 若两条都成立，`RadarChart` / `ActivityHeatmap` 的计入数各自 3 → 1 < 2 ⇒ **也会翻**。
 ⇒ 逐条核查移交 `#312`（该 issue 的排序约束因此更紧，不是更松）。
 
+⚠️⚠️ **`#312` 重核（只增不删，上面两段保留为移交记录）**：两个具名反例已逐条核完，
+同构标准、逐字 SDK 依据与「为什么重核结论不改落点」见本文件 `## #312` 节的《裁定 B》。
+结论表（`#312` 起本表是 `D-299-1` 全口径结论的落点）：
+
+| 条目 / 候选 | 具名 API | ① 具名 | ② 本职 | ③ 双平台 | 全口径结论 | 计入数（若条件 ① 被扩宽） |
+|---|---|---|---|---|---|---|
+| `RadarChart` 候选 2 径向柱状 | Swift Charts `SectorMark` / `SectorPlot` | 是 | 否（半径是 `MarkDimension` 布局尺寸，无径向比例尺；AntV G2 `radial` 的弧形条无法表达） | 是 | **不计**（信心中，判断题） | 3 → 2，不翻 |
+| `ActivityHeatmap` 候选 1 日历月视图 | UIKit `UICalendarView` + `UICalendarViewDecoration` | 是 | 是（逐日装饰是文档化能力，可承载四档色阶） | **否**（macOS 无 UIKit；`MultiDatePicker` macOS unavailable 且无装饰 API；`NSDatePicker` 无装饰） | **待口径成文**（双平台口径不计 / iOS 单平台口径计） | 双平台 3 → 2 不翻；单平台 3 → 1 会翻 |
+| `RingChart`（已判） | — | — | — | — | 不变 | 3 → ≤1，**至少**这一条会翻 |
+
+⇒ 上面 F-2 段那句「若两条都成立……**也会翻**」按本表收窄为：`RadarChart` 不翻；`ActivityHeatmap`
+取决于第 ③ 列那个**尚未成文**的平台口径。⚠️ 第 ③ 列是 `#312` 补的操作化，本身须经修订回路成文，
+在那之前不作既定事实传播。
+
 ⚠️ **成因，如实记**：那段「本条候选的真实承担者是 Swift Charts」的样板被**逐条抄了五遍
 而没有逐条重判**，`NetworkGraph` 就是抄错的那一份；`BeforeAfterSlider` 那份反倒写对了
 （明写「本条不适用」）⇒ 缺的不是判断力，是「样板落到每一条上都要重判一次」这个动作。
@@ -2607,6 +2621,10 @@ SwiftUI 的 `ProgressView(value:)`）。它们不是「本设计系统的一个�
 而扩展点一旦以 public 协议形态发布就**撤不回来**。⇒ 这是 `#312` 应当**优先选形态 D**
 （槽 / 枚举可演进）而不是形态 B（public 协议不可撤）的一条独立理由，
 且 **`#312` 在 `D-299-1` 的修订回路走完之前不得走形态 B**（排序约束，已写进 `#312` 正文）。
+⚠️ **`#312` 重核（只增不删）**：`RadarChart` / `ActivityHeatmap` 在双平台口径下不翻；
+iOS 单平台口径下 `ActivityHeatmap` 会翻 —— 口径本身待本条回路成文（表见上方《`#312` 重核》段）。
+`#312` 未走本条修订回路，五条扩展点全部以形态 D2 落地、没有发布任何 public 协议；
+`RingChart` 的 `RingChartLayout` 因此是在「若扩宽则会翻」的状态下发布的，代价登记为 `D-312-1`。
 
 ### D-299-2：「候选须是本组件的另一个**版本**」这条读法只活在问句里，没有成文判据
 
@@ -2659,6 +2677,9 @@ PR #315 的 `R-48` 段末、PR 正文、四份图表 `notes` 都写过「两条�
 选问句而不选操作化门槛，**是一次口径选择**，不是「无选择地照抄字面」。本轮如实标注，
 落点不动、**本轮不翻**，理由见下方《`#315` 终审后复核》段的重排版本（主理由：**下游连锁应
 单独过一次评审**；可逆性已降级、不再作依据），翻转移交 `#312`。
+⚠️ **`#312` 处置（只增不删）**：已按上面的字面翻转（`OrbitingLogos` → 出口 1），走的是修订回路，
+见本文件 `## #312` 节《裁定 A》。本条（读法未成文）**仍未收口**：两种读法下计入数分别为 2 与 4，
+都 ≥ 2、落点相同，故 `#312` 不需要裁它；它只影响 `OrbitingLogosLayout` 的 case 集合。
 
 ### ⚠️ `#315` 终审后复核：`OrbitingLogos` 候选 4 的负面核验已过期（不是新缺陷，是一条来源更正）
 
@@ -2682,7 +2703,7 @@ of the ellipse on Y-axis in percentage, relative to the container.”）、`tilt
 也过得了。⇒ **按公约字面，`OrbitingLogos` 的计入数应为 2（候选 1 多轨道分布 + 候选 4 椭圆轨道）
 ≥ 2 ⇒ 落出口 1 ⇒ `semantic` + `needsExtensionPoint`**，而不是本 PR 落盘的步骤 4。
 
-**本轮处置：不翻转落点，如实登记，翻转移交 `#312`。** 理由逐条。
+**本轮处置：不翻转落点，如实登记，翻转移交 `#312`。** 理由逐条。（⚠️ **`#312` 处置**：已兑现，见 `## #312`。）
 ⚠️⚠️ **`#315` 第 2 轮终审 C：理由的重心已按终审的实核重排。** 上一版把「可逆性」摆在最前
 当主理由，实核下来它是**最弱**的一条，而且有一个前提**直接是错的**（见 ③）。
 
@@ -2697,6 +2718,8 @@ of the ellipse on Y-axis in percentage, relative to the container.”）、`tilt
   “The radius of the ellipse on X-axis in percentage, relative to the container.”
   ⇒ **证据侧已不再是单方自证**，本条主理由只剩「下游连锁那条链要单独过评审」这一半，
   `#312` 先裁出口的**到期性因此更强**，不因本轮不翻而变缓。
+  ⚠️ **`#312` 处置（只增不删）**：这条链已在 `#312` 单独评审并与五条扩展点同一提交落地，
+  上面括号里的计数不再叠层，最终态见 `## #312`。
 - **② 这是一条到期项，不是「缺陷登记后慢慢等」**：`D-299-1` 推迟的是一条**未成文的规则**，
   本条推迟的是**公约现行字面在现有证据下已经给出的落点**。⇒ `#312` 必须**先裁**
   `OrbitingLogos` 到底落哪个出口，**再**决定扩展点形态（该排序约束已写进 `#312` 正文）。
@@ -2727,4 +2750,104 @@ of the ellipse on Y-axis in percentage, relative to the container.”）、`tilt
   而同表本轮直接改过的三行改的**全是非落盘列**（`BeforeAfterSlider` 计入 3 → 2、
   `ActivityHeatmap` 换引文、`RadarChart` 换反向证据）⇒ 「表随落盘」若成立，
   那三行就不该动。
+- ⚠️ **`#312` 处置（只增不删，覆盖本段全部「翻转移交 `#312`」）**：已兑现。`R-48` 的
+  `OrbitingLogos` 行仍冻结，`#312` 在 `R-48` 更正表**追加**一行指向 `R-49`；翻转依据与落点清单
+  见 `## #312` 节《裁定 A》。
 
+## #312
+
+> ⚠️ 按本文件头「零缺陷也要写『零缺陷』」的规矩：`#312` 的主体是实现（五条形态 D2 扩展点）
+> 与两条裁定的留痕；新登记缺陷 **1 条**（`D-312-1`），非零。
+
+### 裁定 A：`OrbitingLogos` 翻至出口 1（走修订回路，不是 `notes` 补写）
+
+**结论**：`decidedBy: tiebreaker → step2`、`kind: prescriptive → semantic`、
+`needsExtensionPoint: false → true`；扩展点为形态 D2 配置枚举 `OrbitingLogosLayout`。
+
+**依据**：
+- **现行字面已给出的落点**：本文件《`#315` 终审后复核》段逐字「按公约字面，`OrbitingLogos` 的
+  计入数应为 2（候选 1 多轨道分布 + 候选 4 椭圆轨道）≥ 2 ⇒ 落出口 1」。同段「本轮不翻」的
+  主理由是「① 下游连锁应当单独过一次评审」与「② 这是一条到期项」—— 两条都指向 `#312`：
+  `#312` 就是那次单独评审。可逆性一条已被同段自行降级为「只作留痕」。
+- **来源已留档进仓**：`docs/issues/animata-orbiting-items-3d-2026-09-14.html`，提交
+  `416d06c`（2026-09-14 抓取、HTTP 200），已跟踪、是本分支 HEAD 的祖先。剥掉标签后逐字读到
+  组件自述 “List component with orbiting items. The items orbit around the center of an
+  element in 3D Ellipse.” 与 `radiusX` / `radiusY` / `tiltAngle` 三条 props 说明，
+  与上面《`#315` 终审后复核》段记的逐字一致（提取命令：去 `<script>` / `<style>` 与标签、
+  `html.unescape`、折叠空白后按关键词取上下文）。
+- **09-07 那次 403 不再构成阻碍**：当时的阻碍逻辑是「不能据一份自己读不到的页面去翻落点」，
+  给出的出路之一就是「当场把正文存下来」。留档后「真的查过」由仓内文件证明，「可复现」由
+  任何人读该文件证明，两条纪律都不再依赖取页成功；取页结果本就不稳定（09-05 200 / 09-07 403 /
+  09-14 200），与裁定无关。
+- **`D-299-2` 不必在本 issue 裁**：同组件版本读法下计入数 2（候选 1 + 4），操作化门槛字面下
+  计入数 4（候选 1–4），都 ≥ 2、落点相同。它只影响 case 集合：候选 2 marquee / 候选 3 logo
+  网格不做 case，若该读法将来取反向口径要另加 case（source-breaking）。
+- **为什么这不是「事后补写翻转」**：公约「事后补写的效力边界」要求翻转走修订回路
+  （记入本文件 → 回写公约 → `docs/component-contract-revisions.md` 逐条留痕），不能只改 `notes`。
+  本裁定的落点：本节 → `docs/component-contract.md` 三处现状注记 →
+  `docs/component-contract-revisions.md` 的 `R-49`；连带 `docs/component-registry.json`
+  三字段 + `styleEnum`、J-2 判据、`docs/components/orbiting-logos.md`。
+
+**J-2 最终态**：定义域 **17** 条、全部满足；`knownMissingExtensionPoints` 收成空集后连同
+`extensionPointFollowUpIssue` 与那条聚合断言一并删除；`withKnownIssue` 块按其到期机制删除，
+主判据回到裸 `#expect(result.missing.isEmpty)`，另加五条 D2 通路正向断言。
+⇒ `#312` 正文「关闭前必须确认」的第一个分支已满足。
+
+### 裁定 B：`D-299-1` 两个具名反例的逐条重核（结论不改落点）
+
+**同构标准**：排除 `RingChart` 候选 2 时的原话是「Swift Charts 无『分段进度』概念，只能用
+N 个 `BarMark` 手拼」。操作化成三条，缺一即「不计」：
+1. **具名**：宿主平台框架里有一个具名 API；
+2. **本职**：该 API 的本职形态就是候选形态 —— 数据到几何的映射由框架完成，调用方不必手工
+   归一化、不必用 N 个通用 mark 拼出该概念（`ProgressView(value:)` 与「N 个 `BarMark` 手拼」
+   的分野）；
+3. **平台**（`#312` 补的，**待成文**）：在本设计系统声明的全部宿主平台上可用（iOS 26+ /
+   macOS 26+）。理由：作用域条款的本意是「想要那种观感就换用那个承担者」，macOS 消费者换不了
+   UIKit。`D-299-1` 已计入的三个承担者（`BarMark` / `LineMark` / `ProgressView(value:)`）都满足本条。
+
+**`RadarChart` 候选 2 ↔ `SectorMark`**（`iPhoneOS26.4.sdk` 的 Charts swiftinterface 实核）：
+`SectorMark` 唯一 init 逐字 `nonisolated public init(angle: Charts.PlottableValue<some Plottable>, innerRadius: Charts.MarkDimension = .automatic, outerRadius: Charts.MarkDimension = .automatic, angularInset: CoreFoundation.CGFloat? = nil)`
+—— 只有 `angle` 进比例尺；`MarkDimension` 的存储是 `automatic` / `fixed` / `ratio` / `inset`，
+是布局尺寸、不接数据域。`SectorPlot` 的 `MarkDimensions<DataElement>` 确有 keyPath 形态（`D-299-1`
+F-2 段反例表里那句成立），但 keyPath 指向 `CGFloat` **比例**，调用方要自己除以最大值，无径向比例尺、
+无径向轴。「径向柱状」两种读法：AntV G2 `radial`（转置极坐标、每类一条弧形条、值在扫过角）——
+`SectorMark` 把扇区首尾相接排满一圈，**表达不了**；玫瑰图读法（值在半径）——能手拼，但与
+「N 个 `BarMark` 手拼分段进度」同类。⇒ **不计**，信心**中**：反对意见（「`SectorPlot` 一次调用
+就出 N 个扇区，够直接了」）有立足点，故只登记、不当既定事实传播。
+
+**`ActivityHeatmap` 候选 1 ↔ `UICalendarView`**：iOS SDK 的 `UICalendarView.h` 逐字
+`@interface UICalendarView : UIView`，delegate 方法
+`calendarView:decorationForDateComponents:` 做逐日装饰；`UICalendarViewDecoration.h` 有
+`initWithImage:color:size:` 与自定义视图 provider ⇒ 四档色阶可承载，iOS 单平台口径下**计**。
+macOS 侧：`MacOSX26.sdk` 的 `Frameworks/` 下**没有** `UIKit.framework`；SwiftUI
+`MultiDatePicker` 在 macOS swiftinterface 里标 `@available(macOS, unavailable)` 且无装饰 API；
+AppKit `NSDatePicker.h` 里 `decorat` 零命中 ⇒ 双平台口径下**不计**。
+⇒ **结论待口径成文**，两者并列登记、不择一。
+
+**结论表**落在 `D-299-1` 的《`#312` 重核》段（单一落点，本节不复制）。
+
+**重核结论不能直接改落点**（`312-plan.md` 初稿阶段 1b「裁定『计』⇒ 落点退回步骤 4」作废）：
+作用域条款现行条件 ① 逐字要求「被点名的兄弟组件必须真实存在于 `docs/component-registry.json`」，
+`SectorMark` / `UICalendarView` 都不在登记表 ⇒ 条款援引不了 ⇒ 计入数与落点不变。
+「计 / 不计」回答的是一个**反事实**（若条件 ① 被扩宽会怎样），只喂 `D-299-1` 的代价表。
+`#312` **未走** `D-299-1` 的修订回路（那要先成文第 ③ 条的平台口径，是另一件事）。
+
+### D-312-1：祖父条款只保护已发布的公开样式协议，不覆盖已发布的形态 D2 公开枚举
+
+**撞上公约哪一条**：第 1 节祖父条款逐字「组件已经**发布了公开的样式协议**」⇒ 不再走判定法，
+理由是「public 协议一旦发布，删它是破坏性变更，判定法不可能推翻既成事实」。
+
+**撞法**：`#312` 为 `RingChart` 发布了 `RingChartLayout`，而 `D-299-1` 的代价表已确证：
+若条件 ① 被扩宽，`RingChart` 的计入数会掉到 ≤1、落点要重判为步骤 4（`prescriptive` / 不给扩展点）。
+届时枚举**删不掉**（删 public 类型同样是破坏性变更，与删 public 协议同级），却**不受祖父条款保护**
+—— 条款的对象只写了协议。`RadarChart.bars` 同形：若候选 3 因 `BarMark` 被排除，计入数
+3 → 2 仍不翻，但那个 case 同样已发布。
+
+**判据侧现状**：`ComponentRegistryGuard` 只断言 `prescriptive ⇒ !needsExtensionPoint`；
+J-2 只巡 `semantic && needsExtensionPoint`；**没有**判据禁止 `prescriptive` 条目填 `styleEnum`，
+也没有反向判据抓「源码有接线的公开枚举、登记表未认领」。⇒ 若将来 `RingChart` 退到步骤 4，
+`styleEnum` 保留 `RingChartLayout` 今天不会判红（`#312` 的变异清单因此不把它当作会红的变异）。
+
+**本轮处置**：只登记，交 `D-299-1` 的修订回路一并裁（候选方向：祖父条款的对象扩到「已发布的
+公开样式协议**或形态 D2 公开枚举**」）。**接受这个代价**：枚举可演进（加 case）且不逼人发协议，
+真正不可撤的只是类型名本身；源码侧届时只能保留或 `@available(*, deprecated)`。

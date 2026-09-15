@@ -289,14 +289,9 @@ lollipop / radial column / radial lollipop / stellar 四形态 —— 形态真�
 ⇒ **非皮肤且未被作用域排除的候选数 = 3 ≥ 2** ⇒ (A) 不成立、成因② ⇒ 按步骤 3 门槛
 「(A) 不成立 ⇒ 重跑步骤 2」重跑一次 ⇒ 落**出口 1**：语义组件、需要扩展点。
 
-⚠️ **扩展点尚未落地**：按 `Toast` 与 #59 的同款成法登记进
-`ComponentExtensionPointGuard.knownMissingExtensionPoints`，实现移交 **`#312`**。
-这不是「塞回红名单让判据闭嘴」—— 该集合的成文语义就是「**有承接 issue 的**已知缺口」。
-
 ⚠️ **扩展点已由 `#312` 落地**（形态 D2 配置枚举 `RadarChartLayout`，四个 case，
-详见上方《布局形态扩展点》一节），本条待
-`ComponentExtensionPointGuard.knownMissingExtensionPoints` 与 registry 的
-`styleEnum` 同步后即从红名单移出（曾按 `Toast` 与 #59 的同款成法暂登记在那里）。
+详见上方《布局形态扩展点》一节），本条已从 `ComponentExtensionPointGuard.knownMissingExtensionPoints`
+移出（曾按 `Toast` 与 #59 的同款成法暂登记在那里；该集合随 `#312` 收口为空集后已整体删除）。
 ⚠️ **有意不发 public 协议**（形态 B）：`D-299-1` 的修订回路未走完前不得发布不可撤的协议，
 配置枚举可演进。判据：`RadarChartLayoutFormTests`。
 
@@ -309,6 +304,10 @@ Swift Charts 的 `BarMark`，不在登记表里 ⇒ 作用域条款的条件 ①
 
 ⚠️⚠️ **本条的「不命中」论证有已登记的口径缺口，若补齐后成立、落点会翻**（具名反例：Swift Charts `SectorMark(outerRadius:)`）。
 **论证、逐字 SDK 依据与移交 `#312` 的排序约束，唯一真源在 `docs/contract-defects.md` 的 `D-299-1`。**
+⚠️ **`#312` 已重核这个具名反例**：按「本职形态」判据不计 ⇒ 若条件 ① 被扩宽，计入数 3 → 2、
+仍不翻；信心**中**（判断题，不是事实题）。逐条见 `docs/contract-defects.md` 的 `## #312` 节与 `D-299-1` 的《`#312` 重核》段。
+⚠️ 若候选 3 将来因 `BarMark` 被排除，`.bars` 已经发布、撤不回来 —— 祖父条款不覆盖 D2 枚举，
+缺口登记为 `docs/contract-defects.md` 的 `D-312-1`。
 ⚠️ 本段有意只留指针不留副本 —— 同一句样板此前被抄进 6 份落点、一处更正要人工同步 6 次，收口理由与机器判据见 `#316`。
 
 本轮按公约字面走，`D-299-1` **未被用来改本条落点**，缺口另走修订回路。
