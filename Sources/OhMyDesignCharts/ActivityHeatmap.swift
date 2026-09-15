@@ -8,6 +8,7 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
     private let tint: Color
     private let title: LocalizedStringResource
     private let calendar: Calendar
+    private let layout: ActivityHeatmapLayout
 
     /// - Parameter calendar: ⚠️ 显式接受而不是取 `.current`——一周从周日还是周一开始
     ///   **是 locale 决定的**，写死会让非美国用户看到错位的行。默认取 `.current`
@@ -16,30 +17,47 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
         _ days: [Day],
         title: LocalizedStringResource? = nil,
         tint: Color = .dataAccent,
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        layout: ActivityHeatmapLayout = .weeks
     ) {
         self.days = days
         self.title = title ?? .chart("Activity heatmap")
         self.tint = tint
         self.calendar = calendar
+        self.layout = layout
     }
 
     public var body: some View {
         if self.days.isEmpty {
             ChartEmptyState(message: .chart("No data"))
         } else {
-            self.grid
+            self.content
         }
     }
 
     // MARK: - Private
 
-    private var grid: some View {
-        let inputs = Self.renderInputs(self.days, calendar: self.calendar)
-        let buckets = inputs.buckets
-        let weeks = inputs.weeks
+    private var content: some View {
+        let plan = Self.renderInputs(self.days, calendar: self.calendar, layout: self.layout)
+        return Group {
+            switch plan.shape {
+            case .weeks(let weeks):
+                self.weeksGrid(weeks: weeks, buckets: plan.buckets)
+            case .monthCalendar(let blocks):
+                self.monthCalendarGrid(blocks: blocks, buckets: plan.buckets, byDate: plan.byDate)
+            case .monthTracks(let tracks):
+                self.monthTracksGrid(tracks: tracks, buckets: plan.buckets, byDate: plan.byDate)
+            case .dailyColumns(let dates):
+                self.dailyColumnsBars(dates: dates, buckets: plan.buckets, byDate: plan.byDate)
+            }
+        }
+        .accessibilityElement()
+        .accessibilityLabel(Text(self.title))
+        .accessibilityChartDescriptor(self)
+    }
 
-        return HStack(spacing: 3) {
+    private func weeksGrid(weeks: [[Day?]], buckets: [Int]) -> some View {
+        HStack(spacing: 3) {
             ForEach(Array(weeks.enumerated()), id: \.offset) { _, week in
                 VStack(spacing: 3) {
                     ForEach(0..<7, id: \.self) { weekday in
@@ -51,15 +69,108 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
                 }
             }
         }
-        .accessibilityElement()
-        .accessibilityLabel(Text(self.title))
-        .accessibilityChartDescriptor(self)
     }
 
-    static func renderInputs(_ days: [Day], calendar: Calendar)
-        -> (shown: [Day], buckets: [Int], weeks: [[Day?]]) {
+    private func monthCalendarGrid(blocks: [MonthBlock], buckets: [Int], byDate: [Date: Day]) -> some View {
+        // 用 `GeometryReader` 显式算出正方形边长，而不是靠 `.aspectRatio(1, .fit)` 在
+        // 多块 × 6 行 × 7 列的嵌套 HStack/VStack 里隐式协商——与 `dailyColumnsBars` 同一套做法，
+        // 边长同时受块宽（多块分摊总宽）与行高两个方向约束，取较小者更直接。
+        let gap: CGFloat = 3
+        let blockGap = CoreSpacing.sm
+        return GeometryReader { proxy in
+            let blockCount = max(blocks.count, 1)
+            let totalBlockGaps = blockGap * CGFloat(max(blocks.count - 1, 0))
+            let blockWidth = max((proxy.size.width - totalBlockGaps) / CGFloat(blockCount), 0)
+            let cellWidth = max((blockWidth - gap * 6) / 7, 0)
+            let cellHeight = max((proxy.size.height - gap * 5) / 6, 0)
+            let cellSize = min(cellWidth, cellHeight)
+            HStack(spacing: blockGap) {
+                ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+                    VStack(spacing: gap) {
+                        ForEach(0..<6, id: \.self) { row in
+                            HStack(spacing: gap) {
+                                ForEach(0..<7, id: \.self) { column in
+                                    self.calendarCell(date: block.cells[row][column], buckets: buckets, byDate: byDate)
+                                        .frame(width: cellSize, height: cellSize)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func monthTracksGrid(tracks: [[Date?]], buckets: [Int], byDate: [Date: Day]) -> some View {
+        let gap: CGFloat = 3
+        return GeometryReader { proxy in
+            let rowCount = max(tracks.count, 1)
+            let cellWidth = max((proxy.size.width - gap * 30) / 31, 0)
+            let cellHeight = max((proxy.size.height - gap * CGFloat(max(tracks.count - 1, 0))) / CGFloat(rowCount), 0)
+            let cellSize = min(cellWidth, cellHeight)
+            VStack(spacing: gap) {
+                ForEach(Array(tracks.enumerated()), id: \.offset) { _, track in
+                    HStack(spacing: gap) {
+                        ForEach(Array(track.enumerated()), id: \.offset) { _, date in
+                            self.calendarCell(date: date, buckets: buckets, byDate: byDate)
+                                .frame(width: cellSize, height: cellSize)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func calendarCell(date: Date?, buckets: [Int], byDate: [Date: Day]) -> some View {
+        let fill: Color = date.map { self.color(for: byDate[$0], buckets: buckets) } ?? Color.clear
+        return RoundedRectangle(cornerRadius: 2, style: .continuous)
+            .fill(fill)
+    }
+
+    private func dailyColumnsBars(dates: [Date], buckets: [Int], byDate: [Date: Day]) -> some View {
+        let peak = dates.compactMap { byDate[$0]?.count }.max() ?? 0
+        return VStack(spacing: 3) {
+            GeometryReader { proxy in
+                let gap: CGFloat = 1
+                let barWidth = dates.isEmpty
+                    ? 0
+                    : max((proxy.size.width - gap * CGFloat(max(dates.count - 1, 0))) / CGFloat(dates.count), 0)
+                HStack(alignment: .bottom, spacing: gap) {
+                    ForEach(dates, id: \.self) { date in
+                        let day = byDate[date]
+                        let height = peak > 0 ? proxy.size.height * CGFloat(day?.count ?? 0) / CGFloat(peak) : 0
+                        RoundedRectangle(cornerRadius: 1, style: .continuous)
+                            .fill(day != nil ? self.color(for: day, buckets: buckets) : Color.clear)
+                            .frame(width: barWidth, height: max(height, 0))
+                    }
+                }
+                .frame(maxHeight: .infinity, alignment: .bottom)
+            }
+            Rectangle()
+                .fill(Color.dividerDefault)
+                .frame(height: CoreBorderWidth.hairline)
+        }
+    }
+
+    static func renderInputs(_ days: [Day], calendar: Calendar, layout: ActivityHeatmapLayout = .weeks)
+        -> HeatmapPlan {
         let shown = Self.effectiveDays(days, calendar: calendar)
-        return (shown, Self.buckets(for: shown), Self.weeks(ofEffective: shown, calendar: calendar))
+        let buckets = Self.buckets(for: shown)
+        var byDate = [Date: Day]()
+        for d in shown { byDate[calendar.startOfDay(for: d.date)] = d }
+
+        let shape: HeatmapShape
+        switch layout {
+        case .weeks:
+            shape = .weeks(Self.weeks(ofEffective: shown, calendar: calendar))
+        case .monthCalendar:
+            shape = .monthCalendar(Self.monthBlocks(ofEffective: shown, calendar: calendar))
+        case .monthTracks:
+            shape = .monthTracks(Self.monthTracks(ofEffective: shown, calendar: calendar))
+        case .dailyColumns:
+            shape = .dailyColumns(Self.dailySeries(ofEffective: shown, calendar: calendar))
+        }
+        return HeatmapPlan(shown: shown, buckets: buckets, shape: shape, byDate: byDate)
     }
 
     static func label(for date: Date, calendar: Calendar) -> String {
@@ -179,4 +290,205 @@ extension ActivityHeatmap: AXChartDescriptorRepresentable {
         ActivityHeatmap(days.map { Day(date: $0.date, count: 0) }).frame(height: 110)
     }
     .padding()
+}
+
+// MARK: - 四个布局形态各一个 Preview（Issue #312）
+
+nonisolated struct ActivityHeatmapPreviewDay: HeatmapDay {
+    let id = UUID()
+    let date: Date
+    let count: Int
+}
+
+nonisolated enum ActivityHeatmapPreviewSample {
+    static let days: [ActivityHeatmapPreviewDay] = {
+        let start = Calendar.current.date(byAdding: .day, value: -120, to: .now)!
+        return (0..<120).map { offset in
+            ActivityHeatmapPreviewDay(
+                date: Calendar.current.date(byAdding: .day, value: offset, to: start)!,
+                count: [0, 0, 1, 2, 3, 5, 8][offset % 7]
+            )
+        }
+    }()
+}
+
+#Preview("ActivityHeatmap — .weeks") {
+    ActivityHeatmap(ActivityHeatmapPreviewSample.days, title: ".weeks", layout: .weeks)
+        .frame(height: 110)
+        .padding()
+}
+
+#Preview("ActivityHeatmap — .monthCalendar") {
+    ActivityHeatmap(ActivityHeatmapPreviewSample.days, title: ".monthCalendar", layout: .monthCalendar)
+        .frame(height: 220)
+        .padding()
+}
+
+#Preview("ActivityHeatmap — .monthTracks") {
+    ActivityHeatmap(ActivityHeatmapPreviewSample.days, title: ".monthTracks", layout: .monthTracks)
+        .frame(height: 160)
+        .padding()
+}
+
+#Preview("ActivityHeatmap — .dailyColumns") {
+    ActivityHeatmap(ActivityHeatmapPreviewSample.days, title: ".dailyColumns", layout: .dailyColumns)
+        .frame(height: 110)
+        .padding()
+}
+
+// MARK: - 布局形态（Issue #312 · 形态 D2）
+
+/// `ActivityHeatmap` 的布局形态。
+///
+/// ⚠️ **本枚举是 `#312` 给 `ActivityHeatmap` 补的样式扩展点**（形态 D2 配置枚举）——
+/// `#299` 步骤 2 枚举出的三个业界替代形态各对应一个 case，来源逐条记在各 case 的文档注释里。
+///
+/// ⚠️ **「配置枚举可演进」不是零代价**：本枚举**非 `@frozen`**，加 case 对下游任何
+/// 穷举 `switch` 都是 source-breaking（下游要写 `@unknown default` 才免疫）。
+/// 它仍比形态 B（public 协议）可撤，但加 case 要走一次 BREAKING-CHANGES 登记。
+public nonisolated enum ActivityHeatmapLayout: Sendable, Equatable, CaseIterable {
+    /// 默认：按周成列、按星期几成行（现状形态）。
+    case weeks
+    /// 日历月视图：每月一块、固定 6 行 × 7 列，格子按真实的日历位置摆放。
+    /// 业界来源：Apple 自家 Activity / Fitness App 的 History 页。
+    case monthCalendar
+    /// 月轨图：每月一行，按当月日序成列。
+    /// 业界来源：Obsidian 社区插件 Contribution Graph 的 "month track graphs"。
+    case monthTracks
+    /// 每日一柱：折线 / 柱状时间序列的柱状读法，保留四档强度色阶双重编码。
+    /// 业界来源：GitLab Pajamas 的图表页（column / bar / line / sparkline 并列为可选形态）。
+    ///
+    /// ⚠️ **只做柱状，不做折线**：两者同槽同排布（网格 → 线性），差别属装饰档，
+    /// 本轮不另开 case（详见 `docs/components/activity-heatmap.md`《布局形态扩展点》一节）。
+    case dailyColumns
+}
+
+extension ActivityHeatmap {
+    /// 一个日历月块：固定 6 行 × 7 列，格子按真实的日历位置摆放，月外的格为 `nil`。
+    struct MonthBlock: Equatable, Sendable {
+        let month: DateComponents
+        let cells: [[Date?]]
+    }
+
+    /// 按当前 `layout` 选出的几何数据——四个形态各自的 case 互斥，不会一起算。
+    enum HeatmapShape {
+        case weeks([[Day?]])
+        case monthCalendar([MonthBlock])
+        case monthTracks([[Date?]])
+        case dailyColumns([Date])
+    }
+
+    /// `renderInputs(_:calendar:layout:)` 的统一产出，`body` 只消费它——这就是 view 路径。
+    struct HeatmapPlan {
+        let shown: [Day]
+        let buckets: [Int]
+        let shape: HeatmapShape
+        let byDate: [Date: Day]
+    }
+
+    /// 日历月视图：`first…last` 跨越的每个日历月各一块，固定 6 行 × 7 列，月外的格 `nil`。
+    ///
+    /// ⚠️ **与 `weeks(ofEffective:calendar:)` 同法**：逐日推进（`calendar.startOfDay` +
+    /// `date(byAdding: .day, value: 1)`），DST 安全，沿用同一个
+    /// `guardCounter > maximumDays + 14` 守卫——不按「月」步进，理由与 `weeks` 一致：
+    /// 月份长度、跨年边界都交给日历本身，不在这里重算。
+    static func monthBlocks(ofEffective sorted: [Day], calendar: Calendar) -> [MonthBlock] {
+        guard let first = sorted.first, let last = sorted.last else { return [] }
+
+        var result: [MonthBlock] = []
+        var cells = [[Date?]](repeating: [Date?](repeating: nil, count: 7), count: 6)
+        var currentMonth: DateComponents?
+        var firstWeekdayColumn = 0
+
+        func flush() {
+            guard let month = currentMonth else { return }
+            result.append(MonthBlock(month: month, cells: cells))
+            cells = [[Date?]](repeating: [Date?](repeating: nil, count: 7), count: 6)
+        }
+
+        let end = calendar.startOfDay(for: last.date)
+        var cursor = calendar.startOfDay(for: first.date)
+        var guardCounter = 0
+        while cursor <= end {
+            guardCounter += 1
+            if guardCounter > Self.maximumDays + 14 { break }
+
+            let comps = calendar.dateComponents([.year, .month], from: cursor)
+            if currentMonth == nil || currentMonth?.year != comps.year || currentMonth?.month != comps.month {
+                flush()
+                currentMonth = comps
+                let firstOfMonth = calendar.date(from: DateComponents(year: comps.year, month: comps.month, day: 1))
+                    ?? cursor
+                firstWeekdayColumn = (calendar.component(.weekday, from: firstOfMonth)
+                                       - calendar.firstWeekday + 7) % 7
+            }
+
+            let dayNumber = calendar.component(.day, from: cursor)
+            let index = firstWeekdayColumn + dayNumber - 1
+            let row = index / 7
+            let column = index % 7
+            if row < 6 { cells[row][column] = cursor }
+
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = calendar.startOfDay(for: next)
+        }
+        flush()
+        return result
+    }
+
+    /// 月轨图：`first…last` 跨越的每个日历月各一行、31 列，第 d 天在列 d−1，
+    /// 超出该月天数的列 `nil`。逐日推进方式、DST 安全性与守卫同 `monthBlocks`。
+    static func monthTracks(ofEffective sorted: [Day], calendar: Calendar) -> [[Date?]] {
+        guard let first = sorted.first, let last = sorted.last else { return [] }
+
+        var result: [[Date?]] = []
+        var row = [Date?](repeating: nil, count: 31)
+        var currentMonth: DateComponents?
+
+        func flush() {
+            guard currentMonth != nil else { return }
+            result.append(row)
+            row = [Date?](repeating: nil, count: 31)
+        }
+
+        let end = calendar.startOfDay(for: last.date)
+        var cursor = calendar.startOfDay(for: first.date)
+        var guardCounter = 0
+        while cursor <= end {
+            guardCounter += 1
+            if guardCounter > Self.maximumDays + 14 { break }
+
+            let comps = calendar.dateComponents([.year, .month], from: cursor)
+            if currentMonth == nil || currentMonth?.year != comps.year || currentMonth?.month != comps.month {
+                flush()
+                currentMonth = comps
+            }
+
+            let dayNumber = calendar.component(.day, from: cursor)
+            if dayNumber >= 1 && dayNumber <= 31 { row[dayNumber - 1] = cursor }
+
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = calendar.startOfDay(for: next)
+        }
+        flush()
+        return result
+    }
+
+    /// `first…last` 逐日稠密序列（含无数据的间隙日）。逐日推进方式、DST 安全性与守卫同 `weeks`。
+    static func dailySeries(ofEffective sorted: [Day], calendar: Calendar) -> [Date] {
+        guard let first = sorted.first, let last = sorted.last else { return [] }
+
+        var result: [Date] = []
+        let end = calendar.startOfDay(for: last.date)
+        var cursor = calendar.startOfDay(for: first.date)
+        var guardCounter = 0
+        while cursor <= end {
+            guardCounter += 1
+            if guardCounter > Self.maximumDays + 14 { break }
+            result.append(cursor)
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = calendar.startOfDay(for: next)
+        }
+        return result
+    }
 }
