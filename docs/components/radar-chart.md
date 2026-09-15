@@ -76,7 +76,16 @@ RadarChart(values, layout: .radialBars)
 不写 `@unknown default` 就会编译红 ⇒ 加 case 要走 BREAKING-CHANGES 登记
 （这仍比形态 B 的 public 协议可撤——那个发出去就收不回）。
 
-判据：`RadarChartLayoutFormTests`。
+判据：`RadarChartLayoutFormTests`——覆盖 `anchors(layout:normalized:in:)` 与
+`renderPlan(size:)` 的几何。
+
+⚠️ **`anchors` 与 `renderPlan` 的判据够不到 `RadarChart.draw(plan:tint:)` 里
+`switch plan.layout { … }` 那一步**（终审 I-2）：`anchors` 本身按 layout 算出真的不同的点，
+但 `draw` 是否真把每个 case 接到对应的画法函数，此前没有判据盯——实测把 `case .bars:`
+改成调 `polygonView(...)` 全套原判据仍绿。`Tests/OhMyDesignChartsTests/ChartLayoutBitmapTests.swift`
+的 `RadarChartLayoutBitmapTests` 渲染真实帧补这条：`layoutsRenderDistinctBitmaps`
+（四个 layout 两两位图不同）与 `polygonMatchesTheDefaultLayout`
+（`.polygon` 与不传 `layout:` 逐像素容差等价）。
 
 ### 为什么是形态 D2（配置枚举）而不是 public 协议
 

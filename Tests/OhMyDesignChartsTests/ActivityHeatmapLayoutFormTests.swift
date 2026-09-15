@@ -146,6 +146,83 @@ struct ActivityHeatmapLayoutFormTests {
         #expect(comps10.day == 10, "第 10 列应放该月第 10 天，实为第 \(comps10.day ?? -1) 天")
     }
 
+    // MARK: - monthBlocks / monthTracks 覆盖首末整月（评审 I-1）
+
+    /// `first` 不是月初 1 日（2026-01-20）、`last` 不是月末最后一日（2026-02-05）：
+    /// 首月 1 日…`first` 前一日、`last` 后一日…末月最后一日这些格应为非 `nil` 的 `Date`
+    /// （落在该月、取色走 `byDate`，缺数据 ⇒ `tertiaryFill`），且不属于有效日集合；
+    /// 有效日仍应恰出现一次。此前游标从 `first` 起，这些格被误留 `nil` ⇒ `Color.clear`，
+    /// 与 `.weeks`「画空槽而不是跳过」的约定矛盾（`docs/components/activity-heatmap.md`
+    /// 《AD-F 退化输入契约》）。
+    private func fullMonthCoverageIsNonNilAndExcludesEffectiveDays(calendar cal: Calendar) {
+        var startComps = DateComponents()
+        (startComps.year, startComps.month, startComps.day, startComps.hour) = (2026, 1, 20, 12)
+        var endComps = DateComponents()
+        (endComps.year, endComps.month, endComps.day, endComps.hour) = (2026, 2, 5, 12)
+        let start = cal.date(from: startComps)!
+        let end = cal.date(from: endComps)!
+        let dayCount = cal.dateComponents([.day], from: start, to: end).day!
+        let days = (0...dayCount).map { self.day($0, from: start, count: 1, cal) }
+        let effectiveDates = Set(days.map { cal.startOfDay(for: $0.date) })
+
+        func date(_ y: Int, _ m: Int, _ d: Int) -> Date {
+            var c = DateComponents()
+            (c.year, c.month, c.day, c.hour) = (y, m, d, 12)
+            return cal.startOfDay(for: cal.date(from: c)!)
+        }
+        // 首月 1…19 日（20 日起才是有效日）+ 末月 6…28 日（5 日止是有效日）。
+        let expectedExtras: [Date] = (1...19).map { date(2026, 1, $0) } + (6...28).map { date(2026, 2, $0) }
+        for extra in expectedExtras {
+            #expect(!effectiveDates.contains(extra), "测试夹具有误：\(extra) 不应落在有效日区间 2026-01-20…02-05 内")
+        }
+
+        let blocks = ActivityHeatmap<Day>.monthBlocks(ofEffective: days, calendar: cal)
+        var blockCounts = [Date: Int]()
+        for block in blocks {
+            for row in block.cells {
+                for cell in row {
+                    guard let c = cell else { continue }
+                    blockCounts[cal.startOfDay(for: c), default: 0] += 1
+                }
+            }
+        }
+        for extra in expectedExtras {
+            #expect(blockCounts[extra] == 1,
+                    "monthBlocks 里月内非有效日 \(extra) 应恰出现一次非 nil 格，实为 \(blockCounts[extra] ?? 0)")
+        }
+        for effectiveDay in effectiveDates {
+            #expect(blockCounts[effectiveDay] == 1,
+                    "monthBlocks 里有效日 \(effectiveDay) 应恰出现一次，实为 \(blockCounts[effectiveDay] ?? 0)")
+        }
+
+        let tracks = ActivityHeatmap<Day>.monthTracks(ofEffective: days, calendar: cal)
+        var trackCounts = [Date: Int]()
+        for track in tracks {
+            for cell in track {
+                guard let c = cell else { continue }
+                trackCounts[cal.startOfDay(for: c), default: 0] += 1
+            }
+        }
+        for extra in expectedExtras {
+            #expect(trackCounts[extra] == 1,
+                    "monthTracks 里月内非有效日 \(extra) 应恰出现一次非 nil 格，实为 \(trackCounts[extra] ?? 0)")
+        }
+        for effectiveDay in effectiveDates {
+            #expect(trackCounts[effectiveDay] == 1,
+                    "monthTracks 里有效日 \(effectiveDay) 应恰出现一次，实为 \(trackCounts[effectiveDay] ?? 0)")
+        }
+    }
+
+    @Test("monthBlocks / monthTracks：覆盖首末整月，月内非有效日非 nil（UTC）")
+    func monthBlocksAndTracksCoverFullMonthsUTC() {
+        self.fullMonthCoverageIsNonNilAndExcludesEffectiveDays(calendar: self.calendar("UTC"))
+    }
+
+    @Test("monthBlocks / monthTracks：覆盖首末整月，月内非有效日非 nil（America/Santiago）")
+    func monthBlocksAndTracksCoverFullMonthsSantiago() {
+        self.fullMonthCoverageIsNonNilAndExcludesEffectiveDays(calendar: self.calendar("America/Santiago"))
+    }
+
     // MARK: - dailySeries
 
     @Test("dailySeries：跨 DST（America/Santiago）不丢不重，长度 = 首尾天数 + 1")

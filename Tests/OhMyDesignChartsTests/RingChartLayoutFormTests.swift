@@ -125,20 +125,9 @@ struct RingChartLayoutFormTests {
         }
     }
 
-    @Test("renderPlan：四个 layout 在同一份数据上给出互异的 plan")
-    func renderPlanDiffersAcrossLayouts() {
-        let size = CGSize(width: 300, height: 300)
-        let values = Self.metrics([10, 20, 30])
-        let plans = RingChartLayout.allCases.compactMap {
-            RingChart(values, goal: 100, layout: $0).renderPlan(size: size)
-        }
-        #expect(plans.count == RingChartLayout.allCases.count, "应有四个 layout 都给出 plan")
-        for i in 0..<plans.count {
-            for j in (i + 1)..<plans.count {
-                #expect(plans[i] != plans[j], "layout \(plans[i].layout) 与 \(plans[j].layout) 给出了相同的 plan")
-            }
-        }
-    }
+    // ⚠️ 原 `renderPlanDiffersAcrossLayouts` 已删除（终审 I-2）：它断言的 `plans[i] != plans[j]`
+    // 只因 `RingChartPlan.layout` 字段带标签就恒真——把 `.bars` 分支改画 `.rings` 全套仍绿。
+    // 真正检查「view 路径按 layout 画出不同像素」的判据见 `ChartLayoutBitmapTests`。
 
     @Test("segmentArc：段间留 4° 角隙，且不越过下一段的起点")
     func segmentArcLeavesGap() {

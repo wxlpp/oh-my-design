@@ -300,13 +300,13 @@ extension ActivityHeatmap: AXChartDescriptorRepresentable {
 
 // MARK: - 四个布局形态各一个 Preview（Issue #312）
 
-nonisolated struct ActivityHeatmapPreviewDay: HeatmapDay {
+private nonisolated struct ActivityHeatmapPreviewDay: HeatmapDay {
     let id = UUID()
     let date: Date
     let count: Int
 }
 
-nonisolated enum ActivityHeatmapPreviewSample {
+private nonisolated enum ActivityHeatmapPreviewSample {
     static let days: [ActivityHeatmapPreviewDay] = {
         let start = Calendar.current.date(byAdding: .day, value: -120, to: .now)!
         return (0..<120).map { offset in
@@ -392,12 +392,33 @@ extension ActivityHeatmap {
         let byDate: [Date: Day]
     }
 
+    /// `first…last` 所跨月份的整月边界：首月 1 日 … 末月最后一日。
+    ///
+    /// `monthBlocks` / `monthTracks` 共用它，让游标覆盖**整月**而不是只覆盖 `first…last`——
+    /// 首月 1 日到 `first` 前一日、`last` 后一日到末月最后一日这些格因此拿到真实 `Date`
+    /// （取色仍走 `byDate`，缺数据 ⇒ `tertiaryFill`），只有「本月之外」的格才是 `nil`
+    /// （评审 I-1：此前游标从 `first` 起，这些格被误画成 `nil` ⇒ `Color.clear`，
+    /// 与 `.weeks`「画空槽而不是跳过」的约定矛盾）。
+    private static func monthSpanBounds(first: Date, last: Date, calendar: Calendar) -> (start: Date, end: Date) {
+        let firstComps = calendar.dateComponents([.year, .month], from: first)
+        let firstOfFirstMonth = calendar.date(
+            from: DateComponents(year: firstComps.year, month: firstComps.month, day: 1)
+        ) ?? first
+
+        let lastComps = calendar.dateComponents([.year, .month], from: last)
+        let daysInLastMonth = calendar.range(of: .day, in: .month, for: last)?.count ?? 28
+        let lastOfLastMonth = calendar.date(
+            from: DateComponents(year: lastComps.year, month: lastComps.month, day: daysInLastMonth)
+        ) ?? last
+
+        return (calendar.startOfDay(for: firstOfFirstMonth), calendar.startOfDay(for: lastOfLastMonth))
+    }
+
     /// 日历月视图：`first…last` 跨越的每个日历月各一块，固定 6 行 × 7 列，月外的格 `nil`。
     ///
     /// ⚠️ **与 `weeks(ofEffective:calendar:)` 同法**：逐日推进（`calendar.startOfDay` +
-    /// `date(byAdding: .day, value: 1)`），DST 安全，沿用同一个
-    /// `guardCounter > maximumDays + 14` 守卫——不按「月」步进，理由与 `weeks` 一致：
-    /// 月份长度、跨年边界都交给日历本身，不在这里重算。
+    /// `date(byAdding: .day, value: 1)`），DST 安全——不按「月」步进，理由与 `weeks` 一致：
+    /// 月份长度、跨年边界都交给日历本身，不在这里重算。游标覆盖整月，见 `monthSpanBounds`。
     static func monthBlocks(ofEffective sorted: [Day], calendar: Calendar) -> [MonthBlock] {
         guard let first = sorted.first, let last = sorted.last else { return [] }
 
@@ -412,12 +433,14 @@ extension ActivityHeatmap {
             cells = [[Date?]](repeating: [Date?](repeating: nil, count: 7), count: 6)
         }
 
-        let end = calendar.startOfDay(for: last.date)
-        var cursor = calendar.startOfDay(for: first.date)
+        let (start, end) = Self.monthSpanBounds(first: first.date, last: last.date, calendar: calendar)
+        var cursor = start
         var guardCounter = 0
         while cursor <= end {
             guardCounter += 1
-            if guardCounter > Self.maximumDays + 14 { break }
+            // 游标现在覆盖整月而非仅 `first…last`，上限相应放宽（最多多走约 62 天：
+            // 首月 1 日到 `first` 前一日 ≤ 31 天 + `last` 后一日到末月最后一日 ≤ 31 天）。
+            if guardCounter > Self.maximumDays + 14 + 62 { break }
 
             let comps = calendar.dateComponents([.year, .month], from: cursor)
             if currentMonth == nil || currentMonth?.year != comps.year || currentMonth?.month != comps.month {
@@ -443,7 +466,8 @@ extension ActivityHeatmap {
     }
 
     /// 月轨图：`first…last` 跨越的每个日历月各一行、31 列，第 d 天在列 d−1，
-    /// 超出该月天数的列 `nil`。逐日推进方式、DST 安全性与守卫同 `monthBlocks`。
+    /// 超出该月天数的列 `nil`。逐日推进方式、DST 安全性同 `monthBlocks`；
+    /// 游标同样覆盖整月，见 `monthSpanBounds`。
     static func monthTracks(ofEffective sorted: [Day], calendar: Calendar) -> [[Date?]] {
         guard let first = sorted.first, let last = sorted.last else { return [] }
 
@@ -457,12 +481,13 @@ extension ActivityHeatmap {
             row = [Date?](repeating: nil, count: 31)
         }
 
-        let end = calendar.startOfDay(for: last.date)
-        var cursor = calendar.startOfDay(for: first.date)
+        let (start, end) = Self.monthSpanBounds(first: first.date, last: last.date, calendar: calendar)
+        var cursor = start
         var guardCounter = 0
         while cursor <= end {
             guardCounter += 1
-            if guardCounter > Self.maximumDays + 14 { break }
+            // 理由同 `monthBlocks`：游标覆盖整月，上限相应放宽约 62 天。
+            if guardCounter > Self.maximumDays + 14 + 62 { break }
 
             let comps = calendar.dateComponents([.year, .month], from: cursor)
             if currentMonth == nil || currentMonth?.year != comps.year || currentMonth?.month != comps.month {

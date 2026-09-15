@@ -241,7 +241,7 @@ private nonisolated struct Ring: ChartValue {
 
 // MARK: - 四个布局形态各一个 Preview（Issue #312）
 
-nonisolated enum RingChartPreviewSample {
+private nonisolated enum RingChartPreviewSample {
     fileprivate static let rings = [
         Ring(label: "活动", value: 420),
         Ring(label: "锻炼", value: 28),

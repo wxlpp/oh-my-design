@@ -78,7 +78,9 @@ RingChart(rings, goal: 500, layout: .segmentedRings)
 事后改成可配是 source-breaking（加关联值），须走一次 BREAKING-CHANGES 登记。
 
 ⚠️ **`.bars` / `.stackedBar` 都不画连续弧**：`.bars` 是 N 行独立的水平 `Capsule` 进度条
-（轨道 `trackColor(at:)`、进度 `ringColor(at:)`，宽度按行内比例居中，条高上限 24pt）；
+（轨道 `trackColor(at:)`、进度 `ringColor(at:)`，进度条从行内 **leading 起**、按比例延伸，
+行内**垂直居中**，条高上限 24pt——不是「宽度居中」，`ZStack(alignment: .leading)` 决定的是
+起点而不是居中）；
 `.stackedBar` 是一条水平轨道（`trackColor(at: 0)`，条高同样封顶 24pt）上从左至右依次
 叠放 N 段（段宽按 `RingChart.stackedWidths(progresses:trackWidth:)` 均分总宽，段间
 overlay 一条 `CoreBorderWidth.thick` 宽的 `Color.surfaceBase` 分隔线读出段界），
@@ -100,8 +102,16 @@ overlay 一条 `CoreBorderWidth.thick` 宽的 `Color.surfaceBase` 分隔线读�
 `barRowsAreDistinctAndOrdered` / `barRowsHandlesDegenerateSize`
 （`RingChart.barRows(count:size:)`）、
 `renderPlanIsNilOnInvalidGoal` / `renderPlanIsNilOnEmptyValues` /
-`renderPlanTruncatesToRecommendedLimit` / `renderPlanDiffersAcrossLayouts`
-——最后四条走 `renderPlan(size:)`，即 `body` 实际消费的那条路径。
+`renderPlanTruncatesToRecommendedLimit`
+——这三条走 `renderPlan(size:)`，即 `body` 实际消费的几何数据。
+
+⚠️ **`renderPlan(size:)` 的相等性比较够不到 `body` 里 `switch self.layout { … }` 那一步**
+（终审 I-2）：`RingChartPlan` 带 `layout` 字段，「四个 layout 给出互异的 plan」这类断言
+只因该字段不同就恒真——实测把 `case .bars:` 改成调 `ringsView(...)` 全套原判据仍绿。
+`renderPlanDiffersAcrossLayouts` 已删除；真正检查「view 路径按 layout 画出不同像素」的是
+`Tests/OhMyDesignChartsTests/ChartLayoutBitmapTests.swift` 的
+`RingChartLayoutBitmapTests.layoutsRenderDistinctBitmaps`（四个 layout 两两位图不同）与
+`ringsMatchesTheDefaultLayout`（`.rings` 与不传 `layout:` 逐像素容差等价）。
 
 ### 为什么是形态 D2（配置枚举）而不是 public 协议
 
