@@ -1,6 +1,6 @@
 # #312 裁定与设计规格：OrbitingLogos 落点 · D-299-1 全口径重核 · 五个组件的形态 D 扩展点
 
-基线：`issue-312-extension-points` @ `52412ce`（= `epic/issue-backlog-closeout`）。写于 2026-09-16。
+基线：`issue-312-extension-points` @ `52412ce`（= `epic/issue-backlog-closeout`）。写于 2026-09-16；同日按设计评审（C-1 / I-1…I-4 / S-1…S-8）修订。
 
 证据分三档，全文逐条标注：
 - **【实测】** 我在本机跑过命令、读过文件原文（引文逐字）。
@@ -14,8 +14,8 @@
 | 裁定 | 一句话结论 |
 |---|---|
 | **A. `OrbitingLogos` 落点** | **翻到出口 1**（`decidedBy: step2` / `kind: semantic` / `needsExtensionPoint: true`）。候选 4 的来源已随 `416d06c` 留档进仓（`docs/issues/animata-orbiting-items-3d-2026-09-14.html`，HEAD 的祖先、已跟踪），来源义务与 `D-299-2` 的两种读法都过 ⇒ 计入 ≥2。09-07 那次 403 **不再构成阻碍**：纪律要求的是「真的查过」，留档就是查过的证据，不依赖今天能否取页。翻转走修订回路（新 `## #312` 节 + R-49 + 公约现状注记），落点清单见 §1.3。 |
-| **B. `D-299-1` 全口径重核** | 两条具名反例**都不构成**与排除 `RingChart` 候选 2 同构的「单一具名 API 直接承担」：`SectorMark` 的半径是布局尺寸（`MarkDimension`），不是数据通道，径向柱状仍是手拼；`UICalendarView` 只在 iOS 存在（`MacOSX26.sdk` 无 UIKit，`MultiDatePicker` 在 macOS `unavailable`），对 iOS 26+ / macOS 26+ 双平台的设计系统不是完整承担者。⇒ `RadarChart` / `ActivityHeatmap` **按全口径都不翻**（各 3 → 2）；`RingChart` 仍是唯一确证会翻的一条。**`312-plan.md` 阶段 1b「裁定『计』⇒ 落点退回步骤 4」不成立**：条件 ① 未经修订回路扩宽前，重核结论只能登记进 `D-299-1` 的代价表，落点按现行字面保持出口 1。 |
-| **C. 形态 D 设计** | 五个组件全部走 **D2 配置枚举**（`RadarChartLayout` / `RingChartLayout` / `ActivityHeatmapLayout` / `BeforeAfterSliderLayout` / `OrbitingLogosLayout`），每个枚举的 case 与判定时计入的候选一一对应、默认 case = 现状画法、`public nonisolated enum … : Sendable, Equatable, CaseIterable`、`init` 末尾加 `layout:` 带默认值参数，BREAKING-CHANGES 登记一节。逐 case 渲染规格与判据见 §3。 |
+| **B. `D-299-1` 全口径重核** | 两条具名反例**都不构成**与排除 `RingChart` 候选 2 同构的「单一具名 API 直接承担」：`SectorMark` 的半径是布局尺寸（`MarkDimension`），不是数据通道，径向柱状仍是手拼；`UICalendarView` 只在 iOS 存在（`MacOSX26.sdk` 无 UIKit，`MultiDatePicker` 在 macOS `unavailable`），对 iOS 26+ / macOS 26+ 双平台的设计系统不是完整承担者。⇒ `RadarChart` 3 → 2 不翻（按「本职」判据，信心中）；`ActivityHeatmap` **口径未定**——双平台口径 3 → 2 不翻、iOS 单平台口径 3 → 1 会翻；`RingChart` **至少**会翻（与 `D-299-1` 真源「至少」口径一致，不写回「唯一」）。**`312-plan.md` 阶段 1b「裁定『计』⇒ 落点退回步骤 4」不成立**：条件 ① 未经修订回路扩宽前，重核结论只能登记进 `D-299-1` 的代价表，落点按现行字面保持出口 1。 |
+| **C. 形态 D 设计** | 五个组件全部走 **D2 配置枚举**（`RadarChartLayout` / `RingChartLayout` / `ActivityHeatmapLayout` / `BeforeAfterSliderLayout` / `OrbitingLogosLayout`），每个枚举的 case 与判定时计入的候选一一对应、默认 case = 现状画法、`public nonisolated enum … : Sendable, Equatable, CaseIterable`、`init` 加带默认值的 `layout:` 参数（位于闭包参数之前，见 §3.0），BREAKING-CHANGES 登记一节。逐 case 渲染规格与判据见 §3。 |
 
 **需用户决策的事项**（本文不自行假定）：
 
@@ -147,7 +147,7 @@
 - iOS 单平台口径：**计**。装饰是文档化的现成能力，`UICalendarView` 的本职就是月视图，逐日装饰把「每日读数排成月历」这一候选形态直接承担了（候选来源 Apple Activity History 页本身就是这个形态）。
 - 双平台口径（2.1 第 3 条）：**不计**。macOS 上没有任何承担者，「换用那个承担者」对本包一半的宿主不成立。
 
-哪一种口径适用，正是 `D-299-1` 未成文的谓词内容，本 issue 不能自行定。⇒ 按 2.1 三条（含平台条）：**不计** ⇒ `ActivityHeatmap` 全口径 3 → 2，**不翻**；同时如实登记「iOS 单平台口径下 3 → 1，会翻」。
+哪一种口径适用，正是 `D-299-1` 未成文的谓词内容，本 issue 不能自行定。⇒ **结论待口径成文**：按 2.1 第 3 条（待成文）不计 ⇒ 3 → 2 不翻；按 iOS 单平台口径计 ⇒ 3 → 1 会翻。两者并列登记，不择一。
 
 ### 2.4 `312-plan.md` 阶段 1b 的矛盾：重核结论不能直接改落点
 
@@ -173,8 +173,8 @@
 | 条目 / 候选 | 具名 API | 2.1 ① 具名 | 2.1 ② 本职 | 2.1 ③ 双平台 | 全口径结论 | 计入数 |
 |---|---|---|---|---|---|---|
 | `RadarChart` 候选 2 径向柱状 | Swift Charts `SectorMark` / `SectorPlot` | 是 | 否（半径是 `MarkDimension` 布局尺寸，无径向比例尺；G2 `radial` 的弧形条无法表达） | 是 | **不计** | 3 → 2，不翻 |
-| `ActivityHeatmap` 候选 1 日历月视图 | UIKit `UICalendarView` + `UICalendarViewDecoration` | 是 | 是（逐日装饰是文档化能力，可承载四档色阶） | **否**（macOS 无 UIKit；`MultiDatePicker` macOS unavailable 且无装饰 API；`NSDatePicker` 无装饰） | **不计**（iOS 单平台口径下为**计**） | 3 → 2，不翻（单平台口径 3 → 1，会翻） |
-| `RingChart`（已判） | — | — | — | — | 不变 | 3 → ≤1，**会翻** |
+| `ActivityHeatmap` 候选 1 日历月视图 | UIKit `UICalendarView` + `UICalendarViewDecoration` | 是 | 是（逐日装饰是文档化能力，可承载四档色阶） | **否**（macOS 无 UIKit；`MultiDatePicker` macOS unavailable 且无装饰 API；`NSDatePicker` 无装饰） | **待口径成文**（双平台口径不计 / iOS 单平台口径计） | 双平台 3 → 2 不翻；单平台 3 → 1 会翻 |
+| `RingChart`（已判） | — | — | — | — | 不变 | 3 → ≤1，**至少**这一条会翻 |
 
 注意 `SingleSourceOfTruthGuard`：`全口径` 一词只许出现在 `docs/contract-defects.md` 与判据文件自身（`sourceOnly` 按裸子串匹配）；上表以外的落点（组件文档、registry notes、R-49）**不得**出现「全口径」三个字，只留指针。
 
@@ -188,7 +188,7 @@
 - **D2 成立条件**（公约逐字「判定时枚举出的候选形态若能被该枚举的 case **一一覆盖**，D2 成立」）：每个枚举 = 1 个默认 case（现状）+ 每个**计入**候选各 1 个 case。未计入的候选（`RingChart` 的 dashboard、`OrbitingLogos` 的 marquee / 网格、`RadarChart` 的 Significance 四形态）**不做 case**，理由已在各条 `notes` 里（装饰 / 来源模板不符 / 业界另一个组件）。
 - **命名**：`<Component>Layout`（`NetworkGraphLayout` / `TimelineLayout` 先例）；case 名描述几何，不带裸修饰词。
 - **声明形状**（照 `NetworkGraphLayout` 逐字）：`public nonisolated enum X: Sendable, Equatable, CaseIterable`。`nonisolated` 是必需的，不是风格：三个 target 都开了 `.defaultIsolation(MainActor.self)`（`Package.swift` 【实测】），几何纯函数是 `nonisolated static func`，在里面比较 `layout == .x` 要求枚举的 `Equatable` 一致性非 MainActor 隔离——下游探针注释逐字：「实测把 `nonisolated` 去掉，**库自己的 `swift build` 就硬红**（`main actor-isolated conformance of 'NetworkGraphLayout' to 'Equatable' cannot be used in nonisolated context`）」。`scripts/mainactor-static-ratchet.sh` 只扫 `swift.type.property / method / subscript`（【实测】脚本 `STATIC_KINDS`），enum case 不在射程；`allCases` 是否被采未实测——照先例写 `nonisolated` 则两种情况都安全。实现后跑一次 ratchet（先 `swift build --build-tests`），预期 `docs/mainactor-static-exemptions.txt` 零新增。
-- **接入点**：`public init` **末尾**追加 `layout: X = .<default>`（`NetworkGraph.init` 先例：`layout: NetworkGraphLayout = .force` 在 `tint` 之后）。J-2 扫描器只认公开 `init` 参数的基类型名（【实测】`collectStyleEnumUses`：`componentJudgeBaseTypeName(parameter.type…)`，宿主 = 外层类型名），泛型宿主（`NetworkGraph<Node>`）已证明可采。
+- **接入点**：`layout: X = .<default>` 放在**最后一个非闭包参数之后、第一个 `@ViewBuilder` 闭包参数之前**（评审 I-3：放在闭包之后会破坏尾随闭包调用形态）。Charts 三条无闭包参数 ⇒ 末尾（`NetworkGraph.init` 先例：`layout:` 在 `tint` 之后）；`BeforeAfterSlider.init(labels:layout:before:after:)`；`OrbitingLogos.init(_:colors:rotationPeriod:layout:logo:center:)`。J-2 扫描器只认公开 `init` 参数的基类型名（【实测】`collectStyleEnumUses`：`componentJudgeBaseTypeName(parameter.type…)`，宿主 = 外层类型名），泛型宿主（`NetworkGraph<Node>`）已证明可采。
 - **BREAKING-CHANGES**：`docs/BREAKING-CHANGES.md` 新增一节「未发布（相对 `v0.10.0`）——Issue #312：四（五）个组件的布局形态扩展点」，正文照 `#312 NetworkGraph` 那节：「对已应用的调用点零影响；对未应用的函数引用是破坏性变更；新增 public 类型 …；非 `@frozen` ⇒ 将来加 case 也是破坏性变更」。
 - **色彩纪律**：只用 `tint` / `Color.dividerDefault` / `Color.tertiaryFill` / `Color.quaternaryFill` / `Color.contentPrimary` / `Color.contentOnEmphasis` 及 `.opacity`，不得出现色相字面量（`EffectsColorLiteralGuard` 覆盖两个新 target）。
 - **文案纪律**：本设计不新增任何 chrome 文案；SF Symbol 名（如 `arrow.up.and.down`）与既有 `arrow.left.and.right` 同类。
@@ -203,7 +203,7 @@
 |---|---|---|
 | `.polygon` | 现状：各轴端点连成闭合轮廓 | ✔ |
 | `.parallel` | 候选 1 平行坐标（AntV G2 `parallel`） | |
-| `.radialBars` | 候选 2 径向柱状（AntV G2 `radial`；本仓按「每维一根从圆心向外的条」实现，见 §2.2 两种读法——registry `notes` 的三分法原话就是「候选换成**每维一根独立的条**」） | |
+| `.radialBars` | 候选 2 径向柱状（AntV G2 `radial`「transposing polar coordinates」：每维一条同心**弧形条**、值编码在扫过角——与 §2.2 论证用的是**同一读法**，评审 I-2；registry `notes` 三分法「每维一根独立的条」在此读法下同样成立） | |
 | `.bars` | 候选 3 笛卡尔并排条形（GitLab Pajamas “columns are horizontal”） | |
 
 **3.1.2 共同部分（不随形态变）**：`body` 的 `ChartDegeneracy.of(raw, minimumCount: 3)` 四路分支与三种空态文案；`raw.normalizedSafely()`；`0.85 × v + 0.15` 的值→长度映射（现状 `polygon(…scales:)` 里逐字 `$0[i] * 0.85 + 0.15`）在四种形态里**共用同一个常量**，这样四种形态在同一数据上锚点长度一致，可互相验证；`tint`；`title`；`makeChartDescriptor`。
@@ -213,14 +213,14 @@
 **3.1.4 逐 case 渲染规格**
 
 - `.polygon`：现状不动。
-- `.radialBars`：`center` / `radius = min(w,h)/2 × 0.78` 与四圈网格多边形同 `.polygon`。第 i 维角度 θᵢ = −π/2 + 2πi/n；条 = 扇形楔：`Path.addArc(center:radius: rᵢ, startAngle: θᵢ − δ, endAngle: θᵢ + δ)` 回到圆心闭合，δ = (π/n) × 0.35（相邻条留 30% 空隙），rᵢ = radius × (0.85 vᵢ + 0.15)。填 `tint.opacity(0.55)`，描 `tint` / `CoreBorderWidth.thin`。锚点 = 楔顶中点，**与 `.polygon` 的顶点逐点相同**（可测性质）。
+- `.radialBars`（G2 `radial` 读法）：`center` 同 `.polygon`，外半径 R = min(w,h)/2 × 0.78；n 条同心弧轨，第 i 维（i = 0 在最外）轨道中线半径 rᵢ = R × (1 − i / n)，条宽 = R / n × 0.6；轨道 = 整圈 `Circle` 描边 `Color.tertiaryFill`、线宽同条宽；数值条 = 从 −π/2 顺时针扫过 sweepᵢ = 2π × 0.85 × (0.85 vᵢ + 0.15) 的弧（上限 0.85 圈留出缺口以区分满值与起点，地板 0.15 与 `.polygon` 共用常量），`StrokeStyle(lineWidth: 条宽, lineCap: .round)` 描 `tint`。锚点 = 弧终点。不画轴名（与 `.polygon` 一致）。
 - `.parallel`：n 条竖轴，xᵢ = inset + (w − 2·inset) × i/(n−1)，inset = w × 0.11（与 0.78 半径留白同量级）；轴线 hairline `dividerDefault`；四条水平网格 hairline 在 usable 高度的 1/4…4/4；记录 = 折线连接 (xᵢ, yᵢ)，yᵢ = bottom − usableH × (0.85 vᵢ + 0.15)，描 `tint` / thin，不填；每点加直径 6 的 `Circle().fill(tint)`。不闭合（平行坐标没有闭合语义）。
 - `.bars`：n 行水平条（Pajamas 的 bar = 横向 column）；行高 = usableH / n，条高 = 行高 × 0.7，条长 = usableW × (0.85 vᵢ + 0.15)，从 leading 起；形状 `RoundedRectangle(cornerRadius: 2, style: .continuous)`，填 `tint`；四条竖网格 hairline 在 1/4…4/4。**不画 `label` 文本**——`.polygon` 现状也不画轴名（【实测】源码只画网与轮廓），四种形态保持一致；轴名仍由 `AXChartDescriptor` 的 `categoryOrder` 交给 VoiceOver。
 - 空态 / 不足 3 维 / 非有限：四种形态同一分支，文案不变。
 
 **3.1.5 判据**（`RadarChartLayoutFormTests`）
 1. `anchors(layout:…)` 对四个 case 都返回 n 个点、全部落在画布内（含 NaN 守卫）。
-2. `.radialBars` 与 `.polygon` 的锚点逐点相等；`.parallel` / `.bars` 与 `.polygon` 不等（形态真的生效）。
+2. `.radialBars`：弧终点角（相对 −π/2 的顺时针扫过量）对 vᵢ 严格单调；v = 1 时扫过量 = 2π × 0.85；各维中线半径严格递减（同心）；`.parallel` / `.bars` / `.radialBars` 的锚点与 `.polygon` 均不等（形态真的生效）。
 3. `.parallel`：x 严格递增；值大者 y 更小；v = 0 与 v = 1 的 y 差 = usableH × 0.85。
 4. `.bars`：n 个不同的 y；条长与 v 单调，v = 0 时长度 = 0.15 × usableW（地板）。
 5. **view 路径**：`RadarChart([1 点], layout: .bars).renderPlan(size:)` 为 `nil`（退化输入在任何形态下都走空态）；同一 5 维数据下 `renderPlan` 在四个 layout 上给出互异的 plan。
@@ -257,7 +257,7 @@
 
 事实：`ComponentRegistryGuard` 逐字 `if e.kind == "prescriptive" { #expect(!e.needsExtensionPoint, …) }`（【实测】）；J-2 只巡 `kind == "semantic" && needsExtensionPoint`；**没有**判据禁止 `prescriptive` 条目的 `styleEnum` 非空，也没有反向判据抓「源码有接线的公开枚举、登记表未认领」（【实测】`ComponentHostAliasGuard` 只查已登记枚举的接线与唯一认领）。
 
-若将来 `RingChart` 翻回步骤 4：
+若将来 `RingChart` 退回**步骤 4**：
 - registry：`kind: prescriptive` / `needsExtensionPoint: false` / `decidedBy: tiebreaker`；`styleEnum` **保留** `"RingChartLayout"`（今天无判据反对，且这是事实：枚举还在）；`notes` 写明「枚举按祖父条款同款理由保留，不作扩展点计」。
 - 源码：`RingChartLayout` **不能删**（删 public 类型 = 破坏性变更，与 public 协议同级）；只能保留或 `@available(*, deprecated)`。
 - 公约缺口：祖父条款逐字只覆盖「组件已经**发布了公开的样式协议**」，D2 枚举同样发布后不可撤，却不受祖父条款保护 ⇒ 建议在 `## #312` 节登记 **D-312-1**：「祖父条款的对象应扩到已发布的形态 D2 公开枚举」，交 `D-299-1` 回路一并裁。
@@ -414,12 +414,12 @@
 
 五条各填 `styleEnum`；`notes` 按 `NetworkGraph.notes` 先例把「扩展点尚未落地，按成法移交 … 登记进 `knownMissingExtensionPoints`，扩展点实现移交 **`#312`**」改写为「扩展点已由 `#312` 落地 …（曾按 `Toast` 的成法暂登记在那里）」并追加 D2 段（case 与候选对应、有意不发协议、非 `@frozen` 代价、判据名）。硬约束：
 - `ActivityHeatmap` / `RadarChart` / `RingChart` 三条 `notes` 必须保留逐字指针 `` `docs/contract-defects.md` 的 `D-299-1` ``（`registryNotesPointBack`）；`OrbitingLogos` 保留 `` `docs/contract-defects.md` 的 `D-299-2` ``。
-- `RingChart.notes` 里「翻回步骤 4」**恰 1 处**且前文 160 字内有 `≤1`（`factSites` 按处计数：registry 1、`ring-chart.md` 1、`contract-defects.md` 2、revisions 1，【实测】今日读数正是这组）；改写时不要多写或少写这个短语。
+- `RingChart.notes` 里 `SingleSourceOfTruthGuard.factSites` 登记的那个短语（见判据源码 `phrase:`）**恰 1 处**且前文 160 字内有 `≤1`（按处计数：registry 1、`ring-chart.md` 1、`contract-defects.md` 2、revisions 1——⚠️ 该判据扫全部 tracked 的 md/json/swift，**含 `.claude/`**；本 spec 与 `312-plan.md` 一律不得逐字写该短语）；改写时不要多写或少写。
 - 不得写入 `sourceOnly` 短语。
 
 ### 4.3 `docs/components/*.md` 与 `docs/README.md`
 
-- 五份组件文档：API 块加 `layout:`；新增「布局形态扩展点（`#312` · 形态 D2）」节（模板 = `network-graph.md` 的同名节：枚举声明、默认 case、逐 case 来源、明确不做的事、判据名、「为什么是 D2 不是协议」）；`#299` 重判小节末尾把「扩展点尚未落地」段改成「已由 `#312` 落地」（`network-graph.md` 先例）。`ring-chart.md` 同样守住「翻回步骤 4」恰 1 处。`activity-heatmap.md` / `radar-chart.md` / `ring-chart.md` 保留 `D-299-1` 指针。
+- 五份组件文档：API 块加 `layout:`；新增「布局形态扩展点（`#312` · 形态 D2）」节（模板 = `network-graph.md` 的同名节：枚举声明、默认 case、逐 case 来源、明确不做的事、判据名、「为什么是 D2 不是协议」）；`#299` 重判小节末尾把「扩展点尚未落地」段改成「已由 `#312` 落地」（`network-graph.md` 先例）。`ring-chart.md` 同样守住该 `factSites` 短语恰 1 处。`activity-heatmap.md` / `radar-chart.md` / `ring-chart.md` 保留 `D-299-1` 指针。
 - `docs/README.md` 索引行【实测】：`:177 BeforeAfterSlider(labels:before:after:)`、`:184 OrbitingLogos(_:logo:center:)`、`:193 RadarChart(_:title:tint:)`、`:194 RingChart(_:goal:title:tint:colors:)`、`:195 ActivityHeatmap(_:title:tint:calendar:)` → 各加 `layout:`（`:196 NetworkGraph(nodes:edges:title:tint:layout:)` 是先例）。
 
 ### 4.4 `docs/contract-defects.md` / `docs/component-contract.md` / `docs/component-contract-revisions.md`
@@ -434,12 +434,16 @@
 - `.claude/epics/issue-backlog-closeout/312.md` / `312-plan.md` / `epic.md`、`.claude/prds/issue-backlog-closeout.md:58`：改成最终态；`312-plan.md` 阶段 1b 按 §2.4 重写、阶段 3 第 3 条按 §4.1 末段改。
 - `SingleSourceOfTruthGuard`：不需要结构改动；若有人想把「`OrbitingLogos` 翻至出口 1」也钉成 `factSites`，注意判据自陈「写下计数的那句话本身就会变成新的一处」，登记时按「处」数全。
 
+- **design-digest**（评审 I-4）：`scripts/design-digest.py` 的 `FLOORS` 是**精确相等**（`enums` / `enumcases` 等）⇒ 新增 5 个 public enum 与其 case 后按实跑读数更新 `FLOORS`，并重生成 `docs/design-digest.md`；CI `swiftpm` job 有 `git diff --exit-code -- docs/design-digest.md`。
+- **实现者硬约束补充**（评审 S-4…S-8）：新 helper 名不得含 `offset(` / `position(` 等 `motionCalls` 子串（`BeforeAfterSlider.swift` 与 `OrbitRing.swift` 在 `approvedNoMotion`，子串匹配无编译期信号）；`SingleSourceOfTruthGuard.sourceOnly` 也扫 `Sources/` 与 `Tests/` ⇒ 源码注释不得写「3D Ellipse」「全口径」等真源短语；`docs/` 与仓根 md 不得写 `X.swift:NN` 裸行号（`BareLineRefGate`）；`RingChart.segmentCount` 加进 downstream-probe 的 `readChartScaleLimits()`，probe 构建命令带 `-Xswiftc -warnings-as-errors`；`renderInputs(_:calendar:layout:)` 给 `layout` 默认值以保 `DegenerateInputTests` 调用点不变。
+- **组件文档须写明的取舍**（评审 S-1…S-3）：`ActivityHeatmap.dailyColumns` 渲染柱状、折线属装饰档不另开 case、柱高与四档色阶双重编码的理由；`BeforeAfterSlider` 并排形态下入场扫动表现为窗格尺寸变化（有意保留行为一致）；`OrbitingLogos.ellipse` 明确不做 tilt 与 3D 透视。
+
 ### 4.6 验证清单
 
 1. `swift build`；`swift test --xunit-output <path>`（权威条数看 xUnit，不看 console 行数）；
 2. iOS 腿：`xcodebuild test -scheme OhMyDesign-Package -destination 'platform=iOS Simulator,id=<UDID>' -resultBundlePath <p>.xcresult` + `xcrun xcresulttool get test-results summary --path <p>.xcresult`（取顶层 `passedTests`）；
 3. `swift build --build-tests && scripts/mainactor-static-ratchet.sh`（预期零新豁免）；
-4. `cd scripts/downstream-probe && swift build`；
+4. `cd scripts/downstream-probe && swift build -Xswiftc -warnings-as-errors`；`python3 scripts/design-digest.py && git diff --exit-code -- docs/design-digest.md`；
 5. `swift package describe --type json | jq '…OhMyDesignTests… .target_dependencies'` 恰为 `["OhMyDesign"]`、`OhMyDesign` 为 `null`（`Package.swift` 本轮不动，仍照跑）；
 6. 副本 grep 回扫（附录 B 的命令），确认「4 条待补」「现为 4 条」「翻转移交 `#312`」都已带上一层注记；
 7. 全部文档改完后**重跑** 1–2（`AgentGuideSyncGuard` / `QuotedEvidenceGuard` / `SingleSourceOfTruthGuard` 都在看文档）。
