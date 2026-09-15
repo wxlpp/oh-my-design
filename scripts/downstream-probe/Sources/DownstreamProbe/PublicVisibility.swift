@@ -531,6 +531,11 @@ func consumeTextAndDisplayEffects(streamed: String) -> some View {
         } after: {
             Text("after")
         }
+        BeforeAfterSlider(labels: .standard, layout: .stacked) {
+            Text("before")
+        } after: {
+            Text("after")
+        }
         Text("badge").transition(.particle)
         Text("badge").transition(.particle(count: 8, colors: [.surfaceRaised]))
     }
@@ -554,6 +559,11 @@ func consumeCrossPlatformEffects(brands: [CrossPlatformProbeItem]) -> some View 
         CharSphere(["道", "德"])
         CharSphere(["S", "h"], count: 120, colors: [.secondaryFill], rotationPeriod: 6)
         OrbitingLogos(brands) { item in
+            Text(verbatim: item.name)
+        } center: {
+            Text(verbatim: "core")
+        }
+        OrbitingLogos(brands, colors: [.surfaceRaised], rotationPeriod: 8, layout: .ellipse) { item in
             Text(verbatim: item.name)
         } center: {
             Text(verbatim: "core")
@@ -713,5 +723,10 @@ func consumeCharts() -> some View {
         NetworkGraph(nodes: nodes, edges: edges)
         NetworkGraph(nodes: nodes, edges: edges, title: "Graph", tint: .accent)
         NetworkGraph(nodes: nodes, edges: edges, layout: .layered)
+        Group {
+            RadarChart(metrics, layout: .radialBars)
+            RingChart(metrics, goal: 500, layout: .segmentedRings)
+            ActivityHeatmap(days, layout: .monthCalendar)
+        }
     }
 }

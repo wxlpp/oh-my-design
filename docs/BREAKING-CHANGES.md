@@ -19,6 +19,34 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.10.0`）——Issue #312：五个组件的布局形态扩展点
+
+**含破坏性变更（与 `v0.9.0` 那 7 处、`0.10.0` 的 `NetworkGraph` 同形）** —— 五个 `init` 各新增一个
+带默认值的 `layout:` 参数：
+
+| 组件 | 新参数（默认 = 现状画法） | 参数位置 |
+|---|---|---|
+| `RadarChart` | `layout: RadarChartLayout = .polygon` | 末尾 |
+| `RingChart` | `layout: RingChartLayout = .rings` | 末尾（`colors:` 之后） |
+| `ActivityHeatmap` | `layout: ActivityHeatmapLayout = .weeks` | 末尾（`calendar:` 之后） |
+| `BeforeAfterSlider` | `layout: BeforeAfterSliderLayout = .overlay` | `labels:` 之后、`before:` 闭包之前 |
+| `OrbitingLogos` | `layout: OrbitingLogosLayout = .outerRing` | `rotationPeriod:` 之后、`logo:` 闭包之前 |
+
+- **对已应用的调用点零影响**：参数带默认值且位于闭包参数之前，尾随闭包写法照常编译。
+- **对未应用的函数引用是破坏性变更**：把这些 `init` 当函数值取，或写死不含 `layout:` 的完整签名时，类型变了。
+- **新增 public 类型** `RadarChartLayout`（`.polygon` / `.parallel` / `.radialBars` / `.bars`）、
+  `RingChartLayout`（`.rings` / `.bars` / `.segmentedRings` / `.stackedBar`）、
+  `ActivityHeatmapLayout`（`.weeks` / `.monthCalendar` / `.monthTracks` / `.dailyColumns`）、
+  `BeforeAfterSliderLayout`（`.overlay` / `.sideBySide` / `.stacked`）、
+  `OrbitingLogosLayout`（`.outerRing` / `.multiRing` / `.ellipse`），另新增
+  `RingChart.segmentCount`（`.segmentedRings` 的分段数，固定为 10）。
+  ⚠️ 五个枚举都**非 `@frozen`** ⇒ **将来加 case 也是破坏性变更**（下游穷举 `switch` 不写
+  `@unknown default` 就编译红），届时要在本文件另起一条。
+- **默认 case 即本版之前的画法**：不传 `layout:` 时走默认 case，调用方观感不变。
+
+理由与判定过程见 `docs/components/{radar-chart,ring-chart,activity-heatmap,before-after-slider,orbiting-logos}.md`
+与登记表各条 `notes`；`OrbitingLogos` 的落点裁定见 `docs/contract-defects.md` 的 `## #312` 节。
+
 ## 未发布（相对 `v0.10.0`）——Issue #357：`coreAccent` on-accent 通路
 
 **源码兼容，行为有变。** `View.coreAccent(_:)` 增加可选 `on` 参数
