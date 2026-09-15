@@ -181,6 +181,28 @@ nonisolated func readOrbitingLogosDefaultRotationPeriod() -> Double {
     OrbitingLogos<[CrossPlatformProbeItem], Text, Text>.defaultRotationPeriod
 }
 
+// MARK: - BeforeAfterSliderLayout / OrbitingLogosLayout（#312 形态 D2）
+
+nonisolated func readBeforeAfterSliderLayouts() -> [String] {
+    BeforeAfterSliderLayout.allCases.map { layout in
+        switch layout {
+        case .overlay: "overlay"
+        case .sideBySide: "sideBySide"
+        case .stacked: "stacked"
+        }
+    }
+}
+
+nonisolated func readOrbitingLogosLayouts() -> [String] {
+    OrbitingLogosLayout.allCases.map { layout in
+        switch layout {
+        case .outerRing: "outerRing"
+        case .multiRing: "multiRing"
+        case .ellipse: "ellipse"
+        }
+    }
+}
+
 // ⚠️ 12 条转场的 `properties` 也是**值类型那一档**：`TransitionProperties` 是纯值，
 // 而 `hasMotion` 正是调用方在自己的降级判断里会读的东西（"这条转场含运动吗，
 // 我要不要在 Reduce Motion 下换一条"）——那个判断不该被逼上主线程。

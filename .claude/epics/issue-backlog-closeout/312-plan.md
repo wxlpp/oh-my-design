@@ -1,70 +1,48 @@
 # #312 实施计划：组件样式扩展点 + 两条落点裁定
 
-## 现状（开工时）
+裁定与设计的唯一依据是 `312-spec.md`（已过一轮设计评审并按评审修订）。本计划只定执行顺序、分工与验证。
+⚠️ 本文件是 tracked 的 md：不得逐字写 `SingleSourceOfTruthGuard.factSites` 登记的短语。
 
-- `NetworkGraph` 已由 `#355` 以形态 D2 落地（红名单 5 → 4），本 issue 剩 4 条组件。
-- `OrbitingLogos` 来源 2026-09-14 实测 HTTP 200、正文含 `OrbitingItem` 的
-  `radiusX` / `radiusY` / `tiltAngle` props（留档 `/tmp/animata.html`，随 PR 进 `docs/issues/`）。
-- `contract-defects.md` 的 J-2 描述失真已由 `#337` 先行修复（本 issue 开工时确认已合入）。
+## 已定裁决（spec §0）
 
-## 阶段 1：两条落点裁定（先裁定、后实现）
+- `OrbitingLogos`：翻至出口 1（`step2` / `semantic` / 需要扩展点），走修订回路（`## #312` 节 + R-49 + 公约注记）。
+- `D-299-1` 重核：只登记、**不改落点**（原计划阶段 1b「计 ⇒ 退回步骤 4」作废，理由 spec §2.4）；
+  `RadarChart` 3 → 2 不翻；`ActivityHeatmap` 口径未定（双平台不翻 / iOS 单平台会翻）；`RingChart` 至少会翻。
+- 本 issue 不走 `D-299-1` 修订回路；翻转与五个枚举同 PR；`RingChart.segmentCount` 固定 10。
+- 五条全走 D2：`RadarChartLayout` / `RingChartLayout` / `ActivityHeatmapLayout` / `BeforeAfterSliderLayout` / `OrbitingLogosLayout`。
 
-### 1a. `OrbitingLogos` 翻转裁定
+## 阶段 A：五个组件并行实现（各自 worktree，分支基于本分支）
 
-- 把留档正文提取成可读文本存 `docs/issues/312-animata-orbiting-items.md`（注明抓取日期 /
-  HTTP 200 / 关键 prop 行号），登记进 `docs/contract-defects.md` 的 `## #299` 节
-  （`D-299-2` 与《`#315` 终审后复核》段）。
-- 按 `D-299-2` 字面裁定：候选 4 来源已可核验、「同一组件 + 两个 props 决定轨道形状」
-  成立 ⇒ 计入 2 ≥ 2 ⇒ **出口 1 ⇒ `semantic` ⇒ 需要扩展点**。
-- 留痕改动：registry 三字段（`decidedBy` / `kind` / `needsExtensionPoint`）、
-  J-2 红名单 +1（4 → 5）、`inspected.count` 16 → 17、`withKnownIssue` 文案、
-  `R-48` 判定表——⚠️ 按 CLAUDE.md 更正传播约定 grep 三处落点。
+每个组件一个实现者，只触：该组件源码（含同文件 helper，`OrbitingLogos` 另触 `OrbitRing.swift`）、
+新判据文件、该组件的 `docs/components/*.md`（API 块 + 「布局形态扩展点」节 + spec §4.5 要求写明的取舍）。
+**不触**：`docs/component-registry.json`、`ComponentExtensionPointGuard`、contract 三文档、README、
+BREAKING-CHANGES、downstream-probe、design-digest（全部归阶段 B，避免冲突）。
+在 registry 未改前，J-2 红名单仍与已知集合相等 ⇒ 各 worktree 的 `swift test` 应保持全绿。
 
-### 1b. `D-299-1` 全口径重核（`RadarChart` / `ActivityHeatmap`）
+每个实现者的验证：`swift build`；`swift test --filter <新判据类型名>`；再跑与该文件相关的既有守卫
+（`ReduceMotionGuard` / `MicroInteractionReduceMotionGuard` / `SingleSourceOfTruthGuard` / `EffectsColorLiteralGuard` /
+`QuotedEvidenceGuard` / 该组件既有测试）并以 `Test run with N tests` 非零为准；每个 layout 渲染一张 PNG 到
+scratchpad（不入库）供视觉评审。
 
-谓词已放宽为「宿主平台框架的具名 API」，但这两条的「不命中」论证只查了 Swift Charts。
-按 issue 给的两个具名反例做起点，逐条裁定：
+## 阶段 B：集成与同步（合并阶段 A 后，一个起草者）
 
-| 条目 | 反例 | 要裁的问题 |
-|---|---|---|
-| `ActivityHeatmap` 候选 1（日历月视图） | `UICalendarView` + `UICalendarViewDecoration`（每日装饰） | UIKit 是「宿主平台框架」吗？「每日装饰」能否承载热力格（候选形态差异是否完整覆盖）？ |
-| `RadarChart` 候选 2（径向柱状） | `SectorMark(angle:innerRadius:outerRadius:)`（逐 mark 可变 outerRadius） | `SectorPlot` 的逐元素 `MarkDimensions` 是否让候选「单一具名 API 直接可用」成立？ |
+按 spec §1.3 / §2.6 / §4 逐条：registry 五条 `styleEnum` + `OrbitingLogos` 三字段翻转 + notes；
+`ComponentExtensionPointGuard` 收缩（`inspected.count` 17、红名单与跟进常量删除、裸 `#expect`、五条 D2 正向断言）；
+`ComponentJudgeMutationTests` 三处；`contract-defects.md` 新 `## #312` 节 + `D-299-1` 重核段 + 副本注记；
+`component-contract.md` 注记；`component-contract-revisions.md` R-49 + R-48 追加行；`CLAUDE.md` / `AGENTS.md` 计数；
+`docs/README.md` 索引；`BREAKING-CHANGES.md` 未发布节；downstream-probe；`design-digest.py` `FLOORS` + 重生成；
+epic / PRD / 任务文件最终态。
 
-⚠️ 裁定的**标准**要与排除 `RingChart` 候选 2 时用的标准同构（「只能用 N 个手拼」vs
-「单一具名 API 直接用」），结论写进 `docs/contract-defects.md` 的 `## #299` 节。
-两种结果都合法，但**逐条留痕**：
-- 裁定「计」⇒ 该组件计入数 3 → 1 < 2 ⇒ **落点退回步骤 4** ⇒ 不建扩展点、registry
-  三字段按步骤 4 落盘（`decidedBy: D-299-1 修订` 之类，形态照既有条目）。
-- 裁定「不计」⇒ 保持出口 1，进入阶段 2。
+## 阶段 C：交付验证
 
-⚠️ 阶段 1b 的裁定结论直接决定阶段 2 的清单，**裁定文本本身是本 issue 的交付物**。
+1. `swift test --xunit-output`（全量，文档全部改完之后跑）；
+2. iOS Simulator 腿 `xcodebuild test -scheme OhMyDesign-Package … -resultBundlePath`，读顶层 `passedTests`；
+3. `swift build --build-tests && scripts/mainactor-static-ratchet.sh`；
+4. `cd scripts/downstream-probe && swift build -Xswiftc -warnings-as-errors`；
+5. `python3 scripts/design-digest.py && git diff --exit-code -- docs/design-digest.md`；
+6. 两条 `swift package describe` 隔离判据；
+7. 变异实证：删一条 `styleEnum` ⇒ J-2 红；改名一个枚举 ⇒ J-2 红（每处变异先断言落地）。
+   给 `prescriptive` 条目填 `styleEnum` **今天不判红**（spec §4.1），不作为变异项。
+8. 视觉评审（ios-visual-reviewer）看阶段 A 的各形态 PNG。
 
-## 阶段 2：形态 D 扩展点（对阶段 1 裁定后仍处出口 1 的组件）
-
-- 每条按「完整承载判定时枚举的候选形态差异」设计槽 / 枚举（候选清单见 issue 正文与
-  登记表 `notes`；`BeforeAfterSlider` 计入 2：左右并排 / 上下并排）。
-- ⚠️ **全部走形态 D**（`styleSlot` / `styleEnum`）——`D-299-1` 修订回路未走完，
-  禁形态 B public 协议。形态 D 成立条件：填了不覆盖比不填更糟。
-- 参考先例：`#355` 的 `NetworkGraph`（形态 D2）与登记表里已有 7 个形态 D 组件（`styleEnum` 非空，含 `NetworkGraph`）。
-
-## 阶段 3：判据收缩与同步
-
-1. `ComponentExtensionPointGuard.knownMissingExtensionPoints` 收缩为空集；
-   `extensionPointFollowUpIssue` 与聚合断言一并删除；`withKnownIssue` 块按自身注释的
-   到期机制删除。
-2. `docs/components/*.md` 与登记表 `notes` 同步。
-3. 变异实证：把某个已填扩展点的字段删掉 ⇒ 判据红；给一个非 semantic 条目乱加
-   扩展点字段 ⇒ 判据红。每处变异先断言落地再跑。
-
-## 验证
-
-- `swift build` + `swift test`（macOS native）+ iOS Simulator 腿 xcodebuild。
-- 判据计数（`inspected.count` 等）以实跑为准；改断言值要逐条写依据。
-- `docs/component-registry.json` 的 schema 判据（`ComponentRegistryGuard`）全绿。
-
-## 完成判据（issue 原文 4 条）
-
-1. 各条扩展点在登记表填上且源码真实存在（或按 1b 裁定退回步骤 4 并留痕）；
-2. 红名单空集化 + 到期机制删除；
-3. `docs/components/*.md` 与登记表同步；
-4. `OrbitingLogos` 裁定留痕（台账 + `docs/contract-defects.md`）。
+然后交付评审（superpowers-reviewer，finishing 焦点）→ PR（base = `epic/issue-backlog-closeout`）→ auto-fix。

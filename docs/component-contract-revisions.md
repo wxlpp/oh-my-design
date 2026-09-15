@@ -2152,6 +2152,7 @@ CommonMark 里前导 ≤3 空格**仍是合法表格**（≥4 才进代码块）
   | `ActivityHeatmap` | 候选 3 引「stack values in a column…」 | 换引同页 “A comparison of values across categories or across time, consider a column, bar, line or sparkline chart.” | `#315` I-4：原引句讲的是堆叠/分组，与 line vs column 无关；结论不变 |
   | `RadarChart` | 反向证据「同一页把两者侧重分开写」 | 那两句**只在平行坐标图页**，坐标系总览页 0 命中；坐标系名页面上是小写 `radar`/`parallel`/`radial`；自述句首字母是大写 `Analyze` | `#315` I-8 |
   | `OrbitingLogos` | 计入 **1** ⇒ 步骤 4 | **已知过期项**：候选 4（椭圆轨道）的来源 2026-09-05 复核可取到正文 ⇒ 按公约字面应计入 **2 ≥ 2 ⇒ 出口 1**。**本轮落盘字段仍按步骤 4 不动**（本轮不翻的理由见 `docs/contract-defects.md` 的《`#315` 终审后复核》段的重排版本，主理由：**下游连锁应单独过一次评审**），翻转移交 `#312` | `#315` S-3 复核，见 `docs/contract-defects.md` 的 `## #299` 节《`#315` 终审后复核》段 |
+  | `OrbitingLogos` | 已知过期项（计入 1 ⇒ 步骤 4） | **`#312` 已裁定翻至出口 1**，见 `R-49`（本行为追加行：PR #315 已合并，上表不再「直接改」，按只增不改处置） | `#312` |
 
 - **⚠️ 一条被推翻的上游暗示，如实记录**：PR #297 终审 I-3 把 `OrbitingLogos` 从「干净的
   10 条」挪进缓办台账时写着它「与四个图表 / `BeforeAfterSlider` **同组**」。本轮实核：
@@ -2232,6 +2233,8 @@ CommonMark 里前导 ≤3 空格**仍是合法表格**（≥4 才进代码块）
   移出红名单 ⇒ 翻转是 **4 条 → 5 条**、文案现为逐字「4 条待补的扩展点」；
   本表的判定表、`#312` 的范围），其次是**到期性**（`#312` 须先裁出口、
   再定扩展点形态）。
+  ⚠️ **`#312` 处置（只增不删）**：上面这条下游连锁已在 `#312` 单独评审并落地，括号里的计数
+  不再叠层 —— 最终态是定义域 **17** 条、红名单**空集并删除**、`withKnownIssue` 块删除，见 `R-49`。
 - **验证**：`knownPendingStep2Enumeration` 的双侧等式在本轮由**变异实证**证明仍承重
   （多写一条 / 少写一条各判红一次，输出见 PR 正文）；J-2 侧由
   `inspected.count == 16` + 块外固定集合 canary + 「已知缺口条目必须仍是 semantic +
@@ -2240,3 +2243,53 @@ CommonMark 里前导 ≤3 空格**仍是合法表格**（≥4 才进代码块）
   要求红名单里每条的 `notes` 都写着承接 issue 号（此前这一条只活在注释与失败文案里，
   而 `pendingStep2` 侧的同类判据在本轮收口后已空转）。双向变异实证：把 `NetworkGraph.notes`
   里的 `#312` 改成 `#999` ⇒ 判红并逐条点名；还原 ⇒ 判绿。输出见 PR 正文。
+
+### R-49｜`#312`：`OrbitingLogos` 经修订回路翻至出口 1 + 五条扩展点以形态 D2 落地
+
+- **来源试点**：`#312`（`R-48` 指定的承接 issue）。
+- **撞上公约哪一条**：第 1 节「事后补写的效力边界」（已落盘落点的翻转必须走修订回路、
+  不能只改 `notes`）与步骤 2 的**来源义务**（「覆盖任何计入 ≥2 的候选」）。`OrbitingLogos`
+  候选 4（椭圆轨道）的来源在 `#315` 复核时已可取到正文，按公约字面计入数应为 2 ≥ 2 ⇒ 出口 1，
+  而落盘仍是步骤 4；来源页取页不稳定，故先随 `416d06c` 把正文留档进仓
+  （`docs/issues/animata-orbiting-items-3d-2026-09-14.html`），再据仓内留档翻转。
+  缺陷与裁定留痕见 `docs/contract-defects.md` 的 `## #312` 节。
+  ⚠️ `D-299-2` 的读法本条**不裁**：两种读法下计入数分别为 2 与 4，落点相同；
+  本条计入基数的口径与理由，唯一真源在 `docs/contract-defects.md` 的 `D-299-2`。
+- **改动前（逐字）**：公约 §1 实测状态段「1 条（`OrbitingLogos`）落**步骤 4**；判定法结论
+  已产出、扩展点实现未跟上，移交 `#312`。」及其后「⚠️ **再一次更新（`#312`）：现为 4 条**」；
+  第 4 节 J-2 行下方注记「现状：定义域 16 条、11 条满足、`knownMissingExtensionPoints` 5 条
+  （⚠️ **`#312` 起为 4 条**…）」；AD-4《下游连锁一》表后注记「第 6 条 `OrbitingLogos` 落**步骤 4**，
+  仍不进定义域」；给 `#279` 的交接计数「`knownMissingExtensionPoints` 现为 **5 条**（⚠️ **`#312` 起为 4 条**…）」。
+- **改动后（逐字）**：四处**均按只增不改的成法在原文下方追加**「⚠️ **再一次更新（`#312` 收口）**：
+  `OrbitingLogos` 经修订回路翻至出口 1（`R-49`）」开头的现状注记（原句一字不动），现状为
+  「J-2 定义域 **17** 条、全部满足；`knownMissingExtensionPoints` **收成空集**后连同
+  `extensionPointFollowUpIssue` 一并删除、`withKnownIssue` 块按到期机制删除」。
+- **落点**：`docs/component-contract.md`（上述四处现状注记）。
+- **连带改动**：
+  · `docs/component-registry.json` —— `OrbitingLogos` 三字段 `tiebreaker` / `prescriptive` / `false`
+    → `step2` / `semantic` / `true`，`styleEnum` 填 `OrbitingLogosLayout`；`RadarChart` /
+    `RingChart` / `ActivityHeatmap` / `BeforeAfterSlider` 各填 `styleEnum`（`RadarChartLayout` /
+    `RingChartLayout` / `ActivityHeatmapLayout` / `BeforeAfterSliderLayout`）；五条 `notes`
+    按 `NetworkGraph.notes` 先例把「扩展点尚未落地、移交 `#312`」改写为「已由 `#312` 落地」并追加
+    形态 D2 段；
+  · 源码 —— 五个 `public nonisolated enum …Layout: Sendable, Equatable, CaseIterable`，各组件
+    `init` 加带默认值的 `layout:` 参数（位于第一个 `@ViewBuilder` 闭包参数之前），另新增
+    `RingChart.segmentCount`；
+  · `Tests/OhMyDesignTests/ComponentExtensionPointGuard.swift` —— 删除
+    `knownMissingExtensionPoints` / `extensionPointFollowUpIssue` / 逐条核对循环 / 聚合断言 /
+    `withKnownIssue` 块，主判据回到裸 `#expect(result.missing.isEmpty)`；`inspected.count == 16`
+    → `== 17`（名单加 `OrbitingLogos`）；新增五条 D2 通路正向断言；
+    `ComponentJudgeMutationTests.swift` 三处改为以空集为基线；
+  · 新判据 `RadarChartLayoutFormTests` / `RingChartLayoutFormTests` /
+    `ActivityHeatmapLayoutFormTests` / `BeforeAfterLayoutFormTests` / `OrbitingLogosLayoutFormTests`；
+  · `docs/contract-defects.md` —— 新增 `## #312` 节（裁定 A / 裁定 B / `D-312-1`），`D-299-1`
+    追加《`#312` 重核》段，`D-299-2` 与《`#315` 终审后复核》段追加「已兑现」注记（只增不删）；
+  · `docs/components/{radar-chart,ring-chart,activity-heatmap,before-after-slider,orbiting-logos}.md`
+    —— 各新增「布局形态扩展点」节，`orbiting-logos.md` 另增「`#312` 裁定」小节；
+  · 本文件 `R-48` 更正表追加一行指向本条；`docs/README.md` 索引、`docs/BREAKING-CHANGES.md`
+    未发布节、`scripts/downstream-probe`、`scripts/design-digest.py` 的 `FLOORS`、
+    `CLAUDE.md` / `AGENTS.md` 的 `inspected.count` 计数。
+- **验证**：J-2 主判据在 17 条定义域上零缺口（裸 `#expect`，不再有 `withKnownIssue`）；
+  变异实证两条（删掉 `RadarChart` 的 `styleEnum` / 把 `RingChartLayout` 的枚举声明改名，
+  各判红一次、还原后判绿），输出见 PR 正文。⚠️ 给 `prescriptive` 条目填 `styleEnum`
+  **今天不判红**（无此判据，见 `D-312-1`），不作为变异项。

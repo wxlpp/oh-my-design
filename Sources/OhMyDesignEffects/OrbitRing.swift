@@ -25,6 +25,8 @@ nonisolated enum OrbitRing {
 
     static let restingPhase: Double = 0.125
 
+    static let ellipseAspect: Double = 0.55
+
     // MARK: 环与点
 
     static func turns(at date: Date, period: Double = OrbitRing.rotationPeriod) -> Double {
@@ -33,9 +35,12 @@ nonisolated enum OrbitRing {
         return (t < 0 ? t + period : t) / period
     }
 
-    static func ringRadius(ring: Int, size: Double) -> Double {
+    /// - Parameter layout: `.multiRing` 下圈距加宽（`0.075` → `0.15`），
+    ///   让多轨道读得出来；`.outerRing` / `.ellipse` 只用得到 `ring == 0`，
+    ///   圈距与它们无关，几何逐位不变。
+    static func ringRadius(ring: Int, size: Double, layout: OrbitingLogosLayout = .outerRing) -> Double {
         let outer = size * 0.5 * 0.86
-        let step = size * 0.5 * 0.075
+        let step = size * 0.5 * (layout == .multiRing ? 0.15 : 0.075)
         return max(0, outer - Double(ring) * step)
     }
 
@@ -50,8 +55,17 @@ nonisolated enum OrbitRing {
         return step * Double(index) + Double(ring) * 0.4 - turns * 2 * .pi
     }
 
-    static func point(angle: Double, radius: Double, center: CGPoint) -> CGPoint {
-        CGPoint(x: center.x + cos(angle) * radius, y: center.y + sin(angle) * radius)
+    static func point(angle: Double, radius: Double, center: CGPoint, aspect: Double = 1) -> CGPoint {
+        CGPoint(x: center.x + cos(angle) * radius, y: center.y + sin(angle) * radius * aspect)
+    }
+
+    static func aspect(for layout: OrbitingLogosLayout) -> Double {
+        layout == .ellipse ? Self.ellipseAspect : 1
+    }
+
+    static func ring(forLogo index: Int, layout: OrbitingLogosLayout) -> Int {
+        guard layout == .multiRing, Self.ringCount > 0 else { return 0 }
+        return ((index % Self.ringCount) + Self.ringCount) % Self.ringCount
     }
 
     static func alpha(angle: Double) -> Double {
