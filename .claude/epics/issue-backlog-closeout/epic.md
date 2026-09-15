@@ -2,8 +2,8 @@
 name: issue-backlog-closeout
 status: in-progress
 created: 2026-09-14T00:33:25Z
-updated: 2026-09-14T00:33:25Z
-progress: 0%
+updated: 2026-09-15T16:55:10Z
+progress: 80%
 prd: .claude/prds/issue-backlog-closeout.md
 github: https://github.com/wxlpp/oh-my-design/issues/363
 ---
