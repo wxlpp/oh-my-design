@@ -432,7 +432,7 @@ extension ActivityHeatmap {
         var guardCounter = 0
         while cursor <= end {
             guardCounter += 1
-            // 首末两月的区间外部分各 ≤ 31 天。
+            // 首末两月的区间外部分各 ≤ 30 天。
             if guardCounter > Self.maximumDays + 14 + 62 { break }
 
             let comps = calendar.dateComponents([.year, .month], from: cursor)
@@ -479,7 +479,7 @@ extension ActivityHeatmap {
         var guardCounter = 0
         while cursor <= end {
             guardCounter += 1
-            // 首末两月的区间外部分各 ≤ 31 天。
+            // 首末两月的区间外部分各 ≤ 30 天。
             if guardCounter > Self.maximumDays + 14 + 62 { break }
 
             let comps = calendar.dateComponents([.year, .month], from: cursor)

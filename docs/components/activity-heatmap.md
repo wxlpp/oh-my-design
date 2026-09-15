@@ -77,14 +77,13 @@ ActivityHeatmap(days, layout: .monthCalendar)
 逐日推进（`calendar.startOfDay` + `date(byAdding: .day, value: 1)`），DST 安全——**不按「月」
 步进**，月份长度、跨年边界全部交给日历本身重算，不在这三个函数里另起一套步进逻辑。
 
-⚠️ **`monthBlocks` / `monthTracks` 的游标覆盖首末整月，不是只覆盖 `first…last`**（评审 I-1）：
+⚠️ **`monthBlocks` / `monthTracks` 的游标覆盖首末整月，不是只覆盖 `first…last`**：
 游标从「`first` 所在月的 1 日」走到「`last` 所在月的最后一日」（`monthSpanBounds`），
 所以首月 1 日到 `first` 前一日、`last` 后一日到末月最后一日这些格拿到的是**真实 `Date`**、
 取色仍走 `byDate`（缺数据 ⇒ `tertiaryFill`，跟区间内其它缺失日同一条规则），
 **不是** `nil`。`nil` 只留给「本月之外」的格——`.monthCalendar` 6×7 块里不属于该月的格、
 `.monthTracks` 超出该月天数的列。守卫上限相应放宽到 `maximumDays + 14 + 62`
-（首尾各至多多走 31 天）。此前游标从 `first` 起，首末月的这一段被误当成「本月之外」画
-`nil`，与下面这条约定矛盾。
+（首尾各至多多走 30 天）。
 
 ⚠️ **`.monthCalendar` 固定 6 行**：让不同月份的块在多列并排时顶部对齐（某些月份的日期只会
 占 5 行，多出的第 6 行整行 `nil`）。**`.monthTracks` 固定 31 列**：所有月份共用同一套列宽，

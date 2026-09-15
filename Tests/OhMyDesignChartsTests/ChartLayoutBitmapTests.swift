@@ -44,14 +44,25 @@ private enum ChartRender {
         return true
     }()
 
-    /// 三渲取最后一次——离屏渲染冷缓存的首渲变体与稳定输出之间有噪声（`#317`），
-    /// 与 `BeforeAfterLayoutFormTests.Render.stable` 同法。
+    /// 三渲取最后一次（`#317`）；实测新内容的首次 `stable()` 仍可能与下一次差约 100 字节 / Δ=1，
+    /// 所以等价判据必须带容差、差异判据必须超过噪声上限。
     static func stable(_ view: some View) -> Data? {
         _ = Self.warmUp
         _ = Self.pixels(view)
         _ = Self.pixels(view)
         return Self.pixels(view)
     }
+}
+
+/// 两帧差异字节数须超过 1% 上限：同一视图连渲的噪声（约 100 字节）不得被读成「形态生效」。
+private func expectLayoutsDifferBeyondNoise(_ a: Data, _ b: Data, _ label: String) {
+    guard let metrics = bitmapDifferenceMetrics(a, b) else {
+        Issue.record("\(label) 的位图尺寸不同，无法逐字节比较")
+        return
+    }
+    let cap = bitmapDifferingCap(byteCount: metrics.byteCount, maxDifferingFraction: bitmapDefaultMaxDifferingFraction)
+    #expect(metrics.differingCount > cap,
+            "\(label) 仅差 \(metrics.differingCount) 字节（噪声上限 \(cap) / 共 \(metrics.byteCount)）—— 形态没有真的生效")
 }
 
 // MARK: - RingChart
@@ -90,10 +101,7 @@ struct RingChartLayoutBitmapTests {
         }
         for i in 0..<layouts.count {
             for j in (i + 1)..<layouts.count {
-                expectBitmapsDiffer(
-                    shots[i], shots[j],
-                    "\(layouts[i]) 与 \(layouts[j]) 的位图逐字节相同 —— 形态没有真的生效"
-                )
+                expectLayoutsDifferBeyondNoise(shots[i], shots[j], "\(layouts[i]) 与 \(layouts[j])")
             }
         }
     }
@@ -148,10 +156,7 @@ struct RadarChartLayoutBitmapTests {
         }
         for i in 0..<layouts.count {
             for j in (i + 1)..<layouts.count {
-                expectBitmapsDiffer(
-                    shots[i], shots[j],
-                    "\(layouts[i]) 与 \(layouts[j]) 的位图逐字节相同 —— 形态没有真的生效"
-                )
+                expectLayoutsDifferBeyondNoise(shots[i], shots[j], "\(layouts[i]) 与 \(layouts[j])")
             }
         }
     }
