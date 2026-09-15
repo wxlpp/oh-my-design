@@ -125,10 +125,6 @@ struct RingChartLayoutFormTests {
         }
     }
 
-    // ⚠️ 原 `renderPlanDiffersAcrossLayouts` 已删除（终审 I-2）：它断言的 `plans[i] != plans[j]`
-    // 只因 `RingChartPlan.layout` 字段带标签就恒真——把 `.bars` 分支改画 `.rings` 全套仍绿。
-    // 真正检查「view 路径按 layout 画出不同像素」的判据见 `ChartLayoutBitmapTests`。
-
     @Test("segmentArc：段间留 4° 角隙，且不越过下一段的起点")
     func segmentArcLeavesGap() {
         let total = RingChart<Metric>.segmentCount

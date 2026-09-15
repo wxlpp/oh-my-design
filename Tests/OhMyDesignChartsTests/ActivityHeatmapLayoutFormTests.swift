@@ -146,14 +146,12 @@ struct ActivityHeatmapLayoutFormTests {
         #expect(comps10.day == 10, "第 10 列应放该月第 10 天，实为第 \(comps10.day ?? -1) 天")
     }
 
-    // MARK: - monthBlocks / monthTracks 覆盖首末整月（评审 I-1）
+    // MARK: - monthBlocks / monthTracks 覆盖首末整月
 
     /// `first` 不是月初 1 日（2026-01-20）、`last` 不是月末最后一日（2026-02-05）：
     /// 首月 1 日…`first` 前一日、`last` 后一日…末月最后一日这些格应为非 `nil` 的 `Date`
     /// （落在该月、取色走 `byDate`，缺数据 ⇒ `tertiaryFill`），且不属于有效日集合；
-    /// 有效日仍应恰出现一次。此前游标从 `first` 起，这些格被误留 `nil` ⇒ `Color.clear`，
-    /// 与 `.weeks`「画空槽而不是跳过」的约定矛盾（`docs/components/activity-heatmap.md`
-    /// 《AD-F 退化输入契约》）。
+    /// 有效日仍应恰出现一次。
     private func fullMonthCoverageIsNonNilAndExcludesEffectiveDays(calendar cal: Calendar) {
         var startComps = DateComponents()
         (startComps.year, startComps.month, startComps.day, startComps.hour) = (2026, 1, 20, 12)

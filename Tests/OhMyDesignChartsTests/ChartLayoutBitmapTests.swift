@@ -6,14 +6,9 @@ import Testing
 
 @testable import OhMyDesignCharts
 
-// MARK: - view 实际走的那条路（位图）——`RingChart` / `RadarChart`（终审 I-2）
+// MARK: - view 实际走的那条路（位图）——`RingChart` / `RadarChart`
 //
-// ⚠️ `RingChartLayoutFormTests.renderPlanDiffersAcrossLayouts`（已删除）与
-// `RadarChartLayoutFormTests` 的 plan 相等性断言都只碰得到 `renderPlan(size:)` 返回的
-// 纯数据；`RingChart.body` 的 `switch self.layout { … }` 与 `RadarChart.draw(plan:tint:)`
-// 的 `switch plan.layout { … }` 才是真正决定画什么的地方，这两处此前没有判据覆盖——
-// 实测把 `RingChart` 的 `case .bars:` 改成调 `ringsView`、或把 `RadarChart` 的
-// `case .bars:` 改成调 `polygonView`，其余判据全绿。本文件渲染真实帧，两两比较位图。
+// plan 判据碰不到 `body` / `draw(plan:tint:)` 里按 layout 分发的 `switch`，只有位图能抓「分支画错形态」。
 
 @MainActor
 private enum ChartRender {

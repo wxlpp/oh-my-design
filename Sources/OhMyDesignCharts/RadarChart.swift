@@ -120,7 +120,7 @@ public struct RadarChart<Value: ChartValue>: View {
         return ZStack {
             ForEach(0..<count, id: \.self) { i in
                 // 轨道分布 `[outer×0.35, outer]`（不是 `[outer/n, outer]`）——n 越大，
-                // 旧公式的最内圈半径会缩到与描边线宽同量级，弧退化成一个钩子（评审 I-4）。
+                // 旧公式的最内圈半径会缩到与描边线宽同量级，弧退化成一个钩子。
                 let midRadius = outer * (1 - Double(i) / Double(count) * 0.65)
                 let diameter = midRadius * 2
                 let width = outer * 0.65 / Double(count) * 0.6
@@ -166,7 +166,7 @@ public struct RadarChart<Value: ChartValue>: View {
                 .stroke(Color.dividerDefault, lineWidth: CoreBorderWidth.hairline)
             }
 
-            // `0...4`（不是 `1...4`）：补上 0 那条底部基线，评审 M-2。
+            // `0...4`（不是 `1...4`）：补上 0 那条底部基线。
             ForEach(0...4, id: \.self) { row in
                 Path { path in
                     let gy = bottom - usableH * Double(row) / 4
@@ -194,7 +194,7 @@ public struct RadarChart<Value: ChartValue>: View {
     }
 
     private static func barsView(normalized: [Double], size: CGSize, tint: Color) -> some View {
-        // 与 `.parallel` 同款水平留白（评审 M-1）——网格线贴着画布边缘时，
+        // 与 `.parallel` 同款水平留白——网格线贴着画布边缘时，
         // 落在边缘的那条竖线只画出了一半描边宽度，读起来像被裁掉了。
         let count = normalized.count
         let inset = size.width * 0.11

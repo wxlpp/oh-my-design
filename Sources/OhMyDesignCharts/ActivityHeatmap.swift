@@ -75,7 +75,7 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
         // 用 `GeometryReader` 显式算出正方形边长，而不是靠 `.aspectRatio(1, .fit)` 在
         // 多块 × 6 行 × 7 列的嵌套 HStack/VStack 里隐式协商——与 `dailyColumnsBars` 同一套做法，
         // 边长同时受块宽（多块分摊总宽）与行高两个方向约束，取较小者更直接。
-        // `blockGap` 用 `CoreSpacing.lg`（不是 `.sm`）——块间距要读得出月边界，评审 I-2。
+        // `blockGap` 用 `CoreSpacing.lg`（不是 `.sm`）——块间距要读得出月边界。
         let gap: CGFloat = 3
         let blockGap = CoreSpacing.lg
         return GeometryReader { proxy in
@@ -100,7 +100,7 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
                 }
             }
             // 内容按实际尺寸收缩后由 `GeometryReader` 顶左锚定摆放——补 `.frame(max…, alignment: .center)`
-            // 让它像 `.weeks` 一样居中，不留大块死区（评审 I-1）。
+            // 让它像 `.weeks` 一样居中，不留大块死区。
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
     }
@@ -122,7 +122,7 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
                     }
                 }
             }
-            // 同 `monthCalendarGrid`：补居中，理由同上（评审 I-1）。
+            // 同 `monthCalendarGrid`：补居中，理由同上。
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
     }
@@ -392,13 +392,7 @@ extension ActivityHeatmap {
         let byDate: [Date: Day]
     }
 
-    /// `first…last` 所跨月份的整月边界：首月 1 日 … 末月最后一日。
-    ///
-    /// `monthBlocks` / `monthTracks` 共用它，让游标覆盖**整月**而不是只覆盖 `first…last`——
-    /// 首月 1 日到 `first` 前一日、`last` 后一日到末月最后一日这些格因此拿到真实 `Date`
-    /// （取色仍走 `byDate`，缺数据 ⇒ `tertiaryFill`），只有「本月之外」的格才是 `nil`
-    /// （评审 I-1：此前游标从 `first` 起，这些格被误画成 `nil` ⇒ `Color.clear`，
-    /// 与 `.weeks`「画空槽而不是跳过」的约定矛盾）。
+    /// `first…last` 所跨月份的整月边界：首月 1 日 … 末月最后一日（月内区间外的日子画空槽，与 `.weeks` 同约定）。
     private static func monthSpanBounds(first: Date, last: Date, calendar: Calendar) -> (start: Date, end: Date) {
         let firstComps = calendar.dateComponents([.year, .month], from: first)
         let firstOfFirstMonth = calendar.date(
@@ -438,8 +432,7 @@ extension ActivityHeatmap {
         var guardCounter = 0
         while cursor <= end {
             guardCounter += 1
-            // 游标现在覆盖整月而非仅 `first…last`，上限相应放宽（最多多走约 62 天：
-            // 首月 1 日到 `first` 前一日 ≤ 31 天 + `last` 后一日到末月最后一日 ≤ 31 天）。
+            // 首末两月的区间外部分各 ≤ 31 天。
             if guardCounter > Self.maximumDays + 14 + 62 { break }
 
             let comps = calendar.dateComponents([.year, .month], from: cursor)
@@ -486,7 +479,7 @@ extension ActivityHeatmap {
         var guardCounter = 0
         while cursor <= end {
             guardCounter += 1
-            // 理由同 `monthBlocks`：游标覆盖整月，上限相应放宽约 62 天。
+            // 首末两月的区间外部分各 ≤ 31 天。
             if guardCounter > Self.maximumDays + 14 + 62 { break }
 
             let comps = calendar.dateComponents([.year, .month], from: cursor)
