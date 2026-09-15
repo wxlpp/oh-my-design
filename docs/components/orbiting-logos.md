@@ -20,6 +20,7 @@ where Data.Element: Identifiable {
     public init(_ items: Data,
                 colors: [Color] = [],
                 rotationPeriod: Double = OrbitingLogos.defaultRotationPeriod,
+                layout: OrbitingLogosLayout = .outerRing,
                 @ViewBuilder logo: @escaping (Data.Element) -> Logo,
                 @ViewBuilder center: () -> Center)
 }
@@ -42,6 +43,51 @@ OrbitingLogos(brands) { brand in
 ⚠️ **本件强制为正方形**（`aspectRatio(1, contentMode: .fit)`）：环是圆的，非等比容器里
 画出来的是椭圆环。给它 `320 × 200` 会得到 `200 × 200` 的内容 + 上下留白（信箱边）。
 需要非方形版面的，请自己决定裁剪 / 定位，本件不猜。
+
+## 布局形态扩展点（`#312` · 形态 D2）
+
+```swift
+public nonisolated enum OrbitingLogosLayout: Sendable, Equatable, CaseIterable {
+    case outerRing   // 默认：全部条目落在最外一圈点环上（现状形态）
+    case multiRing   // 条目分居不同半径的同心圈（业界来源：Magic UI OrbitingCircles 的多个 radius 并列）
+    case ellipse     // 四圈点环与条目一并压扁成横向椭圆（业界来源：Animata "Orbiting Items 3D" 的 radiusX / radiusY）
+}
+
+OrbitingLogos(brands, layout: .multiRing) { brand in
+    Image(brand.assetName).resizable().scaledToFit().frame(width: 34, height: 34)
+} center: {
+    Image("AppLogo").resizable().scaledToFit().frame(width: 64, height: 64)
+}
+```
+
+⚠️ **`.multiRing` 不新增点环**：四圈点环（`OrbitRing.ringCount`）恒定不变，条目按
+`OrbitRing.ring(forLogo:layout:)`（`index % ringCount`）分配到**既有的**某一圈点位上、
+再叠加该圈点环自身的相位偏移，让条目落在那一圈**真的画出来的**点上——与低电量下
+「条目必须坐在真实画出来的环点上」同一约束（见上面《后台 / 低电量》）。
+
+⚠️ **`.ellipse` 只压扁半径，不做倾角与透视**：来源页面里控制轨道形状的除 `radiusX` /
+`radiusY` 外还有一个倾角维度，本轮**明确不做**——椭圆的倾角不改变条目彼此之间的落点
+关系，属同一排布的参数，留作将来的演进点；相应地也不做任何 3D 透视处理，整件仍是
+2D 平面上的一枚压扁圆。压扁只作用于 `y` 分量（`OrbitRing.point(…, aspect:)`），
+`x` 分量不变。
+
+⚠️ **候选 2（logo 无限滚动带）/ 候选 3（静态 logo 网格）不做 case**：现行判定口径下
+这两个候选不计入（详见 `docs/contract-defects.md` 的 `D-299-2`），且去掉运动就不再是
+本件——本件在 `OhMyDesignEffects`（表达性视觉动效层），巡游本身就是它的含义。若判定口径
+将来改变，这两个候选要另加 case（source-breaking，届时走 BREAKING-CHANGES）。
+
+⚠️ **加 case 是 source-breaking**：`OrbitingLogosLayout` 非 `@frozen`，
+下游穷举 `switch` 不写 `@unknown default` 就会编译红 ⇒ 加 case 要走 BREAKING-CHANGES 登记。
+
+判据：`OrbitingLogosLayoutFormTests` 的 `pointAspectMatchesLegacyAtOneAndScalesYElsewhere` /
+`ringAssignmentOnlyAppliesToMultiRing` / `ellipseLogosLieOnTheEllipse`（纯几何）、
+`layoutsProduceDistinctStillFrames` / `backgroundStripsDecorationRegardlessOfLayout`（view 路径位图）。
+
+### 为什么是形态 D2（配置枚举）而不是 public 协议
+
+三个候选改变的都是**条目之间的空间关系**（换轨道数、换轨道形状），不是外观槽——
+D1 外观槽够不着容器级排布。配置枚举**可演进**（加 case 走 BREAKING-CHANGES 即可），
+比发布 public 协议（发布后不可撤）代价更小。
 
 ## 平台支持
 

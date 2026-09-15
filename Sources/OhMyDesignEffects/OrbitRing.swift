@@ -25,6 +25,8 @@ nonisolated enum OrbitRing {
 
     static let restingPhase: Double = 0.125
 
+    static let ellipseAspect: Double = 0.55
+
     // MARK: 环与点
 
     static func turns(at date: Date, period: Double = OrbitRing.rotationPeriod) -> Double {
@@ -50,8 +52,17 @@ nonisolated enum OrbitRing {
         return step * Double(index) + Double(ring) * 0.4 - turns * 2 * .pi
     }
 
-    static func point(angle: Double, radius: Double, center: CGPoint) -> CGPoint {
-        CGPoint(x: center.x + cos(angle) * radius, y: center.y + sin(angle) * radius)
+    static func point(angle: Double, radius: Double, center: CGPoint, aspect: Double = 1) -> CGPoint {
+        CGPoint(x: center.x + cos(angle) * radius, y: center.y + sin(angle) * radius * aspect)
+    }
+
+    static func aspect(for layout: OrbitingLogosLayout) -> Double {
+        layout == .ellipse ? Self.ellipseAspect : 1
+    }
+
+    static func ring(forLogo index: Int, layout: OrbitingLogosLayout) -> Int {
+        guard layout == .multiRing, Self.ringCount > 0 else { return 0 }
+        return ((index % Self.ringCount) + Self.ringCount) % Self.ringCount
     }
 
     static func alpha(angle: Double) -> Double {
