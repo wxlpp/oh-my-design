@@ -53,7 +53,7 @@ shaders epic 尾部（`#282` / `#284` / `#243`）是**另一个 epic**（`shipsw
   `contract-defects.md:1436` 被推翻的 J-2 描述（现 4 分支含 `styleSlot` / `styleEnum`）一并修正。
 - FR-3（`#317`）：查明 `expectBitmapsEqual` 离屏渲染在 macOS 上是否保证逐字节确定；
   若不保证，判据形态改为容差 / 感知比较 / 换钉等价性质，而非把偶发红当噪声重跑。
-- FR-4（`#312`）：4 条组件各落地一处**形态 D** 扩展点（槽 / 枚举，禁形态 B public 协议——
+- FR-4（`#312`）：5 条组件（含翻至出口 1 的 `OrbitingLogos`）各落地一处**形态 D** 扩展点（槽 / 枚举，禁形态 B public 协议——
   `D-299-1` 排序约束仍有效）；`OrbitingLogos` 落点裁定并留痕（台账 + `docs/contract-defects.md`）；
   `knownMissingExtensionPoints` 收缩为空集并删除 `extensionPointFollowUpIssue` + 聚合断言。
 - FR-5（`#240`）：tag 清单日期与 `git for-each-ref` 对齐（v0.7.0 07-26 → 07-27），
