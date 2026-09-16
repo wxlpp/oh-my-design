@@ -25,7 +25,8 @@ public struct ActivityHeatmap<Day: HeatmapDay>: View {
         _ days: [Day],
         title: LocalizedStringResource? = nil,
         tint: Color = .accent,
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        layout: ActivityHeatmapLayout = .weeks
     )
 
     /// 单张热力图渲染的天数上限（≈ 5 年）。超出即**截断最旧的一段**（FR-20：截断不断言）。
@@ -43,6 +44,61 @@ public protocol HeatmapDay: Identifiable, Sendable {
     var count: Int { get }
 }
 ```
+
+## 布局形态扩展点（`#312` · 形态 D2）
+
+```swift
+public nonisolated enum ActivityHeatmapLayout: Sendable, Equatable, CaseIterable {
+    case weeks          // 默认：按周成列、按星期几成行（现状形态）
+    case monthCalendar  // 日历月视图（业界来源：Apple 自家 Activity / Fitness App 的 History 页）
+    case monthTracks    // 月轨图（业界来源：Obsidian 社区插件 Contribution Graph 的 "month track graphs"）
+    case dailyColumns   // 每日一柱（业界来源：GitLab Pajamas 的图表页，column / bar / line / sparkline 并列）
+}
+
+ActivityHeatmap(days, layout: .monthCalendar)
+```
+
+四个 case 与 `#299` 步骤 2 判定登记的三个候选一一对应（`.weeks` 是现状、其余三个各对应
+一个候选），来源逐条见下方《`#299` 重判》一节与各 case 的文档注释。
+
+⚠️ **`.dailyColumns` 只做柱状，不做折线**：候选 3（折线 / 柱状时间序列）在三分法上是
+「网格 → 线性」的排布差异，折线与柱状**同槽同排布**、只是描边 vs 填充的装饰差异 ⇒ 本轮
+**不另开 case**——开了会把「排布扩展点」和「装饰扩展点」混进同一个枚举，与公约的三分法定义
+（排布 / 皮肤 / 装饰）相悖。⚠️ **柱高与四档强度色阶是有意的双重编码**：柱高已经能读出相对
+大小，颜色再叠一层四档强度是为了与 `.weeks` / `.monthCalendar` / `.monthTracks` 的视觉语言
+保持一致（同一份数据换 layout，"深浅" 的含义不变），不是装饰冗余。
+
+⚠️ **`renderInputs(_:calendar:layout:)` 是唯一的 view 路径**：`body` 只消费
+`HeatmapPlan`（`shown` / `buckets` / 按 `layout` 选出的 `HeatmapShape` / `byDate`），
+四个 case 的几何互斥——`renderInputs` 只算当前 `layout` 对应的那一种，不会四种都算。
+判据：`ActivityHeatmapLayoutFormTests`。
+
+⚠️ **`monthBlocks` / `monthTracks` / `dailySeries` 与 `weeks(ofEffective:calendar:)` 同法**：
+逐日推进（`calendar.startOfDay` + `date(byAdding: .day, value: 1)`），DST 安全——**不按「月」
+步进**，月份长度、跨年边界全部交给日历本身重算，不在这三个函数里另起一套步进逻辑。
+
+⚠️ **`monthBlocks` / `monthTracks` 的游标覆盖首末整月，不是只覆盖 `first…last`**：
+游标从「`first` 所在月的 1 日」走到「`last` 所在月的最后一日」（`monthSpanBounds`），
+所以首月 1 日到 `first` 前一日、`last` 后一日到末月最后一日这些格拿到的是**真实 `Date`**、
+取色仍走 `byDate`（缺数据 ⇒ `tertiaryFill`，跟区间内其它缺失日同一条规则），
+**不是** `nil`。`nil` 只留给「本月之外」的格——`.monthCalendar` 6×7 块里不属于该月的格、
+`.monthTracks` 超出该月天数的列。守卫上限相应放宽到 `maximumDays + 14 + 62`
+（首尾各至多多走 30 天）。
+
+⚠️ **`.monthCalendar` 固定 6 行**：让不同月份的块在多列并排时顶部对齐（某些月份的日期只会
+占 5 行，多出的第 6 行整行 `nil`）。**`.monthTracks` 固定 31 列**：所有月份共用同一套列宽，
+28/29/30 天的月份在尾部留 `nil`。两者「本月之外」的 `nil` 格都渲染为 `Color.clear`
+（保留占位、不挤压布局），**不是**跳过不画。
+
+⚠️ **加 case 是 source-breaking**：`ActivityHeatmapLayout` 非 `@frozen`，
+下游穷举 `switch` 不写 `@unknown default` 就会编译红 ⇒ 加 case 要走 BREAKING-CHANGES 登记。
+（这仍比形态 B 的 public 协议可撤——那个发出去就收不回。）
+
+### 为什么是形态 D2（配置枚举）而不是 public 协议
+
+`#312` 有一条**排序约束**：在 `D-299-1` 的修订回路走完前**不得走形态 B**
+—— public 协议受祖父条款约束、**发布后不可撤**，而枚举与槽**可演进**。
+逐条见 `docs/contract-defects.md` 的 `D-299-1` 与 `#312`。
 
 ## AD-F 退化输入契约
 
@@ -79,10 +135,13 @@ public protocol HeatmapDay: Identifiable, Sendable {
   只有 `NetworkGraph` 提示，因为它的截断会**改变布局算法**（力导向 → 静态环形）；
   热力图与活动环的截断是**同质的**（少几天 / 少几环）且发生在序列一端，读图时可自明
   ⇒ **由调用方按场景自行提示**。
-- **截断窗口是渲染、分档与 descriptor 的共同源**：`renderInputs(_:calendar:)` 一次算齐
-  `(shown, buckets, weeks)`。曾经的 bug 是「10 年数据、峰值 50 出现在 8 年前 ⇒ 可见窗口内每格
-  都落最低档、整张图变成均匀最浅色」，现由 `heatmapBucketsUseEffectiveWindow`（断言
-  `buckets.last == 5` 而不是窗口外的 500）与 `heatmapDescriptorMatchesRendering` 钉住。
+- **截断窗口是渲染、分档与 descriptor 的共同源**：`renderInputs(_:calendar:layout:)` 一次算齐
+  `shown` / `buckets` / 按 `layout` 选出的几何。曾经的 bug 是「10 年数据、峰值 50 出现在 8 年前
+  ⇒ 可见窗口内每格都落最低档、整张图变成均匀最浅色」，现由 `heatmapBucketsUseEffectiveWindow`
+  （断言 `buckets.last == 5` 而不是窗口外的 500）与 `heatmapDescriptorMatchesRendering` 钉住。
+- **`.dailyColumns` 不新增截断**：`maximumDays == 1830` 天铺满约 300 pt 宽的画布时，每柱
+  不到 0.2 pt——与 `.weeks` 在 261 列下的窄格问题同量级（都是"上限内仍可能挤到肉眼分不清"），
+  两者用同一套截断（`effectiveDays`），不为 `.dailyColumns` 另开一条更紧的上限。
 
 ⚠️ **`nonisolated` 在这个常量上是承重的**：AD-F 的「超限固定为截断 + 降级 + 文档」契约要求
 调用方**在自己的数据层**按这个数先行分页 / 抽样，而那是后台线程上的活。不标它，下游从
@@ -273,9 +332,11 @@ URL 见 `docs/component-registry.json` 本条的 `notes`，此处只列骨架）
 ⇒ **非皮肤且未被作用域排除的候选数 = 3 ≥ 2** ⇒ (A) 不成立、成因② ⇒ 按步骤 3 门槛
 「(A) 不成立 ⇒ 重跑步骤 2」重跑一次 ⇒ 落**出口 1**：语义组件、需要扩展点。
 
-⚠️ **扩展点尚未落地**：按 `Toast` 与 #59 的同款成法登记进
-`ComponentExtensionPointGuard.knownMissingExtensionPoints`，实现移交 **`#312`**。
-这不是「塞回红名单让判据闭嘴」—— 该集合的成文语义就是「**有承接 issue 的**已知缺口」。
+⚠️ **扩展点已由 `#312` 落地**（形态 D2 配置枚举 `ActivityHeatmapLayout`，四个 case），
+本条已从 `ComponentExtensionPointGuard.knownMissingExtensionPoints` 移出
+（曾按 `Toast` 与 #59 的同款成法暂登记在那里）。
+⚠️ **有意不发 public 协议**（形态 B）：`D-299-1` 的修订回路未走完前不得发布不可撤的协议，
+配置枚举可演进。判据：`ActivityHeatmapLayoutFormTests`。
 
 ⚠️ **公约缺口 `D-299-1`（宿主平台框架承担的候选，作用域条款援引不了）；`#315` 终审 C-2
 要求逐条重判，本条的结论是「只对候选 3 适用」**：**候选 3（折线 / 柱状时间序列）命中** ——
@@ -286,6 +347,9 @@ URL 见 `docs/component-registry.json` 本条的 `notes`，此处只列骨架）
 
 ⚠️⚠️ **本条的「不命中」论证有已登记的口径缺口，若补齐后成立、落点会翻**（具名反例：UIKit `UICalendarView`）。
 **论证、逐字 SDK 依据与移交 `#312` 的排序约束，唯一真源在 `docs/contract-defects.md` 的 `D-299-1`。**
+⚠️ **`#312` 已重核这个具名反例，结论待口径成文**：`UICalendarView` 只在 iOS 存在 ——
+按 iOS 26+ / macOS 26+ 双平台口径不计 ⇒ 若条件 ① 被扩宽，计入数 3 → 2、不翻；按 iOS 单平台
+口径计 ⇒ 3 → 1、会翻。两者并列登记、不择一。逐条见 `docs/contract-defects.md` 的 `## #312` 节与 `D-299-1` 的《`#312` 重核》段。
 ⚠️ 本段有意只留指针不留副本 —— 同一句样板此前被抄进 6 份落点、一处更正要人工同步 6 次，收口理由与机器判据见 `#316`。
 
 本轮按公约字面走，`D-299-1` **未被用来改本条落点**，缺口另走修订回路。

@@ -20,6 +20,7 @@ where Data.Element: Identifiable {
     public init(_ items: Data,
                 colors: [Color] = [],
                 rotationPeriod: Double = OrbitingLogos.defaultRotationPeriod,
+                layout: OrbitingLogosLayout = .outerRing,
                 @ViewBuilder logo: @escaping (Data.Element) -> Logo,
                 @ViewBuilder center: () -> Center)
 }
@@ -42,6 +43,56 @@ OrbitingLogos(brands) { brand in
 ⚠️ **本件强制为正方形**（`aspectRatio(1, contentMode: .fit)`）：环是圆的，非等比容器里
 画出来的是椭圆环。给它 `320 × 200` 会得到 `200 × 200` 的内容 + 上下留白（信箱边）。
 需要非方形版面的，请自己决定裁剪 / 定位，本件不猜。
+
+## 布局形态扩展点（`#312` · 形态 D2）
+
+```swift
+public nonisolated enum OrbitingLogosLayout: Sendable, Equatable, CaseIterable {
+    case outerRing   // 默认：全部条目落在最外一圈点环上（现状形态）
+    case multiRing   // 条目分居不同半径的同心圈（业界来源：Magic UI OrbitingCircles 的多个 radius 并列）
+    case ellipse     // 四圈点环与条目一并压扁成横向椭圆（业界来源：Animata "Orbiting Items 3D" 的 radiusX / radiusY）
+}
+
+OrbitingLogos(brands, layout: .multiRing) { brand in
+    Image(brand.assetName).resizable().scaledToFit().frame(width: 34, height: 34)
+} center: {
+    Image("AppLogo").resizable().scaledToFit().frame(width: 64, height: 64)
+}
+```
+
+⚠️ **`.multiRing` 不新增点环**：四圈点环（`OrbitRing.ringCount`）恒定不变，条目按
+`OrbitRing.ring(forLogo:layout:)`（`index % ringCount`）分配到**既有的**某一圈点位上、
+再叠加该圈点环自身的相位偏移，让条目落在那一圈**真的画出来的**点上——与低电量下
+「条目必须坐在真实画出来的环点上」同一约束（见上面《后台 / 低电量》）。
+
+⚠️ **`.multiRing` 下圈距加宽**（视觉评审 I-5）：`OrbitRing.ringRadius(ring:size:layout:)`
+的圈间步长只在 `layout == .multiRing` 时从 `0.075` 改为 `0.15`（`size * 0.5 * 步长`），
+内三圈点环因此整体内移、四圈读得出彼此的间距；`.outerRing` / `.ellipse` 恒用 `ring == 0`
+求半径，步长参数与它们无关，几何逐位**不受影响**。
+
+⚠️ **`.ellipse` 只压扁半径，不做倾角与透视**：来源页面里控制轨道形状的除 `radiusX` /
+`radiusY` 外还有一个倾角维度，本轮**明确不做**——椭圆的倾角不改变条目彼此之间的落点
+关系，属同一排布的参数，留作将来的演进点；相应地也不做任何 3D 透视处理，整件仍是
+2D 平面上的一枚压扁圆。压扁只作用于 `y` 分量（`OrbitRing.point(…, aspect:)`），
+`x` 分量不变。
+
+⚠️ **候选 2（logo 无限滚动带）/ 候选 3（静态 logo 网格）不做 case**：现行判定口径下
+这两个候选不计入（详见 `docs/contract-defects.md` 的 `D-299-2`），且去掉运动就不再是
+本件——本件在 `OhMyDesignEffects`（表达性视觉动效层），巡游本身就是它的含义。若判定口径
+将来改变，这两个候选要另加 case（source-breaking，届时走 BREAKING-CHANGES）。
+
+⚠️ **加 case 是 source-breaking**：`OrbitingLogosLayout` 非 `@frozen`，
+下游穷举 `switch` 不写 `@unknown default` 就会编译红 ⇒ 加 case 要走 BREAKING-CHANGES 登记。
+
+判据：`OrbitingLogosLayoutFormTests` 的 `pointAspectMatchesLegacyAtOneAndScalesYElsewhere` /
+`ringAssignmentOnlyAppliesToMultiRing` / `ellipseLogosLieOnTheEllipse`（纯几何）、
+`layoutsProduceDistinctStillFrames` / `backgroundStripsDecorationRegardlessOfLayout`（view 路径位图）。
+
+### 为什么是形态 D2（配置枚举）而不是 public 协议
+
+三个候选改变的都是**条目之间的空间关系**（换轨道数、换轨道形状），不是外观槽——
+D1 外观槽够不着容器级排布。配置枚举**可演进**（加 case 走 BREAKING-CHANGES 即可），
+比发布 public 协议（发布后不可撤）代价更小。
 
 ## 平台支持
 
@@ -272,14 +323,14 @@ OrbitingLogos(brands) { brand in
 ⚠️ **`#315` 终审 I-3 换掉了这里的论据（结论不变）**：上一版拿「低电量档下每环点数直接减半」
 当依据，而那句说的**是另一个量** —— 减半的是 `dotsPerRing`（每环**点数**，23 → 12；
 `OrbitingLogos.swift` 的 `dotsPerRing` × `RenderPolicy.particleScale == 0.5`），
-而**环数** `OrbitRing.ringCount` 是 `static let ringCount: Int = 4`（`OrbitRing.swift:44`）、
+而**环数** `OrbitRing.ringCount` 是 `static let ringCount: Int = 4`（逐字）、
 **恒定、根本不吃电量**。⇒ 改用真正管用的依据：按补充规则 1「判『装饰』时须写明依据，源码或
 a11y 的自陈不足以定性」，此处**不援引**它的 `accessibilityHidden(true)` 自陈，而看它承不承载
 语义 —— **点环不映射任何调用方数据**（`items` 只喂 logo，环点位置由 `OrbitRing` 的常量几何
 算出），取色只按环上角度在 `.tint` 上做明暗波 ⇒ 不表达任何内容语义 ⇒ **装饰**。补充规则 2
 的对象是**槽**（「承载内容的子视图位置」），装饰层的计数变化不适用 ⇒ **不计入**。
-⚠️ **反向事实一并写出（诚实枚举义务）**：`OrbitingLogos.swift:275-293` 明写「logo 必须坐在
-这一档真的画出来的环点上」，`seatCount` 由 `particleScale` 经 `OrbitRing.seats(particleScale:)`
+⚠️ **反向事实一并写出（诚实枚举义务）**：原注释明写「logo 必须坐在
+这一档真的画出来的环点上」（该句随 `#328` 删除），`seatCount` 由 `particleScale` 经 `OrbitRing.seats(particleScale:)`
 推出 ⇒ **点环的点数直接决定调用方 logo 的落点**（低电量下座位 23 → 12）。它**不推翻**「装饰」
 这个结论 —— layout 依赖 ≠ 承载语义，环点仍不表达任何调用方数据 —— 但读者有权看到这一条。
 
@@ -324,3 +375,31 @@ a11y 的自陈不足以定性」，此处**不援引**它的 `accessibilityHidde
 其次是**到期性**：这不是「登记后慢慢等」，`#312` 必须先裁本条的出口、再定扩展点形态。
 ⚠️ 同族的一条措辞更正：把「证据在两小时内从 403 变 200」当作理由也偏了 —— 该页是静态的
 组件文档，隔日再取仍是 200 ⇒ 变的是**取页能不能成功**（反爬 / 限流），不是证据本身。
+
+### ⚠️ `#312` 裁定：`tiebreaker` → `step2`（出口 1，语义组件）（本节只增不改，上文保留为成因记录）
+
+⚠️ **上一节是 `#299` / `#315` 当时的记录，不改写**（其中「本轮不据此翻转落点」「翻转移交 `#312`」
+与下游连锁那几个计数，都是那一轮的状态）。**现状**：`#312` 已按公约修订回路翻转，本条登记表字段现为
+`kind: semantic` / `decidedBy: step2` / `needsExtensionPoint: true` / `styleEnum: OrbitingLogosLayout`。
+
+**依据**：
+- 按公约字面，本条计入数为 2（候选 1 多轨道分布 + 候选 4 椭圆轨道）≥ 2 ⇒ 出口 1 —— 上一节自己
+  已经写明，当时不翻的主理由是「下游连锁应当单独过一次评审」与「到期性」，两条都指向 `#312`。
+- 候选 4 的来源已随 `416d06c` **留档进仓**：`docs/issues/animata-orbiting-items-3d-2026-09-14.html`
+  （2026-09-14 抓取、HTTP 200）。「真的查过」由仓内文件证明、「可复现」由任何人读该文件证明，
+  09-07 那次 403 不再构成阻碍（取页结果本就不稳定，与裁定无关）。
+- `D-299-2` 的读法本条不裁：两种读法下计入数分别为 2 与 4，都 ≥ 2、落点相同；
+  本条计入基数的口径与理由，唯一真源在 `docs/contract-defects.md` 的 `D-299-2`。
+- 这不是「事后补写翻转」：走的是修订回路 —— `docs/contract-defects.md` 的 `## #312` 节 →
+  `docs/component-contract.md` 三处现状注记 → `docs/component-contract-revisions.md` 的 `R-49`，
+  不是只改 `notes`。
+
+**下游连锁的最终态**（与扩展点同一提交落地，没有经过「红名单先加一条再删」的中间态）：
+J-2 定义域 **17** 条、全部满足；`ComponentExtensionPointGuard.knownMissingExtensionPoints`
+收成空集后连同 `extensionPointFollowUpIssue` 一并删除，`withKnownIssue` 块按到期机制删除；
+`R-48` 判定表的本条行保持冻结，更正表追加一行指向 `R-49`。
+
+**扩展点**：形态 D2 配置枚举 `OrbitingLogosLayout`，见上方《布局形态扩展点》一节。`.multiRing` /
+`.ellipse` 分别对应计入的候选 1 与候选 4；不计入的候选 2 / 3 不做 case（`D-299-2` 若取反向口径，
+要另加 case，是已知的演进点）。本次是破坏性变更（`init` 加带默认值的 `layout:` 参数），
+已登记 `docs/BREAKING-CHANGES.md` 的未发布节。

@@ -300,8 +300,9 @@ struct FilterTransitionTests {
         let direct = try #require(
             Self.pixels(Self.probeContent.modifier(FilmExposureFilm(progress: 0.5, peak: peak))), "渲染失败"
         )
-        let matchesDirect = Self.framesMatch(midFlight, direct)
-        #expect(matchesDirect, "`animatableData` 没有绑在 `progress` 上，插值改不动绘制")
+        // ⚠️ 相等方向走容差入口（#317），勿改回 framesMatch（那是逐字节的）；不等方向的 framesMatch 照旧。
+        expectBitmapsEquivalent(midFlight, direct, maxChannelDelta: 1,
+                "`animatableData` 没有绑在 `progress` 上，插值改不动绘制")
     }
 
     @Test("快门白场真的画得出来：插到窗口中心，位图必须与两端都不同")
@@ -336,8 +337,8 @@ struct FilterTransitionTests {
             Self.pixels(Self.probeContent.modifier(
                 SnapshotFilm(progress: SnapshotDevelop.shutterCenter, peak: peak))), "渲染失败"
         )
-        let matchesDirect = Self.framesMatch(atShutter, direct)
-        #expect(matchesDirect, "`animatableData` 没有绑在 `progress` 上")
+        expectBitmapsEquivalent(atShutter, direct, maxChannelDelta: 1,
+                "`animatableData` 没有绑在 `progress` 上")
     }
 
     @Test("闪烁真的在明暗往复：曲线上升段的两帧，后一帧必须比前一帧更实")

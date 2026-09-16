@@ -61,7 +61,7 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 |---|---|---|
 | `GuardScanRoots.allRoots`（`Tests/OhMyDesignTests/GuardScanRoots.swift`） | Bool 纪律（`BoolExemptionGuard` / `BoolParameterScanner`）、a11y 字面量、NFR-4 的 `@unchecked Sendable` grep | 三个 target 全覆盖 |
 | `GuardScanRoots.newTargetRoots` | `EffectsColorLiteralGuard`（禁色相字面量）、`ChromeTextLiteralGuard`（禁 A 类 chrome 文案）、`ExtensionEntryPointGuard`（扩展成员入口点） | **只有**新 target，有意不回溯改造 OhMyDesign 现状 |
-| `ComponentRegistryGuard` 的 `componentScanRoots`（`#270` 前叫 `coreDesignSources`，当时确是单根） | 组件登记表与 J-2 / J-3 / FR-4 那一串判据 | **`#270` 起直接返回 `GuardScanRoots.allRoots`，三 target 全覆盖**，不另列一份根名（两套根必然漂）。⚠️ 本行原写「仍只有 `Sources/OhMyDesign`、扩它会顶动 AD-4《下游连锁一》那串断言、归 `#255` 处置」——`#270` 落地后**已失真**，`ComponentExtensionPointGuard` 的 `inspected.count`（**实测 16**，本行此前写 11，是更早的失真）在三根下照样成立 |
+| `ComponentRegistryGuard` 的 `componentScanRoots`（`#270` 前叫 `coreDesignSources`，当时确是单根） | 组件登记表与 J-2 / J-3 / FR-4 那一串判据 | **`#270` 起直接返回 `GuardScanRoots.allRoots`，三 target 全覆盖**，不另列一份根名（两套根必然漂）。⚠️ 本行原写「仍只有 `Sources/OhMyDesign`、扩它会顶动 AD-4《下游连锁一》那串断言、归 `#255` 处置」——`#270` 落地后**已失真**，`ComponentExtensionPointGuard` 的 `inspected.count`（**实测 17**，`#312` 把 `OrbitingLogos` 翻进定义域后的值）在三根下照样成立 |
 
 ⚠️ 新增 library target 时**必须**把它加进 `GuardScanRoots.targetNames`——该表与
 `Package.swift` 声明的 library target 做双向差集，忘了扩根会当场判红（这是刻意的
@@ -393,9 +393,13 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 
 ### 「更正传播」约定（`#287`）
 
-⚠️ **判据引用不再有机器兜底**：核对「文档里写的『类型 + 点 + 成员』引用真的存在」的
-那条判据（原 `Tests/OhMyDesignTests/JudgementReferenceGuard.swift`）已随注释精简一并
-删除。`docs/` 与本文件里的判据引用现在**全靠人工**——引一条之前先 grep 确认它还在。
+⚠️ **判据引用不再有机器兜底**（`#337` 起部分改观）：核对「文档里写的『类型 + 点 + 成员』
+引用真的存在」的那条判据（原 `Tests/OhMyDesignTests/JudgementReferenceGuard.swift`）已随
+注释精简一并删除。`#337` 已把**活文档里引源码的引用**统一改成「文件 + 逐字引文」形态，
+并装上机器兜底 `Tests/OhMyDesignTests/QuotedEvidenceGuard.swift`（登记「文档 → 源文件 →
+被引原文」三列，逐条回扫原文仍在源文件；`docs/issues/337-census.md` 是普查清单，
+`BareLineRefGate` 同批清零后升级为零容忍）。⚠️ **未登记为引文的符号引用**（判据名、类型 +
+点 + 成员这类）与跨仓引用**仍全靠人工**——引一条之前先 grep 确认它还在。
 
 - ⚠️ **更正 / 撤回一处声称时，必须 grep 该判据名或该理由的关键词，确认三处落点同步**：
   源码注释、`docs/components/*.md`、`docs/component-registry.json` 的 `notes`。

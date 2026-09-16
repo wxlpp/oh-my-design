@@ -53,7 +53,7 @@ Every colorset is a folder `<name>.colorset/` containing one `Contents.json`. Li
 ## Task 1: Declare the `Blossom` trait in Package.swift
 
 **Files:**
-- Modify: `Package.swift:6-32` (the `Package(...)` initializer)
+- Modify: `Package.swift` (the `Package(...)` initializer)
 
 - [ ] **Step 1: Add the `traits:` parameter**
 
@@ -226,7 +226,7 @@ Asset presence is testable in *any* trait mode (the colorsets always ship), so w
 
 **Files:**
 - Modify: `Tests/OhMyDesignTests/OhMyDesignTests.swift`
-- Modify: `Sources/OhMyDesign/Colors/ColorGrade.swift:11-23` (the `brand` extension)
+- Modify: `Sources/OhMyDesign/Colors/ColorGrade.swift` (the `brand` extension)
 
 - [ ] **Step 1: Write the failing test for asset presence**
 
@@ -340,7 +340,7 @@ git commit -m "Swap brand ramp to Blossom colorsets under #if Blossom"
 `surfaceCanvas` / `surfaceCanvasSubtle` / `surfaceCanvasInset` are the three computed properties that load `canvas-*` assets directly. The dependent surfaces (`surfacePanel`, `surfaceSidebar`, `surfaceCard`) reference these three, so they inherit automatically and need no change.
 
 **Files:**
-- Modify: `Sources/OhMyDesign/Colors/SurfaceColors.swift:49-67` (the three `surfaceCanvas*` computed vars)
+- Modify: `Sources/OhMyDesign/Colors/SurfaceColors.swift` (the three `surfaceCanvas*` computed vars)
 
 - [ ] **Step 1: Branch the three canvas tokens**
 
@@ -402,8 +402,8 @@ git commit -m "Swap canvas surfaces to Blossom warm-pink under #if Blossom"
 In Blossom, the second accent becomes candy violet (matching the 暖悦 ovulation/AI purple). Two files hold the secondary aliases. `accent`/`primary` already point at `brand5` and inherit the coral swap from Task 3, so they need no change.
 
 **Files:**
-- Modify: `Sources/OhMyDesign/Colors/FunctionalColor.swift:17-20` (the `secondary*` group)
-- Modify: `Sources/OhMyDesign/Colors/InteractionColors.swift:10-13` (the `secondaryAccent*` group)
+- Modify: `Sources/OhMyDesign/Colors/FunctionalColor.swift` (the `secondary*` group)
+- Modify: `Sources/OhMyDesign/Colors/InteractionColors.swift` (the `secondaryAccent*` group)
 
 - [ ] **Step 1: Branch the `secondary*` group in FunctionalColor**
 

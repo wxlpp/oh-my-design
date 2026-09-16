@@ -6,7 +6,7 @@
 > `v0.4.0`（2026-07-24，Phase 2 新组件）、`v0.4.1`（2026-07-24，非破坏性收尾）、
 > `v0.5.0`（2026-07-24，文本入参统一——含破坏性变更）、
 > `v0.6.0`（2026-07-25，Separator.Inset 改名 + ProgressBar 弃用 + SettingsRowMetrics 公开——含破坏性变更）、
-> `v0.7.0`（2026-07-26，`semi-mobile-components` epic 10 新组件 + ProgressIndicator 增强/spinning + 收口的取色修正——纯新增，无破坏性变更）、
+> `v0.7.0`（2026-07-27，`semi-mobile-components` epic 10 新组件 + ProgressIndicator 增强/spinning + 收口的取色修正——纯新增，无破坏性变更）、
 > `v0.8.0`（2026-08-16，`component-contract` epic：把 5 组压扁成 Bool 的 API 还原成语义类型——**含破坏性变更**）、
 > `v0.9.0`（2026-09-01，形态 D2 扩展点落地（`#59` / `#60` / `#64` / `#65`）+ 守卫（`#48`）+
 > 可达类型登记表（`#72` / `#216`）：7 个已有 init / modifier 各加一个带默认值的形态参数
@@ -18,6 +18,53 @@
 > ⚠️ 本清单**失真过两次**：早期版本写「本库当前无外部版本 tag」（`v0.1.0` 之前成立、之后未同步）；
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
+
+## 未发布（相对 `v0.10.0`）——Issue #312：五个组件的布局形态扩展点
+
+**含破坏性变更（与 `v0.9.0` 那 7 处、`0.10.0` 的 `NetworkGraph` 同形）** —— 五个 `init` 各新增一个
+带默认值的 `layout:` 参数：
+
+| 组件 | 新参数（默认 = 现状画法） | 参数位置 |
+|---|---|---|
+| `RadarChart` | `layout: RadarChartLayout = .polygon` | 末尾 |
+| `RingChart` | `layout: RingChartLayout = .rings` | 末尾（`colors:` 之后） |
+| `ActivityHeatmap` | `layout: ActivityHeatmapLayout = .weeks` | 末尾（`calendar:` 之后） |
+| `BeforeAfterSlider` | `layout: BeforeAfterSliderLayout = .overlay` | `labels:` 之后、`before:` 闭包之前 |
+| `OrbitingLogos` | `layout: OrbitingLogosLayout = .outerRing` | `rotationPeriod:` 之后、`logo:` 闭包之前 |
+
+- **对已应用的调用点零影响**：参数带默认值且位于闭包参数之前，尾随闭包写法照常编译。
+- **对未应用的函数引用是破坏性变更**：把这些 `init` 当函数值取，或写死不含 `layout:` 的完整签名时，类型变了。
+- **新增 public 类型** `RadarChartLayout`（`.polygon` / `.parallel` / `.radialBars` / `.bars`）、
+  `RingChartLayout`（`.rings` / `.bars` / `.segmentedRings` / `.stackedBar`）、
+  `ActivityHeatmapLayout`（`.weeks` / `.monthCalendar` / `.monthTracks` / `.dailyColumns`）、
+  `BeforeAfterSliderLayout`（`.overlay` / `.sideBySide` / `.stacked`）、
+  `OrbitingLogosLayout`（`.outerRing` / `.multiRing` / `.ellipse`），另新增
+  `RingChart.segmentCount`（`.segmentedRings` 的分段数，固定为 10）。
+  ⚠️ 五个枚举都**非 `@frozen`** ⇒ **将来加 case 也是破坏性变更**（下游穷举 `switch` 不写
+  `@unknown default` 就编译红），届时要在本文件另起一条。
+- **默认 case 即本版之前的画法**：不传 `layout:` 时走默认 case，调用方观感不变。
+
+理由与判定过程见 `docs/components/{radar-chart,ring-chart,activity-heatmap,before-after-slider,orbiting-logos}.md`
+与登记表各条 `notes`；`OrbitingLogos` 的落点裁定见 `docs/contract-defects.md` 的 `## #312` 节。
+
+## 未发布（相对 `v0.10.0`）——Issue #357：`coreAccent` on-accent 通路
+
+**源码兼容，行为有变。** `View.coreAccent(_:)` 增加可选 `on` 参数
+（`coreAccent(_ color: Color, on: Color? = nil)`）——与 `v0.9.0` 那 7 处同形：
+对已应用调用点零影响，对未应用的函数引用是破坏性变更。
+
+- **`on` 缺省（`nil`）时自动选前景**：墨色（黑 / 白极性）accent 走 `contentOnAccent`
+  特判——与 `0.10.0` 的静态 token **逐字节相同**；其余颜色按 accent 在当前外观下的
+  相对亮度分档，`L = 0.2126R + 0.7152G + 0.0722B`，L < 0.5 → `.white`，否则 `.black`。
+  消费点：`SolidButtonStyle` 的 `.primary` 前景（新公开
+  `ButtonRoleStyleRole.resolvedOnColor(accent:on:environment:)`）与
+  `InkSegmentedControlStyle` 选中段文字。
+  ⚠️ **行为变化**：`0.10.0` 章节登记的「主题色应为近单色」约束解除——
+  `.coreAccent(<饱和色>)` 下深色模式前景不再是近黑字压饱和底，而是按亮度自动反色
+  （系统蓝两档白字、黄两档黑字）；显式 `on` 则原样使用。
+- **`contentOnAccent` 保留**作静态回退；其余四个 role 的底色是明暗镜像的
+  `ColorGrade` 色阶，前景仍走 `contentOnAccent`、不吃 `on`。
+- 新增 `@Entry var coreAccentOn: Color? = nil`（`nil` = 缺省派生）。
 
 ## `0.10.0`（2026-09-09）——仓库与模块改名为 OhMyDesign
 
@@ -712,7 +759,7 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
 - **`CheckBox` / `Radio` 未选中态取色**（Issue #189）：从硬编码 `Color.gray`（`systemGray`，固定不透明）改为语义 token `Color.contentSecondary`（桥接系统 `.secondaryLabel`）。`CheckBox` 自 `v0.1.0` 发布，本次一并对齐（两组件文档均声明「同一套 token」，只改其一会造成成对组件视觉分叉）。观感变化：纯色背景下肉眼几乎不可辨；在 raised/tinted 背景上因 `.secondaryLabel` 的半透明特性会有轻微原生混色，并新增 Increase Contrast 无障碍适配——属修正硬编码色、非破坏。
 - **`DynamicTypeLayoutTests` 补 Rating/Radio/TagInput/Timeline 大字号断言**（Issue #188）：仅测试新增。
 
-## `0.7.0`（`semi-mobile-components` epic 收尾，2026-07-26）
+## `0.7.0`（`semi-mobile-components` epic 收尾，2026-07-27）
 
 **非破坏性** —— 全部为纯新增，无删除/改名/签名变更，对下游零破坏，无需迁移。
 
@@ -816,7 +863,7 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
 | `Blossom` package trait | #118 | **无替代**。下游若在 `Package.swift` 里写 `.package(url: "...", traits: ["Blossom"])`，升级后会在**依赖解析期**报 unknown-trait 错误——报错发生在 SwiftPM manifest 解析层，**不是编译错误**，下游不一定能第一时间把这个报错与本次升级关联起来，请特别注意。若需要强调色主题化，改用宿主 App 自己的 `AccentColor` 资源（见下方「改名的 token」表外的语义色变更） |
 | `CoreGradient.brand` / `.cta` / `.canvas` | #118 | `brand` / `cta` → `Color.accent`；`canvas` → `Color.surfaceCanvas`。三者此前都是 `AnyShapeStyle`，默认主题下本就退化为对应纯色，替换后视觉不变 |
 | `CoreRadius.smallPlus`（4pt，删除前库内零调用点） | #119 / #121 | 就近改用 `CoreRadius.small`（6pt） |
-| `CoreRadius.mediumPlus`（8pt，删除前唯一调用点 `Sidebar.swift:157,411`） | #119 / #121 | 库内实际迁移选择改用 `CoreRadius.medium`（10pt）；若下游场景确实需要介于 `small`(6) 与 `large`(16) 之间的中间档，参考同一选择 |
+| `CoreRadius.mediumPlus`（8pt，删除前仅有的两处调用点在 `Sidebar.swift`） | #119 / #121 | 库内实际迁移选择改用 `CoreRadius.medium`（10pt）；若下游场景确实需要介于 `small`(6) 与 `large`(16) 之间的中间档，参考同一选择 |
 | `CoreControlMetrics.primerVerticalPadding(for:)` | #119 / #121 | `CoreControlMetrics.verticalPadding(for:)`——原 escape hatch 是为了精确命中 Primer 的非 `CoreSpacing` 档位（6/10/14pt），新标度下不再需要 |
 | `CoreTypography` 的全部 `*LineSpacing` / `*Tracking` 静态量（如 `bodyMediumLineSpacing` / `bodyMediumTracking`，每个旧尺寸档位各一对） | #119 | **无需替代**——新实现直接取系统 `Font.TextStyle`，行高与字距由系统决定，调用方不应再手动施加这两项 |
 | `CoreTypography.Spec.scales` 开关、`Token.fixedFont` | #119 | 无替代——旧的"是否随 Dynamic Type 缩放"开关被删除，新 12 档 token 全部缩放，没有不缩放的例外 |

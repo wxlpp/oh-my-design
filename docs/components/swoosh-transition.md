@@ -49,7 +49,7 @@ Reduce Motion 下留着它就等于把"快速掠过"这个观感留给了明确�
 
 ⇒ 本文件仍然逐表达式门控它，由
 `TransitionClusterTests.reduceMotionLeavesExactlyTheCrossFade`
-（降级那一帧与「只加 `.opacity`」的对照组**逐字节**相同）钉住。
+（降级那一帧与「只加 `.opacity`」的对照组相同——#317 起判据走容差）钉住。
 
 实测变异：把 `.blur(radius: self.isReduced ? 0 : …)` 的门控去掉
 ⇒ `MicroInteractionReduceMotionGuard` 的三条 RM 判据**全绿**，只有上面那条相等断言判红。

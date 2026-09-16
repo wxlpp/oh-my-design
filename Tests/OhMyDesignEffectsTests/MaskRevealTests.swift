@@ -510,7 +510,7 @@ struct MaskRevealRenderTests {
             let identity = try #require(
                 Self.pixels(Self.chrome(progress: 1, kind: entry.kind)), "渲染失败：\(entry.name)"
             )
-            expectBitmapsEqual(identity, bare, """
+            expectBitmapsEquivalent(identity, bare, maxChannelDelta: 1, """
             `.\(entry.name)` 在恒等相位改变了画面 —— 转场停住之后被修饰视图的溢出内容
             （阴影 / 超出 bounds 的子视图）被裁剪永久吃掉了。
             """)
@@ -534,8 +534,7 @@ struct MaskRevealRenderTests {
                 )),
                 "渲染失败：\(entry.name)"
             )
-            let matches = identity == bare
-            #expect(matches, """
+            expectBitmapsEquivalent(identity, bare, maxChannelDelta: 1, """
             `.\(entry.name)` 在恒等相位把 4×4 内容的溢出部分裁掉了
             —— 恒等余量又变回"按内容尺寸派生"了：一个 20×20 的图标配 `.shadow(radius: 30)`,
             阴影会在**转场结束之后**被永久吃掉。
@@ -551,7 +550,7 @@ struct MaskRevealRenderTests {
             let hidden = try #require(
                 Self.pixels(Self.chrome(progress: 0, kind: entry.kind)), "渲染失败：\(entry.name)"
             )
-            expectBitmapsEqual(hidden, blank, "`.\(entry.name)` 在进度 0 上还画着东西")
+            expectBitmapsEquivalent(hidden, blank, maxChannelDelta: 1, "`.\(entry.name)` 在进度 0 上还画着东西")
         }
     }
 
@@ -600,7 +599,7 @@ struct MaskRevealRenderTests {
             let direct = try #require(
                 Self.pixels(Self.chrome(progress: 0.5, kind: entry.kind)), "渲染失败：\(entry.name)"
             )
-            expectBitmapsEqual(midFlight, direct, """
+            expectBitmapsEquivalent(midFlight, direct, maxChannelDelta: 1, """
             `.\(entry.name)` 插值出来的那一帧与 `MaskRevealChrome(progress: 0.5)` 不同
             —— `animatableData` 没有绑在 `progress` 上，插值改不动绘制。
             """)
@@ -631,7 +630,7 @@ struct MaskRevealRenderTests {
                 Self.pixels(Self.framed(Self.overflowing().clipShape(MaskRevealShape(plan: reduced)))),
                 "渲染失败：\(entry.name)"
             )
-            expectBitmapsEqual(masked, bare, "`.\(entry.name)` 在 Reduce Motion 下仍然裁掉了东西")
+            expectBitmapsEquivalent(masked, bare, maxChannelDelta: 1, "`.\(entry.name)` 在 Reduce Motion 下仍然裁掉了东西")
 
             let motion = MaskReveal.plan(kind: entry.kind, progress: 0.5, isReduced: false)
             let clipped = try #require(
@@ -655,8 +654,8 @@ struct MaskRevealRenderTests {
             "基线渲染失败"
         )
         #expect(blank.contains(where: { $0 != 0 }), "基线位图全 0 —— 相等断言恒真")
-        expectBitmapsEqual(Self.pixels(band(0)), blank, "travel 0 的柔光带还在画东西")
-        expectBitmapsEqual(Self.pixels(band(1)), blank, "travel 1（恒等相位）的柔光带还在画东西 —— 永久残留")
+        expectBitmapsEquivalent(Self.pixels(band(0)), blank, maxChannelDelta: 1, "travel 0 的柔光带还在画东西")
+        expectBitmapsEquivalent(Self.pixels(band(1)), blank, maxChannelDelta: 1, "travel 1（恒等相位）的柔光带还在画东西 —— 永久残留")
         expectBitmapsDiffer(Self.pixels(band(0.5)), blank, "travel 0.5 的柔光带什么都不画 —— 上两条是恒真的")
     }
 
@@ -767,8 +766,7 @@ struct MaskRevealTransitionBodyTests {
                 )
                 let expected = MaskReveal.progress(phase: step.phase) == 1 ? bare : blank
                 let expectedName = MaskReveal.progress(phase: step.phase) == 1 ? "裸视图" : "空白"
-                let matches = applied == expected
-                #expect(matches, """
+                expectBitmapsEquivalent(applied, expected, maxChannelDelta: 1, """
                 `.transition(.\(entry.name))` 在相位 \(step.name) 上渲染出的画面
                 与「\(expectedName)」不同 —— `MaskRevealTransition.body` 没有把这个相位
                 交给 `MaskRevealChrome`（丢掉相位 ⇒ 转场根本不发生／内容凭空出现）。

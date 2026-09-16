@@ -13,7 +13,7 @@
   },
   {
     "parameter": "View.floatingGlass#isInteractive",
-    "reason": "⚠️ 不是原样透传：body 内把 Bool 换算成 Glass 值（isInteractive ? Glass.regular.interactive() : Glass.regular，见 FloatingGlassModifier.swift:20），SwiftUI 这一层接的是 Glass 类型，这个 Bool 参数是本仓自己发明的。终局条款先试 (b) 删除：删掉即关闭对系统 interactive 玻璃效果的暴露，属功能删减，(b) 不成立 ⇒ 记入豁免 (a)。3.1 式替代路径（直接收 Glass，或收一个语义枚举再仓内换算成 Glass）结构上可用，属 epic component-contract 收尾时另开任务的仓内改造范围，不是等 Apple 给非 Bool 形态。",
+    "reason": "⚠️ 不是原样透传：body 内把 Bool 换算成 Glass 值（逐字 `let glass = self.isInteractive ? Glass.regular.interactive() : Glass.regular`），SwiftUI 这一层接的是 Glass 类型，这个 Bool 参数是本仓自己发明的。终局条款先试 (b) 删除：删掉即关闭对系统 interactive 玻璃效果的暴露，属功能删减，(b) 不成立 ⇒ 记入豁免 (a)。3.1 式替代路径（直接收 Glass，或收一个语义枚举再仓内换算成 Glass）结构上可用，属 epic component-contract 收尾时另开任务的仓内改造范围，不是等 Apple 给非 Bool 形态。",
     "decidedBy": "wxlpp",
     "decidedOn": "2026-08-13"
   },
@@ -61,7 +61,7 @@
   },
   {
     "parameter": "View.bottomInputBar#autoFocus",
-    "reason": "出现时是否自动聚焦输入框。⚠️ 这一条是 39.md 简报漏列的第七个 Bool（BottomInputBar.swift:468），由扫描器实测补入。删除不成立：自动聚焦与否是调用场景的真实分歧（弹出式输入要，常驻输入栏不要）。正确形态是走 3.4 环境值或与 externalFocus 合并成一个焦点策略类型，改造归属：epic component-contract 收尾时另开任务。",
+    "reason": "出现时是否自动聚焦输入框。⚠️ 这一条是 39.md 简报漏列的第七个 Bool（`BottomInputBar` 的 `autoFocus: Bool = false`），由扫描器实测补入。删除不成立：自动聚焦与否是调用场景的真实分歧（弹出式输入要，常驻输入栏不要）。正确形态是走 3.4 环境值或与 externalFocus 合并成一个焦点策略类型，改造归属：epic component-contract 收尾时另开任务。",
     "decidedBy": "wxlpp",
     "decidedOn": "2026-08-13"
   },

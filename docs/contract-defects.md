@@ -14,9 +14,11 @@
 
 ### D-41-1（41-spec 第三节验收 7 已点名）：`SurfaceKind` 的命名规矩与自身先例不自洽
 
-`SurfaceModifier.swift:12-13` 写着「不引入裸修饰词（如 `.subtle`、`.muted`）；每个 case 直接
-对应一种容器角色」，而同一个枚举里 `:32` 就有 `case canvasSubtle`——「角色 + 修饰词」形态，
-且其文档自标「兼容别名」。
+`SurfaceKind` 的枚举注释里原写「不引入裸修饰词（如 `.subtle`、`.muted`）；每个 case 直接
+对应一种容器角色」（该注释随 `#328` 注释清理删除，可取回：
+`git show 4cd5fc1^:Sources/CoreDesign/Modifier/SurfaceModifier.swift`），而同一个枚举里就有
+`case canvasSubtle`——「角色 + 修饰词」形态，
+且其文档自标「兼容别名」（逐字：`/// 兼容别名：更淡的画布。`）。
 
 **规矩没裁断的两件事**：(a)「角色+修饰词」算不算合规（规矩只禁**裸**修饰词）；(b)「兼容别名」
 这一档是否豁免于该规矩。本轮为 `.grouped` 命名时因此**无法从规矩直接推出结论**，改用一条自造
@@ -27,10 +29,12 @@
 
 ### D-41-2：J-2 的 `customStyleProtocol` 通路只查符号存在性，查不出「组件真的把定制权交出去了」
 
-`ComponentJudgeRules.swift:86-88` 判绿的条件是「协议已声明 + 至少一个类型采纳」。一个组件完全
+`judgeExtensionPoints` 的 `customStyleProtocol` 分支判绿的条件是「协议已声明 + 至少一个类型
+采纳」（逐字：`let declared = scan.styleProtocolNames.contains(custom)` 与
+`if declared && !implementations.isEmpty`）。一个组件完全
 可以声明协议、登记表填上名字，而 `body` 里照旧硬渲染——J-2 照绿。#40 的移交清单第 1 条已把这条
-精度上限写在明处，本轮**主动不踩**（`Rating.body` 与 `RatingDisplay.body` 都真的经
-`style.makeBody(configuration:)` 渲染），但那是靠人自觉，不是靠判据。
+精度上限写在明处，本轮**主动不踩**（`Rating.swift`（`:39`）与 `RatingDisplay.swift`（`:21`）的 body 里逐字都是
+`AnyView(self.style.makeBody(`），但那是靠人自觉，不是靠判据。
 
 **交 #44**：评估是否值得把「组件是否消费该 style」做成机器判据（需要语义判断，成本明显更高），
 或至少在公约里写明这是一条**人来守**的规矩。
@@ -748,11 +752,12 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 `53-survey.md` 证据行 1。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/OhMyDesign/Components/AvatarGroup/AvatarGroup.swift:18,22,46,32-39,49-53,56-69,77-86。public init(max:avatars:) 只暴露 max 与 @ViewBuilder 头像槽；重叠靠 HStack(spacing: overlapOffset) 的负数（-6/-8/-10，按 controlSize），单元画法固定为 clipShape(Circle())+strokeBorder(surfaceCanvas)。
+**① 源码事实**：`AvatarGroup` 的公开 `init(max:layout:avatars:)` 只暴露 `max` 与 `@ViewBuilder` 头像槽；重叠靠 `HStack(spacing:)` 的负数——逐字
+`HStack(spacing: self.layout == .overlapped ? self.overlapOffset : CoreSpacing.xxs)`，`overlapOffset` 按 `controlSize` 取 -6/-8/-10；单元画法固定为 clipShape(Circle())+strokeBorder(surfaceCanvas)。
 
 **② (A) 诚实枚举**：候选 1 = **并排不重叠的头像行 + 溢出计数**（来源：Google Docs 协作者栏、Microsoft Teams 成员条），豁免路径：皮肤变体走通（与现状同一 HStack 骨架，只差 spacing 正负号）；作用域 ③ 对 Avatar 落空（Avatar 只承担单个头像占位，不承担多头像并排排列）。 候选 2 = **纯计数徽标（无头像脸，只有『+12』文本块）**（来源：GitHub Contributors 计数、Linear issue assignee 计数），豁免路径：皮肤变体未走通（拿掉整个『每人一圆』单元骨架）；作用域 ③ 对 Badge 落空（Badge 只承担固定状态描述文案，不承担成员计数）。
 
-**③ 皮肤变体交叉裁断**：候选 1 命中皮肤变体（AvatarGroup.swift:46 的 HStack spacing 正负号是并排/重叠的唯一差异，单元画法逐字不变）⇒ 不计入 ≥2；候选 2 非皮肤但只有 1 个 < 2 ⇒ 举得犹豫 ⇒ 落步骤 4。
+**③ 皮肤变体交叉裁断**：候选 1 命中皮肤变体（`AvatarGroup` 里 `HStack(spacing:)` 的正负号是并排/重叠的唯一差异——`self.layout == .overlapped ? self.overlapOffset : CoreSpacing.xxs`——单元画法逐字不变）⇒ 不计入 ≥2；候选 2 非皮肤但只有 1 个 < 2 ⇒ 举得犹豫 ⇒ 落步骤 4。
 
 **④ 枚举为 0 的残余侧路**：不适用——本条举出 2 个真实业界候选，「为什么业界举不出」的
 可核验说明义务未触发。
@@ -767,7 +772,7 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 `53-survey.md` 证据行 3。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/OhMyDesign/Components/Form/Form.swift:87-98。public init() 零公开参数；body 只有 Image(systemName:"chevron.forward") + accessibilityHidden(true)；配色字号全部继承父容器（doc :84-86），doc 自留『未来可加默认参数走 CoreControlMetrics.iconSize(for:)』的扩展口。
+**① 源码事实**：`ChevronRightIcon`。public init() 零公开参数；body 只有 `Image(systemName: "chevron.forward")` 与 `.accessibilityHidden(true)` 两句；配色字号全部继承父容器。⚠️ 原文此处还引「doc 自留『未来可加默认参数走 CoreControlMetrics.iconSize(for:)』的扩展口」——该 doc 句随 `#328` 删除（可取回：`git show 4cd5fc1^:Sources/CoreDesign/Components/Form/Form.swift`），现状 doc 只写「颜色 / 尺寸由父容器决定」。
 
 **② (A) 诚实枚举**：候选 1 = **右向实心三角**（来源：SF Symbols arrowtriangle.forward.fill、macOS NSOutlineView 展开指示符），豁免路径：皮肤变体走通；作用域 ③ 落空（登记表内无 Triangle*/Disclosure* 组件）。 候选 2 = **右箭头字形**（来源：Material Symbols arrow_forward_ios、Gmail/Google 设置页），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **『>』半角字符**（来源：早期 Web 面包屑、iOS 前身纯文本披露符），豁免路径：皮肤变体走通；作用域 ③ 落空。
 
@@ -786,16 +791,16 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 `53-survey.md` 证据行 4。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/OhMyDesign/Components/Form/Form.swift:107-120。public init() 零公开参数；body 为 Image(systemName:"exclamationmark.circle.fill")+foregroundStyle(statusDangerForeground)+accessibilityLabel("Alert")；尺寸继承父容器字号（doc :103）。
+**① 源码事实**：`DangerIcon`。public init() 零公开参数；body 为 `Image(systemName: "exclamationmark.circle.fill")` + `.foregroundStyle(Color.statusDangerForeground)` + `.accessibilityLabel(Text("Alert", bundle: .module))`；尺寸继承父容器字号。
 
-**② (A) 诚实枚举**：候选 1 = **三角形感叹号**（来源：SF Symbols exclamationmark.triangle.fill（与 circle.fill 并列提供）、Xcode issue navigator、Material Symbols warning），豁免路径：皮肤变体走通；作用域 ③ 落空（StateLabel 是文本状态标签、Badge 是状态色块，均不承担字形本身）。 候选 2 = **八边形/停止牌**（来源：SF Symbols exclamationmark.octagon.fill、Material dangerous、交通停止标志惯例），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **纯色圆点（无字形）**（来源：GitHub/Slack 的未读与告警红点），豁免路径：皮肤变体未走通（拿掉字形层，骨架不同）；作用域 ③ 落空（Sidebar.swift:355-363 的状态点是 SidebarStatusFooter 内部私有渲染，登记表内无独立状态点组件）。
+**② (A) 诚实枚举**：候选 1 = **三角形感叹号**（来源：SF Symbols exclamationmark.triangle.fill（与 circle.fill 并列提供）、Xcode issue navigator、Material Symbols warning），豁免路径：皮肤变体走通；作用域 ③ 落空（StateLabel 是文本状态标签、Badge 是状态色块，均不承担字形本身）。 候选 2 = **八边形/停止牌**（来源：SF Symbols exclamationmark.octagon.fill、Material dangerous、交通停止标志惯例），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **纯色圆点（无字形）**（来源：GitHub/Slack 的未读与告警红点），豁免路径：皮肤变体未走通（拿掉字形层，骨架不同）；作用域 ③ 落空（`SidebarStatusFooter` 的状态点是组件内部渲染——`Circle()` + `.fill(self.statusColor)` 两句——登记表内无独立状态点组件）。
 
 **③ 皮肤变体交叉裁断**：候选 1、2 命中皮肤变体（同为『实心几何外框 + 内嵌感叹号 + 语义危险色』骨架，差异只是外框画法）；候选 3 非皮肤但只有 1 个 < 2 ⇒ 举得犹豫 ⇒ 落步骤 4。SF Symbols 同族并列提供 circle/triangle/octagon 三种外框是可当场核验的反例，『枚举为 0 的残余侧路』实测走不了。
 
 **④ 枚举为 0 的残余侧路**：不适用——本条举出 3 个真实业界候选，「为什么业界举不出」的
 可核验说明义务未触发。
 
-**⑤ (B) 判定**：无合格句：拟句『换成中性灰读成附加说明』论证的是颜色 token 而非长相，属偷换；另一拟句『换成三角读成 warning』被源码自陈证伪——Form.swift:115-117 明写 danger(红)/warning(橙) 在本库靠颜色而非外框区分，是公约警告的『形式合格的假句』正面样本。
+**⑤ (B) 判定**：无合格句：拟句『换成中性灰读成附加说明』论证的是颜色 token 而非长相，属偷换；另一拟句『换成三角读成 warning』被源码自陈证伪——`DangerIcon` 的注释原话是「warning(橙) 与 danger(红) 在本库是两个不同的状态语义」（注释随 `#328` 删除，可取回：`git show 4cd5fc1^:Sources/CoreDesign/Components/Form/Form.swift`；现树可核的对应物是 `.foregroundStyle(Color.statusDangerForeground)`——区分落在颜色 token、不在外框形状），是公约警告的『形式合格的假句』正面样本。
 
 **⑥ 结论**：改判 `tiebreaker`（`kind`/`needsExtensionPoint` 不动）。回路：`D-53-5` / `R-20`。
 
@@ -805,7 +810,7 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 `53-survey.md` 证据行 5。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/OhMyDesign/Components/Style/Descriptions.swift:99,112-122,128-139,191-193。public init(columns:dividerDensity:header:content:) 已带 DescriptionsColumns(.one/.two)×DescriptionsDividerDensity(.none/.row) 共 4 种公开可选长相；body 把全部 chrome 委托给 InsetGroupedSection(header:dividerInset:.textAligned) 与 .labeledContentStyle(.core)，本组件自己只画内边距。
+**① 源码事实**：`Descriptions`。`public init(columns:dividerDensity:header:content:)` 已带 `DescriptionsColumns`（`.one`/`.two`）×`DescriptionsDividerDensity`（`.none`/`.row`）共 4 种公开可选长相；body 把全部 chrome 委托给 `InsetGroupedSection(header:dividerInset:.textAligned)` 与 `.labeledContentStyle(.core)`，本组件自己只画内边距。
 
 **② (A) 诚实枚举**：候选 1 = **带边框的键值表格**（来源：Ant Design Descriptions 的 bordered prop——同名组件把有边框/无边框列表作为同一组件的两种长相发布），豁免路径：皮肤变体走通（同为『每行 label+value』骨架）；作用域 ③ 落空（InsetGroupedSection 承担的恰是无边框圆角卡片）。 候选 2 = **label 在值上方的纵向布局**（来源：Ant Design layout="vertical"、HTML <dl> 默认纵向），豁免路径：皮肤变体未走通（label/value 相对几何关系变了，非换画法）；作用域 ③ 落空。 候选 3 = **无卡片纯文本键值段**（来源：Semi Design Descriptions 的 plain 风格），豁免路径：皮肤变体走通；作用域 ③ 落空。
 
@@ -840,7 +845,7 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 `53-survey.md` 证据行 6。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/OhMyDesign/Modifier/FloatingGlassModifier.swift:10-17,19-35,38-45,55；Sidebar.swift:404-406。public struct 带 public let shape: S（任意 InsettableShape）+ isInteractive: Bool；View.floatingGlass(in:isInteractive:) 默认值只是 Capsule，仓内实际调用点传过 CoreShape.rounded(.large)/(.medium)。body 三层：inset(by:).fill(.background.opacity(0.64)) + .glassEffect(glass,in:shape) + overlay(strokeBorder(borderSubtle))。
+**① 源码事实**：`FloatingGlassModifier`。public struct 带 `public let shape: S`（任意 InsettableShape）+ `public let isInteractive: Bool`；`View.floatingGlass(in:isInteractive:)` 的参数默认值只是 Capsule（逐字：`in shape: some InsettableShape = Capsule(style: .continuous)`），仓内实际调用点传过 `Rectangle()`、`RoundedRectangle(cornerRadius: CoreRadius.large, style: .continuous)`（`Toast.swift` 的三种 presentation）与 `CoreShape.rounded(CoreRadius.large)`（`FloatingGlassModifier.swift` 的 `#Preview`）。body 三层：inset(by:).fill(.background.opacity(0.64)) + .glassEffect(glass,in:shape) + overlay(strokeBorder(borderSubtle))。
 
 **② (A) 诚实枚举**：候选 1 = **不透明面 + 投影（elevation）**（来源：Material Design 3 elevation/surface tint、Android FAB/bottom sheet），豁免路径：皮肤变体走通（同为『shape 轮廓 + 一层背景处理 + 一条边缘描边』骨架）；作用域 ③ 落空（Card 承担的是内容表面而非浮层）。 候选 2 = **半透明模糊/振动材质（非玻璃）**（来源：iOS 7–17 UIBlurEffect、macOS NSVisualEffectView（Liquid Glass 直接前身，真实在产）），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **纯描边无填充浮层框**（来源：Ant Design/Bootstrap popover 默认白底细描边），豁免路径：皮肤变体走通；作用域 ③ 落空。
 
@@ -859,7 +864,7 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 `53-survey.md` 证据行 7。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/OhMyDesign/Components/Form/Form.swift:27-75。两个 public init（:36 systemName+backgroundColor:Color、:48 systemName+backgroundStyle:some ShapeStyle）——上层字形与底层着色（任意 ShapeStyle，含 gradient/material）均由调用方传入；组件自己固定的只剩 24pt/16pt 两个几何常量与 Color.contentInverse。
+**① 源码事实**：`LabelIcon`。两个 public init（`init(systemName:backgroundColor:variableValue:)` 与 `init(systemName:backgroundStyle:variableValue:)`）——上层字形与底层着色（任意 ShapeStyle，含 gradient/material）均由调用方传入；组件自己固定的只剩 24pt/16pt 两个几何常量与 Color.contentInverse。
 
 **② (A) 诚实枚举**：候选 1 = **无底色单色字形图标**（来源：Material list item leading icon、WhatsApp/Telegram 早期设置页），豁免路径：皮肤变体未走通（两层叠合的底层整个删掉，一层 vs 两层是骨架差异）；作用域 ③ 落空（SettingsRowIcon 承担同样的圆角色块+反白字形，不是无底字形；ChevronRightIcon/DangerIcon 是 trailing 指示符不是 leading 类别图标）。 候选 2 = **圆形底 + 字形**（来源：Google/Android 联系人与设置项圆形图标底、Gmail 圆形分类图标），豁免路径：皮肤变体走通（同为两层叠合，只换底层形状）；作用域 ③ 落空。 候选 3 = **emoji/图片替代字形**（来源：Notion 页面图标、Slack 自定义频道图标），豁免路径：皮肤变体走通（仍是『底+前景』两层）；作用域 ③ 落空。
 
@@ -878,7 +883,7 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 `53-survey.md` 证据行 8。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/OhMyDesign/Components/Section/SectionFooter.swift:20-41。整个渲染是 3 个 modifier——coreFont(.footnote)(:37)+foregroundStyle(contentSecondary)(:38)+frame(maxWidth:.infinity,alignment:.leading)(:39)；两个 public init 只区分 LocalizedStringKey 与 StringProtocol，不产生视觉差异。
+**① 源码事实**：`SectionFooter`。整个渲染是 3 个 modifier——`.coreFont(.footnote)` + `.foregroundStyle(Color.contentSecondary)` + `.frame(maxWidth: .infinity, alignment: .leading)`；两个 public init 只区分 LocalizedStringKey 与 StringProtocol，不产生视觉差异。
 
 **② (A) 诚实枚举**：候选 1 = **caption 字号 + 前缀信息字形的 helper text**（来源：Material supporting text（常带 leading icon）、Ant Design Form.Item extra），豁免路径：皮肤变体走通（同为『分组下方一段说明文本』骨架）；作用域 ③ 落空（Banner 承担带背景的提示块，不是分组说明文字）。 候选 2 = **浅底说明块**（来源：Ant Design Alert 型 form 说明、GitHub 设置页灰底说明框），豁免路径：皮肤变体走通（加背景仍是同一段文本的 chrome）。 候选 3 = **与卡片同宽的分隔线 + 说明**（来源：macOS 系统设置分组脚注排版），豁免路径：皮肤变体走通。
 
@@ -887,14 +892,14 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 **④ 枚举为 0 的残余侧路**：不适用——本条举出 3 个真实业界候选，「为什么业界举不出」的
 可核验说明义务未触发。
 
-**⑤ (B) 判定**：佐证（命中皮肤变体裁断，只能作佐证）：把 footnote 灰换成 body 黑，这段字就从『对上面这组的说明』读成『正文内容的一部分』。Y=『正文内容』落在 :37-38 两个渲染事实上、不引兄弟组件名（SectionHeader 一词不出现在句中）。⚠️ 53-triage.md 曾标注本条为『委托方，Task 8 独立重走』（依赖兄弟 SectionHeader）——SectionHeader 在同批（本 task）已一并改判 tiebreaker，随本批与其余 11 条一并处置，见文末『落点口径说明』。
+**⑤ (B) 判定**：佐证（命中皮肤变体裁断，只能作佐证）：把 footnote 灰换成 body 黑，这段字就从『对上面这组的说明』读成『正文内容的一部分』。Y=『正文内容』落在 `SectionFooter` 的 `.coreFont(.footnote)` 与 `.foregroundStyle(Color.contentSecondary)` 两个渲染事实上、不引兄弟组件名（SectionHeader 一词不出现在句中）。⚠️ 53-triage.md 曾标注本条为『委托方，Task 8 独立重走』（依赖兄弟 SectionHeader）——SectionHeader 在同批（本 task）已一并改判 tiebreaker，随本批与其余 11 条一并处置，见文末『落点口径说明』。
 
 **⑥ 结论**：改判 `tiebreaker`（`kind`/`needsExtensionPoint` 不动）。回路：`D-53-9` / `R-24`。
 
 **⚠️ Task 8 补登记 addendum（只增不删，不动落点）**：本条已满足 `D-41-3`（『否决理由不可
 继承，对**所有**步骤都成立』）——本条对 `SectionFooter` 逐条走了①源码事实→②诚实枚举→③
 皮肤变体交叉裁断→⑤(B) 判定的完整独立路径（见上文①-⑤），(B) 佐证句的 Y 落在 `SectionFooter`
-自身 :37-38 两个渲染事实上、**不引** `SectionHeader` 一词，符合 `D-41-3` 的独立重走要求。
+自身的 `.coreFont(.footnote)` 与 `.foregroundStyle(Color.contentSecondary)` 两个渲染事实上、**不引** `SectionHeader` 一词，符合 `D-41-3` 的独立重走要求。
 『与 `SectionHeader` 同源、仅大小写/字重差异』这类委托句今后**只能作背景描述，不得再充当
 判定理由**——本条落点（`tiebreaker`）承重的是①-⑤各步骤自身的独立论证。独立论证详见
 `53-stress.md` 第 7 节（与上文『取证留痕』同一出处）。
@@ -905,9 +910,9 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 `53-survey.md` 证据行 9。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/OhMyDesign/Components/Section/SectionHeader.swift:15-17,25-51。渲染=5 个 modifier——coreFont(.footnote)+textCase(.uppercase)+foregroundStyle(contentSecondary)+frame(...)+accessibilityAddTraits(.isHeader)。doc comment 自陈『刻意用 .insetGrouped 惯例（大写）而非 .sidebar 风格（非大写）——Phase 1 视觉终审发现 demo 误用 .sidebar list style 导致 header 非大写』——本仓自记的『同一分组标题确有非大写在产渲染』事实。
+**① 源码事实**：`SectionHeader`。渲染=5 个 modifier——`.coreFont(.footnote)` + `.textCase(.uppercase)` + `.foregroundStyle(Color.contentSecondary)` + `.frame(...)` + `.accessibilityAddTraits(.isHeader)`。doc comment 原自陈『刻意用 `.insetGrouped` 惯例（大写）而非 `.sidebar` 风格（非大写）——Phase 1 视觉终审发现 demo 误用 `.sidebar` list style 导致 header 非大写』（该长句随 `#328` 精简，可取回：`git show 4cd5fc1^:Sources/CoreDesign/Components/Section/SectionHeader.swift`；现 doc 保留「复刻 iOS `.insetGrouped` 的分组标题：大写」一句）——本仓自记的『同一分组标题确有非大写在产渲染』事实。
 
-**② (A) 诚实枚举**：候选 1 = **title-case、非大写的 sidebar 风格分组标题**（来源：SwiftUI .sidebar list style 系统渲染（本仓 :15-17 自述实测过）、macOS Finder 边栏分组标题），豁免路径：皮肤变体走通；作用域 ③ 对 SidebarSection（标题走 .headline+contentPrimary）看似满足，但排除后仍要走完步骤 2→3→4，不改变落点。 候选 2 = **较大字号加粗的 Material subheader**（来源：Material subheader、iOS .plain 列表 title-case header），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **带 trailing 动作/计数的分组标题行**（来源：Slack 频道分组头、Notion 数据库分组头），豁免路径：皮肤变体未走通（多了 trailing 槽，骨架不同）；作用域 ③ 对 SidebarSection（头部确有 trailing 字形，Sidebar.swift:62-67）满足 ⇒ 被正当排除。
+**② (A) 诚实枚举**：候选 1 = **title-case、非大写的 sidebar 风格分组标题**（来源：SwiftUI .sidebar list style 系统渲染（本仓 :15-17 自述实测过）、macOS Finder 边栏分组标题），豁免路径：皮肤变体走通；作用域 ③ 对 SidebarSection（标题走 .headline+contentPrimary）看似满足，但排除后仍要走完步骤 2→3→4，不改变落点。 候选 2 = **较大字号加粗的 Material subheader**（来源：Material subheader、iOS .plain 列表 title-case header），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **带 trailing 动作/计数的分组标题行**（来源：Slack 频道分组头、Notion 数据库分组头），豁免路径：皮肤变体未走通（多了 trailing 槽，骨架不同）；作用域 ③ 对 SidebarSection（头部确有 trailing 字形——逐字 `Image(systemName: "ellipsis")`）满足 ⇒ 被正当排除。
 
 **③ 皮肤变体交叉裁断**：排除候选 3 后，候选 1、2 与现状共享『一行文本置于分组之上』唯一骨架，差别全在字号/字重/大小写/色 ⇒ 皮肤变体、不计入 ≥2 ⇒ 举得犹豫 ⇒ 落步骤 4（与 SectionFooter 同一条结构性理由：组件自身=一套排版规则时，替代必为皮肤变体）。
 
@@ -924,7 +929,7 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 `53-survey.md` 证据行 11。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/OhMyDesign/Components/SettingsRow/SettingsRow.swift:56-65。public init() 零公开参数；body 为 Image(systemName:"chevron.forward")+.font(.footnote.weight(.semibold))+foregroundStyle(contentTertiary)+accessibilityHidden(true)。本仓自证：本组件与 ChevronRightIcon（Form.swift:87-98）渲染同一个 SF Symbol，却给出两套字号与配色——同一披露语义在本设计系统内部就有两种在产长相。
+**① 源码事实**：`SettingsRowChevron`。public init() 零公开参数；body 为 `Image(systemName: "chevron.forward")` + `.font(.footnote.weight(.semibold))` + `.foregroundStyle(Color.contentTertiary)` + `.accessibilityHidden(true)`。本仓自证：本组件与 `ChevronRightIcon` 渲染同一个 SF Symbol，却给出两套字号与配色——同一披露语义在本设计系统内部就有两种在产长相。
 
 **② (A) 诚实枚举**：候选 1 = **右向实心三角**（来源：SF Symbols arrowtriangle.forward.fill、macOS NSOutlineView），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 2 = **右箭头**（来源：Material Symbols arrow_forward_ios、Google 设置页），豁免路径：皮肤变体走通；作用域 ③ 落空。 候选 3 = **『>』字符**（来源：早期 Web 面包屑），豁免路径：皮肤变体走通；作用域 ③ 落空。⚠️ 作用域条款不能拿 ChevronRightIcon 来援引：它承担的是同一个 chevron.forward 形态、不是被排除的那三个候选中的任何一个，属公约反例警告的『点名一个真实存在但与该候选无关的组件不算数』。
 
@@ -953,7 +958,7 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 `53-survey.md` 证据行 13。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/OhMyDesign/Components/Sidebar/Sidebar.swift:33-80。public init(title:showsChevron:content:)（:34-42）——showsChevron 就是公开外观开关（:51）；头部（:46-68）：Text(title).headline+primary、条件 chevron、Spacer、Image("ellipsis")。⚠️ 决定性渲染事实：溢出字形『…』在源码注释 :65-67 被自陈为『装饰性占位符，当前无 action』且对 VoiceOver 隐藏。
+**① 源码事实**：`SidebarSection`。`public init(title:showsChevron:content:)`——`showsChevron` 就是公开外观开关；头部：`Text(title).coreFont(.headline)` + 条件 chevron + `Spacer()` + `Image(systemName: "ellipsis")`。⚠️ 决定性渲染事实：溢出字形『…』原在源码注释里被自陈为『装饰性占位符，当前无 action』（该注释随 `#328` 删除，可取回：`git show 4cd5fc1^:Sources/CoreDesign/Components/Sidebar/Sidebar.swift`；现树可核的对应物是 `Image(systemName: "ellipsis")` + `.accessibilityHidden(true)`、无任何手势 modifier）且对 VoiceOver 隐藏。
 
 **② (A) 诚实枚举**：候选 1 = **折叠三角（disclosure triangle）头部**（来源：Xcode navigator、macOS Finder 边栏、VS Code 侧栏分组），豁免路径：皮肤变体走通（同为『标题+折叠字形』骨架）；作用域 ③ 落空。 候选 2 = **纯大写小标签头、无任何字形**（来源：iOS 分组列表 header、Slack 早期频道分组），豁免路径：皮肤变体走通；作用域 ③ 对 SectionHeader（大写 footnote 灰分组标题）满足三条件 ⇒ 被正当排除。 候选 3 = **头部带计数徽标/未读数**（来源：Discord 频道分组、Notion 侧栏分组），豁免路径：皮肤变体未走通（多一个数据槽）；作用域 ③ 落空。
 
@@ -972,9 +977,9 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 `53-survey.md` 证据行 15。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/OhMyDesign/Components/Sidebar/Sidebar.swift:307-334,116-159。public init(title:action:)——只有文案与动作，无外观参数；leading『#』（Text("#").title2，:320-321）、trailing chevron（自陈『装饰性指示箭头』，:323-328）都写死。结构性反证：本组件是私有共享骨架 SidebarRow（:116-159）的一次实例化，leading/trailing 是该骨架的两个 @ViewBuilder 槽（:121-122），同一骨架也被 SidebarNavigationRow/SidebarUtilityRow/SidebarDocumentRow 实例化。
+**① 源码事实**：`SidebarTagRow`。`public init(title:action:)`——只有文案与动作，无外观参数；leading『#』（逐字 `Text("#")` + `.coreFont(.title2)`）、trailing chevron（原注释自陈『装饰性指示箭头』，该注释随 `#328` 删除）都写死。结构性反证：本组件是私有共享骨架 `SidebarRow` 的一次实例化，leading/trailing 是该骨架的两个 `@ViewBuilder` 槽，同一骨架也被 SidebarNavigationRow/SidebarUtilityRow/SidebarDocumentRow 实例化。
 
-**② (A) 诚实枚举**：候选 1 = **标签字形前缀**（来源：SF Symbols tag.fill、Apple 提醒事项/邮件标签行、Things 3），豁免路径：皮肤变体走通（SidebarRow leading 槽换填充物）；作用域 ③ 对 SidebarUtilityRow（任意 SF Symbol 前缀的工具行，:239-240）满足 ⇒ 被正当排除。 候选 2 = **彩色圆点前缀**（来源：Linear label、Todoist 项目/标签色点、Notion 多选属性色点），豁免路径：皮肤变体走通（仍是 leading 槽的一种填法）；作用域 ③ 落空。 候选 3 = **无前缀的彩色 chip 行**（来源：Notion、Things 3 把标签渲染成 chip 而非行），豁免路径：皮肤变体未走通（不再是行结构）；作用域 ③ 对 Tag（自述 GitHub issue label 风格圆角矩形 chip）满足 ⇒ 被正当排除。
+**② (A) 诚实枚举**：候选 1 = **标签字形前缀**（来源：SF Symbols tag.fill、Apple 提醒事项/邮件标签行、Things 3），豁免路径：皮肤变体走通（SidebarRow leading 槽换填充物）；作用域 ③ 对 SidebarUtilityRow（任意 SF Symbol 前缀的工具行）满足 ⇒ 被正当排除。 候选 2 = **彩色圆点前缀**（来源：Linear label、Todoist 项目/标签色点、Notion 多选属性色点），豁免路径：皮肤变体走通（仍是 leading 槽的一种填法）；作用域 ③ 落空。 候选 3 = **无前缀的彩色 chip 行**（来源：Notion、Things 3 把标签渲染成 chip 而非行），豁免路径：皮肤变体未走通（不再是行结构）；作用域 ③ 对 Tag（自述 GitHub issue label 风格圆角矩形 chip）满足 ⇒ 被正当排除。
 
 **③ 皮肤变体交叉裁断**：两个候选被作用域条款正当排除后，本组件自己剩下候选 2（彩色圆点前缀），与现状共享逐字同一的 SidebarRow 源码骨架（:116-159）⇒ 不计入 ≥2 ⇒ 举得犹豫 ⇒ 落步骤 4。
 
@@ -991,16 +996,16 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 `53-survey.md` 证据行 24。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：Sources/OhMyDesign/Modifier/TelegramGlassButtonModifier.swift:58-95。四个公开存储属性——shape:S（任意 InsettableShape）、isPressed:Bool、border:Color?、pressFeedback:Bool；body（:78-94）逐层：第 1 层轮廓由调用方 shape 给、底色由调用方 backgroundStyle 注入（doc :16-17）；第 3 层描边色是公开 border（仓内 CoreMenuButton 传 .borderSubtle 换掉默认半透明白）；第 4 层按压反馈可由公开 pressFeedback 整个关掉。
+**① 源码事实**：`TelegramGlassButtonModifier`。四个公开存储属性——`shape: S`（任意 InsettableShape）、`isPressed: Bool`、`border: Color?`、`pressFeedback: Bool`；body 逐层：第 1 层轮廓由调用方 shape 给；第 3 层描边色是公开 border（逐字 `self.border ?? Color.white.opacity(CoreButtonMetrics.glassBorderOpacity)`，仓内 CoreMenuButton 传 .borderSubtle 换掉默认半透明白）；第 4 层按压反馈可由公开 pressFeedback 整个关掉（逐字 `.scaleEffect(self.pressFeedback && self.isPressed ? CoreButtonMetrics.pressedScale : 1)`）。⚠️ 原文此处还写「底色由调用方 backgroundStyle 注入」——现状 body 是固定的 `.fill(.background)`，该句已不成立（`#337` 实测）。
 
 **② (A) 诚实枚举**：候选 1 = **实心填充按钮容器**（来源：Material Design 3 filled button、Apple .borderedProminent），豁免路径：皮肤变体走通；作用域 ① 落空（被点名的 Solid/Light/CircularGlass 三个 ButtonStyle 均不在 71 条登记表内）。 候选 2 = **描边/tonal 容器**（来源：Material 3 outlined/tonal button、Ant Design default 与 dashed 按钮），豁免路径：皮肤变体走通；作用域 ① 同样落空。 候选 3 = **无容器的纯文字按钮**（来源：Material text button、Apple .plain），豁免路径：皮肤变体未走通（去掉全部容器层）；作用域 ③ 落空。
 
-**③ 皮肤变体交叉裁断**：候选 1、2 命中皮肤变体（三者共享『调用方给定 shape 内缩填底 + 一层表面处理 + 一条描边 + 按压缩放』同一骨架，源码即 :80-93 四句固定次序，候选只换第 2 层画法）；非皮肤候选只剩候选 3，1 个 < 2 ⇒ 举得犹豫 ⇒ 落步骤 4。
+**③ 皮肤变体交叉裁断**：候选 1、2 命中皮肤变体（三者共享『调用方给定 shape 内缩填底 + 一层表面处理 + 一条描边 + 按压缩放』同一骨架，源码即 body 的固定四句次序，候选只换第 2 层画法）；非皮肤候选只剩候选 3，1 个 < 2 ⇒ 举得犹豫 ⇒ 落步骤 4。
 
 **④ 枚举为 0 的残余侧路**：不适用——本条举出 3 个真实业界候选，「为什么业界举不出」的
 可核验说明义务未触发。
 
-**⑤ (B) 判定**：无合格句：第 1 项已证四层里三层可换（轮廓/底色/描边色/按压反馈），任何『换掉这套结构就不是它』的句子与公开 API 直接冲突（与判死 SettingsRow 的同一把刀在本条的复现）。
+**⑤ (B) 判定**：无合格句：第 1 项已证四层里三层可换（轮廓/描边色/按压反馈），任何『换掉这套结构就不是它』的句子与公开 API 直接冲突（与判死 SettingsRow 的同一把刀在本条的复现）。
 
 **⑥ 结论**：改判 `tiebreaker`（`kind`/`needsExtensionPoint` 不动）。回路：`D-53-14` / `R-29`。
 
@@ -1037,11 +1042,10 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 「是，`SidebarDocumentRow`，且是整条理由的唯一来源」——(A)(B) 操作化门槛均不成立。
 
 源码级补充核验（非门槛必需，但已做，用于确认「为什么不进段 2」）：
-`Sources/OhMyDesign/Components/Sidebar/Sidebar.swift:116-159,167-198,391-416`。
 `SidebarNavigationRow` 与已判 `tiebreaker` 的 `SidebarDocumentRow`/`SidebarUtilityRow`/
 `SidebarTagRow`（分别见 `R-3`/`D-53-12` 的 `SidebarSection` 邻近先例、`D-53-13`）共用同一
-`private SidebarRow` 骨架（:116-159）；选中态视觉唯一来源 `sidebarSelectedBackground(_:)`
-（:418-430）是 **public** 的 `View` 扩展 modifier，文档原话「自定义行复用它即可与内置选中
+`private SidebarRow` 骨架；选中态视觉唯一来源 `sidebarSelectedBackground(_:)`
+是 **public** 的 `View` 扩展 modifier，文档原话「自定义行复用它即可与内置选中
 样式保持一致」——组件本身不持有任何调用方拿不到的独立视觉身份，与 `D-53-2` 判 `Card` 直接
 改判所用的「可被薄封装底层直接替代」标准同构。
 
@@ -1085,8 +1089,8 @@ label——两者共享同一「pill + 状态色即语义」骨架，`StateLabel
 **③ 结论**：改判 `tiebreaker`（`kind`/`needsExtensionPoint` 不动）。回路：`D-53-16` / `R-31`。
 
 **⚠️ 与 #49 的顺序（并行安全声明）**：实测 #49 尚未开工——
-`Sources/OhMyDesign/Components/StateLabel/StateLabel.swift:31` 仍为 `let defaultLabel:
-String`，未变成 `LocalizedStringResource` ⇒ #53 本轮先行。本次改动只动 `decidedBy` 与
+`StateLabelStyle.Spec` 的 `defaultLabel` 仍为 `let defaultLabel: String`（逐字），
+未变成 `LocalizedStringResource` ⇒ #53 本轮先行。本次改动只动 `decidedBy` 与
 `notes`（registry.json 该条目，只增不删），`textParams` 与 `Sources/` 零改动，与 #49 计划中
 的 A 类类型改造（`defaultLabel: String` → `LocalizedStringResource`，公约缺口 `G-4`，见
 `R-10`）互不覆盖，并行安全——两者分别只写 `decidedBy`/`notes` 与 `Sources/` 两处不相交的
@@ -1208,10 +1212,10 @@ String`，未变成 `LocalizedStringResource` ⇒ #53 本轮先行。本次改�
 代码，但那是**如实记录判定结论**。
 
 ⚠️ **连带（J-2 守卫的到期通路，不是「改守卫迁就」）**：新条目进入 J-2 定义域
-（`ComponentJudgeRules.swift:70-72`）而扩展点 API 不存在 ⇒
-`ComponentExtensionPointGuard.swift` 的 `inspected.count`（`:60`）与块外 canary
-（`:87`）会红。J-2 自己的 doc comment（`:38-50`）正描述了这个形态并留了正门
-（`Toast` 是现成先例），`:91` 注释明写 `knownMissingExtensionPoints` 本就**随判定结论
+（`judgeExtensionPoints` 的过滤子句 `entry.repo == "ohmydesign" && entry.kind == "semantic" && entry.needsExtensionPoint`）而扩展点 API 不存在 ⇒
+`ComponentExtensionPointGuard.swift` 的 `inspected.count` 断言与块外 canary
+会红。J-2 自己的 doc comment 正描述了这个形态并留了正门
+（`Toast` 是现成先例），同文件注释明写 `knownMissingExtensionPoints` 本就**随判定结论
 增删** ⇒ 本轮增补红名单 + 同步计数 + 改 `withKnownIssue` 文案，**授权范围仅此三处**。
 
 ⚠️ **承接**：扩展点实现见 **`wxlpp/oh-my-story#60`**（动 `Sources/`，是行为改变，与本
@@ -1383,7 +1387,7 @@ task），且会阻断 #54。
 
 ### D-53-19：FR-4 的「登记表 notes 豁免」用裸子串匹配，区分不了「裁决」与「顺带提及」
 
-**缺陷**：`Tests/OhMyDesignTests/ComponentJudgeRules.swift:378`（#59 修复前）用
+**缺陷**：FR-4 判据（`judgeTextParamCoverage`，`#59` 修复前）用
 `resolved.entry.notes.contains(hit.parameter)` 判定某个 `textParams` 命中是否已被登记表
 `notes` 豁免——**全文裸子串匹配**，不要求参数名与「裁决语」同句出现。
 
@@ -1430,25 +1434,26 @@ task），且会阻断 #54。
 1. **候选形态清单 ≠ 扩展点需求集。** #59 产出的是「这 5 条举得出 ≥2 个非皮肤替代形态」，
    那是**判定结论**；`wxlpp/oh-my-story#60` 要做的是**设计扩展点**，两者之间还隔着一次
    设计判断。实例：`SidebarUtilityRow` 判**槽**的承重证据恰是「`systemImage` 是必填无默认值
-   的公开参数」（`Sources/OhMyDesign/Components/Sidebar/Sidebar.swift:220-224` 实测）——
+   的公开参数」（实测：`SidebarUtilityRow.init` 的 `systemImage: String,` 无默认值）——
    #60 要实现它的候选 1（纯文字工具行）就必须让该参数**可省**，即**拆掉自己成立的前提**。
 
-2. **J-2 只认 `nativeProtocol` / `customStyleProtocol` 两个字段**（`Tests/OhMyDesignTests/ComponentJudgeRules.swift:70-113`），
+2. **写下时 J-2 只认 `nativeProtocol` / `customStyleProtocol` 两个字段**，
    而公约第 2 节只承认 **A（原生协议）/ B（自有协议）/ C（不给）** 三种形态。
    ⇒ 用 **`@ViewBuilder` 槽**或**配置枚举**落地扩展点，`ComponentExtensionPointGuard` 的
    canary 会红 ⇒ **#60 事实上被判据逼着为这 5 条各发一个 public 协议**，
    而公约祖父条款规定 public 协议**发布后不可撤**。
    ⚠️ **这是 #59 真正的不可逆代价**，且由 #59 刚扩大的那个测试集合执行。
-   ⚠️⚠️ **上面这段今天已不成立，见本节下方《✅ 已裁》裁断二**（`5241175`，2026-08-23）：
+   ⚠️⚠️ **本项已由 `5241175`（2026-08-23）解除**（详见本节下方《✅ 已裁》裁断二）：
    形态 D 已正式承认，`ComponentJudgeRules` 的 `judgeExtensionPoints` 今天有**四条**分支
    —— `customStyleProtocol` / `nativeProtocol` / **`styleSlot`** / **`styleEnum`**，
-   登记表里已有 **6 个组件**走 `styleEnum`（`AvatarGroup` / `SidebarUtilityRow` /
+   登记表里已有 **7 个组件**走 `styleEnum`（`AvatarGroup` / `NetworkGraph` / `SidebarUtilityRow` /
    `SpinningModifier` / `Steps` / `Timeline` / `Toast`），全部满足 J-2。
    ⇒ **「必发 public 协议」这条压力不存在了**；`#312` 那 5 条走形态 D **即可满足 J-2**。⚠️ 但「满足 J-2」不等于「落点不变」——`RingChart` 的落点另有一条独立的翻转路径，
 见本文件 `D-299-1` 的重判表（那是**判定**问题，与用什么形态落地扩展点无关）。
 ⚠️ **此处有意只给指针、不复述那条结论**：它是 `SingleSourceOfTruthGuard.factSites`
 登记在册的事实，复述一次就多一个落点——本次初稿正是这么写的，被那条判据当场判红。
-   （本段原文按本文件「只增不删」惯例保留，未改写。）
+   （本段结论句按「只增不删」惯例保留；`#337` 的就地修正只有两处：删除原附的行号坐标、
+   「只认两个字段」加「写下时」限定。）
 
 3. **`Timeline` 已有公开的 `@ViewBuilder node:` 槽**（其 `notes` 自引），J-2 不认 ⇒ 它被记为
    「缺扩展点」，而部分候选空间其实已经开放。
@@ -1470,8 +1475,8 @@ task），且会阻断 #54。
 形态都**可配置**」是另一次**设计判断**。⇒ 实现 issue 须对每条**独立做一次设计判断**，
 不得照单实现；允许得出「承认差异存在、但本轮不开扩展点」（形态 C，须在 `notes` 写理由）。
 ⚠️ **决定性实例**（实测复核，非引用本条原文）：`SidebarUtilityRow` 的 `systemImage` 在
-`Sources/OhMyDesign/Components/Sidebar/Sidebar.swift:221` 确为**必填无默认**（同一 `init`
-里 `trailingSystemImage` 有 `= nil`），而它判「槽」的承重证据逐字就是这一点。
+`SidebarUtilityRow.init` 的 `systemImage: String,` 确为**必填无默认**（同一 `init`
+里 `trailingSystemImage: String? = nil,`），而它判「槽」的承重证据逐字就是这一点。
 ⇒ 落点：公约 §2 的「候选形态清单 ≠ 扩展点需求集」小节。
 
 ⚠️ **后续（只增不删，本段原文一字未改）**：上面那条「决定性实例」的**模态断言部分**已由
@@ -1486,13 +1491,13 @@ task），且会阻断 #54。
 ⇒ 落点：公约 §2（标题「三选一」→「四选一」+ 形态 D 五个小节）；
 `Tests/OhMyDesignTests/ComponentJudgeScanner.swift`（`StyleSlotDecl` / `StyleEnumDecl` 两种
 采集）；`ComponentRegistryGuard.Entry`（`styleSlot` / `styleEnum` 两字段）；
-`ComponentJudgeRules.swift`（J-2 两条判定分支）；台账 `R-37`。
+`ComponentJudgeRules.swift`（J-2 四条判定分支，见 `judgeExtensionPoints`）；台账 `R-37`。
 
 #### ⚠️ 本条第 3 项的事实需精化（实核）
 
 原文写「`Timeline` 已有公开的 `@ViewBuilder node:` 槽」——**槽在伴生类型 `TimelineItem`
-上**（`Timeline.swift:64`），不在 `struct Timeline`（`:131`）上；后者只有一个**私有**
-`nodeView`（`:220`）。结论「部分候选空间其实已经开放」**仍成立**（调用方构造 `TimelineItem`
+上**（逐字：`@ViewBuilder node: () -> Node,`），不在 `struct Timeline` 上；后者只有一
+个**私有**的 `nodeContent`（逐字：`private var nodeContent: some View`）。结论「部分候选空间其实已经开放」**仍成立**（调用方构造 `TimelineItem`
 时确实可传 `node:`），但定位要写准。
 
 ⚠️ 另：原文的语气容易读成「多条已有槽」。实测 J-2 红名单 6 条里，**只有 `Timeline` 一条**
@@ -1561,14 +1566,13 @@ task），且会阻断 #54。
 
 ⚠️ **本轮落盘口径（判定先行、落盘阻塞）**：落**步骤 4** 的条目正常改判 `tiebreaker`；
 落**出口 1** 的条目 **本轮不落盘**，只进判定报告 + 本节缺陷登记。理由：落 `step2`
-（`kind: semantic`）会碰 `Tests/OhMyDesignTests/ComponentExtensionPointGuard.swift:134`
-那条 canary，而它守的是「跨仓判据未落地前，StoryUI 侧不得出现 `semantic`」，其自述解除
+（`kind: semantic`）会碰 `ComponentExtensionPointGuard` 里那条 canary（`entries.filter { $0.repo == "storyui" && $0.kind == "semantic" }.isEmpty`），而它守的是「跨仓判据未落地前，StoryUI 侧不得出现 `semantic`」，其自述解除
 路径是「必须移交 **#43** 落地跨仓判据，不得靠裁决 (a) 的跳过静默放过」。改它等于绕过它要
 守的那条路。⚠️ **代价如实记**：登记表在一段时期内**不反映**这些条目的新判定——但报告与本
 节有完整记录，与 #53 的「移交 5 条不落地」是同款处置口径。
 
 ⚠️ **`D-59-1` 在 StoryUI 侧没有机器执行者**：J-2 的定义域是
-`entry.repo == "ohmydesign" && …`（`Tests/OhMyDesignTests/ComponentJudgeRules.swift:71`），
+`entry.repo == "ohmydesign" && …`（`judgeExtensionPoints` 的过滤子句），
 对这 24 条连看都不看。本轮判出出口 1 的条目里带公开 `@ViewBuilder` 槽的那些
 （候选池：`FocusModeContainer.content` / `StoryScaffold` 的 `outline`/`manuscript`/`assistant`
 三槽 / `ToolCallRow.hostContent`）**已有槽而 J-2 不认**，逐条见下方对应条目。
@@ -1639,11 +1643,11 @@ VS Code Copilot 状态栏）、`StoryScaffold`（Apple Notes/Mail iPad 三栏/Ap
 **来源**：`D-59-1`（本文件 `### D-59-1` 段）已指出 J-2 字面不检查组件是否已持有某种
 扩展点。本轮 StoryUI 24 条压测撞出三条真实实例。
 
-**缺陷**：`FocusModeContainer`（`content` 槽，`FocusModeContainer.swift:32`）、
-`StoryScaffold`（`outline`/`manuscript`/`assistant` 三槽，`StoryScaffold.swift:47`）、
-`ToolCallRow`（`hostContent` 泛型槽，`ToolCallRow.swift:159`）三条组件本轮均判出口 1
+**缺陷**：`FocusModeContainer`（`content` 槽）、
+`StoryScaffold`（`outline`/`manuscript`/`assistant` 三槽）、
+`ToolCallRow`（`hostContent` 泛型槽）三条组件（源码均在对面仓 `wxlpp/oh-my-story`，原附行号按 `#337` 体例删除）本轮均判出口 1
 （`needsExtensionPoint: true`），但它们已经持有公开 `@ViewBuilder` 内容槽——判定法
-（J-2，`Tests/OhMyDesignTests/ComponentJudgeRules.swift:71`）字面只问「候选枚举 → 是否
+（J-2，`judgeExtensionPoints` 的过滤子句）字面只问「候选枚举 → 是否
 需要扩展点」，不检查组件是否已持有某种扩展点，也不区分「内容槽」（装什么内容）与
 「外观扩展点」（chrome 长什么样）两种不同槽义。
 
@@ -1764,11 +1768,10 @@ registry 该条目 `decidedBy` 本轮零改动，登记表在一段时期内仍�
 **来源**：`docs/component-registry.json` 中 `repo=="storyui" && decidedBy=="step3"` 的
 24 条，本轮压测后其中 20 条落出口 1（`step2`/`semantic`/`needsExtensionPoint:true`）。
 
-**缺陷**：这 20 条因落 `step2` 会碰 `Tests/OhMyDesignTests/ComponentExtensionPointGuard.swift:134`
-的 canary（`entries.filter { $0.repo == "storyui" && $0.kind == "semantic" }.isEmpty`，
+**缺陷**：这 20 条因落 `step2` 会碰 `ComponentExtensionPointGuard` 里那条 canary（`entries.filter { $0.repo == "storyui" && $0.kind == "semantic" }.isEmpty`，
 自述解除路径「必须移交 #43 落地跨仓判据，不得靠裁决 (a) 的跳过静默放过」），本轮不落盘，
 只进判定报告 + 本条缺陷登记。⚠️ `D-59-1` 在 StoryUI 侧没有机器执行者：J-2 定义域是
-`entry.repo == "ohmydesign" && …`（`Tests/OhMyDesignTests/ComponentJudgeRules.swift:71`），
+`entry.repo == "ohmydesign" && …`（`judgeExtensionPoints` 的过滤子句），
 对这 20 条连看都不看。
 
 **证据**：`54-stress.md ### 1.`～`### 22.`（除 D1～D4 缩略节外的 20 节逐条判定记录）；
@@ -1797,7 +1800,7 @@ registry 该条目 `decidedBy` 本轮零改动，登记表在一段时期内仍�
 | `TodoBoard` | 3 | 无 | `54-stress.md ### 21.` |
 | `ToolCallRow` | 3 | 有（`hostContent`，见 `D-54-2`） | `54-stress.md ### 22.` |
 
-J-2 对全部 20 条一律「看不见」（定义域不含 `storyui`，`ComponentJudgeRules.swift:71`）。
+J-2 对全部 20 条一律「看不见」（定义域不含 `storyui`，`judgeExtensionPoints` 的过滤子句）。
 
 **本轮处置**：判定先行、落盘阻塞——20 条判定已在段 2 压测中完成并逐条记录，`decidedBy`
 本轮全部零改动。⚠️ 代价如实记：登记表在一段时期内不反映这 20 条的新判定——但本条与
@@ -2494,31 +2497,33 @@ SwiftUI 的 `ProgressView(value:)`）。它们不是「本设计系统的一个�
 
 ⚠️⚠️ **下表第 3 列引的那四条类型文档，`Sources/` 里已经没有了**（`#337` 实测：
 `SectorMark` / `极坐标多轴` / `按周分列` / `图布局` 四个特征短语在 `Sources/` 下**零命中**）
-—— 它们随 `#328`（`4cd5fc1`，注释清理）整段删除，而表里那几个 `X.swift:12-13` 形式的坐标
-**今天指向的是别的内容**（如 `RingChart.swift:13` 现在是 `/// - Parameters:`）。
+—— 它们随 `#328`（`4cd5fc1`，注释清理）整段删除，而表里原附的那种「文件名 + 行号」形式的
+坐标**今天指向的是别的内容**（如 `RingChart.swift` 的 `:13` 现在是 `/// - Parameters:`）。
 
 ⇒ **承重的是表里内联的那几句引文本身，不是那几个行号。** 要取回源码侧原文：
-`git show 4cd5fc1^:Sources/OhMyDesignCharts/<类型>.swift`。
+`git show 4cd5fc1^:Sources/CoreDesignCharts/<类型>.swift`
+（⚠️ `4cd5fc1` 当时的目录名是 `CoreDesignCharts`，用改名后的路径在那个提交上取不到）。
 ⚠️ **不要**因为坐标失效就去把注释加回 `Sources/` —— `#328` 是有意删的；
 也**不要**照着坐标去读今天的那几行，那会读到无关内容。
 （本条是 `#337` 普查点名的承重失真之一；⚠️ **此处有意不写普查的计数**——那两个数每处置一批就变，逐条见 `#337`。）
 
 | 条目 | 命中 `D-299-1` 的候选 | 「不命中」的候选（**只按 Swift Charts 口径**核过） | 条件 ① 若扩宽 |
 |---|---|---|---|
-| `RadarChart` | 候选 3 笛卡尔并排条形（`BarMark`） | 候选 1 平行坐标、候选 2 径向柱状 —— `RadarChart.swift:12`：「Swift Charts 画不出来：它没有极坐标多轴的 mark」 | **按 Swift Charts 口径** 3 → 2，仍 ≥2、不翻；**全口径未核完**（见表下） |
+| `RadarChart` | 候选 3 笛卡尔并排条形（`BarMark`） | 候选 1 平行坐标、候选 2 径向柱状 —— `RadarChart.swift` 的类型文档（已删，取回见上）：「Swift Charts 画不出来：它没有极坐标多轴的 mark」 | **按 Swift Charts 口径** 3 → 2，仍 ≥2、不翻；**全口径未核完**（见表下） |
 | `RingChart` | 候选 1 并排线性进度条（SwiftUI `ProgressView(value:)`）、候选 3 堆叠条（`BarMark` 堆叠） | 候选 2 分段进度条 —— Swift Charts 无「分段进度」概念，只能用 N 个 `BarMark` 手拼 | 3 → **≤1 < 2，落点会从出口 1 翻回步骤 4**（⚠️ `#315` 第 3 轮终审 S-2：本行的「候选 2 不命中」同样**只按 Swift Charts 口径**核过，与第 3 列同一条限制 ⇒ 精确值写作 `≤1`；全口径下任何进一步收窄只会把 1 再往下压，**结论不变**） |
-| `ActivityHeatmap` | 候选 3 折线 / 柱状时间序列（`LineMark` / `BarMark`） | 候选 1 日历月视图、候选 2 月轨图 —— `ActivityHeatmap.swift:12-13`：「`RectangleMark` 能画格子，但按周分列 + 按星期几分行 + 日期对齐是一套布局，不是一个 mark」 | **按 Swift Charts 口径** 3 → 2，仍 ≥2、不翻；**全口径未核完**（见表下） |
-| `NetworkGraph` | **无 —— 本条不适用 `D-299-1`** | 三个候选全是图布局；`NetworkGraph.swift:13`：「Swift Charts **画不出来**：它没有图布局的概念」，且 Swift Charts 无任何 node-link mark | 不受影响 |
+| `ActivityHeatmap` | 候选 3 折线 / 柱状时间序列（`LineMark` / `BarMark`） | 候选 1 日历月视图、候选 2 月轨图 —— `ActivityHeatmap.swift` 的类型文档（已删，取回见上）：「`RectangleMark` 能画格子，但按周分列 + 按星期几分行 + 日期对齐是一套布局，不是一个 mark」 | **按 Swift Charts 口径** 3 → 2，仍 ≥2、不翻；**全口径未核完**（见表下） |
+| `NetworkGraph` | **无 —— 本条不适用 `D-299-1`** | 三个候选全是图布局；`NetworkGraph.swift` 的类型文档（已删，取回见上）逐字：「Swift Charts **画不出来**：它没有图布局的概念」，且 Swift Charts 无任何 node-link mark | 不受影响 |
 | `BeforeAfterSlider` | **无 —— 本条不适用**（原判定即已写明） | 前后对比滑块在 Apple 平台上没有任何框架级承担者 | 不受影响 |
 
 ⚠️ **上表引 `NetworkGraph` 那处的行号更正**（`#315` 第 4 轮终审 S-d，但**更正的方向与它给的不同**）：
-上一版写 `NetworkGraph.swift:12-13`，终审说「其实只落在第 12 行」——**两个都不对**，
+上一版写 `NetworkGraph.swift` 的 `:12-13`，终审说「其实只落在第 12 行」——**两个都不对**，
 实测该文件第 12 行是空的 `///`、被引的那句整句落在**第 13 行**（第 14 行是它的后半
 「不是把数据映射到坐标轴」）。成因：`NetworkGraph.swift` 比同族三个图表文件多一行
-`import Synchronization`，整块类型文档**下移一行** —— 同族的 `RadarChart.swift:12`、
-`ActivityHeatmap.swift:12-13`、`RingChart.swift:12-13` 实测无误，只有本件偏了。
+`import Synchronization`，整块类型文档**下移一行** —— 同族的 `RadarChart.swift`（当时的 `:12`）、
+`ActivityHeatmap.swift`（当时的 `:12-13`）、`RingChart.swift`（当时的 `:12-13`）实测无误，只有本件偏了。
 ⇒ 引整句的两处（`docs/components/network-graph.md` 与 registry `notes`）改成 `:13-14`，
 只引前半句的两处（本表与 `docs/component-contract-revisions.md` 的 `R-48` 段）改成 `:13`。
+（本条坐标按 `#337` 体例保留为史料、断开书写。）
 ⚠️ 这是**同一个族的第三次犯**（`#315` C-3 的 `:154`/`:167`、本条的 `:12-13` 与终审的 `:12`）；
 散文里的行号引用在本仓没有机器判据兜底 —— 收口的**形态**可参照 `#316`（`#316` 本身
 **不覆盖**行号引用）。
@@ -2577,6 +2582,20 @@ SwiftUI 的 `ProgressView(value:)`）。它们不是「本设计系统的一个�
 ⚠️ 若两条都成立，`RadarChart` / `ActivityHeatmap` 的计入数各自 3 → 1 < 2 ⇒ **也会翻**。
 ⇒ 逐条核查移交 `#312`（该 issue 的排序约束因此更紧，不是更松）。
 
+⚠️⚠️ **`#312` 重核（只增不删，上面两段保留为移交记录）**：两个具名反例已逐条核完，
+同构标准、逐字 SDK 依据与「为什么重核结论不改落点」见本文件 `## #312` 节的《裁定 B》。
+结论表（`#312` 起本表是 `D-299-1` 全口径结论的落点）：
+
+| 条目 / 候选 | 具名 API | ① 具名 | ② 本职 | ③ 双平台 | 全口径结论 | 计入数（若条件 ① 被扩宽） |
+|---|---|---|---|---|---|---|
+| `RadarChart` 候选 2 径向柱状 | Swift Charts `SectorMark` / `SectorPlot` | 是 | 否（半径是 `MarkDimension` 布局尺寸，无径向比例尺；AntV G2 `radial` 的弧形条无法表达） | 是 | **不计**（信心中，判断题） | 3 → 2，不翻 |
+| `ActivityHeatmap` 候选 1 日历月视图 | UIKit `UICalendarView` + `UICalendarViewDecoration` | 是 | 是（逐日装饰是文档化能力，可承载四档色阶） | **否**（macOS 无 UIKit；`MultiDatePicker` macOS unavailable 且无装饰 API；`NSDatePicker` 无装饰） | **待口径成文**（双平台口径不计 / iOS 单平台口径计） | 双平台 3 → 2 不翻；单平台 3 → 1 会翻 |
+| `RingChart`（已判） | — | — | — | — | 不变 | 3 → ≤1，**至少**这一条会翻 |
+
+⇒ 上面 F-2 段那句「若两条都成立……**也会翻**」按本表收窄为：`RadarChart` 不翻；`ActivityHeatmap`
+取决于第 ③ 列那个**尚未成文**的平台口径。⚠️ 第 ③ 列是 `#312` 补的操作化，本身须经修订回路成文，
+在那之前不作既定事实传播。
+
 ⚠️ **成因，如实记**：那段「本条候选的真实承担者是 Swift Charts」的样板被**逐条抄了五遍
 而没有逐条重判**，`NetworkGraph` 就是抄错的那一份；`BeforeAfterSlider` 那份反倒写对了
 （明写「本条不适用」）⇒ 缺的不是判断力，是「样板落到每一条上都要重判一次」这个动作。
@@ -2602,6 +2621,10 @@ SwiftUI 的 `ProgressView(value:)`）。它们不是「本设计系统的一个�
 而扩展点一旦以 public 协议形态发布就**撤不回来**。⇒ 这是 `#312` 应当**优先选形态 D**
 （槽 / 枚举可演进）而不是形态 B（public 协议不可撤）的一条独立理由，
 且 **`#312` 在 `D-299-1` 的修订回路走完之前不得走形态 B**（排序约束，已写进 `#312` 正文）。
+⚠️ **`#312` 重核（只增不删）**：`RadarChart` / `ActivityHeatmap` 在双平台口径下不翻；
+iOS 单平台口径下 `ActivityHeatmap` 会翻 —— 口径本身待本条回路成文（表见上方《`#312` 重核》段）。
+`#312` 未走本条修订回路，五条扩展点全部以形态 D2 落地、没有发布任何 public 协议；
+`RingChart` 的 `RingChartLayout` 因此是在「若扩宽则会翻」的状态下发布的，代价登记为 `D-312-1`。
 
 ### D-299-2：「候选须是本组件的另一个**版本**」这条读法只活在问句里，没有成文判据
 
@@ -2654,6 +2677,9 @@ PR #315 的 `R-48` 段末、PR 正文、四份图表 `notes` 都写过「两条�
 选问句而不选操作化门槛，**是一次口径选择**，不是「无选择地照抄字面」。本轮如实标注，
 落点不动、**本轮不翻**，理由见下方《`#315` 终审后复核》段的重排版本（主理由：**下游连锁应
 单独过一次评审**；可逆性已降级、不再作依据），翻转移交 `#312`。
+⚠️ **`#312` 处置（只增不删）**：已按上面的字面翻转（`OrbitingLogos` → 出口 1），走的是修订回路，
+见本文件 `## #312` 节《裁定 A》。本条（读法未成文）**仍未收口**：两种读法下计入数分别为 2 与 4，
+都 ≥ 2、落点相同，故 `#312` 不需要裁它；它只影响 `OrbitingLogosLayout` 的 case 集合。
 
 ### ⚠️ `#315` 终审后复核：`OrbitingLogos` 候选 4 的负面核验已过期（不是新缺陷，是一条来源更正）
 
@@ -2677,7 +2703,7 @@ of the ellipse on Y-axis in percentage, relative to the container.”）、`tilt
 也过得了。⇒ **按公约字面，`OrbitingLogos` 的计入数应为 2（候选 1 多轨道分布 + 候选 4 椭圆轨道）
 ≥ 2 ⇒ 落出口 1 ⇒ `semantic` + `needsExtensionPoint`**，而不是本 PR 落盘的步骤 4。
 
-**本轮处置：不翻转落点，如实登记，翻转移交 `#312`。** 理由逐条。
+**本轮处置：不翻转落点，如实登记，翻转移交 `#312`。** 理由逐条。（⚠️ **`#312` 处置**：已兑现，见 `## #312`。）
 ⚠️⚠️ **`#315` 第 2 轮终审 C：理由的重心已按终审的实核重排。** 上一版把「可逆性」摆在最前
 当主理由，实核下来它是**最弱**的一条，而且有一个前提**直接是错的**（见 ③）。
 
@@ -2692,6 +2718,8 @@ of the ellipse on Y-axis in percentage, relative to the container.”）、`tilt
   “The radius of the ellipse on X-axis in percentage, relative to the container.”
   ⇒ **证据侧已不再是单方自证**，本条主理由只剩「下游连锁那条链要单独过评审」这一半，
   `#312` 先裁出口的**到期性因此更强**，不因本轮不翻而变缓。
+  ⚠️ **`#312` 处置（只增不删）**：这条链已在 `#312` 单独评审并与五条扩展点同一提交落地，
+  上面括号里的计数不再叠层，最终态见 `## #312`。
 - **② 这是一条到期项，不是「缺陷登记后慢慢等」**：`D-299-1` 推迟的是一条**未成文的规则**，
   本条推迟的是**公约现行字面在现有证据下已经给出的落点**。⇒ `#312` 必须**先裁**
   `OrbitingLogos` 到底落哪个出口，**再**决定扩展点形态（该排序约束已写进 `#312` 正文）。
@@ -2722,4 +2750,104 @@ of the ellipse on Y-axis in percentage, relative to the container.”）、`tilt
   而同表本轮直接改过的三行改的**全是非落盘列**（`BeforeAfterSlider` 计入 3 → 2、
   `ActivityHeatmap` 换引文、`RadarChart` 换反向证据）⇒ 「表随落盘」若成立，
   那三行就不该动。
+- ⚠️ **`#312` 处置（只增不删，覆盖本段全部「翻转移交 `#312`」）**：已兑现。`R-48` 的
+  `OrbitingLogos` 行仍冻结，`#312` 在 `R-48` 更正表**追加**一行指向 `R-49`；翻转依据与落点清单
+  见 `## #312` 节《裁定 A》。
 
+## #312
+
+> ⚠️ 按本文件头「零缺陷也要写『零缺陷』」的规矩：`#312` 的主体是实现（五条形态 D2 扩展点）
+> 与两条裁定的留痕；新登记缺陷 **1 条**（`D-312-1`），非零。
+
+### 裁定 A：`OrbitingLogos` 翻至出口 1（走修订回路，不是 `notes` 补写）
+
+**结论**：`decidedBy: tiebreaker → step2`、`kind: prescriptive → semantic`、
+`needsExtensionPoint: false → true`；扩展点为形态 D2 配置枚举 `OrbitingLogosLayout`。
+
+**依据**：
+- **现行字面已给出的落点**：本文件《`#315` 终审后复核》段逐字「按公约字面，`OrbitingLogos` 的
+  计入数应为 2（候选 1 多轨道分布 + 候选 4 椭圆轨道）≥ 2 ⇒ 落出口 1」。同段「本轮不翻」的
+  主理由是「① 下游连锁应当单独过一次评审」与「② 这是一条到期项」—— 两条都指向 `#312`：
+  `#312` 就是那次单独评审。可逆性一条已被同段自行降级为「只作留痕」。
+- **来源已留档进仓**：`docs/issues/animata-orbiting-items-3d-2026-09-14.html`，提交
+  `416d06c`（2026-09-14 抓取、HTTP 200），已跟踪、是本分支 HEAD 的祖先。剥掉标签后逐字读到
+  组件自述 “List component with orbiting items. The items orbit around the center of an
+  element in 3D Ellipse.” 与 `radiusX` / `radiusY` / `tiltAngle` 三条 props 说明，
+  与上面《`#315` 终审后复核》段记的逐字一致（提取命令：去 `<script>` / `<style>` 与标签、
+  `html.unescape`、折叠空白后按关键词取上下文）。
+- **09-07 那次 403 不再构成阻碍**：当时的阻碍逻辑是「不能据一份自己读不到的页面去翻落点」，
+  给出的出路之一就是「当场把正文存下来」。留档后「真的查过」由仓内文件证明，「可复现」由
+  任何人读该文件证明，两条纪律都不再依赖取页成功；取页结果本就不稳定（09-05 200 / 09-07 403 /
+  09-14 200），与裁定无关。
+- **`D-299-2` 不必在本 issue 裁**：同组件版本读法下计入数 2（候选 1 + 4），操作化门槛字面下
+  计入数 4（候选 1–4），都 ≥ 2、落点相同。它只影响 case 集合：候选 2 marquee / 候选 3 logo
+  网格不做 case，若该读法将来取反向口径要另加 case（source-breaking）。
+- **为什么这不是「事后补写翻转」**：公约「事后补写的效力边界」要求翻转走修订回路
+  （记入本文件 → 回写公约 → `docs/component-contract-revisions.md` 逐条留痕），不能只改 `notes`。
+  本裁定的落点：本节 → `docs/component-contract.md` 三处现状注记 →
+  `docs/component-contract-revisions.md` 的 `R-49`；连带 `docs/component-registry.json`
+  三字段 + `styleEnum`、J-2 判据、`docs/components/orbiting-logos.md`。
+
+**J-2 最终态**：定义域 **17** 条、全部满足；`knownMissingExtensionPoints` 收成空集后连同
+`extensionPointFollowUpIssue` 与那条聚合断言一并删除；`withKnownIssue` 块按其到期机制删除，
+主判据回到裸 `#expect(result.missing.isEmpty)`，另加五条 D2 通路正向断言。
+⇒ `#312` 正文「关闭前必须确认」的第一个分支已满足。
+
+### 裁定 B：`D-299-1` 两个具名反例的逐条重核（结论不改落点）
+
+**同构标准**：排除 `RingChart` 候选 2 时的原话是「Swift Charts 无『分段进度』概念，只能用
+N 个 `BarMark` 手拼」。操作化成三条，缺一即「不计」：
+1. **具名**：宿主平台框架里有一个具名 API；
+2. **本职**：该 API 的本职形态就是候选形态 —— 数据到几何的映射由框架完成，调用方不必手工
+   归一化、不必用 N 个通用 mark 拼出该概念（`ProgressView(value:)` 与「N 个 `BarMark` 手拼」
+   的分野）；
+3. **平台**（`#312` 补的，**待成文**）：在本设计系统声明的全部宿主平台上可用（iOS 26+ /
+   macOS 26+）。理由：作用域条款的本意是「想要那种观感就换用那个承担者」，macOS 消费者换不了
+   UIKit。`D-299-1` 已计入的三个承担者（`BarMark` / `LineMark` / `ProgressView(value:)`）都满足本条。
+
+**`RadarChart` 候选 2 ↔ `SectorMark`**（`iPhoneOS26.4.sdk` 的 Charts swiftinterface 实核）：
+`SectorMark` 唯一 init 逐字 `nonisolated public init(angle: Charts.PlottableValue<some Plottable>, innerRadius: Charts.MarkDimension = .automatic, outerRadius: Charts.MarkDimension = .automatic, angularInset: CoreFoundation.CGFloat? = nil)`
+—— 只有 `angle` 进比例尺；`MarkDimension` 的存储是 `automatic` / `fixed` / `ratio` / `inset`，
+是布局尺寸、不接数据域。`SectorPlot` 的 `MarkDimensions<DataElement>` 确有 keyPath 形态（`D-299-1`
+F-2 段反例表里那句成立），但 keyPath 指向 `CGFloat` **比例**，调用方要自己除以最大值，无径向比例尺、
+无径向轴。「径向柱状」两种读法：AntV G2 `radial`（转置极坐标、每类一条弧形条、值在扫过角）——
+`SectorMark` 把扇区首尾相接排满一圈，**表达不了**；玫瑰图读法（值在半径）——能手拼，但与
+「N 个 `BarMark` 手拼分段进度」同类。⇒ **不计**，信心**中**：反对意见（「`SectorPlot` 一次调用
+就出 N 个扇区，够直接了」）有立足点，故只登记、不当既定事实传播。
+
+**`ActivityHeatmap` 候选 1 ↔ `UICalendarView`**：iOS SDK 的 `UICalendarView.h` 逐字
+`@interface UICalendarView : UIView`，delegate 方法
+`calendarView:decorationForDateComponents:` 做逐日装饰；`UICalendarViewDecoration.h` 有
+`initWithImage:color:size:` 与自定义视图 provider ⇒ 四档色阶可承载，iOS 单平台口径下**计**。
+macOS 侧：`MacOSX26.sdk` 的 `Frameworks/` 下**没有** `UIKit.framework`；SwiftUI
+`MultiDatePicker` 在 macOS swiftinterface 里标 `@available(macOS, unavailable)` 且无装饰 API；
+AppKit `NSDatePicker.h` 里 `decorat` 零命中 ⇒ 双平台口径下**不计**。
+⇒ **结论待口径成文**，两者并列登记、不择一。
+
+**结论表**落在 `D-299-1` 的《`#312` 重核》段（单一落点，本节不复制）。
+
+**重核结论不能直接改落点**（`312-plan.md` 初稿阶段 1b「裁定『计』⇒ 落点退回步骤 4」作废）：
+作用域条款现行条件 ① 逐字要求「被点名的兄弟组件必须真实存在于 `docs/component-registry.json`」，
+`SectorMark` / `UICalendarView` 都不在登记表 ⇒ 条款援引不了 ⇒ 计入数与落点不变。
+「计 / 不计」回答的是一个**反事实**（若条件 ① 被扩宽会怎样），只喂 `D-299-1` 的代价表。
+`#312` **未走** `D-299-1` 的修订回路（那要先成文第 ③ 条的平台口径，是另一件事）。
+
+### D-312-1：祖父条款只保护已发布的公开样式协议，不覆盖已发布的形态 D2 公开枚举
+
+**撞上公约哪一条**：第 1 节祖父条款逐字「组件已经**发布了公开的样式协议**」⇒ 不再走判定法，
+理由是「public 协议一旦发布，删它是破坏性变更，判定法不可能推翻既成事实」。
+
+**撞法**：`#312` 为 `RingChart` 发布了 `RingChartLayout`，而 `D-299-1` 的代价表已确证：
+若条件 ① 被扩宽，`RingChart` 的计入数会掉到 ≤1、落点要重判为步骤 4（`prescriptive` / 不给扩展点）。
+届时枚举**删不掉**（删 public 类型同样是破坏性变更，与删 public 协议同级），却**不受祖父条款保护**
+—— 条款的对象只写了协议。`RadarChart.bars` 同形：若候选 3 因 `BarMark` 被排除，计入数
+3 → 2 仍不翻，但那个 case 同样已发布。
+
+**判据侧现状**：`ComponentRegistryGuard` 只断言 `prescriptive ⇒ !needsExtensionPoint`；
+J-2 只巡 `semantic && needsExtensionPoint`；**没有**判据禁止 `prescriptive` 条目填 `styleEnum`，
+也没有反向判据抓「源码有接线的公开枚举、登记表未认领」。⇒ 若将来 `RingChart` 退到步骤 4，
+`styleEnum` 保留 `RingChartLayout` 今天不会判红（`#312` 的变异清单因此不把它当作会红的变异）。
+
+**本轮处置**：只登记，交 `D-299-1` 的修订回路一并裁（候选方向：祖父条款的对象扩到「已发布的
+公开样式协议**或形态 D2 公开枚举**」）。**接受这个代价**：枚举可演进（加 case）且不逼人发协议，
+真正不可撤的只是类型名本身；源码侧届时只能保留或 `@available(*, deprecated)`。

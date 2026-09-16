@@ -110,6 +110,7 @@ nonisolated func buildChartInputs() -> (Int, Int, Int, Int) {
 nonisolated func readChartScaleLimits() -> [Int] {
     [
         RingChart<ChartsProbeMetric>.recommendedRingLimit,
+        RingChart<ChartsProbeMetric>.segmentCount,
         ActivityHeatmap<ChartsProbeDay>.maximumDays,
         NetworkGraph<ChartsProbeNode>.recommendedNodeLimit,
         NetworkGraph<ChartsProbeNode>.recommendedEdgeLimit,
@@ -132,6 +133,41 @@ nonisolated func readNetworkGraphLayouts() -> [String] {
         case .circular: "circular"
         case .grid: "grid"
         case .layered: "layered"
+        }
+    }
+}
+
+// MARK: RadarChartLayout / RingChartLayout / ActivityHeatmapLayout（#312 形态 D2）
+
+nonisolated func readRadarChartLayouts() -> [String] {
+    RadarChartLayout.allCases.map { layout in
+        switch layout {
+        case .polygon: "polygon"
+        case .parallel: "parallel"
+        case .radialBars: "radialBars"
+        case .bars: "bars"
+        }
+    }
+}
+
+nonisolated func readRingChartLayouts() -> [String] {
+    RingChartLayout.allCases.map { layout in
+        switch layout {
+        case .rings: "rings"
+        case .bars: "bars"
+        case .segmentedRings: "segmentedRings"
+        case .stackedBar: "stackedBar"
+        }
+    }
+}
+
+nonisolated func readActivityHeatmapLayouts() -> [String] {
+    ActivityHeatmapLayout.allCases.map { layout in
+        switch layout {
+        case .weeks: "weeks"
+        case .monthCalendar: "monthCalendar"
+        case .monthTracks: "monthTracks"
+        case .dailyColumns: "dailyColumns"
         }
     }
 }

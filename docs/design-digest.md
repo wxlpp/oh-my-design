@@ -78,7 +78,7 @@
 - 第 3 层大多数 token 直接指系统语义色（`label` / `separator` / `systemFill` /
   `systemGroupedBackground` 族），取值随**外观、增强对比度、平台**在运行期变；
   `accent` 是**墨色**（`inkPrimary`：iOS `label` / macOS `textColor`），不再取宿主
-  `AccentColor`；宿主要换色走 `View.coreAccent(_:)`，四个派生态自动跟随。
+  `AccentColor`；宿主要换色走 `View.coreAccent(_:on:)`，四个派生态自动跟随。
   ⚠️ 图表 / tag 走 `dataAccent`（系统蓝），刻意不跟随 accent——墨色的环会读成禁用。
   原型里只能快照某一档。
 - `SystemBackgroundColors` 那 6 个 token 在 **macOS 上全部同值**——分层背景只在 iOS 成立。
@@ -474,7 +474,7 @@
 - **`SegmentedControl`** *<Item: Hashable>: View* — GitHub-like density on an Apple-native control surface. 外观由环境注入的 `SegmentedControlStyle` 决定，默认 `GlassSegmentedControlStyle`。
 - **`GlassSegmentedControlStyle`** *: SegmentedControlStyle* — 默认外观：Liquid Glass 外壳。
 - **`PlainSegmentedControlStyle`** *: SegmentedControlStyle* — 纯色外壳外观（此前 `glass: false`）。
-- **`InkSegmentedControlStyle`** *: SegmentedControlStyle* — 墨色外观：选中段是实心 `coreAccent` 胶囊 + 反色文字（`contentOnAccent`）。
+- **`InkSegmentedControlStyle`** *: SegmentedControlStyle* — 墨色外观：选中段是实心 `coreAccent` 胶囊 + on-accent 文字（缺省按 accent 亮度 派生黑 / 白，`View.coreAccent(_:on:)` 的 `on` 参数可覆盖）。
 - *protocol* **`SegmentedControlStyle`** — `SegmentedControl` 视觉外观的扩展点，形态对齐 `BannerStyle` / Apple `ButtonStyle`。
 - *struct* **`SegmentedControlStyleConfiguration`** — 传给 `SegmentedControlStyle.makeBody` 的上下文：类型擦除的分段数据 + 选择回调。
 - *struct* **`SegmentedControlStyleConfiguration.Segment`** — 单个分段的类型擦除表示。
@@ -692,6 +692,10 @@
   - `.hidden` — 不显示标签。
   - `.standard` — 显示**组件自带**的默认文案（"Before" / "After"，公约 §4 A 类）。
   - `.shown` — 显示**调用方给定**的文案（公约 §4 B 类）。
+- *enum* **`BeforeAfterSliderLayout`** — `BeforeAfterSlider` 的排布形态。
+  - `.overlay` — 默认：两层叠放在同一块画布上，`before` 按分隔线位置裁切揭示（现状形态）。
+  - `.sideBySide` — 左右并排两幅完整图——分隔线只改两个窗格的宽度比，两侧内容都不被裁切成"半张图"。 业界来源：Adobe Lightroom Classic 的 Before & After left/right 视图。
+  - `.stacked` — 上下并排两幅完整图，主轴由横改纵，拖拽与把手随之切到竖向。 业界来源：Adobe Lightroom Classic 的 Before & After top/bottom 视图。
 
 ### `BlurTransition.swift`
 
@@ -753,6 +757,10 @@
 ### `OrbitingLogos.swift`
 
 - **`OrbitingLogos`** *<Data: RandomAccessCollection, Logo: View, Center: View>: View* — 四圈同心点环持续自转，调用方的 logo 均匀落在最外环上随之巡游， 每隔一小段时间轮到一个 logo **弹出放大**、把附近的点挤开，中心是调用方的视图。
+- *enum* **`OrbitingLogosLayout`** — `OrbitingLogos` 的布局形态。
+  - `.outerRing` — 默认：现状——全部条目均匀落在最外一圈点环上。
+  - `.multiRing` — 多轨道：条目按序分居到不同半径的同心圈上。 业界来源：Magic UI `OrbitingCircles` 的两个不同 `radius` 实例并列。
+  - `.ellipse` — 椭圆轨道：四圈点环与条目一并沿横向压扁，整件成椭圆。 业界来源：Animata "Orbiting Items 3D" 的 `radiusX` / `radiusY`。 ⚠️ **明确不做**：来源里的倾角与透视两个维度本轮都不开，见组件文档的取舍说明。
 
 ### `ParticleTransition.swift`
 
@@ -815,6 +823,11 @@
 ### `ActivityHeatmap.swift`
 
 - **`ActivityHeatmap`** *<Day: HeatmapDay>: View* — 贡献热力图（GitHub 那种按周排列的日格）。
+- *enum* **`ActivityHeatmapLayout`** — `ActivityHeatmap` 的布局形态。
+  - `.weeks` — 默认：按周成列、按星期几成行（现状形态）。
+  - `.monthCalendar` — 日历月视图：每月一块、固定 6 行 × 7 列，格子按真实的日历位置摆放。 业界来源：Apple 自家 Activity / Fitness App 的 History 页。
+  - `.monthTracks` — 月轨图：每月一行，按当月日序成列。 业界来源：Obsidian 社区插件 Contribution Graph 的 "month track graphs"。
+  - `.dailyColumns` — 每日一柱：折线 / 柱状时间序列的柱状读法，保留四档强度色阶双重编码。 业界来源：GitLab Pajamas 的图表页（column / bar / line / sparkline 并列为可选形态）。  ⚠️ **只做柱状，不做折线**：两者同槽同排布（网格 → 线性），差别属装饰档， 本轮不另开 case（详见 `docs/components/activity-heatmap.md`《布局形态扩展点》一节）。
 
 ### `ChartSupport.swift`
 
@@ -840,10 +853,20 @@
 ### `RadarChart.swift`
 
 - **`RadarChart`** *<Value: ChartValue>: View* — 雷达图（蛛网图）。
+- *enum* **`RadarChartLayout`** — `RadarChart` 的布局形态。
+  - `.polygon` — 默认：各轴端点连成闭合轮廓（现状形态）。
+  - `.parallel` — 平行坐标：n 条竖轴，值映射到高度。 业界来源：AntV G2 坐标系总览页的 `parallel`。
+  - `.radialBars` — 径向柱状：每维一条从圆心向外的同心弧形条，值编码在扫过角上（不是半径）。 业界来源：AntV G2 坐标系总览页的 `radial`（转置极坐标读法）。
+  - `.bars` — 笛卡尔并排条形：n 行水平条。 业界来源：GitLab 设计体系 Pajamas 的 Charts 页。
 
 ### `RingChart.swift`
 
 - **`RingChart`** *<Value: ChartValue>: View* — 活动环。
+- *enum* **`RingChartLayout`** — `RingChart` 的布局形态。
+  - `.rings` — 默认：同心进度环（现状形态）。
+  - `.bars` — 并排线性进度条。业界来源：Ant Design `Progress` 组件 `type="line"`。
+  - `.segmentedRings` — 分段同心环：几何与 `.rings` 完全相同，只把每环连续的进度弧切成 `RingChart.segmentCount` 段离散段。业界来源：Ant Design `Progress` 组件的 `steps` 属性。
+  - `.stackedBar` — 堆叠条：N 个同心环塌成一条水平堆叠柱，段序 = 值序。 业界来源：GitLab Pajamas 的 stacked column。语义仍是「完成度」——轨道总长代表 N × goal。
 
 
 ---
@@ -913,7 +936,7 @@
 | `.solid` | `ButtonStyle` | `SolidButtonStyle` | 构造主操作按钮样式。 |
 | `.glass` | `SegmentedControlStyle` | `GlassSegmentedControlStyle` | 默认外观：Liquid Glass 外壳。 |
 | `.plain` | `SegmentedControlStyle` | `PlainSegmentedControlStyle` | 纯色外壳外观。 |
-| `.ink` | `SegmentedControlStyle` | `InkSegmentedControlStyle` | 墨色外观：实心 accent 胶囊 + 反色文字。 |
+| `.ink` | `SegmentedControlStyle` | `InkSegmentedControlStyle` | 墨色外观：实心 accent 胶囊 + on-accent 文字（缺省按 accent 亮度派生黑 / 白， `View.coreAccent(_:on:)` 的 `on` 参数可覆盖）。 |
 | `.core` | `DisclosureGroupStyle` | `CoreDisclosureGroupStyle` | OhMyDesign 的默认 `DisclosureGroup` 外观：chevron 走 `.tint`，展开内容 作 leading 缩进（贴近原生，不加卡片）。 |
 | `.core` | `LabelStyle` | `CoreLabelStyle` | OhMyDesign 的默认 `Label` 外观：icon 走 `.tint`、title 走默认前景色。 |
 | `.core` | `LabeledContentStyle` | `CoreLabeledContentStyle` | OhMyDesign 的默认 `LabeledContent` 外观：label 走 `contentSecondary`， content 走 `contentPrimary`（描述列表惯例：字段名弱化、值强化）。 |
@@ -936,8 +959,8 @@
 | controlsize | 5 | 5 |
 | colors | 118 | 118 |
 | components | 91 | 91 |
-| enums | 30 | 30 |
-| enumcases | 110 | 110 |
+| enums | 35 | 35 |
+| enumcases | 128 | 128 |
 | protocols | 6 | 6 |
 | viewext | 41 | 41 |
 | styleext | 12 | 12 |

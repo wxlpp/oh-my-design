@@ -100,9 +100,9 @@ struct ComponentJudgeMutationTests {
         副本与真实源码的**类型声明文件键**不一致 —— 要么拷贝出了问题，要么根内相对路径的
         推导又被路径分叉污染了（`#311`）。上面两条比的是符号键，看不见这一味。
         """)
-        #expect(Set(judgeExtensionPoints(entries: entries, scan: copied).missing)
-                == ComponentExtensionPointGuard.knownMissingExtensionPoints,
-                "副本的 J-2 缺口与真实红名单不一致 —— 拷贝有问题，或红名单没同步")
+        let copiedMissing = judgeExtensionPoints(entries: entries, scan: copied).missing
+        #expect(copiedMissing.isEmpty,
+                "副本的 J-2 缺口非空（\(copiedMissing.count) 条：\(copiedMissing.sorted())）—— 拷贝有问题，或真实源码侧出现了新缺口")
         #expect(judgeNativeProtocolPurity(entries: entries, scan: copied).violations.isEmpty)
         #expect(Set(judgeTextParamCoverage(
             entries: entries, scan: copied, ownerAliases: ComponentTextParamGuard.ownerAliases
@@ -119,8 +119,8 @@ struct ComponentJudgeMutationTests {
         )
         let entries = try ComponentRegistryGuard.loadRegistry()
         let result = judgeExtensionPoints(entries: entries, scan: try scanComponentJudgeInputs(roots: self.copiedRoots(in: root)))
-        #expect(Set(result.missing) == ComponentExtensionPointGuard.knownMissingExtensionPoints.union(["Banner"]),
-                "登记表说 Banner 的扩展点是 BannerStyle，源码里没有这个协议声明了 ⇒ 必须判红")
+        #expect(Set(result.missing) == ["Banner"],
+                "登记表说 Banner 的扩展点是 BannerStyle，源码里没有这个协议声明了 ⇒ 必须只判 Banner 红，实际 \(result.missing.sorted())")
         #expect(result.diagnostics.contains { $0.contains("Banner：") && $0.contains("无该协议声明") })
     }
 
@@ -138,7 +138,7 @@ struct ComponentJudgeMutationTests {
         )
         let entries = try ComponentRegistryGuard.loadRegistry()
         let result = judgeExtensionPoints(entries: entries, scan: try scanComponentJudgeInputs(roots: self.copiedRoots(in: root)))
-        #expect(Set(result.missing) == ComponentExtensionPointGuard.knownMissingExtensionPoints.union(["Banner"]))
+        #expect(Set(result.missing) == ["Banner"], "实际缺口 \(result.missing.sorted())")
         #expect(result.diagnostics.contains { $0.contains("Banner：") && $0.contains("无实现类型") },
                 "只查协议声明、不查实现的话，把两个 style 实现删光判据照绿 —— AC 原文是『定义 + 使用』")
     }

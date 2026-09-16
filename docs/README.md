@@ -174,14 +174,14 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 |---|---|---|
 | TypewriterText | `TypewriterText(_:speed:)` / `TypewriterText(verbatim:speed:)` | [typewriter-text.md](components/typewriter-text.md) |
 | AnimatedMeshGradient | `AnimatedMeshGradient(colors:alternateColors:)` | [animated-mesh-gradient.md](components/animated-mesh-gradient.md) |
-| BeforeAfterSlider | `BeforeAfterSlider(labels:before:after:)` | [before-after-slider.md](components/before-after-slider.md) |
+| BeforeAfterSlider | `BeforeAfterSlider(labels:layout:before:after:)` | [before-after-slider.md](components/before-after-slider.md) |
 | ParticleTransition | `.transition(.particle)` / `.particle(count:colors:)` | [particle-transition.md](components/particle-transition.md) |
 
 ### 跨平台改造 / Cross-platform rewrites（AD-E）
 
 | 单位 | 入口 | 文档 |
 |---|---|---|
-| OrbitingLogos | `OrbitingLogos(_:logo:center:)` | [orbiting-logos.md](components/orbiting-logos.md) |
+| OrbitingLogos | `OrbitingLogos(_:colors:rotationPeriod:layout:logo:center:)` | [orbiting-logos.md](components/orbiting-logos.md) |
 | DotSphere | `DotSphere(count:colors:rotationPeriod:)` | [dot-sphere.md](components/dot-sphere.md) |
 | CharSphere | `CharSphere(_:count:colors:rotationPeriod:)` | [char-sphere.md](components/char-sphere.md) |
 | FullScreenButton | `FullScreenButton(destination:label:)` | [full-screen-button.md](components/full-screen-button.md) |
@@ -190,9 +190,9 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 
 | 单位 | 入口 | 文档 |
 |---|---|---|
-| RadarChart | `RadarChart(_:title:tint:)` | [radar-chart.md](components/radar-chart.md) |
-| RingChart | `RingChart(_:goal:title:tint:colors:)` | [ring-chart.md](components/ring-chart.md) |
-| ActivityHeatmap | `ActivityHeatmap(_:title:tint:calendar:)` | [activity-heatmap.md](components/activity-heatmap.md) |
+| RadarChart | `RadarChart(_:title:tint:layout:)` | [radar-chart.md](components/radar-chart.md) |
+| RingChart | `RingChart(_:goal:title:tint:colors:layout:)` | [ring-chart.md](components/ring-chart.md) |
+| ActivityHeatmap | `ActivityHeatmap(_:title:tint:calendar:layout:)` | [activity-heatmap.md](components/activity-heatmap.md) |
 | NetworkGraph | `NetworkGraph(nodes:edges:title:tint:layout:)` | [network-graph.md](components/network-graph.md) |
 
 ## NFR-1 帧率基准 / Frame-rate benchmark
