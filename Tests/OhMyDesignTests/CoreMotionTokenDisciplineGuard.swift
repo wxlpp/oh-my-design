@@ -3,8 +3,8 @@ import Testing
 
 // MARK: - 核心库动效纪律 / Core motion discipline
 
-@Suite("核心库动效纪律：动画只经 CoreMotion 取、含动效的文件登记 Reduce Motion 策略")
-struct CoreMotionDisciplineGuard {
+@Suite("核心库动效纪律：动画只经 CoreMotionToken 取、含动效的文件登记 Reduce Motion 策略")
+struct CoreMotionTokenDisciplineGuard {
     enum Strategy: Sendable {
         case tokenSource
         case gated
@@ -12,10 +12,10 @@ struct CoreMotionDisciplineGuard {
         case staticTransform
     }
 
-    static let tokenFile = "Tokens/CoreMotion.swift"
+    static let tokenFile = "Tokens/CoreMotionToken.swift"
 
     static let ledger: [String: Strategy] = [
-        "Tokens/CoreMotion.swift": .tokenSource,
+        "Tokens/CoreMotionToken.swift": .tokenSource,
         "Modifier/ButtonBackgroundModifier.swift": .gated,
         "Modifier/TelegramGlassButtonModifier.swift": .gated,
         "Modifier/SpinningModifier.swift": .gated,
@@ -109,12 +109,12 @@ struct CoreMotionDisciplineGuard {
         for name in ["withAnimation", ".animation("] {
             for (line, args) in Self.callArguments(of: name, in: code) {
                 guard let args else {
-                    out.append("\(path):\(line) \(name) 没有实参 —— 曲线落到 SwiftUI 默认值，不经 CoreMotion")
+                    out.append("\(path):\(line) \(name) 没有实参 —— 曲线落到 SwiftUI 默认值，不经 CoreMotionToken")
                     continue
                 }
                 let trimmed = args.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !args.contains("CoreMotion") && !trimmed.hasPrefix("nil") {
-                    out.append("\(path):\(line) \(name)(\(trimmed)) 的曲线不经 CoreMotion")
+                if !args.contains("CoreMotionToken") && !trimmed.hasPrefix("nil") {
+                    out.append("\(path):\(line) \(name)(\(trimmed)) 的曲线不经 CoreMotionToken")
                 }
             }
         }
@@ -166,8 +166,8 @@ struct CoreMotionDisciplineGuard {
         .sorted { $0.path < $1.path }
     }
 
-    @Test("核心库的动画曲线只经 CoreMotion 取")
-    func curvesComeFromCoreMotion() {
+    @Test("核心库的动画曲线只经 CoreMotionToken 取")
+    func curvesComeFromCoreMotionToken() {
         let sources = Self.coreSources()
         #expect(sources.count > 50, "只扫到 \(sources.count) 个文件 —— 扫描根不对，零违规不作数")
         let offenders = sources.flatMap { Self.curveViolations(path: $0.path, code: $0.code) }
@@ -198,7 +198,7 @@ struct CoreMotionDisciplineGuard {
         #expect(!Self.curveViolations(path: path, code: "withAnimation(.snappy) { v = 1 }").isEmpty)
         #expect(!Self.curveViolations(path: path, code: "let a: Animation = .smooth\nwithAnimation(a) { }").isEmpty)
         #expect(!Self.curveViolations(path: path, code: ".animation(.default, value: v)").isEmpty)
-        #expect(Self.curveViolations(path: path, code: "withAnimation(CoreMotion.press.animation(for: p)) { }").isEmpty)
+        #expect(Self.curveViolations(path: path, code: "withAnimation(CoreMotionToken.press.animation(for: p)) { }").isEmpty)
         #expect(Self.curveViolations(path: path, code: ".animation(nil, value: v)").isEmpty)
         #expect(!Self.curveViolations(path: path, code: "foo().animation(.easeInOut, value: v)").isEmpty,
                 "链在调用结果后的 .animation 仍是修饰符，必须检查")

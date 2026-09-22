@@ -20,7 +20,7 @@
 
 ### CoreDisclosureGroupStyle
 
-`.disclosureGroupStyle(.core)`。`label` + 随展开态旋转 90° 的 chevron 放进 `.plain` 样式的 `Button` 里（展开走 `CoreMotion.reveal`；Reduce Motion 下 chevron 不补间、直接到位，#407）；换皮后系统不再自动为这个自绘 `Button` 播报展开态，已显式补 `.accessibilityValue`（"Expanded" / "Collapsed"，走 `bundle: .module`）。
+`.disclosureGroupStyle(.core)`。`label` + 随展开态旋转 90° 的 chevron 放进 `.plain` 样式的 `Button` 里（展开走 `CoreMotionToken.reveal`；Reduce Motion 下 chevron 不补间、直接到位，#407）；换皮后系统不再自动为这个自绘 `Button` 播报展开态，已显式补 `.accessibilityValue`（"Expanded" / "Collapsed"，走 `bundle: .module`）。
 
 ### 诚实略过：Toggle / TextField
 

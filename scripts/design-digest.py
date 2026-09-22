@@ -37,7 +37,7 @@ FLOORS = {
     # #382：enums +1（CoreSheetBackground）、enumcases +2（.system / .raised）、viewext +1（View.coreSheetPresentation）。
     # #380：components +1（TagGroup）、enums +1（TagGroupSelectionMode）、enumcases +3（none / single / multiple）。
     # #398：colors +2（systemGray5 / statusNeutralSubtle）。
-    # #407：motion 新节 4（press / selection / reveal / scroll）、enums +1（CoreMotion）、
+    # #407：motion 新节 4（press / selection / reveal / scroll）、enums +1（CoreMotionToken）、
     # enumcases +4（同上四档）、viewext +1（View.coreAnimation）。
     "colors": 122, "components": 89, "enums": 45, "enumcases": 155,
     "protocols": 6, "viewext": 46, "styleext": 15, "others": 28,
@@ -257,9 +257,9 @@ def elevation_specs(root):
 
 
 def motion_tokens(root):
-    src = read(os.path.join(root, "Sources/OhMyDesign/Tokens/CoreMotion.swift"))
+    src = read(os.path.join(root, "Sources/OhMyDesign/Tokens/CoreMotionToken.swift"))
     lines = src.split("\n")
-    start = next(i for i, l in enumerate(lines) if "enum CoreMotion" in l)
+    start = next(i for i, l in enumerate(lines) if "enum CoreMotionToken" in l)
     cases = enum_cases(lines, start)
     durations = dict(re.findall(r"case\s+\.(\w+):\s*([\d.]+)", src.split("public var duration")[1].split("public var animation")[0]))
     curve_body = src.split("public var animation: Animation")[1].split("public func animation")[0]
@@ -499,13 +499,13 @@ def main():
 
     motion = motion_tokens(root)
     counts["motion"] = len(motion)
-    add(f"## `CoreMotion`（{len(motion)} 档，经 `.coreAnimation(_:value:)` 或 `animation(for:)` 取）\n")
+    add(f"## `CoreMotionToken`（{len(motion)} 档，经 `.coreAnimation(_:value:)` 或 `animation(for:)` 取）\n")
     add("Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting` 下前三档退为同时长 "
         "`easeInOut`（只用于淡变），`scroll` 退为不补间；位移 / 缩放 / 旋转本身由调用点去掉，框架不代劳。\n")
     add("| token | 时长 (s) | 曲线 | 用途 |")
     add("|---|---|---|---|")
     for name, duration, curve, doc in motion:
-        add(f"| `CoreMotion.{name}` | {duration} | `.{curve}` | {doc} |")
+        add(f"| `CoreMotionToken.{name}` | {duration} | `.{curve}` | {doc} |")
     add("")
 
     metrics = control_metrics(root)

@@ -188,6 +188,6 @@ nonisolated func useSettingsRowMetrics() -> [CGFloat] {
 //     `error: main actor-isolated default value in a nonisolated context`——初值求值
 //     发生在**模块内**。
 
-nonisolated func readCoreMotion() -> (TimeInterval, Animation?) {
-    (CoreMotion.reveal.duration, CoreMotion.scroll.animation(for: .resting))
+nonisolated func readCoreMotionToken() -> (TimeInterval, Animation?) {
+    (CoreMotionToken.reveal.duration, CoreMotionToken.scroll.animation(for: .resting))
 }

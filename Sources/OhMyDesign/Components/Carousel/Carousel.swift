@@ -78,7 +78,7 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Content: View
             return
         }
         guard !Task.isCancelled else { return }
-        withAnimation(CoreMotion.scroll.animation(for: self.motionPresentation)) {
+        withAnimation(CoreMotionToken.scroll.animation(for: self.motionPresentation)) {
             self.selection = Self.nextID(after: self.selection, in: ids)
         }
     }
@@ -97,7 +97,7 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Content: View
             ForEach(Array(self.ids.enumerated()), id: \.element) { index, id in
                 let isCurrent = id == self.selection
                 Button {
-                    withAnimation(CoreMotion.scroll.animation(for: self.motionPresentation)) {
+                    withAnimation(CoreMotionToken.scroll.animation(for: self.motionPresentation)) {
                         self.selection = id
                     }
                 } label: {

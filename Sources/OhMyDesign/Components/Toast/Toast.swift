@@ -109,7 +109,7 @@ public nonisolated enum ToastDefaults {
 
     static let defaultSeconds: TimeInterval = 3
 
-    static let dismissAnimationDuration: TimeInterval = CoreMotion.reveal.duration
+    static let dismissAnimationDuration: TimeInterval = CoreMotionToken.reveal.duration
 
     static let swipeDismissThreshold: CGFloat = CoreSpacing.xxl
 
@@ -376,8 +376,8 @@ struct ToastOverlay: View {
                 Color.clear.frame(height: 0)
             }
         }
-        .animation(CoreMotion.reveal.animation(for: self.motionPresentation), value: self.host.queue.first?.id)
-        .animation(CoreMotion.reveal.animation(for: self.motionPresentation), value: self.host.isDismissing)
+        .animation(CoreMotionToken.reveal.animation(for: self.motionPresentation), value: self.host.queue.first?.id)
+        .animation(CoreMotionToken.reveal.animation(for: self.motionPresentation), value: self.host.isDismissing)
     }
 
     private var horizontalPadding: CGFloat {

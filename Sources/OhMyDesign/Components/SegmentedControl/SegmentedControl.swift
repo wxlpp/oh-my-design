@@ -98,7 +98,7 @@ public struct SegmentedControl<Item: Hashable>: View {
     private let title: (Item) -> String
 
     private func select(_ item: Item) {
-        withAnimation(CoreMotion.selection.animation(for: self.motionPresentation)) {
+        withAnimation(CoreMotionToken.selection.animation(for: self.motionPresentation)) {
             self.selection = item
         }
     }

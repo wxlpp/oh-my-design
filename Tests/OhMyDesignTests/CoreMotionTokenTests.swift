@@ -2,49 +2,49 @@ import SwiftUI
 import Testing
 @testable import OhMyDesign
 
-// MARK: - CoreMotion token（#407 FR-2）
+// MARK: - CoreMotionToken token（#407 FR-2）
 
-@Suite("CoreMotion 动效 token")
+@Suite("CoreMotionToken 动效 token")
 struct CoreMotionTokenTests {
     @Test("四档 token 的时长与曲线")
     func tokenValues() {
-        #expect(CoreMotion.allCases == [.press, .selection, .reveal, .scroll])
-        #expect(CoreMotion.press.duration == 0.16)
-        #expect(CoreMotion.selection.duration == 0.22)
-        #expect(CoreMotion.reveal.duration == 0.25)
-        #expect(CoreMotion.scroll.duration == 0.35)
-        #expect(CoreMotion.press.animation == .snappy(duration: 0.16))
-        #expect(CoreMotion.selection.animation == .snappy(duration: 0.22))
-        #expect(CoreMotion.reveal.animation == .smooth(duration: 0.25))
-        #expect(CoreMotion.scroll.animation == .smooth(duration: 0.35))
+        #expect(CoreMotionToken.allCases == [.press, .selection, .reveal, .scroll])
+        #expect(CoreMotionToken.press.duration == 0.16)
+        #expect(CoreMotionToken.selection.duration == 0.22)
+        #expect(CoreMotionToken.reveal.duration == 0.25)
+        #expect(CoreMotionToken.scroll.duration == 0.35)
+        #expect(CoreMotionToken.press.animation == .snappy(duration: 0.16))
+        #expect(CoreMotionToken.selection.animation == .snappy(duration: 0.22))
+        #expect(CoreMotionToken.reveal.animation == .smooth(duration: 0.25))
+        #expect(CoreMotionToken.scroll.animation == .smooth(duration: 0.35))
     }
 
     @Test("时长按 press < selection < reveal < scroll 严格递增")
     func durationsAreOrdered() {
-        let durations = CoreMotion.allCases.map(\.duration)
+        let durations = CoreMotionToken.allCases.map(\.duration)
         #expect(durations == durations.sorted())
         #expect(Set(durations).count == durations.count)
     }
 
     @Test("animated ⇒ token 本身")
     func animatedReturnsToken() {
-        for motion in CoreMotion.allCases {
+        for motion in CoreMotionToken.allCases {
             #expect(motion.animation(for: .animated) == motion.animation)
         }
     }
 
     @Test("resting ⇒ 淡变类退为同时长 easeInOut，scroll 退为 nil（直接到位）")
     func restingDropsMotion() {
-        for motion in [CoreMotion.press, .selection, .reveal] {
+        for motion in [CoreMotionToken.press, .selection, .reveal] {
             #expect(motion.animation(for: .resting) == .easeInOut(duration: motion.duration))
             #expect(motion.animation(for: .resting) != motion.animation)
         }
-        #expect(CoreMotion.scroll.animation(for: .resting) == nil)
+        #expect(CoreMotionToken.scroll.animation(for: .resting) == nil)
     }
 
     @Test("hidden ⇒ 一律不补间")
     func hiddenIsInstant() {
-        for motion in CoreMotion.allCases {
+        for motion in CoreMotionToken.allCases {
             #expect(motion.animation(for: .hidden) == nil)
         }
     }
@@ -102,7 +102,7 @@ private func coverage(_ bytes: [UInt8]) -> (covered: Int, meanAlpha: Double) {
 
 @Suite("Reduce Motion 在核心库的降级（渲染）")
 @MainActor
-struct CoreMotionReduceMotionRenderTests {
+struct CoreMotionTokenReduceMotionRenderTests {
     private func pressedChrome(reduceMotion: Bool) -> some View {
         Color.clear
             .frame(width: 80, height: 40)
@@ -148,7 +148,7 @@ struct CoreMotionReduceMotionRenderTests {
 
 @Suite("Reduce Motion 降级点真值表")
 @MainActor
-struct CoreMotionDegradationTableTests {
+struct CoreMotionTokenDegradationTableTests {
     @Test("按钮 chrome：animated 缩放并保留调用方透明度；resting 不缩放、至多 0.7")
     func chromeFeedback() {
         #expect(PressFeedback.chrome(isPressed: false, pressedOpacity: 0.5, presentation: .resting) == .idle)
@@ -189,7 +189,7 @@ struct CoreMotionDegradationTableTests {
 
     @Test("Toast 退场计时与 reveal 同源")
     func toastTimerFollowsToken() {
-        #expect(ToastDefaults.dismissAnimationDuration == CoreMotion.reveal.duration)
+        #expect(ToastDefaults.dismissAnimationDuration == CoreMotionToken.reveal.duration)
     }
 
     @Test("滑动指示器：animated 各槽共用一个几何 ID（会滑），resting 各槽各自 ID（原地淡变）")
@@ -205,9 +205,12 @@ struct CoreMotionDegradationTableTests {
 
     @Test("变换动画：animated 补间，resting / hidden 直接到位")
     func transformAnimation() {
-        #expect(CoreMotion.reveal.transformAnimation(for: .animated) == CoreMotion.reveal.animation)
-        #expect(CoreMotion.reveal.transformAnimation(for: .resting) == nil)
-        #expect(CoreMotion.reveal.transformAnimation(for: .hidden) == nil)
+        #expect(CoreMotionToken.reveal.transformAnimation(for: .animated) == CoreMotionToken.reveal.animation)
+        #expect(CoreMotionToken.reveal.transformAnimation(for: .resting) == nil)
+        #expect(CoreMotionToken.reveal.transformAnimation(for: .hidden) == nil)
+        #expect(CoreMotionToken.selection.transformAnimation(for: .animated) == .snappy(duration: 0.22),
+                "标签栏把选中项滚到中间走 selection，不走页级的 scroll")
+        #expect(CoreMotionToken.selection.transformAnimation(for: .resting) == nil)
     }
 
     @Test("加载顶条：只有 animated 才扫动；静止位居中")
@@ -226,7 +229,7 @@ struct CoreMotionDegradationTableTests {
 
 @Suite("静息外观：与旧实现逐像素相同、与 RM 开关无关")
 @MainActor
-struct CoreMotionRestingAppearanceTests {
+struct CoreMotionTokenRestingAppearanceTests {
     private func chrome(pressed: Bool, legacy: Bool, reduceMotion: Bool = false) -> some View {
         Group {
             if legacy {

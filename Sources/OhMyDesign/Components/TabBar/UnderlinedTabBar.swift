@@ -35,7 +35,7 @@ public struct UnderlinedTabBar<Item: Hashable, Trailing: View>: View {
                                 slot: AnyHashable(item),
                                 namespace: self.indicatorNamespace
                             ) {
-                                withAnimation(CoreMotion.selection.animation(for: self.motionPresentation)) {
+                                withAnimation(CoreMotionToken.selection.animation(for: self.motionPresentation)) {
                                     self.selection = item
                                 }
                             }
@@ -48,7 +48,7 @@ public struct UnderlinedTabBar<Item: Hashable, Trailing: View>: View {
                     proxy.scrollTo(self.selection, anchor: .center)
                 }
                 .onChange(of: self.selection) { _, new in
-                    withAnimation(CoreMotion.scroll.animation(for: self.motionPresentation)) {
+                    withAnimation(CoreMotionToken.selection.transformAnimation(for: self.motionPresentation)) {
                         proxy.scrollTo(new, anchor: .center)
                     }
                 }

@@ -46,7 +46,7 @@ public struct TelegramGlassButtonModifier<S: InsettableShape>: ViewModifier {
             )
             .scaleEffect(feedback.scale)
             .opacity(feedback.opacity)
-            .animation(self.pressFeedback ? CoreMotion.press.animation(for: self.motionPresentation) : nil, value: self.isPressed)
+            .animation(self.pressFeedback ? CoreMotionToken.press.animation(for: self.motionPresentation) : nil, value: self.isPressed)
     }
 }
 

@@ -12,7 +12,7 @@ private struct DisclosureChevron: View {
         Image(systemName: "chevron.forward")
             .foregroundStyle(.tint)
             .rotationEffect(.degrees(self.rotation))
-            .animation(CoreMotion.reveal.transformAnimation(for: self.motionPresentation), value: self.isExpanded)
+            .animation(CoreMotionToken.reveal.transformAnimation(for: self.motionPresentation), value: self.isExpanded)
     }
 
     private var rotation: Double {
@@ -31,7 +31,7 @@ private struct DisclosureHeader<Label: View>: View {
 
     var body: some View {
         Button {
-            withAnimation(CoreMotion.reveal.animation(for: self.motionPresentation)) {
+            withAnimation(CoreMotionToken.reveal.animation(for: self.motionPresentation)) {
                 self.isExpanded.toggle()
             }
         } label: {

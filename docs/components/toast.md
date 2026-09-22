@@ -146,7 +146,7 @@ struct DetailView: View {
   图标 `info.circle` / `checkmark.circle` / `exclamationmark.triangle` / `exclamationmark.circle`（danger，与 `Banner` 的 `exclamationmark.circle.fill` 同属 circle 族，Toast 保持描线）；
   `neutral` 图标 `bell`、图标色 `contentSecondary`（正文各档统一为 `contentPrimary`）
 - 入场/出场动画：从 `edge` 方向滑入 + 淡入（⚠️ `.centeredHUD` 例外：改用不依赖方向的
-  缩放 + 淡入淡出），曲线 `CoreMotion.reveal`（`.smooth`，0.25 s），退场移除计时取同一个时长
+  缩放 + 淡入淡出），曲线 `CoreMotionToken.reveal`（`.smooth`，0.25 s），退场移除计时取同一个时长
 - Reduce Motion（#407）：三种形态一律原地淡入淡出，退场不位移、HUD 不缩放；拖拽跟手不受影响
   （直接操作）
 - 滑动手势：向 edge 方向滑动超过 `CoreSpacing.xxl`（32pt）触发 dismiss

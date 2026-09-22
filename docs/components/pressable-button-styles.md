@@ -9,7 +9,7 @@
 | `.pressableRow` | `PressableRowButtonStyle` | label 之上叠一层 `Color.pressedBackground`（半透明，不拦点击） | 同左（不涉及动效） | 不给反馈，整体 `opacity 0.4` |
 | `.pressableCard` | `PressableCardButtonStyle` | label 按 `CoreButtonMetrics.pressedScale`（0.94）缩放 | **不缩放**，只变暗（`opacity 0.7`） | 不给反馈，整体 `opacity 0.4` |
 
-两者都是无参数 `init()`，经 `ButtonStyle` 的静态成员使用；按下 / 抬起走 `CoreMotion.press`（`.snappy`，0.16 s；#407 前是 0.15 s ease-out），Reduce Motion 下退为同时长 `easeInOut`。
+两者都是无参数 `init()`，经 `ButtonStyle` 的静态成员使用；按下 / 抬起走 `CoreMotionToken.press`（`.snappy`，0.16 s；#407 前是 0.15 s ease-out），Reduce Motion 下退为同时长 `easeInOut`。
 
 ## 与《按钮样式模式》的有意例外
 

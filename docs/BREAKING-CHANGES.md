@@ -22,24 +22,24 @@
 
 ## 未发布（相对 `v0.11.0`）——Issue #407：动效 token 与 Reduce Motion 纪律
 
-**行为变更（无签名破坏）。** 公开符号的签名一个都没变；新增 `CoreMotion`、`EnvironmentValues.coreMotionPresentation`、
-`View.coreAnimation(_:value:)`。核心库所有过渡曲线改经 `CoreMotion` 取，下列时长 / 曲线随之变化：
+**行为变更（无签名破坏）。** 公开符号的签名一个都没变；新增 `CoreMotionToken`、`EnvironmentValues.coreMotionPresentation`、
+`View.coreAnimation(_:value:)`。核心库所有过渡曲线改经 `CoreMotionToken` 取，下列时长 / 曲线随之变化：
 
 | 位置 | 之前 | 现在 |
 |---|---|---|
-| `.pressableRow` / `.pressableCard` 按下 | `.easeOut(duration: 0.15)` | `CoreMotion.press`（`.snappy`，0.16 s） |
-| `.borderless()` 按下变色 | `.easeInOut`（默认时长） | `CoreMotion.press` |
-| `SegmentedControl` 切换 | `.easeInOut(duration: 0.18)` | `CoreMotion.selection`（`.snappy`，0.22 s） |
-| `UnderlinedTabBar` 把选中项滚到中间 | `.snappy(duration: 0.2)` | `CoreMotion.scroll`（`.smooth`，0.35 s） |
-| `CheckBox` / `RadioGroup` 选中切换 | `.easeOut(duration: 0.25)` | `CoreMotion.selection` |
-| `FormField` 校验消息 / 说明切换 | `.easeInOut(duration: 0.2)` | `CoreMotion.reveal`（`.smooth`，0.25 s） |
-| `.disclosureGroupStyle(.core)` 展开 | `.snappy`（默认时长） | `CoreMotion.reveal` |
-| `Carousel` 翻页（自动轮播与点页点） | `withAnimation`（`.default`） | `CoreMotion.scroll` |
-| `Toast` 进出 | `.easeInOut(duration: 0.25)` | `CoreMotion.reveal`（时长不变，曲线换成 `.smooth`） |
-| `Skeleton` 占位 ↔ 内容、`.spinning(_:)` 出现 / 消失 | `.animation(.default, …)` | `CoreMotion.reveal` |
+| `.pressableRow` / `.pressableCard` 按下 | `.easeOut(duration: 0.15)` | `CoreMotionToken.press`（`.snappy`，0.16 s） |
+| `.borderless()` 按下变色 | `.easeInOut`（默认时长） | `CoreMotionToken.press` |
+| `SegmentedControl` 切换 | `.easeInOut(duration: 0.18)` | `CoreMotionToken.selection`（`.snappy`，0.22 s） |
+| `UnderlinedTabBar` 把选中项滚到中间 | `.snappy(duration: 0.2)` | `CoreMotionToken.selection`（`.snappy`，0.22 s） |
+| `CheckBox` / `RadioGroup` 选中切换 | `.easeOut(duration: 0.25)` | `CoreMotionToken.selection` |
+| `FormField` 校验消息 / 说明切换 | `.easeInOut(duration: 0.2)` | `CoreMotionToken.reveal`（`.smooth`，0.25 s） |
+| `.disclosureGroupStyle(.core)` 展开 | `.snappy`（默认时长） | `CoreMotionToken.reveal` |
+| `Carousel` 翻页（自动轮播与点页点） | `withAnimation`（`.default`） | `CoreMotionToken.scroll` |
+| `Toast` 进出 | `.easeInOut(duration: 0.25)` | `CoreMotionToken.reveal`（时长不变，曲线换成 `.smooth`） |
+| `Skeleton` 占位 ↔ 内容、`.spinning(_:)` 出现 / 消失 | `.animation(.default, …)` | `CoreMotionToken.reveal` |
 
 按钮背景、`TelegramGlassButtonModifier`、`AsyncButton`、`UnderlinedTabBar` 选中切换的曲线原本就是
-`CoreMotion` 对应档位的值，不变。
+`CoreMotionToken` 对应档位的值，不变。
 
 **Reduce Motion 开启时的新行为**（静息外观不变；只影响开启了「减弱动态效果」的用户）：
 
@@ -52,9 +52,6 @@
 | `.spinning(_:presentation: .topBar)` 顶条 | 循环扫动 | 静止居中 |
 | `Carousel` 点页点、`UnderlinedTabBar` 滚到选中项 | 滚动补间 | 直接到位 |
 | 上面所有淡变类动画 | 各自的曲线 | 同时长 `easeInOut` |
-
-- ⚠️ 类型名 `CoreMotion` 与 Apple 的 CoreMotion 框架同名：同一文件同时 `import OhMyDesign` 与 `import CoreMotion` 时，
-  模块限定写法 `CoreMotion.CMMotionManager` 会解析到本库的类型而编译失败；改用不带模块前缀的 `CMMotionManager`。
 
 ## `0.11.0`（2026-09-22）——Issue #399：浮层与层级（Toast / `floatingGlass` / `.surface`）
 

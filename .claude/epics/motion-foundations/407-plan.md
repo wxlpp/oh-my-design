@@ -33,10 +33,10 @@ skid / wipe / blinds / clock / glare / dissolve 等），以及 blur / filmExpos
 「`hasMotion` 必须是 `false`，否则框架会换成 opacity」。按更正传播约定三处落点（源码注释 / docs / registry）
 一起改：结论改为「实测框架不替换，内层 RM 门控是生产路径上真正生效的那道」。
 
-## FR-2 公开 API（`Sources/OhMyDesign/Tokens/CoreMotion.swift`）
+## FR-2 公开 API（`Sources/OhMyDesign/Tokens/CoreMotionToken.swift`）
 
 ```swift
-public nonisolated enum CoreMotion: Sendable, CaseIterable {
+public nonisolated enum CoreMotionToken: Sendable, CaseIterable {
     case press, selection, reveal, scroll
     public var duration: TimeInterval { get }
     public var animation: Animation { get }
@@ -46,7 +46,7 @@ public extension EnvironmentValues {
     var coreMotionPresentation: MotionPresentation { get }   // RM ⇒ .resting，否则 .animated
 }
 public extension View {
-    func coreAnimation(_ motion: CoreMotion, value: some Equatable) -> some View
+    func coreAnimation(_ motion: CoreMotionToken, value: some Equatable) -> some View
 }
 ```
 
@@ -55,10 +55,9 @@ public extension View {
   `.hidden` 一律 `nil`。位移 / 缩放 / 旋转本身由调用点按 `coreMotionPresentation` 去掉。
 - 取值：`press` = `.snappy(duration: 0.16)`（现有 4 处里 3 处已是它）；`selection` = `.snappy(duration: 0.22)`
   （`UnderlinedTabBar` 现值）；`reveal` = `.smooth(duration: 0.25)`（与 `ToastDefaults` 的 0.25 s 退场计时同源）；
-  `scroll` = `.smooth(duration: 0.35)`（整页位移行程长，比 selection 慢一档）。`.bouncy` 有意不用。
-- 名字冲突：类型名与 Apple 的 CoreMotion 框架同名。实测（scratch 包）同时 `import` 两者时
-  `CoreMotion.press` 正常、`CMMotionManager()` 正常，但**模块限定写法** `CoreMotion.CMMotionManager`
-  报 `type 'CoreMotion' has no member 'CMMotionManager'`。登记进 docs，并作为待决点上报。
+  `scroll` = `.smooth(duration: 0.35)`（只用于页级位移，如走马灯翻页；整页行程长，比 selection 慢一档）。标签栏把选中项滚到中间走 `selection`。`.bouncy` 有意不用。
+- 命名：类型名取 `CoreMotionToken` 而不是 `CoreMotion`——后者与 Apple 的 CoreMotion 框架同名，下游同时 `import`
+  两者时模块限定写法 `CoreMotion.CMMotionManager` 会解析到本库类型而编译失败（scratch 包实测）；尚未发版，直接避开。
 
 ## 迁移清单（核心库全部写死的动画参数）
 
@@ -71,7 +70,7 @@ public extension View {
 | `Components/Button/AsyncButton.swift:61` | `.snappy(duration: 0.16)` | `press` | 无 |
 | `Components/SegmentedControl/SegmentedControl.swift:100` | `.easeInOut(duration: 0.18)` | `selection` | 0.18 easeInOut → 0.22 snappy；RM 下滑块不滑、原地淡变 |
 | `Components/TabBar/UnderlinedTabBar.swift:37` | `.snappy(duration: 0.22)` | `selection` | 无；RM 下下划线不滑、原地淡变 |
-| `Components/TabBar/UnderlinedTabBar.swift:50` | `.snappy(duration: 0.2)` | `scroll` | 0.2 snappy → 0.35 smooth；RM 下直接跳 |
+| `Components/TabBar/UnderlinedTabBar.swift:50` | `.snappy(duration: 0.2)` | `selection`（经 `transformAnimation`） | 0.2 → 0.22 s，曲线同为 snappy；RM 下直接跳 |
 | `Components/CheckBox/CheckBox.swift:41` | `.easeOut(duration: 0.25)` | `selection` | 0.25 easeOut → 0.22 snappy（#408 会重写该处） |
 | `Components/Radio/Radio.swift:80` | `.easeOut(duration: 0.25)` | `selection` | 同上 |
 | `Components/FormField/FormField.swift:104` | `.easeInOut(duration: 0.2)` | `reveal` | 0.2 easeInOut → 0.25 smooth |
@@ -84,22 +83,22 @@ public extension View {
 循环周期常量（`SkeletonShimmerMath.duration` 1.4 s、`TopBarIndicator.period` 1.1 s）不是过渡曲线，留在组件内；
 二者都已在 RM 下不建 `TimelineView`。
 
-## FR-3 判据（`Tests/OhMyDesignTests/CoreMotionDisciplineGuard.swift`）
+## FR-3 判据（`Tests/OhMyDesignTests/CoreMotionTokenDisciplineGuard.swift`）
 
-1. **动画只经 `CoreMotion` 取**：核心库每个 `withAnimation(` / `.animation(` 的实参必须引用 `CoreMotion`
+1. **动画只经 `CoreMotionToken` 取**：核心库每个 `withAnimation(` / `.animation(` 的实参必须引用 `CoreMotionToken`
    （或是字面 `nil`）；无参 `withAnimation {` 判红；曲线构造字面量（`.snappy` / `.smooth` / `.bouncy` / `.spring` /
-   `.easeIn…` / `.linear(` / `.interactiveSpring` / `Animation.default`）只许出现在 `Tokens/CoreMotion.swift`。
+   `.easeIn…` / `.linear(` / `.interactiveSpring` / `Animation.default`）只许出现在 `Tokens/CoreMotionToken.swift`。
 2. **含动效的文件必须登记 RM 策略（双向差集）**：台账 `[相对路径: 策略]`，策略三选一：
    `gated`（经 `\.coreMotionPresentation` 读 RM 并分支）、`fadeOnly`（只有透明度 / 颜色插值，不得出现任何位移 /
    缩放 / 旋转 / matchedGeometry / move / scale 转场）、`staticTransform`（有常量变换但不带任何动画触发）。
-3. **RM 只有一个读取入口**：除 `Tokens/CoreMotion.swift` 外，核心库不得直接读 `\.accessibilityReduceMotion`。
+3. **RM 只有一个读取入口**：除 `Tokens/CoreMotionToken.swift` 外，核心库不得直接读 `\.accessibilityReduceMotion`。
 4. 扫描器自证：合成输入逐条打红（未登记文件、无参 `withAnimation`、字面曲线、fadeOnly 里混进 `scaleEffect`、
    gated 文件不读入口）。
 
 行为判据（每个 gated 点一条，优先渲染 / 纯函数，不靠 grep）：`PressFeedback.chrome` / `.card` 在 `.resting` 下
 scale = 1、opacity = 0.7；Toast 转场种类 / 退场位移 / HUD 缩放在 `.resting` 下为淡变 / 0 / 1；Segmented /
 UnderlinedTabBar 的滑动指示在 `.resting` 下关闭；Disclosure chevron 在 `.resting` 下旋转不补间；TopBar 在
-`.resting` 下不扫动；`CoreMotion` 取值与 `animation(for:)` 映射；`EnvironmentValues.coreMotionPresentation`
+`.resting` 下不扫动；`CoreMotionToken` 取值与 `animation(for:)` 映射；`EnvironmentValues.coreMotionPresentation`
 随 `_accessibilityReduceMotion` 注入翻转；静息外观：按钮背景与 Telegram 对照原样拷贝的旧实现逐像素相等
 （按下态缩放后 ±1 LSB 有界等价），Segmented / UnderlinedTabBar / Disclosure / Toast 断言 RM 开关下静息位图相同
 （RM 关路径只换了几何 ID 的类型与曲线，未另拷旧实现）。
@@ -112,10 +111,6 @@ Effects 三份 transition 文档 + registry notes 更正 `hasMotion`；`scripts/
 实际值调 FLOORS；`docs/BREAKING-CHANGES.md` 新节 `未发布（相对 v0.11.0）——Issue #407`（`v0.11.0` 已发布，
 派单写的 `v0.10.0` 已过时）；MainActor 豁免不增。
 
-## 待决点
-
-- 类型名 `CoreMotion` 与 Apple 框架同名（见上）。备选 `CoreMotionToken`；按派单先用 `CoreMotion`。
-
 ## 实现后取证（iOS 26.4 模拟器录屏，30 fps 抽帧，像素为 @3x）
 
 | 动效 | RM 关 | RM 开 |
@@ -125,7 +120,7 @@ Effects 三份 transition 文档 + registry notes 更正 `hasMotion`；`scripts/
 | `.spinning(.topBar)` 顶条 | 暗条 x 逐帧右移 ≈ 42 px / 帧 | 暗条恒在 384–701（居中静止） |
 | Toast 退场 / 入场 | 胶囊下沿 y 167 → 131 → 72 → 1（上滑出）、入场 101 → 167（下滑入） | 下沿恒为 166–167，只有像素数下降 / 回升（原地淡变） |
 
-单测侧：`CoreMotionInFlightTests`（仅 macOS 腿——iOS 上 `layer.render(in:)` 拍不到进行中的帧）在托管窗口里
+单测侧：`CoreMotionTokenInFlightTests`（仅 macOS 腿——iOS 上 `layer.render(in:)` 拍不到进行中的帧）在托管窗口里
 逐帧采样，Segmented / UnderlinedTabBar / Toast / Disclosure chevron 四处在 RM 开时「途经像素」为 0、RM 关时为正；
 把 Segmented / UnderlinedTabBar 的几何 ID 改回固定串、或把 chevron 的补间改回无条件，对应判据当场判红。
 

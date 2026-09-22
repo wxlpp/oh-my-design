@@ -28,7 +28,7 @@ private struct ButtonBackgroundModifier<S: InsettableShape>: ViewModifier {
             )
             .scaleEffect(feedback.scale)
             .opacity(feedback.opacity)
-            .animation(CoreMotion.press.animation(for: self.motionPresentation), value: self.isPressed)
+            .animation(CoreMotionToken.press.animation(for: self.motionPresentation), value: self.isPressed)
     }
 }
 

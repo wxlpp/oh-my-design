@@ -1,6 +1,6 @@
 import SwiftUI
 
-// MARK: - CoreMotion
+// MARK: - CoreMotionToken
 
 /// 语义化动效 token：核心库所有过渡动画的唯一来源，按「这次变化是什么」而不是按曲线参数命名。
 ///
@@ -8,17 +8,14 @@ import SwiftUI
 /// 有意不提供 `.bouncy` 档。Reduce Motion 经 `animation(for:)` 与
 /// `EnvironmentValues.coreMotionPresentation` 纳入：框架**不会**替调用方降级位移 / 缩放 / 旋转，
 /// 这些变换本身须由调用点按 `coreMotionPresentation` 去掉。
-///
-/// ⚠️ 与 Apple 的 CoreMotion 框架同名：同一文件同时 `import` 两者时，模块限定写法
-/// `CoreMotion.CMMotionManager` 会解析到本类型而编译失败；改用不带模块前缀的 `CMMotionManager`。
-public nonisolated enum CoreMotion: Sendable, CaseIterable {
+public nonisolated enum CoreMotionToken: Sendable, CaseIterable {
     /// 直接操作的即时反馈：按压缩放 / 变暗、按钮内 label 与进度的切换。0.16 s snappy。
     case press
-    /// 选中态切换：分段控件滑块、下划线标签、勾选 / 单选。0.22 s snappy。
+    /// 选中态切换：分段控件滑块、下划线标签（含把选中项滚到中间）、勾选 / 单选。0.22 s snappy。
     case selection
     /// 出现 / 消失 / 展开：Toast 进出、表单消息、折叠组、加载遮罩。0.25 s smooth。
     case reveal
-    /// 滚动定位与翻页：走马灯翻页、标签栏把选中项滚到中间。0.35 s smooth；Reduce Motion 下直接到位。
+    /// 页级位移：走马灯翻页。0.35 s smooth；Reduce Motion 下直接到位。
     case scroll
 
     /// 该档的时长（秒）。与动画节奏耦合的计时（例如退场后再移除）应取这里，而不是另写字面量。
@@ -71,13 +68,13 @@ public extension View {
     ///   - motion: 动效档位。
     ///   - value: 触发动画的值。
     /// - Returns: 施加了对应曲线的视图。
-    func coreAnimation(_ motion: CoreMotion, value: some Equatable) -> some View {
+    func coreAnimation(_ motion: CoreMotionToken, value: some Equatable) -> some View {
         self.modifier(CoreAnimationModifier(motion: motion, value: value))
     }
 }
 
 private struct CoreAnimationModifier<Value: Equatable>: ViewModifier {
-    let motion: CoreMotion
+    let motion: CoreMotionToken
     let value: Value
 
     @Environment(\.coreMotionPresentation) private var presentation
@@ -95,7 +92,7 @@ extension MotionPresentation {
     }
 }
 
-extension CoreMotion {
+extension CoreMotionToken {
     nonisolated func transformAnimation(for presentation: MotionPresentation) -> Animation? {
         presentation == .animated ? self.animation : nil
     }

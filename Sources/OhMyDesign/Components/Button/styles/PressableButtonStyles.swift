@@ -98,7 +98,7 @@ struct PressableRowBody<Label: View>: View {
                 }
             }
             .opacity(feedback.opacity)
-            .animation(CoreMotion.press.animation(for: self.motionPresentation), value: feedback)
+            .animation(CoreMotionToken.press.animation(for: self.motionPresentation), value: feedback)
     }
 }
 
@@ -118,7 +118,7 @@ struct PressableCardBody<Label: View>: View {
         self.label
             .scaleEffect(feedback.scale)
             .opacity(feedback.opacity)
-            .animation(CoreMotion.press.animation(for: self.motionPresentation), value: feedback)
+            .animation(CoreMotionToken.press.animation(for: self.motionPresentation), value: feedback)
     }
 }
 

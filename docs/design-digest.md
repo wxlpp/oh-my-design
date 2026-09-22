@@ -140,16 +140,16 @@
 | `.medium` | 4 | 2 |
 | `.large` | 12 | 6 |
 
-## `CoreMotion`（4 档，经 `.coreAnimation(_:value:)` 或 `animation(for:)` 取）
+## `CoreMotionToken`（4 档，经 `.coreAnimation(_:value:)` 或 `animation(for:)` 取）
 
 Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting` 下前三档退为同时长 `easeInOut`（只用于淡变），`scroll` 退为不补间；位移 / 缩放 / 旋转本身由调用点去掉，框架不代劳。
 
 | token | 时长 (s) | 曲线 | 用途 |
 |---|---|---|---|
-| `CoreMotion.press` | 0.16 | `.snappy` | 直接操作的即时反馈：按压缩放 / 变暗、按钮内 label 与进度的切换。 |
-| `CoreMotion.selection` | 0.22 | `.snappy` | 选中态切换：分段控件滑块、下划线标签、勾选 / 单选。 |
-| `CoreMotion.reveal` | 0.25 | `.smooth` | 出现 / 消失 / 展开：Toast 进出、表单消息、折叠组、加载遮罩。 |
-| `CoreMotion.scroll` | 0.35 | `.smooth` | 滚动定位与翻页：走马灯翻页、标签栏把选中项滚到中间。 |
+| `CoreMotionToken.press` | 0.16 | `.snappy` | 直接操作的即时反馈：按压缩放 / 变暗、按钮内 label 与进度的切换。 |
+| `CoreMotionToken.selection` | 0.22 | `.snappy` | 选中态切换：分段控件滑块、下划线标签（含把选中项滚到中间）、勾选 / 单选。 |
+| `CoreMotionToken.reveal` | 0.25 | `.smooth` | 出现 / 消失 / 展开：Toast 进出、表单消息、折叠组、加载遮罩。 |
+| `CoreMotionToken.scroll` | 0.35 | `.smooth` | 页级位移：走马灯翻页。 |
 
 ## `CoreControlMetrics`（按 SwiftUI `ControlSize`，5 档）
 
@@ -739,13 +739,13 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 - *enum* **`CoreElevation`** — 阴影 / 高度 (elevation) token，只用于真正悬浮于内容之上的元素。
 - *struct* **`CoreElevation.Spec`** — 单档 elevation 的视觉规格。
 
-### `Tokens/CoreMotion.swift`
+### `Tokens/CoreMotionToken.swift`
 
-- *enum* **`CoreMotion`** — 语义化动效 token：核心库所有过渡动画的唯一来源，按「这次变化是什么」而不是按曲线参数命名。
+- *enum* **`CoreMotionToken`** — 语义化动效 token：核心库所有过渡动画的唯一来源，按「这次变化是什么」而不是按曲线参数命名。
   - `.press` — 直接操作的即时反馈：按压缩放 / 变暗、按钮内 label 与进度的切换。0.16 s snappy。
-  - `.selection` — 选中态切换：分段控件滑块、下划线标签、勾选 / 单选。0.22 s snappy。
+  - `.selection` — 选中态切换：分段控件滑块、下划线标签（含把选中项滚到中间）、勾选 / 单选。0.22 s snappy。
   - `.reveal` — 出现 / 消失 / 展开：Toast 进出、表单消息、折叠组、加载遮罩。0.25 s smooth。
-  - `.scroll` — 滚动定位与翻页：走马灯翻页、标签栏把选中项滚到中间。0.35 s smooth；Reduce Motion 下直接到位。
+  - `.scroll` — 页级位移：走马灯翻页。0.35 s smooth；Reduce Motion 下直接到位。
 
 ### `Tokens/CoreRadius.swift`
 

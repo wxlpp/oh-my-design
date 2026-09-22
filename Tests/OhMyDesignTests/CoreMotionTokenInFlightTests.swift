@@ -53,7 +53,7 @@ private struct DisclosureHarness: View {
 
 @Suite("动画进行中：Reduce Motion 下指示器只在起止两处淡变，不途经中间", .serialized)
 @MainActor
-struct CoreMotionInFlightTests {
+struct CoreMotionTokenInFlightTests {
     enum Axis { case horizontal, vertical }
 
     static func motionTrace(before: HostedPixels, after: HostedPixels, frame: HostedPixels, axis: Axis = .horizontal) -> Int {
@@ -84,7 +84,7 @@ struct CoreMotionInFlightTests {
         _ content: some View,
         box: SelectionBox,
         target: String,
-        motion: CoreMotion,
+        motion: CoreMotionToken,
         reduceMotion: Bool,
         size: CGSize
     ) -> (peak: Int, changed: Bool) {
@@ -194,7 +194,7 @@ struct CoreMotionInFlightTests {
                 scheme: .light
             )
             let before = window.pixels()
-            withAnimation(CoreMotion.reveal.animation(for: reduceMotion ? .resting : .animated)) {
+            withAnimation(CoreMotionToken.reveal.animation(for: reduceMotion ? .resting : .animated)) {
                 box.isExpanded = true
             }
             var frames: [HostedPixels] = []
