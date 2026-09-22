@@ -76,7 +76,7 @@ VoiceOver 读到错误原因。
 
 **US-9 应用开发者**：我想在卡片里再放卡片时自动分出层级，并一行代码得到符合本库风格的 sheet。
 - 验收：`.surface(.content)` 内的 `Card` 自动取 `surfaceElevated`；`coreSheetPresentation()`
-  设置圆角 `CoreRadius.xLarge`、拖拽指示条与 raised 背景。
+  显示拖拽指示条、圆角交给系统（与 iOS 26 浮动 sheet 一致），背景缺省系统 Liquid Glass、可选不透明 raised。
 
 **US-10 应用开发者**：`SearchField().disabled(true)` 应当不可输入且外观变灰。
 - 验收：运行期复现缺陷后修复；回车键显示为「搜索」。
