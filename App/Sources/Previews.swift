@@ -592,13 +592,21 @@ enum PreviewSnapshotFixtures {
         .fieldRequirement(.required)
         .fieldValidation(.invalid("Enter a valid email address."))
 
-        FormField("Zip", layout: .inline) {
-            TextField("95014", text: .constant("950"))
-                .textFieldStyle(.roundedBorder)
-                .fieldAccessibility()
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            FormField("City", layout: .inline) {
+                TextField("Cupertino", text: .constant(""))
+                    .textFieldStyle(.roundedBorder)
+                    .fieldAccessibility()
+            }
+            FormField("Postal code", layout: .inline) {
+                TextField("95014", text: .constant("950"))
+                    .textFieldStyle(.roundedBorder)
+                    .fieldAccessibility()
+            }
+            .fieldRequirement(.required)
+            .fieldValidation(.invalid("Enter a 5-digit postal code."))
         }
-        .fieldRequirement(.required)
-        .fieldValidation(.invalid("Enter a 5-digit zip code."))
+        .formFieldLabelColumn()
     }
     .padding()
     .frame(width: 360)

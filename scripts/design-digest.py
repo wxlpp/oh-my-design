@@ -32,6 +32,7 @@ FLOORS = {
     # enumcases +4（2 + 2）、viewext +3（fieldValidation / fieldRequirement / fieldAccessibilityHint）。
     # #373：components +1（FormField）、enums +3（FieldValidation / FieldRequirement / FormFieldLayout）、
     # enumcases +6（2 + 2 + 2）、viewext +3（fieldValidation / fieldRequirement / fieldAccessibility）。
+    # enumcases +6（2 + 2 + 2）、viewext +4（fieldValidation / fieldRequirement / fieldAccessibility / formFieldLabelColumn）。
     "colors": 120, "components": 85, "enums": 41, "enumcases": 144,
     "protocols": 6, "viewext": 43, "styleext": 12, "others": 27,
 }

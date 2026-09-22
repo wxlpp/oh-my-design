@@ -33,6 +33,7 @@ public struct FormField<Content: View>: View {
     @Environment(\.fieldRequirement) private var requirement
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.formFieldLabelColumnWidth) private var labelColumnWidth
     @Namespace private var pairNamespace
 
     private init(label: Text, description: Text?, layout: FormFieldLayout, content: Content) {
@@ -75,32 +76,44 @@ public struct FormField<Content: View>: View {
         self.init(label: Text(label), description: description.map { Text($0) }, layout: layout, content: content())
     }
 
-    /// 按排布形态渲染 label、控件、description 与错误行。
+    /// 按排布形态渲染 label、控件，以及 description 或错误行。
     public var body: some View {
         let appearance = FieldAppearance.resolve(
             isEnabled: self.isEnabled,
             validation: self.validation,
             isFocused: false
         )
+        let layout = self.layout.resolved(for: self.dynamicTypeSize)
+        let container = self.containerLayout(layout)
 
-        Group {
-            switch self.layout.resolved(for: self.dynamicTypeSize) {
-            case .stacked:
-                VStack(alignment: .leading, spacing: CoreSpacing.xs) {
-                    self.labelRow(appearance: appearance)
-                    self.controlColumn(appearance: appearance)
+        container {
+            self.labelRow(appearance: appearance)
+                .fixedSize(horizontal: layout == .inline, vertical: false)
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: FormFieldLabelWidthKey.self,
+                            value: layout == .inline ? proxy.size.width : 0
+                        )
+                    }
                 }
-            case .inline:
-                HStack(alignment: .firstTextBaseline, spacing: CoreSpacing.md) {
-                    self.labelRow(appearance: appearance)
-                        .fixedSize()
-                    self.controlColumn(appearance: appearance)
-                }
-            }
+                .frame(minWidth: layout == .inline ? self.labelColumnWidth : nil, alignment: .leading)
+            self.controlColumn(appearance: appearance)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .animation(.easeInOut(duration: 0.2), value: self.validation)
+        .animation(.easeInOut(duration: 0.2), value: FormFieldSlot.resolve(
+            appearance: appearance,
+            validation: self.validation,
+            hasDescription: self.description != nil
+        ))
         .modifier(FieldValidationAnnouncementModifier())
+    }
+
+    private func containerLayout(_ layout: FormFieldLayout) -> AnyLayout {
+        switch layout {
+        case .stacked: AnyLayout(VStackLayout(alignment: .leading, spacing: CoreSpacing.xs))
+        case .inline: AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: CoreSpacing.md))
+        }
     }
 
     // MARK: - Control column
@@ -110,16 +123,11 @@ public struct FormField<Content: View>: View {
             self.content
                 .environment(\.fieldDescription, self.description)
                 .environment(\.fieldLabel, self.label)
+                .environment(\.fieldValidationAnnounced, true)
                 .accessibilityLabeledPair(role: .content, id: FormFieldPairID.field, in: self.pairNamespace)
 
-            if let description = self.description {
-                description
-                    .coreFont(.footnote)
-                    .foregroundStyle(appearance == .disabled ? Color.contentDisabled : Color.contentSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            if case .invalid(let reason) = self.validation {
+            switch FormFieldSlot.resolve(appearance: appearance, validation: self.validation, hasDescription: self.description != nil) {
+            case .error(let reason):
                 HStack(alignment: .firstTextBaseline, spacing: CoreSpacing.xxs) {
                     Image(systemName: "exclamationmark.circle.fill")
                         .accessibilityHidden(true)
@@ -129,6 +137,14 @@ public struct FormField<Content: View>: View {
                 .foregroundStyle(appearance.messageColor)
                 .fixedSize(horizontal: false, vertical: true)
                 .transition(.opacity)
+            case .description:
+                self.description
+                    .coreFont(.footnote)
+                    .foregroundStyle(appearance == .disabled ? Color.contentDisabled : Color.contentSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .transition(.opacity)
+            case .empty:
+                EmptyView()
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -150,6 +166,52 @@ public struct FormField<Content: View>: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(FormFieldAccessibility.label(self.label, requirement: self.requirement))
         .accessibilityLabeledPair(role: .label, id: FormFieldPairID.field, in: self.pairNamespace)
+    }
+}
+
+// MARK: - Label column
+
+public extension View {
+    /// 让这棵子树里所有 `.inline` 排布的 `FormField` 共用同一 label 列宽（取其中最宽的 label），使控件左缘对齐。
+    ///
+    /// - Returns: 统一了 label 列宽的视图。
+    func formFieldLabelColumn() -> some View {
+        self.modifier(FormFieldLabelColumnModifier())
+    }
+}
+
+nonisolated struct FormFieldLabelWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+extension EnvironmentValues {
+    @Entry var formFieldLabelColumnWidth: CGFloat? = nil
+}
+
+private struct FormFieldLabelColumnModifier: ViewModifier {
+    @State private var width: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.formFieldLabelColumnWidth, self.width > 0 ? self.width : nil)
+            .onPreferenceChange(FormFieldLabelWidthKey.self) { self.width = $0 }
+    }
+}
+
+enum FormFieldSlot: Equatable {
+    case error(LocalizedStringResource)
+    case description
+    case empty
+
+    static func resolve(appearance: FieldAppearance, validation: FieldValidation, hasDescription: Bool) -> FormFieldSlot {
+        if appearance != .disabled, case .invalid(let reason) = validation {
+            return .error(reason)
+        }
+        return hasDescription ? .description : .empty
     }
 }
 
@@ -189,11 +251,28 @@ enum FormFieldAccessibility {
         .fieldValidation(email.contains("@") ? .valid : .invalid("Enter a valid email address."))
 
         FormField("Team") {
-            TextField("Design", text: .constant(""))
+            TextField("Design", text: .constant("Design"))
                 .textFieldStyle(.roundedBorder)
+                .foregroundStyle(Color.contentDisabled)
+                .fieldAccessibility()
         }
         .fieldValidation(.invalid("Disabled wins over invalid."))
         .disabled(true)
+
+        VStack(spacing: CoreSpacing.md) {
+            FormField("City", layout: .inline) {
+                TextField("Cupertino", text: .constant(""))
+                    .textFieldStyle(.roundedBorder)
+                    .fieldAccessibility()
+            }
+            FormField("Postal code", layout: .inline) {
+                TextField("95014", text: .constant("950"))
+                    .textFieldStyle(.roundedBorder)
+                    .fieldAccessibility()
+            }
+            .fieldValidation(.invalid("Enter a 5-digit postal code."))
+        }
+        .formFieldLabelColumn()
     }
     .padding()
     .background(Color.surfaceCanvas)

@@ -951,7 +951,9 @@ private struct FormFieldPreview: View {
     @State private var email = "jane@"
     @State private var team = "Design"
     @State private var city = ""
-    @State private var zip = "950"
+    @State private var postalCode = "950"
+    @State private var host = "example"
+    @State private var port = "80800"
 
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.xl) {
@@ -962,7 +964,7 @@ private struct FormFieldPreview: View {
             }
             .fieldRequirement(.required)
 
-            FormField("Email") {
+            FormField("Email", description: "We never share your address.") {
                 TextField("you@example.com", text: self.$email)
                     .textFieldStyle(.roundedBorder)
                     .fieldAccessibility()
@@ -970,9 +972,17 @@ private struct FormFieldPreview: View {
             .fieldRequirement(.required)
             .fieldValidation(self.emailValidation)
 
+            FormField("Password") {
+                SecureField("Password", text: .constant("abc"))
+                    .textFieldStyle(.roundedBorder)
+                    .fieldAccessibility()
+            }
+            .fieldValidation(.invalid("Use at least 12 characters, including a number and a symbol, and avoid words that appear in your name or email address."))
+
             FormField("Team", description: "Managed by your administrator.") {
                 TextField("Team", text: self.$team)
                     .textFieldStyle(.roundedBorder)
+                    .foregroundStyle(Color.contentDisabled)
                     .fieldAccessibility()
             }
             .fieldValidation(.invalid("Disabled wins over invalid."))
@@ -982,19 +992,42 @@ private struct FormFieldPreview: View {
                 .coreFont(.headline)
                 .foregroundStyle(Color.contentSecondary)
 
-            FormField("City", description: "Used for shipping estimates.", layout: .inline) {
-                TextField("Cupertino", text: self.$city)
-                    .textFieldStyle(.roundedBorder)
-                    .fieldAccessibility()
-            }
+            VStack(alignment: .leading, spacing: CoreSpacing.md) {
+                FormField("City", description: "Used for shipping estimates.", layout: .inline) {
+                    TextField("Cupertino", text: self.$city)
+                        .textFieldStyle(.roundedBorder)
+                        .fieldAccessibility()
+                }
 
-            FormField("Zip", layout: .inline) {
-                TextField("95014", text: self.$zip)
-                    .textFieldStyle(.roundedBorder)
-                    .fieldAccessibility()
+                FormField("Postal code", layout: .inline) {
+                    TextField("95014", text: self.$postalCode)
+                        .textFieldStyle(.roundedBorder)
+                        .fieldAccessibility()
+                }
+                .fieldRequirement(.required)
+                .fieldValidation(self.postalCode.count == 5 ? .valid : .invalid("Enter a 5-digit postal code."))
             }
-            .fieldRequirement(.required)
-            .fieldValidation(self.zip.count == 5 ? .valid : .invalid("Enter a 5-digit zip code."))
+            .formFieldLabelColumn()
+
+            InsetGroupedSection(header: "Server", dividerInset: .textAligned) {
+                FormField("Host", layout: .inline) {
+                    TextField("example.com", text: self.$host)
+                        .textFieldStyle(.plain)
+                        .fieldAccessibility()
+                }
+                .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
+                .padding(.vertical, CoreSpacing.sm)
+
+                FormField("Port", layout: .inline) {
+                    TextField("443", text: self.$port)
+                        .textFieldStyle(.plain)
+                        .fieldAccessibility()
+                }
+                .fieldValidation(self.port.count <= 5 && (Int(self.port) ?? 0) <= 65535 ? .valid : .invalid("Port must be 65535 or lower."))
+                .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
+                .padding(.vertical, CoreSpacing.sm)
+            }
+            .formFieldLabelColumn()
         }
     }
 

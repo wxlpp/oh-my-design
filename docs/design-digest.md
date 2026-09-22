@@ -906,7 +906,7 @@
 
 # Modifier / Transition 入口点
 
-共 43 个（按 `Host.member` 去重，含参重载算一条）。
+共 44 个（按 `Host.member` 去重，含参重载算一条）。
 
 | target | 入口 | 说明 |
 |---|---|---|
@@ -915,6 +915,7 @@
 | `OhMyDesign` | `.fieldValidation` on `View` | 为这棵子树设定字段校验态，推荐施加在 `FormField` 上。 |
 | `OhMyDesign` | `.fieldRequirement` on `View` | 为这棵子树设定字段必填性，推荐施加在 `FormField` 上。 |
 | `OhMyDesign` | `.fieldAccessibility` on `View` | 把所在 `FormField` 的 label（含必填说明）挂成本视图的无障碍 label，错误原因与 description 挂成无障碍 hint。 |
+| `OhMyDesign` | `.formFieldLabelColumn` on `View` | 让这棵子树里所有 `.inline` 排布的 `FormField` 共用同一 label 列宽（取其中最宽的 label），使控件左缘对齐。 |
 | `OhMyDesign` | `.ratingStyle` on `View` | 为子树中的所有 `Rating` / `RatingDisplay` 设置外观。 |
 | `OhMyDesign` | `.segmentedControlStyle` on `View` | 为子树中的所有 `SegmentedControl` 设置外观（对齐 `View.bannerStyle(_:)`）。 |
 | `OhMyDesign` | `.skeletonShimmer` on `View` | 骨架屏 shimmer 扫光叠加。 |
@@ -997,7 +998,7 @@
 | enums | 41 | 41 |
 | enumcases | 144 | 144 |
 | protocols | 6 | 6 |
-| viewext | 43 | 43 |
+| viewext | 44 | 43 |
 | styleext | 12 | 12 |
 | others | 27 | 27 |
 

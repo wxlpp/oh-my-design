@@ -30,6 +30,8 @@ public extension EnvironmentValues {
 extension EnvironmentValues {
     @Entry var fieldDescription: Text? = nil
     @Entry var fieldLabel: Text? = nil
+    @Entry var fieldValidationAnnounced: Bool = false
+    @Entry var fieldAnnouncementPoster: FieldAnnouncementPoster = .system
 }
 
 // MARK: - View extension
@@ -41,6 +43,7 @@ public extension View {
     /// - Returns: 注入了校验态的视图。
     func fieldValidation(_ validation: FieldValidation) -> some View {
         self.environment(\.fieldValidation, validation)
+            .environment(\.fieldValidationAnnounced, false)
     }
 
     /// 为这棵子树设定字段必填性，推荐施加在 `FormField` 上。
@@ -131,31 +134,69 @@ enum FieldAppearance: Equatable {
     }
 
     var requiredMarkColor: Color {
-        self == .disabled ? Color.contentDisabled : Color.statusDangerForeground
+        switch self {
+        case .disabled: Color.contentDisabled
+        case .invalid: Color.statusDangerForeground
+        case .normal, .focused: Color.contentSecondary
+        }
     }
 }
 
 // MARK: - Announcement
 
-nonisolated struct FieldValidationAnnouncer: Equatable {
-    private(set) var last: FieldValidation?
+nonisolated struct FieldAnnouncementPoster: Sendable {
+    let post: @MainActor @Sendable (String) -> Void
 
-    mutating func observe(_ validation: FieldValidation) -> LocalizedStringResource? {
-        defer { self.last = validation }
-        guard let last = self.last, case .invalid(let reason) = validation else { return nil }
-        if case .invalid(let previous) = last, previous == reason { return nil }
-        return reason
+    static let system = FieldAnnouncementPoster { text in
+        AccessibilityNotification.Announcement(text).post()
+    }
+}
+
+nonisolated struct FieldValidationAnnouncer: Equatable {
+    private enum State: Equatable {
+        case unobserved
+        case valid
+        case invalid(String)
+    }
+
+    private var state: State = .unobserved
+
+    static func resolve(_ reason: LocalizedStringResource, locale: Locale) -> String {
+        var localized = reason
+        localized.locale = locale
+        return String(localized: localized)
+    }
+
+    mutating func observe(_ validation: FieldValidation, locale: Locale) -> String? {
+        let next: State
+        switch validation {
+        case .valid: next = .valid
+        case .invalid(let reason): next = .invalid(Self.resolve(reason, locale: locale))
+        }
+        defer { self.state = next }
+        guard self.state != .unobserved, case .invalid(let text) = next, self.state != next else { return nil }
+        return text
     }
 }
 
 struct FieldValidationAnnouncementModifier: ViewModifier {
     @Environment(\.fieldValidation) private var validation
+    @Environment(\.fieldValidationAnnounced) private var alreadyAnnounced
+    @Environment(\.fieldAnnouncementPoster) private var poster
+    @Environment(\.locale) private var locale
     @State private var announcer = FieldValidationAnnouncer()
 
     func body(content: Content) -> some View {
-        content.onChange(of: self.validation, initial: true) { _, newValue in
-            guard let reason = self.announcer.observe(newValue) else { return }
-            AccessibilityNotification.Announcement(String(localized: reason)).post()
+        content.onChange(of: FieldAnnouncementInput(validation: self.validation, locale: self.locale), initial: true) { _, input in
+            guard !self.alreadyAnnounced,
+                  let text = self.announcer.observe(input.validation, locale: input.locale)
+            else { return }
+            self.poster.post(text)
         }
     }
+}
+
+private nonisolated struct FieldAnnouncementInput: Equatable {
+    let validation: FieldValidation
+    let locale: Locale
 }
