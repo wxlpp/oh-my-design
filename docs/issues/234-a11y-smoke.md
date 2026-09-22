@@ -1,5 +1,7 @@
 # a11y 运行期冒烟记录
 
+> ⚠️ **`Sidebar` 组件组与 `BottomInputBar` 已从本仓整体移除**（见 `docs/BREAKING-CHANGES.md`）。本文件涉及它们的记录按原样保留为历史；其中的逐字引文不再登记进 `QuotedEvidenceGuard`，源码可从 git 历史取回。
+
 承接 [#234](https://github.com/wxlpp/oh-my-design/issues/234)（`#99` 列的 VoiceOver 运行时冒烟）。
 
 **日期**：2026-09-07 · **器材**：iPhone 17 Pro / iOS 26.4 模拟器，预览宿主
