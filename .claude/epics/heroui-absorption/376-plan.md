@@ -41,8 +41,9 @@ extension Banner where Label == Text {
 - 内容组 = 图标 + (标题 headline) + 正文，`.accessibilityElement(children: .combine)`；图标不再 hidden，
   改用 `Timeline.accessibilityLabelKey(for:)` 的状态键作标签 ⇒ 读序「图标语义 / 标题 / 正文」。
 - 动作行在内容组之外（独立节点）；`ViewThatFits(in: .horizontal)`：横排放不下时竖排，AX5 不截断。
-- 关闭钮：`xmark`，仅 `dismiss != nil` 时出现；命中框 44×44，经负 padding 不撑高 banner；
-  `accessibilityLabel(Text("Dismiss", bundle: .module))`。读序最后。
+- 关闭钮：`xmark`，仅 `dismiss != nil` 时出现；以 `overlay(alignment: .topTrailing)` 挂在内容之后
+  （视图树顺序即读序，排在动作之后），内容行为它预留尾部空间；命中框 44×44，经负 padding 不撑高 banner；
+  `accessibilityLabel(Text("Dismiss", bundle: .module))`。
 - 颜色沿用 `bannerPalette`（neutral 档不变）；标题取前景色。
 
 ## 测试清单（Swift Testing）

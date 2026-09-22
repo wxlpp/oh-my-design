@@ -376,7 +376,7 @@
 - **`PlainBannerStyle`** *: BannerStyle* — 默认的 Banner 外观：纯色背景 + 同色系前景，无描边。
 - **`BorderedBannerStyle`** *: BannerStyle* — 带同色系描边的 Banner 外观：背景 + `CoreBorderWidth.thin` 描边。
 - *protocol* **`BannerStyle`** — `Banner` 视觉外观的扩展点，形态对齐 Apple `ButtonStyle` / `ToggleStyle`。
-- *struct* **`BannerStyleConfiguration`** — 传给 `BannerStyle.makeBody` 的上下文，提供 banner 的语义等级与 label 视图。
+- *struct* **`BannerStyleConfiguration`** — 传给 `BannerStyle.makeBody` 的上下文：语义等级、正文与可选的标题 / 动作 / 关闭回调。
 
 ### `Components/Button/AsyncButton.swift`
 

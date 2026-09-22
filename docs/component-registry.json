@@ -122,8 +122,17 @@
       "nativeProtocol": null,
       "customStyleProtocol": "BannerStyle",
       "needsExtensionPoint": true,
-      "textParams": [],
-      "notes": "祖父条款：BannerStyle 已发布公开协议（CLAUDE.md『组件 style 协议』一节记录的既有形态，PlainBannerStyle / BorderedBannerStyle 两个内置实现），不走判定法。label 是 @ViewBuilder 泛型槽位，无固定 String 便利 init，无 textParams 可记。"
+      "textParams": [
+        {
+          "name": "title",
+          "category": "by-type"
+        },
+        {
+          "name": "message",
+          "category": "by-type"
+        }
+      ],
+      "notes": "祖父条款：BannerStyle 已发布公开协议（CLAUDE.md『组件 style 协议』一节记录的既有形态，PlainBannerStyle / BorderedBannerStyle 两个内置实现），不走判定法。label 是 @ViewBuilder 泛型槽位（正文槽）。textParams：便利 init `Banner(level:title:message:actions:onDismiss:)` 的 title / message 是调用方传入的界面文案，只有 LocalizedStringKey 入口、无 String / StringProtocol 孪生重载 ⇒ by-type。"
     },
     {
       "component": "BeforeAfterSlider",
