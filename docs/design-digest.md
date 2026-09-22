@@ -149,6 +149,16 @@
 | `.large` | 50 | CoreSpacing.lg | CoreSpacing.lg | .body | 20 |
 | `.extraLarge` | 56 | CoreSpacing.xl | CoreSpacing.lg | .title2 | 24 |
 
+紧凑 chip（`Badge` / `Tag`）与头像（`Avatar` / `AvatarGroup`）：
+
+| ControlSize | compact h-padding | compact v-padding | compact font | compact icon | avatar diameter |
+|---|---|---|---|---|---|
+| `.mini` | CoreSpacing.xxs | CoreSpacing.none | .caption2 | 10 | 20 |
+| `.small` | CoreSpacing.xs | CoreSpacing.xxs | .caption | 12 | 24 |
+| `.regular` | CoreSpacing.sm | CoreSpacing.xs | .footnote | 14 | 32 |
+| `.large` | CoreSpacing.md | CoreSpacing.xs | .subheadline | 16 | 40 |
+| `.extraLarge` | CoreSpacing.lg | CoreSpacing.sm | .callout | 18 | 48 |
+
 
 ---
 
@@ -340,6 +350,9 @@
 ### `Components/Avatar/Avatar.swift`
 
 - **`Avatar`** *: View* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
+- *enum* **`AvatarSize`** — `Avatar` 的尺寸：跟随环境 `controlSize`，或指定固定直径。
+  - `.automatic` — 按环境 `\.controlSize` 取 `CoreControlMetrics.avatarDiameter(for:)`。
+  - `.fixed` — 固定直径（pt），负值按 0 处理。
 
 ### `Components/AvatarGroup/AvatarGroup.swift`
 
@@ -640,7 +653,7 @@
 
 ### `Tokens/CoreControlMetrics.swift`
 
-- *enum* **`CoreControlMetrics`** — 控件尺寸 token，按 SwiftUI `ControlSize`（mini / small / regular / large / extraLarge） 暴露 5 个查询 helper（height / horizontalPadding / verticalPadding / font / iconSize）。
+- *enum* **`CoreControlMetrics`** — 控件尺寸 token，按 SwiftUI `ControlSize`（mini / small / regular / large / extraLarge） 暴露查询 helper：常规控件（height / horizontalPadding / verticalPadding / font / iconSize）、 紧凑 chip（…
 
 ### `Tokens/CoreElevation.swift`
 
@@ -944,8 +957,8 @@
 | controlsize | 5 | 5 |
 | colors | 118 | 118 |
 | components | 84 | 84 |
-| enums | 34 | 34 |
-| enumcases | 127 | 127 |
+| enums | 35 | 35 |
+| enumcases | 129 | 129 |
 | protocols | 6 | 6 |
 | viewext | 39 | 39 |
 | styleext | 12 | 12 |

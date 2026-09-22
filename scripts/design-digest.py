@@ -25,7 +25,8 @@ FLOORS = {
     # styleext +3（SegmentedControlStyle 的 .glass / .plain / .ink 三个静态入口）。
     # #312：enums +5（五个 …Layout 配置枚举）、enumcases +18（4 + 4 + 4 + 3 + 3）。
     # #375：enumcases +1（StatusLevel.neutral）。
-    "colors": 118, "components": 84, "enums": 34, "enumcases": 127,
+    # #378：enums +1（AvatarSize）、enumcases +2（.automatic / .fixed）。
+    "colors": 118, "components": 84, "enums": 35, "enumcases": 129,
     "protocols": 6, "viewext": 39, "styleext": 12, "others": 27,
 }
 
@@ -246,7 +247,9 @@ def control_metrics(root):
     src = read(os.path.join(root, "Sources/OhMyDesign/Tokens/CoreControlMetrics.swift"))
     order = ["mini", "small", "regular", "large", "extraLarge"]
     table = {}
-    for func in ["height", "horizontalPadding", "verticalPadding", "fontToken", "iconSize"]:
+    for func in ["height", "horizontalPadding", "verticalPadding", "fontToken", "iconSize",
+                 "compactHorizontalPadding", "compactVerticalPadding", "compactFontToken",
+                 "compactIconSize", "avatarDiameter"]:
         segment = src.split(f"public static func {func}(")[1].split("\n    }")[0]
         for size, value in re.findall(r"case\s+\.(\w+):\s*(?:return\s+)?([\w.]+)", segment):
             if size in order:
@@ -476,6 +479,15 @@ def main():
         add(
             f"| `.{size}` | {row.get('height','—')} | {row.get('horizontalPadding','—')} "
             f"| {row.get('verticalPadding','—')} | {row.get('fontToken','—')} | {row.get('iconSize','—')} |"
+        )
+    add("")
+    add("紧凑 chip（`Badge` / `Tag`）与头像（`Avatar` / `AvatarGroup`）：\n")
+    add("| ControlSize | compact h-padding | compact v-padding | compact font | compact icon | avatar diameter |")
+    add("|---|---|---|---|---|---|")
+    for size, row in metrics:
+        add(
+            f"| `.{size}` | {row.get('compactHorizontalPadding','—')} | {row.get('compactVerticalPadding','—')} "
+            f"| {row.get('compactFontToken','—')} | {row.get('compactIconSize','—')} | {row.get('avatarDiameter','—')} |"
         )
     add("")
 

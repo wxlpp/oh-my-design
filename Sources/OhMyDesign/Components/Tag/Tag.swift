@@ -27,10 +27,12 @@ public struct Tag<Label: View>: View {
         self.label = label()
     }
 
+    @Environment(\.controlSize) private var controlSize
+
     public var body: some View {
         HStack(spacing: CoreSpacing.xs) {
             self.label
-                .coreFont(.footnote)
+                .coreFont(CoreControlMetrics.compactFontToken(for: self.controlSize))
                 .foregroundStyle(self.color)
 
             if self.removable {
@@ -38,7 +40,7 @@ public struct Tag<Label: View>: View {
                     self.onRemove?()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: Self.removeIconSize))
+                        .font(.system(size: CoreControlMetrics.compactIconSize(for: self.controlSize)))
                         .foregroundStyle(self.color)
                 }
                 .buttonStyle(.plain)
@@ -50,8 +52,8 @@ public struct Tag<Label: View>: View {
                 .accessibilityLabel(Text("Remove tag", bundle: .module))
             }
         }
-        .padding(.horizontal, CoreSpacing.sm)
-        .padding(.vertical, CoreSpacing.xs)
+        .padding(.horizontal, CoreControlMetrics.compactHorizontalPadding(for: self.controlSize))
+        .padding(.vertical, CoreControlMetrics.compactVerticalPadding(for: self.controlSize))
         .background(
             CoreShape.rounded(CoreRadius.small)
                 .fill(self.color.opacity(Self.backgroundOpacity))
@@ -61,8 +63,6 @@ public struct Tag<Label: View>: View {
     // MARK: - Tokens
 
     private static var backgroundOpacity: Double { 0.12 }
-
-    private static var removeIconSize: CGFloat { CoreControlMetrics.iconSize(for: .small) }
 
     private let color: Color
     private let removable: Bool
