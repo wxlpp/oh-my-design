@@ -2,8 +2,8 @@
 name: motion-foundations
 status: in-progress
 created: 2026-09-22T14:24:50Z
-updated: 2026-09-22T18:06:16Z
-progress: 33%
+updated: 2026-09-22T20:05:46Z
+progress: 67%
 prd: .claude/prds/motion-foundations.md
 github: https://github.com/wxlpp/oh-my-design/issues/406
 ---
@@ -21,6 +21,6 @@ github: https://github.com/wxlpp/oh-my-design/issues/406
 #407 先行；#408 与 #409 文件不重叠，#407 合入后并行。
 
 ## Tasks Created
-- [ ] 407.md - 动效 token + Reduce Motion 纪律 (parallel: false)
+- [x] 407.md - 动效 token + Reduce Motion 纪律 (parallel: false)
 - [ ] 408.md - 原生符号 / 数字动效接入小件 (parallel: true, depends #407)
-- [ ] 409.md - TagGroup / TagInput 动画 (parallel: true, depends #407)
+- [x] 409.md - TagGroup / TagInput 动画 (parallel: true, depends #407)
