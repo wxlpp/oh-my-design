@@ -19,6 +19,39 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.10.0`）——Issue #382：surface 有效层级 + `coreSheetPresentation(background:)`
+
+**行为变更（无签名破坏）。** `.surface(_:)` 现在按环境里的有效层级取背景（规则见
+`docs/components/surface.md`）：
+
+| 调用形态 | 之前 | 现在 |
+|---|---|---|
+| `content` / `grouped` / `card` 嵌套在另一个 `content` / `grouped` / `card`（含 `Card`、`InsetGroupedSection`）里 | `surfaceCard` | **`surfaceElevated`**（`tertiarySystemGroupedBackground`） |
+| 顶层或 `.surface(.canvas)` / `.surface(.canvasSubtle)` 之下的 `content` / `grouped` / `card` | `surfaceCard` | 不变——⚠️ **前提是它不在一个挂在 surface 内部的普通 `.sheet` / `.popover` 里**：弹层内容继承宿主层级（实测），这时 sheet 里「看起来是顶层」的卡片也会取 `surfaceElevated` |
+| `panel` / `sidebar` / `control` / `floating` / `canvas` / `canvasSubtle` | 各自现值 | 不变 |
+| `Card` 自身有效层级为 elevated（上面第一行的情形，含 `coreSheetPresentation` 内容里的 `Card`） | 按 `elevation` 出投影（默认 `.small`） | **不出投影**，显式传 `.medium` / `.large` 也不出 |
+
+- **迁移（逐项保留旧观感）**：想让某个嵌套处保持旧的 `surfaceCard` 外观，不要再用 `.surface`，改写成与旧
+  `.surface(.content)` 逐项相同的手写链——背景、1pt 描边、圆角、裁切都一致，且不写层级：
+
+  ```swift
+  let shape = CoreShape.rounded(CoreRadius.medium)
+  content
+      .background(shape.fill(Color.surfaceCard))
+      .overlay(shape.strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)) // `.grouped` 删掉这一行
+      .clipShape(shape)
+  ```
+
+  嵌套的 `Card` 同理：`content.padding(CoreSpacing.lg).frame(maxWidth: .infinity, alignment: .leading)` +
+  上面三行 + `.coreShadow(.small)`（即旧 `Card` 的全部修饰链）。
+- 两个**不等价**的捷径及其代价：
+  - 内层外包 `.surface(.canvas)`：层级确实重置、内层回到 `surfaceCard`，但 canvas 角色会在内层**外接矩形**上
+    铺一层 `surfaceCanvas`（无圆角）——内层卡片的四个圆角处露出画布色（浅色 `#F2F2F7` 落在白色外层卡片上、
+    深色为黑），它与内层之间若有 padding 则露出一整圈。
+  - 内层改用 `.background(Color.surfaceCard)`：底色对了，但**丢掉描边、圆角与裁切**（直角、无描边）。
+- macOS 上 `surfaceCard` 与 `surfaceElevated` 同值，背景像素不变；投影收起在 macOS 同样生效。
+- 新增（纯新增）：`View.coreSheetPresentation(background:)` 与 `enum CoreSheetBackground`（`.system` / `.raised`）。
+
 ## 未发布（相对 `v0.10.0`）——Issue #377：Toast 标题 / 说明 / 动作、`ToastDuration`、计时状态机
 
 **破坏性变更（源码）。** 新旧签名映射：

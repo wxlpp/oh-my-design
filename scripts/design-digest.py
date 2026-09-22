@@ -33,8 +33,10 @@ FLOORS = {
     # #381：components +3（CoreCircularProgressViewStyle / PressableRowButtonStyle /
     # PressableCardButtonStyle）、styleext +3（.coreCircular / .pressableRow / .pressableCard）。
     # #377：enums +1（ToastDuration）、enumcases +2（.seconds / .persistent）、others +1（ToastAction）。
-    "colors": 120, "components": 88, "enums": 42, "enumcases": 146,
-    "protocols": 6, "viewext": 44, "styleext": 15, "others": 28,
+    # #382：viewext +1（View.coreSheetPresentation）。
+    # #382：enums +1（CoreSheetBackground）、enumcases +2（.system / .raised）、viewext +1（View.coreSheetPresentation）。
+    "colors": 120, "components": 88, "enums": 43, "enumcases": 148,
+    "protocols": 6, "viewext": 45, "styleext": 15, "others": 28,
 }
 
 # 组件判定：conformance 列表里出现这些名字之一，或以 Style 结尾。

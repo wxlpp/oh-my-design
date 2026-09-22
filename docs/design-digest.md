@@ -656,6 +656,12 @@
   - `.rectangle` — 矩形宿主（图标、卡片）：锚点在边界框的角上。
   - `.circle` — 圆形宿主（头像）：锚点在内切圆的 45° 点上，并带一圈 `surfaceCanvas` 分隔环。
 
+### `Modifier/CoreSheetPresentation.swift`
+
+- *enum* **`CoreSheetBackground`** — `coreSheetPresentation(background:)` 的 sheet 背景取值 / Sheet background of the preset.
+  - `.system` — 保留系统 sheet 背景（iOS 26 为 Liquid Glass）。
+  - `.raised` — 不透明 `Color.surfaceRaised`。
+
 ### `Modifier/FloatingGlassModifier.swift`
 
 - **`FloatingGlassModifier`** *<S: InsettableShape>: ViewModifier* — ⚠️ 源码无文档注释
@@ -919,7 +925,7 @@
 
 # Modifier / Transition 入口点
 
-共 44 个（按 `Host.member` 去重，含参重载算一条）。
+共 45 个（按 `Host.member` 去重，含参重载算一条）。
 
 | target | 入口 | 说明 |
 |---|---|---|
@@ -936,10 +942,11 @@
 | `OhMyDesign` | `.anchoredBadge` on `View` | 在宿主的一个角上叠加红点 / 计数 / 短文案徽标，不改变宿主布局尺寸。 |
 | `OhMyDesign` | `.bordered` on `View` | 叠加一圈描边 / Add a border.  - Parameters: - style: 描边样式，任意 `ShapeStyle`（含 `Color` 与渐变）。 |
 | `OhMyDesign` | `.coreFont` on `View` | 施加 OhMyDesign 排版 token（直接取系统文本样式，随 Dynamic Type 缩放）。 |
+| `OhMyDesign` | `.coreSheetPresentation` on `View` | 本库的 sheet 预设：可见拖拽指示条、按 `background` 取背景，并把 sheet 内容的有效层级设为 raised （内部的 `Card` 因而取 `surfaceElevated`）。 |
 | `OhMyDesign` | `.floatingGlass` on `View` | ⚠️ 源码无文档注释 |
 | `OhMyDesign` | `.focusRing` on `View` | 给视图添加一个焦点环。 |
 | `OhMyDesign` | `.spinning` on `View` | 为内容整体叠加加载遮罩。 |
-| `OhMyDesign` | `.surface` on `View` | 一次性施加容器表面 token（背景 + 1pt 描边 + 圆角）。 |
+| `OhMyDesign` | `.surface` on `View` | 一次性施加容器表面 token（背景 + 1pt 描边 + 圆角），并把有效层级写给子树。 |
 | `OhMyDesign` | `.coreShadow` on `View` | 应用 OhMyDesign elevation 阴影。 |
 | `OhMyDesignEffects` | `.blur` on `Transition` | 失焦转场。 |
 | `OhMyDesignEffects` | `.boing` on `Transition` | 弹性缩放转场。 |
@@ -1011,10 +1018,10 @@
 | controlsize | 5 | 5 |
 | colors | 120 | 120 |
 | components | 88 | 88 |
-| enums | 42 | 42 |
-| enumcases | 146 | 146 |
+| enums | 43 | 43 |
+| enumcases | 148 | 148 |
 | protocols | 6 | 6 |
-| viewext | 44 | 44 |
+| viewext | 45 | 45 |
 | styleext | 15 | 15 |
 | others | 28 | 28 |
 

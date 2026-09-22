@@ -36,7 +36,7 @@ OhMyDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 
 ### 圆角（`CoreRadius` + `CoreShape`）
 
-`none 0 / small 6 / medium 10 / large 16 / xLarge 22`。HIG 没有 `.none` 档（直角通常靠省略圆角实现），`.none` 是 OhMyDesign 扩展，方便在统一类型签名下表达"无圆角"。`xLarge`(22) 当前零消费，是为 Dialog / Modal / Sheet 类容器预留的标度，不是缺陷——库内目前没有这类容器，也没有发现现有场景本该用 22pt 却被迫停在 16pt。
+`none 0 / small 6 / medium 10 / large 16 / xLarge 22`。HIG 没有 `.none` 档（直角通常靠省略圆角实现），`.none` 是 OhMyDesign 扩展，方便在统一类型签名下表达"无圆角"。`xLarge`(22) 当前零消费，是为 Dialog / Modal 类容器预留的标度，不是缺陷——库内目前没有这类容器，也没有发现现有场景本该用 22pt 却被迫停在 16pt。**Sheet 不用它**：iOS 26 的浮动 sheet 圆角由系统决定、与屏幕圆角同心，`coreSheetPresentation(background:)` 有意不设 `presentationCornerRadius`（`#382` 视觉评审：22pt 与系统浮动 sheet 不同心）。
 
 **`.continuous` 角样式必须经 `CoreShape.rounded(_:)` 统一出口**：只改半径数值拿不到 Apple 的 squircle 观感，角样式要在每个 `RoundedRectangle` 构造点显式指定，漏一处就是一处风格不一致的元素。`Sources` 内裸 `RoundedRectangle(` 调用已收敛为 0（唯一例外是 `CoreShape.rounded` 自身的实现）。`ConcentricRectangle`（iOS 26+）为嵌套于已知容器的元素预留，容器侧配合 `.containerShape(_:)` 声明——当前零采纳，同样是"标度先于需求"而非遗漏。
 
@@ -103,6 +103,15 @@ OhMyDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
    **三条的失败消息**从「塌缩 / 完全隐形 / 不可辨」改成「指向了同一个 `Color`」
    （**测试名只改了 `macOSCanvasStandsApart` 一条**，另两条的 `@Test` 标题仍是「…不同色」
    ——它们描述的就是身份层，本来没错），**断言一律不动**。
+
+**surface 有效层级（`#382`）在 macOS 上的后果**：`.surface(_:)` 让嵌套的 `content` / `grouped` /
+`card` 取 `surfaceElevated`，而 `surfaceElevated`（`tertiarySystemGroupedBackground`）与 `surfaceCard`
+在 AppKit 下同桥到 `controlBackgroundColor` ⇒ raised 与 elevated 取值相同。有描边的角色嵌套时靠描边区分；
+**`grouped` 嵌套 `grouped` 在 macOS 无视觉区分，登记为已知限制**（规则见 `docs/components/surface.md`）。
+
+**elevated 在两种外观下的读感相反，这是有意的**：`surfaceElevated` = `tertiarySystemGroupedBackground`，
+浅色下（`#F2F2F7`）比 raised 的白底**暗**、读作下凹，深色下（`#2C2C2E`）比 raised 的 `#1C1C1E` **亮**、读作浮起。
+这是 Apple 分组背景族第三级的原生语义（设置 App 等同此行为），**不要为了两种外观「一致」去改这个 token**。
 
 ⚠️ **取值这一层的判据一律无条件断言，不做「退化就跳过」的分叉。**
 **理由**：`#120` 描述的退化形态是「塌成**同一** fallback RGBA」——同值但**不透明**，
