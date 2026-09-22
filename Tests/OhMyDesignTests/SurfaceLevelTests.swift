@@ -46,10 +46,17 @@ struct SurfaceLevelRuleTests {
             (.panel, .surfacePanel), (.sidebar, .surfaceSidebar),
             (.control, .surfaceInteractive), (.floating, .surfaceOverlay),
         ]
-        for (kind, token) in fixed {
-            for parent in Self.parents {
-                let level = kind.level(inheriting: parent)
-                #expect(kind.background(at: level) == token, "\(kind) 在父层级 \(parent) 下背景偏离了现值")
+        for scheme in [ColorScheme.light, .dark] {
+            var e = EnvironmentValues()
+            e.colorScheme = scheme
+            for (kind, token) in fixed {
+                for parent in Self.parents {
+                    let level = kind.level(inheriting: parent)
+                    #expect(
+                        kind.background(at: level).resolve(in: e) == token.resolve(in: e),
+                        "\(scheme)：\(kind) 在父层级 \(parent) 下背景偏离了现值"
+                    )
+                }
             }
         }
     }
