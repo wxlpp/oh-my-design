@@ -5,7 +5,7 @@ Contract: PRD FR-6 (`.claude/prds/heroui-absorption.md`).
 ## Files
 
 - `Sources/OhMyDesign/Components/Toast/Toast.swift` — API + view.
-- `Sources/OhMyDesign/Components/Toast/ToastScheduler.swift` (new, internal) — injectable clock
+- `Sources/OhMyDesign/Components/Toast/ToastClock.swift` (new, internal) — injectable clock
   (`ToastClock` protocol, `SystemToastClock`) used by `ToastHost`.
 - `Sources/OhMyDesign/Components/Button/AsyncButton.swift` — call site follows the rename.
 - Tests: `ToastHostTests.swift` (rewritten on a manual clock), `ToastActionConcurrencyTests.swift` (new),

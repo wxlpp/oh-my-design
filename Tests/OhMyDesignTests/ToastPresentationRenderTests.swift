@@ -252,4 +252,117 @@ struct ToastPresentationRenderTests {
             #expect((ink ?? 0) > 0, "\(presentation) 渲染为空图")
         }
     }
+    // MARK: action label is never truncated
+
+    private static let probeRed = Color(red: 1, green: 0, blue: 0)
+
+    private func redInk(_ view: some View, dynamicTypeSize: DynamicTypeSize) -> (width: Int, pixels: Int)? {
+        let renderer = ImageRenderer(content: view.dynamicTypeSize(dynamicTypeSize))
+        renderer.scale = 1
+        #if canImport(UIKit)
+        guard let cg = renderer.uiImage?.cgImage else { return nil }
+        #else
+        var rect = CGRect(origin: .zero, size: renderer.nsImage?.size ?? .zero)
+        guard let cg = renderer.nsImage?.cgImage(forProposedRect: &rect, context: nil, hints: nil) else { return nil }
+        #endif
+        let w = cg.width, h = cg.height
+        guard w > 0, h > 0 else { return nil }
+        var buf = [UInt8](repeating: 0, count: w * h * 4)
+        guard let ctx = CGContext(
+            data: &buf, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+        var minX = w, maxX = -1, count = 0
+        for y in 0..<h {
+            for x in 0..<w {
+                let i = (y * w + x) * 4
+                if buf[i + 3] > 128, buf[i] > 180, buf[i + 1] < 90, buf[i + 2] < 90 {
+                    minX = min(minX, x)
+                    maxX = max(maxX, x)
+                    count += 1
+                }
+            }
+        }
+        return maxX >= minX ? (maxX - minX + 1, count) : nil
+    }
+
+    private func standaloneActionInk(_ label: String, dynamicTypeSize: DynamicTypeSize) -> (width: Int, pixels: Int)? {
+        self.redInk(
+            Button {} label: { Text(label) }
+                .buttonStyle(.light(role: .primary))
+                .controlSize(.small)
+                .fixedSize()
+                .coreAccent(Self.probeRed)
+                .padding(CoreSpacing.lg),
+            dynamicTypeSize: dynamicTypeSize
+        )
+    }
+
+    private func toastActionInk(
+        _ presentation: ToastPresentation,
+        label: String,
+        dynamicTypeSize: DynamicTypeSize
+    ) -> (width: Int, pixels: Int)? {
+        let host = ToastHost()
+        host.show(ToastItem(
+            title: "A long toast title that will not fit on a single line here",
+            description: "Supporting description text that wraps across two lines at most.",
+            level: .neutral,
+            action: ToastAction(label) {}
+        ))
+        return self.redInk(
+            ToastOverlay(host: host, edge: .top, presentation: presentation)
+                .frame(width: Self.containerWidth)
+                .coreAccent(Self.probeRed),
+            dynamicTypeSize: dynamicTypeSize
+        )
+    }
+
+    @Test(
+        "动作按钮在三种形态、常规与 AX5 字号下都不被截断（AX5 允许折行）",
+        arguments: [DynamicTypeSize.large, .accessibility5]
+    )
+    func actionLabelIsNotTruncated(dynamicTypeSize: DynamicTypeSize) {
+        let label = "Undo archive"
+        let reference = self.standaloneActionInk(label, dynamicTypeSize: dynamicTypeSize)
+        guard let reference, reference.pixels > 0 else {
+            Issue.record("参照按钮没画出探针色 —— 量测失效，不得当作通过")
+            return
+        }
+        for presentation in ToastPresentation.allCases {
+            guard let ink = self.toastActionInk(presentation, label: label, dynamicTypeSize: dynamicTypeSize) else {
+                Issue.record("\(presentation) @ \(dynamicTypeSize)：toast 里找不到动作文字")
+                continue
+            }
+            let ratio = Double(ink.pixels) / Double(reference.pixels)
+            #expect(abs(ratio - 1) <= 0.05,
+                    "\(presentation) @ \(dynamicTypeSize)：动作文字墨量 \(ink.pixels) / 完整 \(reference.pixels) —— 字形缺失，被截断")
+            if !dynamicTypeSize.isAccessibilitySize {
+                #expect(abs(ink.width - reference.width) <= 1,
+                        "\(presentation) @ \(dynamicTypeSize)：动作文字宽 \(ink.width) ≠ 完整宽 \(reference.width) —— 常规字号下动作应单行完整显示")
+            }
+        }
+    }
+
+    @Test("截断判据的非退化前置：被挤压的动作文字确实量得出更窄")
+    func truncationProbeDetectsSqueeze() {
+        let full = self.standaloneActionInk("Undo everything", dynamicTypeSize: .large)
+        let squeezed = self.redInk(
+            Button {} label: { Text("Undo everything").lineLimit(1) }
+                .buttonStyle(.light(role: .primary))
+                .controlSize(.small)
+                .frame(width: 60)
+                .coreAccent(Self.probeRed)
+                .padding(CoreSpacing.lg),
+            dynamicTypeSize: .large
+        )
+        guard let full, let squeezed else {
+            Issue.record("量测失效")
+            return
+        }
+        #expect(Double(squeezed.pixels) < Double(full.pixels) * 0.95,
+                "挤压后墨量 \(squeezed.pixels) 未明显少于完整墨量 \(full.pixels) —— 墨量判据分辨不出截断")
+    }
 }

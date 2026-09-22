@@ -14,9 +14,37 @@ Scene 级 Toast 通知 / Scene-scoped toast notification.
 
 | 方法 | 说明 |
 |---|---|
-| `show(_ message: String, level: StatusLevel = .info, duration: TimeInterval = ToastDefaults.duration)` | 入队一条 toast（level 缺省 `.info`，duration 缺省 3 秒） |
-| `show(_ item: ToastItem)` | 入队预构造的 ToastItem |
-| `dismiss(_ id: ToastItem.ID)` | 取消指定 toast |
+| `show(_ title: String, description: String? = nil, level: StatusLevel = .info, duration: ToastDuration = ToastDefaults.duration)` | 入队一条 toast（level 缺省 `.info`，duration 缺省 `.seconds(3)`） |
+| `show(_ item: ToastItem)` | 入队预构造的 ToastItem（带 `action` 时用这个入口） |
+| `dismiss(_ id: ToastItem.ID)` | 关闭指定 toast：正在显示的进入退场动画，排队中的直接移除 |
+| `dismissAll()` | 清空当前与排队中的全部 toast；退场动画进行中调用同样生效，之后可立即 `show` |
+
+### ToastItem / ToastAction / ToastDuration
+
+```swift
+public nonisolated struct ToastItem: Identifiable, Sendable {
+    public init(id: UUID = UUID(), title: String, description: String? = nil,
+                level: StatusLevel = .info, duration: ToastDuration = ToastDefaults.duration,
+                action: ToastAction? = nil)
+}
+
+public nonisolated struct ToastAction: Sendable {
+    public init(_ label: String, action: @escaping @MainActor @Sendable () -> Void)
+    @MainActor public func perform()
+}
+
+public nonisolated enum ToastDuration: Sendable, Equatable {
+    case seconds(TimeInterval)
+    case persistent
+}
+```
+
+- `title` 单行、`description` 最多两行；文案均为调用方传入的 B 类 `String`。
+- `ToastItem` / `ToastAction` 是 `nonisolated` + `Sendable`：可在后台构造，
+  再 `await MainActor.run { host.show(item) }`；动作闭包始终在主 actor 上执行。
+- `.seconds` 的非正值（含 NaN）按缺省 3 秒处理；`.seconds(.infinity)` 等同 `.persistent`。
+- ⚠️ **`.persistent` 在被关闭前阻塞队列**：其后 `show` 的 toast 只排队、不显示，
+  直到它被点按 / 滑动 / `dismiss(_:)` / `dismissAll()` 关闭。
 
 StatusLevel: info / success / warning / danger / neutral。
 
@@ -30,7 +58,7 @@ StatusLevel: info / success / warning / danger / neutral。
 |---|---|
 | `.toastHost(edge: VerticalEdge, presentation: ToastPresentation)` | 在 view 子树挂载 ToastHost |
 
-默认 edge: `.top`，默认 presentation: `.floatingCapsule`，默认定时: 3 秒。
+默认 edge: `.top`，默认 presentation: `.floatingCapsule`，默认时长: `.seconds(3)`。
 
 ### ToastPresentation（呈现形态，`#65`）
 
@@ -48,8 +76,23 @@ StatusLevel: info / success / warning / danger / neutral。
 这是**有意的静默**：传了不生效不是错误、只是无效，因此**不加运行期断言**，本文档即约定
 （与 `StepsPresentation` 对 `indicatorStyle` 的处置同源）。
 
-⚠️ `.centeredHUD` 下**滑动 dismiss 关闭、只保留点击 dismiss**。⚠️ 这只关**手势层** ——
-自动 dismiss 计时（`ToastHost.scheduleDismiss`）不受影响，三个形态都照常。
+⚠️ `.centeredHUD` 下**滑动 dismiss 关闭、只保留点击 dismiss**。⚠️ 这只关**滑动位移** ——
+自动 dismiss 计时与「按住暂停」不受影响，三个形态都照常。
+
+### 交互与计时 / Interaction & timing
+
+- 点整条 toast 关闭；点动作按钮 = 先在主 actor 上执行动作，再关闭（不会同时触发整条点击）。
+- 按住或拖拽 toast 时暂停计时，松手（含手势被系统取消）后按**剩余**时长恢复；
+  计时从该条开始显示时起算，排队期间不计时。
+- 显示计时与退场动画等待是两个独立的计时器，`dismissAll()` 同时取消两者。
+
+### 无障碍 / Accessibility
+
+- 无动作：整条是一个按钮元素（标题 + 说明合并朗读，提示「Tap to dismiss」，激活即关闭）。
+- 有动作：整条不再是单一按钮——「标题 + 说明」是一个可激活关闭的按钮元素，动作是另一个独立按钮，
+  二者可分别聚焦（AXe 实测为两个 `Button` 节点）。
+- AX 字号下动作按钮换到消息下方一行、允许折行，不截断；常规字号下动作按钮保持完整单行，
+  由标题让出宽度（标题单行截断）。
 
 ## 使用示例 / Usage
 
@@ -72,6 +115,14 @@ struct DetailView: View {
         Button("Save") {
             toast?.show("Saved.", level: .success)
         }
+        Button("Archive") {
+            toast?.show(ToastItem(
+                title: "Conversation archived",
+                description: "Undo within a few seconds to restore it.",
+                level: .neutral,
+                action: ToastAction("Undo") { /* restore */ }
+            ))
+        }
     }
 }
 ```
@@ -79,7 +130,7 @@ struct DetailView: View {
 ## 视觉 Token
 
 - 容器：`.floatingGlass(in: Capsule(style: .continuous), isInteractive: false)`——iOS 26 液态玻璃浮起外壳，不消费 `.surface(.card)`（Phase 3A 迁移，见 `ToastView`）
-- 字号：`CoreTypography.bodyMediumFont`
+- 字号：标题 `callout`（有说明时 semibold），说明 `footnote` + `contentSecondary`；动作按钮 `.light(role: .primary)` + `.controlSize(.small)`
 - 内边距：`CoreSpacing.md`
 - Icon / 前景色：按 `StatusLevel` 走 status color token（`statusAccentForeground` / `statusSuccessForeground` / `statusAttentionForeground` / `statusDangerForeground`）；
   `neutral` 图标 `bell`、图标色 `contentSecondary`（正文各档统一为 `contentPrimary`）
@@ -87,7 +138,8 @@ struct DetailView: View {
   缩放 + 淡入淡出）
 - 滑动手势：向 edge 方向滑动超过 `CoreSpacing.xxl`（32pt）触发 dismiss
   （⚠️ `.centeredHUD` 例外：关闭滑动，只保留点击）
-- 容器形状：`.floatingCapsule` 用 `Capsule`、`.fullWidthBanner` 用 `Rectangle`、
+- 容器形状：`.floatingCapsule` 单行时用 `Capsule`，有说明或处于 AX 字号时改用
+  `RoundedRectangle(cornerRadius: CoreRadius.xLarge)`（高内容套胶囊会被大圆角切到）；`.fullWidthBanner` 用 `Rectangle`、
   `.centeredHUD` 用 `RoundedRectangle(cornerRadius: CoreRadius.large)`；三者共用
   `CoreSpacing.md` 的内容内边距（内容留白不是三形态的差异所在）
 - z-order：toast 只在**挂 `.toastHost(...)` 那层 view 树**内绘制，不覆盖 sheet /

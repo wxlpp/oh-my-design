@@ -48,7 +48,7 @@ struct AsyncButtonTests {
 
         #expect(host.queue.count == 1)
         #expect(host.queue.first?.level == .danger)
-        #expect(host.queue.first?.message == "Demo failure")
+        #expect(host.queue.first?.title == "Demo failure")
     }
 
     @Test("_runThrowing:onError nil + toastHost nil → 静默,不崩")

@@ -32,8 +32,9 @@ FLOORS = {
     # enumcases +6（2 + 2 + 2）、viewext +4（fieldValidation / fieldRequirement / fieldAccessibility / formFieldLabelColumn）。
     # #381：components +3（CoreCircularProgressViewStyle / PressableRowButtonStyle /
     # PressableCardButtonStyle）、styleext +3（.coreCircular / .pressableRow / .pressableCard）。
-    "colors": 120, "components": 88, "enums": 41, "enumcases": 144,
-    "protocols": 6, "viewext": 44, "styleext": 15, "others": 27,
+    # #377：enums +1（ToastDuration）、enumcases +2（.seconds / .persistent）、others +1（ToastAction）。
+    "colors": 120, "components": 88, "enums": 42, "enumcases": 146,
+    "protocols": 6, "viewext": 44, "styleext": 15, "others": 28,
 }
 
 # 组件判定：conformance 列表里出现这些名字之一，或以 Style 结尾。

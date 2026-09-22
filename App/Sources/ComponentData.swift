@@ -188,6 +188,15 @@ extension ComponentMeta {
         ComponentMeta(id: "toast", name: "Toast", description: "Scene-scoped toast host + 队列状态机", category: .feedback, preview: {
             ToastLevelPreview()
         }, demoAction: { AnyView(ToastDemoButton()) }),
+        ComponentMeta(id: "toast-rich-capsule", name: "Toast · 标题 + 说明 + 动作", description: "floatingCapsule：title + description + ToastAction，常驻显示便于检视", category: .feedback) {
+            ToastRichPreview(presentation: .floatingCapsule)
+        },
+        ComponentMeta(id: "toast-rich-banner", name: "Toast · fullWidthBanner 动作", description: "fullWidthBanner：title + description + ToastAction", category: .feedback) {
+            ToastRichPreview(presentation: .fullWidthBanner)
+        },
+        ComponentMeta(id: "toast-rich-hud", name: "Toast · centeredHUD 动作", description: "centeredHUD：title + description + ToastAction", category: .feedback) {
+            ToastRichPreview(presentation: .centeredHUD)
+        },
         ComponentMeta(id: "spinning", name: "Spinning", description: "View.spinning(_:text:presentation:tint:)：overlay 遮罩（阻塞）/ topBar / inline（非阻塞）；取色走 tint: 参数，三个形态一致", category: .feedback) {
             SpinningPreview()
         },
@@ -685,7 +694,64 @@ private struct ToastLevelPreview: View {
                     .controlSize(.small)
                 }
             }
+            FlowLayout(spacing: CoreSpacing.sm) {
+                Button("Description + action") {
+                    self.toast?.show(ToastPreviewSamples.archived(duration: .seconds(5)))
+                }
+                Button("Persistent") {
+                    self.toast?.show(ToastPreviewSamples.archived(duration: .persistent))
+                }
+                Button("Dismiss all") {
+                    self.toast?.dismissAll()
+                }
+            }
+            .buttonStyle(.light(role: .secondary))
+            .controlSize(.small)
         }
+    }
+}
+
+// MARK: - ToastRichPreview
+
+private enum ToastPreviewSamples {
+    static func archived(duration: ToastDuration) -> ToastItem {
+        ToastItem(
+            title: "Conversation archived",
+            description: "It moves back to the inbox if you undo within a few seconds.",
+            level: .neutral,
+            duration: duration,
+            action: ToastAction("Undo") {}
+        )
+    }
+}
+
+private struct ToastRichPreview: View {
+    let presentation: ToastPresentation
+
+    var body: some View {
+        ToastRichPreviewContent()
+            .frame(maxWidth: .infinity, minHeight: 320, maxHeight: .infinity)
+            .toastHost(edge: .top, presentation: self.presentation)
+    }
+}
+
+private struct ToastRichPreviewContent: View {
+    @Environment(\.toastHost) private var toast
+
+    var body: some View {
+        VStack(spacing: CoreSpacing.md) {
+            Text("Persistent toast with title, description and action.")
+                .font(CoreTypography.Token.footnote.font)
+                .foregroundStyle(Color.contentMuted)
+            Button("Show again") {
+                self.toast?.dismissAll()
+                self.toast?.show(ToastPreviewSamples.archived(duration: .persistent))
+            }
+            .buttonStyle(.light(role: .secondary))
+            .controlSize(.small)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .task { self.toast?.show(ToastPreviewSamples.archived(duration: .persistent)) }
     }
 }
 
