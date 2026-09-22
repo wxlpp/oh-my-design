@@ -19,19 +19,10 @@ public nonisolated enum AnchoredBadgeContent: Equatable {
         }
     }
 
-    static func countText(value: Int, max limit: Int) -> String {
-        let cap = Swift.max(limit, 1)
-        return value > cap ? "\(cap)+" : "\(value)"
-    }
-
     var countText: String? {
         guard case .count(let value, let limit) = self else { return nil }
-        return Self.countText(value: value, max: limit)
-    }
-
-    var countValue: Int? {
-        guard case .count(let value, _) = self else { return nil }
-        return value
+        let cap = Swift.max(limit, 1)
+        return value > cap ? "\(cap)+" : "\(value)"
     }
 
     /// 徽标对辅助技术的朗读文本；不显示时为 `nil`。
@@ -95,12 +86,7 @@ public nonisolated enum AnchoredBadgeHostShape: Sendable, Equatable, CaseIterabl
     }
 }
 
-// MARK: - 计数滚动与出现 / 消失 / Count roll and appearance
-
-nonisolated struct AnchoredBadgeCountRoll: Equatable, Sendable {
-    let previous: Int
-    let value: Int
-}
+// MARK: - 出现 / 消失转场 / Appearance transition
 
 nonisolated enum AnchoredBadgeTransitionKind: Equatable, Sendable {
     case scale
@@ -120,7 +106,6 @@ struct AnchoredBadgeModifier: ViewModifier {
     let hostShape: AnchoredBadgeHostShape
 
     @Environment(\.coreMotionPresentation) private var motionPresentation
-    @State private var roll: AnchoredBadgeCountRoll?
 
     @ScaledMetric(relativeTo: .caption) private var dotSize: CGFloat = 10
     @ScaledMetric(relativeTo: .caption) private var labelHeight: CGFloat = 20
@@ -144,16 +129,6 @@ struct AnchoredBadgeModifier: ViewModifier {
         return CGPoint(x: x, y: y)
     }
 
-    nonisolated static func nextRoll(
-        _ current: AnchoredBadgeCountRoll?,
-        value: Int?,
-        isVisible: Bool
-    ) -> AnchoredBadgeCountRoll? {
-        guard let value, isVisible else { return nil }
-        guard let current else { return AnchoredBadgeCountRoll(previous: value, value: value) }
-        return AnchoredBadgeCountRoll(previous: current.value, value: value)
-    }
-
     nonisolated static func appearanceKind(motion: MotionPresentation) -> AnchoredBadgeTransitionKind {
         motion == .animated ? .scale : .fade
     }
@@ -163,9 +138,6 @@ struct AnchoredBadgeModifier: ViewModifier {
         return content
             .accessibilityValue(accessibilityText ?? Text(verbatim: String()), isEnabled: accessibilityText != nil)
             .overlay { self.badgeLayer }
-            .onChange(of: self.content, initial: true) { _, content in
-                self.roll = Self.nextRoll(self.roll, value: content.countValue, isVisible: content.isVisible)
-            }
     }
 
     @ViewBuilder
@@ -199,8 +171,7 @@ struct AnchoredBadgeModifier: ViewModifier {
             }
         }
         .accessibilityHidden(true)
-        .coreAnimation(.reveal, value: self.content.isVisible)
-        .coreAnimation(.reveal, value: self.roll)
+        .coreAnimation(.reveal, value: self.content)
     }
 
     private var appearanceTransition: AnyTransition {
@@ -233,10 +204,9 @@ struct AnchoredBadgeModifier: ViewModifier {
             Circle()
                 .fill(Self.fill)
                 .frame(width: self.dotSize, height: self.dotSize)
-        case .count(let value, let limit):
-            let shown = self.roll?.value ?? value
-            self.pill(Text(verbatim: AnchoredBadgeContent.countText(value: shown, max: limit)))
-                .contentTransition(self.motionPresentation.numericRoll(from: self.roll?.previous ?? shown, to: shown))
+        case .count(let value, _):
+            self.pill(Text(verbatim: self.content.countText ?? String()))
+                .contentTransition(self.motionPresentation.numericRoll(to: value))
         case .text(let key):
             self.pill(Text(key))
         }

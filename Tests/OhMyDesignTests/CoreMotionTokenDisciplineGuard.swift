@@ -58,7 +58,7 @@ struct CoreMotionTokenDisciplineGuard {
             "symbolReplacement 在 resting / hidden 下为 ContentTransition.identity，直接换图不描画",
         "Components/Radio/Radio.swift|contentTransition(self.motionPresentation.symbolReplacement)":
             "同 CheckBox：resting / hidden 下为 ContentTransition.identity",
-        "Modifier/AnchoredBadgeModifier.swift|contentTransition(self.motionPresentation.numericRoll(from: self.roll?.previous ?? shown, to: shown))":
+        "Modifier/AnchoredBadgeModifier.swift|contentTransition(self.motionPresentation.numericRoll(to: value))":
             "numericRoll 在 resting / hidden 下为 ContentTransition.identity，数字直接替换、不纵向滚动",
         "Components/Button/styles/PressableButtonStyles.swift|scaleEffect(feedback.scale)":
             "feedback 取自 PressFeedback.card(presentation:)，resting 下 scale = 1",

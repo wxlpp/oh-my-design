@@ -265,7 +265,7 @@ role 的底色是明暗镜像的 `ColorGrade` 色阶，前景仍走它、不吃 
 | `Carousel` | 自动轮播、点页点翻页有滚动 | 不自动轮播（原有）、点页点直接到位 |
 | `TagInput` chip 增删、`TagGroup` 标签增删（#409） | 缩放 0.86 + 淡变进出，存活标签连续重排 | 直接出现 / 消失（驱动曲线为 `nil`），转场只剩淡变、缩放恒为 1 |
 | `TagGroup` 选中态切换（#409） | 底色 / 描边 0.22 s 交叉淡变 | **照常淡变**——只有颜色插值、包围盒不变，不是位移类动效 |
-| `anchoredBadge` 计数变化（#408） | `.numericText(countsDown:)` 纵向滚动，方向按新旧值定 | `ContentTransition.identity`，数字直接替换 |
+| `anchoredBadge` 计数变化（#408） | `.numericText(value:)` 纵向滚动，方向由框架按当前计数判 | `ContentTransition.identity`，数字直接替换 |
 | `anchoredBadge` 出现 / 消失（#408） | 缩放 0.6 → 1 + 淡变 | 纯淡变，不缩放 |
 | `CheckBoxToggleStyle` / `RadioGroup` 指示符（#408） | `.symbolEffect(.replace)` 描画 | `ContentTransition.identity`，直接换图 |
 

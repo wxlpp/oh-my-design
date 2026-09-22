@@ -27,20 +27,12 @@ extension MotionPresentation {
 
 ### `anchoredBadge`
 
-1. **计数滚动**：`.contentTransition(...)` 施于计数胶囊的 `Text`。方向要在**数字变化那一次事务里**
-   就已经正确，而 `onChange` 比 body 晚一拍 ⇒ 镜像一层显示值：
+1. **计数滚动**：`.contentTransition(.numericText(value:))` 施于计数胶囊的 `Text`，喂当前计数、方向由框架判。
+   ⚠️ **本节原写 `countsDown:` + 镜像一层显示值，已作废**（PRD FR-4 于 `8d1e534` 按 #408 实测改口径）：
 
-   ```swift
-   struct BadgeCountRoll: Equatable, Sendable { let previous: Int; let value: Int }
-   static func nextRoll(_ current: BadgeCountRoll?, value: Int?, isVisible: Bool) -> BadgeCountRoll?
-   ```
-
-   - `value == nil`（非 `.count`）或 `!isVisible` ⇒ `nil`（不显示时清空，避免「隐藏后再出现」闪一帧旧数字）
-   - `current == nil` ⇒ `(value, value)`（首次出现，无方向）
-   - 否则 ⇒ `(current.value, value)`
-
-   body 里显示 `roll?.value ?? 实际值`；`onChange(of: countValue, initial: true)` 推进 `roll`；
-   `.coreAnimation(.reveal, value: roll)` 驱动。9→10 与 10→9 在同一次事务里拿到正确方向。
+   镜像的代价是计数晚一帧落地，且镜像的状态变化不在 `.coreAnimation` 的触发集里 ⇒ 滚动动画整个不播（实测）。
+   现在计数与文字同出于 `case .count` 的那一次绑定，中间没有状态，由
+   `.coreAnimation(.reveal, value: self.content)` 一处驱动出现 / 消失与计数两类变化。
 2. **出现 / 消失**：`.transition(...)`，`animated` ⇒ `.scale + .opacity`（iOS 角标惯例），
    `resting` ⇒ `.opacity`。种类经纯函数 `appearanceKind(motion:)` 取（`AnchoredBadgeTransitionKind`
    枚举，形态照 `ToastOverlay.transitionKind` 的先例，因为 `AnyTransition` 不是 `Equatable`、断不了）。

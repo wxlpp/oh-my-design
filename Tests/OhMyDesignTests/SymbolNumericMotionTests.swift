@@ -6,10 +6,11 @@ import Testing
 
 @Suite("符号 / 数字内容过渡：按 MotionPresentation 降级")
 struct SymbolNumericContentTransitionTests {
-    @Test("ContentTransition 的 Equatable 能分辨方向与 identity —— 否则下面的断言是恒真的")
+    @Test("ContentTransition 的 Equatable 能分辨取值与 identity —— 否则下面的断言是恒真的")
     func contentTransitionEqualityIsDiscriminating() {
-        #expect(ContentTransition.numericText(countsDown: false) != ContentTransition.numericText(countsDown: true))
-        #expect(ContentTransition.numericText(countsDown: false) != ContentTransition.identity)
+        #expect(ContentTransition.numericText(value: 9) != ContentTransition.numericText(value: 10))
+        #expect(ContentTransition.numericText(value: 9) != ContentTransition.identity)
+        #expect(ContentTransition.numericText(value: 9) == ContentTransition.numericText(value: 9))
         #expect(ContentTransition.symbolEffect(.replace) != ContentTransition.identity)
         #expect(ContentTransition.symbolEffect(.replace) == ContentTransition.symbolEffect(.replace))
     }
@@ -21,56 +22,29 @@ struct SymbolNumericContentTransitionTests {
         #expect(MotionPresentation.hidden.symbolReplacement == ContentTransition.identity)
     }
 
-    @Test("数字滚动：方向由新旧值决定；resting / hidden 直接替换")
-    func numericRollDirectionAndDegradation() {
+    // 方向不由本库给出：`.numericText(value:)` 让框架自己按插值中的取值判。本库要担保的是
+    // 「喂进去的就是当前计数」——不同计数必须产生不同的过渡，否则框架无从判向。
+    @Test("数字滚动：喂的是当前计数本身，不同计数产生不同过渡；resting / hidden 直接替换")
+    func numericRollCarriesTheCount() {
         let animated = MotionPresentation.animated
-        #expect(animated.numericRoll(from: 9, to: 10) == ContentTransition.numericText(countsDown: false))
-        #expect(animated.numericRoll(from: 99, to: 100) == ContentTransition.numericText(countsDown: false))
-        #expect(animated.numericRoll(from: 10, to: 9) == ContentTransition.numericText(countsDown: true))
-        #expect(animated.numericRoll(from: 100, to: 99) == ContentTransition.numericText(countsDown: true))
-        #expect(animated.numericRoll(from: 7, to: 7) == ContentTransition.numericText(countsDown: false))
+        for value in [0, 7, 9, 10, 99, 100] {
+            #expect(animated.numericRoll(to: value) == ContentTransition.numericText(value: Double(value)))
+        }
+        #expect(animated.numericRoll(to: 9) != animated.numericRoll(to: 10), "9 与 10 必须是两个不同的过渡")
+        #expect(animated.numericRoll(to: 99) != animated.numericRoll(to: 100))
+        #expect(animated.numericRoll(to: 10) != animated.numericRoll(to: 9))
         for presentation in [MotionPresentation.resting, .hidden] {
-            #expect(presentation.numericRoll(from: 9, to: 10) == ContentTransition.identity)
-            #expect(presentation.numericRoll(from: 10, to: 9) == ContentTransition.identity)
+            for value in [9, 10, 99, 100] {
+                #expect(presentation.numericRoll(to: value) == ContentTransition.identity)
+            }
         }
     }
 }
 
-// MARK: - 计数滚动的方向状态（#408 FR-4）
+// MARK: - 出现 / 消失转场（#408 FR-4）
 
-@Suite("anchoredBadge 计数滚动：方向状态机与出现 / 消失转场")
+@Suite("anchoredBadge 出现 / 消失转场")
 struct AnchoredBadgeMotionTests {
-    @Test("首次出现无方向；随后每次变化把上一次的显示值记作 previous")
-    func rollTracksPreviousValue() {
-        let first = AnchoredBadgeModifier.nextRoll(nil, value: 9, isVisible: true)
-        #expect(first == AnchoredBadgeCountRoll(previous: 9, value: 9))
-        let up = AnchoredBadgeModifier.nextRoll(first, value: 10, isVisible: true)
-        #expect(up == AnchoredBadgeCountRoll(previous: 9, value: 10))
-        let down = AnchoredBadgeModifier.nextRoll(up, value: 9, isVisible: true)
-        #expect(down == AnchoredBadgeCountRoll(previous: 10, value: 9))
-    }
-
-    @Test("非计数内容与不显示时清空方向状态 —— 隐藏后再出现不会闪一帧旧数字")
-    func rollResetsWhenHidden() {
-        let visible = AnchoredBadgeModifier.nextRoll(nil, value: 5, isVisible: true)
-        #expect(AnchoredBadgeModifier.nextRoll(visible, value: 0, isVisible: false) == nil)
-        #expect(AnchoredBadgeModifier.nextRoll(visible, value: nil, isVisible: true) == nil)
-        let reappeared = AnchoredBadgeModifier.nextRoll(nil, value: 7, isVisible: true)
-        #expect(reappeared == AnchoredBadgeCountRoll(previous: 7, value: 7))
-    }
-
-    @Test("方向由状态机推出：9 → 10 向上，10 → 9 向下")
-    func rollFeedsDirection() {
-        let start = AnchoredBadgeModifier.nextRoll(nil, value: 9, isVisible: true)
-        let up = AnchoredBadgeModifier.nextRoll(start, value: 10, isVisible: true)
-        let down = AnchoredBadgeModifier.nextRoll(up, value: 9, isVisible: true)
-        let transition = { (roll: AnchoredBadgeCountRoll?) -> ContentTransition in
-            MotionPresentation.animated.numericRoll(from: roll?.previous ?? 0, to: roll?.value ?? 0)
-        }
-        #expect(transition(up) == ContentTransition.numericText(countsDown: false))
-        #expect(transition(down) == ContentTransition.numericText(countsDown: true))
-    }
-
     @Test("出现 / 消失：animated 缩放 + 淡变，resting / hidden 纯淡变")
     func appearanceKindDegrades() {
         #expect(AnchoredBadgeModifier.appearanceKind(motion: .animated) == .scale)
@@ -79,18 +53,6 @@ struct AnchoredBadgeMotionTests {
         #expect(AnchoredBadgeModifier.appearanceScale < 1, "缩放转场必须真的从小变大")
     }
 
-    @Test("countText 的静态入口与实例属性同源，截断规则不变")
-    func countTextIsSharedWithTheEnumCase() {
-        #expect(AnchoredBadgeContent.countText(value: 9, max: 99) == "9")
-        #expect(AnchoredBadgeContent.countText(value: 100, max: 99) == "99+")
-        #expect(AnchoredBadgeContent.countText(value: 5, max: 0) == "1+")
-        for (value, limit) in [(9, 99), (100, 99), (5, 0), (1, 1)] {
-            #expect(AnchoredBadgeContent.count(value, max: limit).countText == AnchoredBadgeContent.countText(value: value, max: limit))
-        }
-        #expect(AnchoredBadgeContent.dot.countValue == nil)
-        #expect(AnchoredBadgeContent.text("NEW").countValue == nil)
-        #expect(AnchoredBadgeContent.count(120, max: 99).countValue == 120)
-    }
 }
 
 // MARK: - Radio 指示符取色（#374 的取舍，#408 合并单张 Image 后仍成立）
@@ -257,7 +219,7 @@ private struct BadgeCountMotionHarness: View {
     }
 }
 
-/// 只覆盖数字滚动。
+/// 只覆盖数字滚动与徽标出现。
 ///
 /// CheckBox / Radio 的符号替换在这套 harness 上**观测不到**：托管窗口的取像分辨率固定在
 /// 后备层（macOS 上 `pixels(scale:)` 不生效），16pt 的指示符只有 15 × 15 px。三种度量实测都
@@ -265,6 +227,13 @@ private struct BadgeCountMotionHarness: View {
 /// 墨迹掩码「离两端都远」的峰值 RM 关 11 / RM 开 42（反向，被 resting 那条淡变曲线污染）。
 /// ⇒ 符号替换的降级由真值表 `SymbolNumericContentTransitionTests.symbolReplacementDegrades`
 /// 与逐点台账兜住，不在这里假装有像素证据。
+///
+/// 「计数不晚一帧」也**测不出来**：托管窗口取像会强制走一次显示，镜像一层显示值多出的那一次
+/// 更新在同一次取像里就已落地——实测「立即取像是否已是新数字」在有镜像与无镜像两种实现下
+/// 结果相同（RM 开两边都已是新数字）。⇒ 不留恒真的断言；今天的担保是结构性的（喂给
+/// `numericText` 的取值与文字同出于 `case .count` 的那一次绑定，中间没有状态），
+/// 而把镜像加回去会被上面那条 `numericRollInFlight` 判红——镜像的状态变化不在
+/// `.coreAnimation(.reveal, value: self.content)` 的触发集里，滚动动画整个不播。
 @Suite("动画进行中：数字滚动在 Reduce Motion 下不滚动", .serialized)
 @MainActor
 struct SymbolNumericInFlightTests {

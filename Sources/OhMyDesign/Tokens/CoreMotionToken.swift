@@ -150,7 +150,7 @@ extension MotionPresentation {
         self == .animated ? ContentTransition.symbolEffect(.replace) : ContentTransition.identity
     }
 
-    nonisolated func numericRoll(from previous: Int, to next: Int) -> ContentTransition {
-        self == .animated ? ContentTransition.numericText(countsDown: next < previous) : ContentTransition.identity
+    nonisolated func numericRoll(to value: Int) -> ContentTransition {
+        self == .animated ? ContentTransition.numericText(value: Double(value)) : ContentTransition.identity
     }
 }

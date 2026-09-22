@@ -52,7 +52,7 @@
 
 | 位置 | 之前 | 现在 |
 |---|---|---|
-| `anchoredBadge(.count(_))` 计数变化 | 数字直接突变 | `.contentTransition(.numericText(countsDown:))` 纵向滚动，方向按新旧值定（增加向上、减少向下） |
+| `anchoredBadge(.count(_))` 计数变化 | 数字直接突变 | `.contentTransition(.numericText(value:))` 纵向滚动，方向由框架按当前计数自己判（增加向上、减少向下） |
 | `anchoredBadge` 徽标出现 / 消失 | 直接出现 / 消失 | 缩放（0.6 → 1）+ 淡变，走 `CoreMotionToken.reveal`；转场挂在徽标本身，锚点是徽标中心 |
 | `CheckBoxToggleStyle` 勾选切换 | 两张 `Image`（`square` / `checkmark.square.fill`）交叉淡变 | 一张 `Image` + `.contentTransition(.symbolEffect(.replace))`，勾以描画方式出现 |
 | `RadioGroup` 选中切换 | 同一张 `Image` 换 `systemName` + 交叉淡变 | 同上，加 `.contentTransition(.symbolEffect(.replace))` |
