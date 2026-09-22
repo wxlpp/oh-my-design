@@ -45,9 +45,13 @@ struct CoreMotionTokenDisciplineGuard {
         "Components/Style/CoreDisclosureGroupStyle.swift": .gated,
         "Components/Style/CoreCircularProgressViewStyle.swift": .staticTransform,
         "Components/Carousel/Carousel.swift": .gated,
+        "Components/TagInput/TagInput.swift": .gated,
+        "Components/TagGroup/TagGroup.swift": .gated,
     ]
 
     static let transformLedger: [String: String] = [
+        "Tokens/CoreMotionToken.swift|scaleEffect(Self.scale(for: self.presentation, phase: phase))":
+            "CollectionItemTransition.scale(for:phase:) 在 resting / hidden 下每一相都是 1",
         "Components/Button/styles/PressableButtonStyles.swift|scaleEffect(feedback.scale)":
             "feedback 取自 PressFeedback.card(presentation:)，resting 下 scale = 1",
         "Modifier/ButtonBackgroundModifier.swift|scaleEffect(feedback.scale)":

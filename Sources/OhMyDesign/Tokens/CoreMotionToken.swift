@@ -109,3 +109,36 @@ extension CoreMotionToken {
         presentation == .animated ? self.animation : nil
     }
 }
+
+// MARK: - 集合项的增删转场 / Collection item insertion & removal
+
+// 降级量是 `scale(for:phase:)`，不是 `properties`：后者是 static、承载不了逐实例的呈现裁决，
+// 而 #407 实测框架并**不**按 `hasMotion` 把转场换成 `.opacity`。
+struct CollectionItemTransition: Transition {
+    nonisolated static let properties = TransitionProperties(hasMotion: true)
+
+    nonisolated static let enteringScale: CGFloat = 0.86
+
+    let presentation: MotionPresentation
+
+    nonisolated static func scale(for presentation: MotionPresentation, phase: TransitionPhase) -> CGFloat {
+        guard presentation == .animated, !phase.isIdentity else { return 1 }
+        return Self.enteringScale
+    }
+
+    nonisolated static func opacity(for phase: TransitionPhase) -> Double {
+        phase.isIdentity ? 1 : 0
+    }
+
+    func body(content: Content, phase: TransitionPhase) -> some View {
+        content
+            .scaleEffect(Self.scale(for: self.presentation, phase: phase))
+            .opacity(Self.opacity(for: phase))
+    }
+}
+
+extension MotionPresentation {
+    nonisolated var collectionItemTransition: CollectionItemTransition {
+        CollectionItemTransition(presentation: self)
+    }
+}
