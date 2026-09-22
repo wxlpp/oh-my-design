@@ -19,6 +19,54 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.10.0`）——Issue #399：浮层与层级（Toast / `floatingGlass` / `.surface`）
+
+**视觉变更（无签名破坏）。** 公开符号的签名一个都没变；以下是默认外观的变化：
+
+| 位置 | 之前 | 现在 |
+|---|---|---|
+| `Toast` danger 图标 | `exclamationmark.octagon` | **`exclamationmark.circle`**（与 `Banner` 的 circle 族成组，Toast 保持描线） |
+| `Toast` 在 AX 字号（AX1+） | 图标单独占一列，文字列变窄，长单词会从中间折断 | 图标独占标题上方一行（字号上限 `accessibility1`），文字列拿到整条宽度；常规字号外观不变 |
+| `.toastHost(presentation: .fullWidthBanner)` 外壳 | 四周 hairline，止于安全区 | **无 hairline**，底色与玻璃延伸进所贴那条边的安全区（顶部即状态栏），左右与贴边那侧的玻璃高光边推出屏幕 |
+| `.toastHost(presentation: .centeredHUD)` 外壳 | 64% 背景色 + 玻璃，叠在文字上透字 | 底色改为不透明 `surfaceRaised`，保留玻璃边缘与 hairline |
+| `.surface(.content)` / `.surface(.card)` / `Card()` 嵌套到 elevated 层（**仅 iOS**） | `borderMuted` 描边 | **无描边**（与 `.grouped` 合流）；raised / base 层不变；macOS 不变 |
+
+- `.floatingCapsule` 与公开入口 `.floatingGlass(in:isInteractive:)`（含 `FloatButton` 的扩展样式）外观不变。
+- macOS 上 `surfaceCard` 与 `surfaceElevated` 同色，描边是嵌套的唯一线索，所以 elevated 层的描边在 macOS 上保留。
+
+## 未发布（相对 `v0.10.0`）——Issue #400：输入控件的校验 / 禁用 / 尺寸外观
+
+**视觉与布局变更（无签名破坏，无公开 API 增减）。**
+
+| 控件 / 状态 | 之前 | 现在 |
+|---|---|---|
+| `CheckBoxToggleStyle` / `RadioGroup` 在 `.disabled(true)` 下 | 与 enabled 外观相同 | 整行（图标 + 标题）降到 0.4 不透明度；enabled 外观逐像素不变 |
+| `RadioGroup` invalid 且选中 | 圆环与实心点都取 `statusDangerForeground` | 只有圆环取 danger，实心点保持 `contentPrimary` |
+| `TagInput` invalid | 只在输入框下面画一条 80pt 起的红线 | 整个字段底部一条横跨全宽的红色基线 |
+| `PinCode` invalid 且获焦的那一格 | 2pt 红边 | 2pt 红边 + 格外 4pt `statusDangerForeground` 30% 光晕（不占布局） |
+| `PinCode` 有值时（浅色最明显） | 中间两格的空隙里透出淡淡的数字 | 不再透出，获焦编辑与选区高亮时也不透出（隐藏输入框的文字 / 光标取透明色，并在几何上裁掉） |
+| `SearchField` 放进不限高的容器（iOS） | 被纵向拉伸到容器高度 | 取固有高度 44pt；macOS 本来就不拉伸，布局不变 |
+| `SearchField` 由调用方显式给高度，如 `.frame(height: 60)`（iOS） | 原生搜索框（绘制带与命中区）被撑到 60pt | 外层框仍是 60pt，原生搜索框保持 44pt、垂直居中；44pt 之外的上下各 8pt 是空白，点按不聚焦。macOS 前后都是原生固有高度 |
+
+- **迁移**：一般不需要；之前为规避拉伸加的 `.fixedSize(horizontal: false, vertical: true)` 可以删掉（留着也无害）。
+  ⚠️ **原生搜索框的高度没有恢复手段**：外层再包 `.frame(height:)` / `.frame(maxHeight: .infinity)` 只会放大外面那层
+  框，原生搜索框的绘制带与命中区都停在 44pt，不会跟着变高。依赖旧的「给多高就画多高」的调用点（如用
+  `.frame(height: 60)` 画一条加高搜索条）需要自行包一个 `UISearchTextField` / `.searchable`，本库不提供开关。想让禁用的 CheckBox / Radio 保持不变淡的旧观感，没有开关——这是有意对齐系统控件的行为。
+
+## 未发布（相对 `v0.10.0`）——Issue #398：Banner 圆角与 neutral 不透明底色、Timeline 浅色 warning 圆点
+
+**视觉变更（无签名破坏）。** 新增公开 token：`Color.systemGray5`（第 2 层）、`Color.statusNeutralSubtle`（第 3 层）。
+
+| 外观 | 之前 | 现在 |
+|---|---|---|
+| `Banner` 容器（`PlainBannerStyle` / `BorderedBannerStyle`） | 直角矩形 | `CoreRadius.medium`（10pt）连续圆角；Bordered 描边沿同一圆角形状内描。内容布局与尺寸不变；形状这一项只改变四角像素（该对照在 neutral 底色变更之后测得，底色变更见下一行） |
+| `Banner` `.neutral` 背景 | `tertiaryFill`（半透明，随背后底色变深浅） | `statusNeutralSubtle` → `systemGray5`（不透明；iOS 浅 `#E5E5EA` / 深 `#2C2C2E`，macOS 取 `unemphasizedSelectedContentBackgroundColor`——外观近似而非语义等价，增强对比度与 vibrancy 下的表现未经验证） |
+| `Timeline` 浅色 `warning` 默认圆点 | `statusAttentionEmphasis`（`#D1A72D`，对分组背景约 2.0:1） | `statusAttentionForeground`（`#9A6700`，对分组背景 4.36:1）；暗色不变 |
+
+- **迁移（保留旧观感）**：想要直角或旧的半透明 neutral 底色，写一个自定义 `BannerStyle`（`makeBody` 里用
+  `Rectangle()` 背景、neutral 取 `Color.tertiaryFill`），经 `.bannerStyle(_:)` 注入。
+- 截图 / 快照基线比对 Banner 的下游需要重录；Timeline 只有浅色 warning 圆点变化。
+
 ## 未发布（相对 `v0.10.0`）——Issue #382：surface 有效层级 + `coreSheetPresentation(background:)`
 
 **行为变更（无签名破坏）。** `.surface(_:)` 现在按环境里的有效层级取背景（规则见

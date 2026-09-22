@@ -263,7 +263,7 @@
 |---|---|
 | `Color.maskOpaque` | 纯 alpha 遮罩的**不透明**基色（`α = 1`）。 |
 
-## `StatusColors`（24）
+## `StatusColors`（25）
 
 | token | 说明 |
 |---|---|
@@ -291,6 +291,7 @@
 | `Color.statusDoneEmphasis` | 完成实色背景。 |
 | `Color.statusDoneMuted` | 完成弱化背景。 |
 | `Color.statusDoneSubtle` | 完成淡背景。 |
+| `Color.statusNeutralSubtle` | 中性淡背景：不透明的系统灰（`systemGray5`），叠在任何底色上视觉重量都不变。 |
 
 ## `SurfaceColors`（15）
 
@@ -323,7 +324,7 @@
 | `Color.secondarySystemGroupedBackground` | 分组界面主要背景上层内容的颜色。 |
 | `Color.tertiarySystemGroupedBackground` | 内容层叠在分组界面次要背景之上的颜色。 |
 
-## `SystemLabelColors`（12）
+## `SystemLabelColors`（13）
 
 | token | 说明 |
 |---|---|
@@ -339,6 +340,7 @@
 | `Color.opaqueSeparator` | 不透明的分隔线颜色，完全遮住下层内容（`UIColor.opaqueSeparator`）。 |
 | `Color.link` | 可点击链接文本的颜色，桥接 `UIColor.link` / `NSColor.linkColor`。 |
 | `Color.systemRed` | 系统红，桥接 `UIColor.systemRed` / `NSColor.systemRed`，随外观与对比度设置自动适配。 |
+| `Color.systemGray5` | 不透明的中浅灰，桥接 `UIColor.systemGray5`，明暗两种外观 α 均为 1。 |
 
 
 ---
@@ -374,8 +376,8 @@
 ### `Components/Banner/Banner.swift`
 
 - **`Banner`** *<Label: View>: View* — 页内信息表面，按状态语义配描边或填充；浮层反馈请改用 `ToastHost`。
-- **`PlainBannerStyle`** *: BannerStyle* — 默认的 Banner 外观：纯色背景 + 同色系前景，无描边。
-- **`BorderedBannerStyle`** *: BannerStyle* — 带同色系描边的 Banner 外观：背景 + `CoreBorderWidth.thin` 描边。
+- **`PlainBannerStyle`** *: BannerStyle* — 默认的 Banner 外观：`CoreRadius.medium` 圆角纯色背景 + 同色系前景，无描边。
+- **`BorderedBannerStyle`** *: BannerStyle* — 带同色系描边的 Banner 外观：`CoreRadius.medium` 圆角背景 + 沿同一形状的 `CoreBorderWidth.thin` 描边。
 - *protocol* **`BannerStyle`** — `Banner` 视觉外观的扩展点，形态对齐 Apple `ButtonStyle` / `ToggleStyle`。
 - *struct* **`BannerStyleConfiguration`** — 传给 `BannerStyle.makeBody` 的上下文：语义等级、正文与可选的标题 / 动作 / 关闭回调。
 
@@ -687,7 +689,7 @@
 
 - *enum* **`SurfaceKind`** — 容器表面语义类别 / Container surface semantic kinds.
   - `.canvas` — 页面级画布。
-  - `.content` — 内容表面：卡片、分组容器——**浮于画布之上**（背景取 `surfaceRaised`）。 列表行不用本 kind，`ListRow` 走 `.surface(.canvas)` 贴画布。
+  - `.content` — 内容表面：卡片、分组容器——**浮于画布之上**（背景取 `surfaceRaised`）。 iOS 上嵌套到 elevated 层时不描边，与 `.grouped` 同观感；macOS 上 raised / elevated 同色，保留描边作嵌套线索。 列表行不用本 kind，`ListRow` 走 `.surface(.canvas)` 贴画布。
   - `.control` — 交互控件表面：按钮、输入框、分段控件。
   - `.floating` — 浮于内容之上的表面：toast、浮动工具栏、底部栏。
   - `.grouped` — 分组容器表面：背景 + 圆角、无描边，靠填充色对比定界，背景与 `.content` 同取 `surfaceRaised`。
@@ -1025,7 +1027,7 @@
 | typography | 12 | 12 |
 | elevation | 4 | 4 |
 | controlsize | 5 | 5 |
-| colors | 120 | 120 |
+| colors | 122 | 122 |
 | components | 89 | 89 |
 | enums | 44 | 44 |
 | enumcases | 151 | 151 |

@@ -7,6 +7,7 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
     /// 页面级画布。
     case canvas
     /// 内容表面：卡片、分组容器——**浮于画布之上**（背景取 `surfaceRaised`）。
+    /// iOS 上嵌套到 elevated 层时不描边，与 `.grouped` 同观感；macOS 上 raised / elevated 同色，保留描边作嵌套线索。
     /// 列表行不用本 kind，`ListRow` 走 `.surface(.canvas)` 贴画布。
     case content
     /// 交互控件表面：按钮、输入框、分段控件。
@@ -75,19 +76,24 @@ extension SurfaceKind {
         }
     }
 
-    var border: Color {
+    func border(at level: SurfaceLevel) -> Color {
         switch self {
         case .canvas: .clear
-        case .content: .borderMuted
+        case .content, .card: level == .elevated && Self.elevatedDropsContentBorder ? .clear : .borderMuted
         case .control: .borderSubtle
         case .floating: .borderMuted
         case .grouped: .clear
         case .canvasSubtle: .borderMuted
         case .panel: .borderDefault
         case .sidebar: .clear
-        case .card: .borderMuted
         }
     }
+
+    #if canImport(UIKit)
+        static let elevatedDropsContentBorder = true
+    #else
+        static let elevatedDropsContentBorder = false
+    #endif
 
     var cornerRadius: CGFloat {
         switch self {
@@ -116,7 +122,7 @@ struct SurfaceModifier: ViewModifier {
         return content
             .environment(\.surfaceLevel, level)
             .background(shape.fill(self.kind.background(at: level)))
-            .overlay(shape.strokeBorder(self.kind.border, lineWidth: CoreBorderWidth.thin))
+            .overlay(shape.strokeBorder(self.kind.border(at: level), lineWidth: CoreBorderWidth.thin))
             .clipShape(shape)
     }
 }

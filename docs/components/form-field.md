@@ -76,13 +76,15 @@ extension View {
 
 | 控件 | invalid 外观 | 无障碍 hint 挂在 | label |
 |---|---|---|---|
-| `PinCode` | 每格边框 `statusDangerForeground` | 每一格 | 字段 label；不在 `FormField` 内为 `"Verification code"` |
-| `TagInput` | 输入框底部 danger 描边线 | 输入框（不是 chip 删除按钮） | 字段 label；否则 placeholder |
+| `PinCode` | 每格边框 `statusDangerForeground`；获焦格加粗并带 `statusDangerForeground` 30% 光晕 | 每一格 | 字段 label；不在 `FormField` 内为 `"Verification code"` |
+| `TagInput` | 整个字段底部横跨全宽的 danger 基线 | 输入框（不是 chip 删除按钮） | 字段 label；否则 placeholder |
 | `SearchField` | 原生搜索框外沿 danger 胶囊描边 | 原生搜索框 | 字段 label；否则 placeholder |
 | `CheckBoxToggleStyle` | 方框图标 danger | `Toggle` 节点 | 保留 Toggle 自身文字 |
-| `RadioGroup` | 圆点图标 danger | 每个选项 | 保留选项标题 |
+| `RadioGroup` | 圆环 danger，选中实心点保持 `contentPrimary` | 每个选项 | 保留选项标题 |
 
 - 外观统一走 disabled > invalid：禁用时与禁用 + valid 一致；valid 时与接入前逐像素一致。
+- `CheckBoxToggleStyle` / `RadioGroup` 禁用时整行降到 0.4 不透明度（`FieldAppearance.controlOpacity`，
+  与 `TagGroup` 一致）；`SearchField` 的禁用外观由原生控件提供，`PinCode` 文字退到 `contentDisabled`。
 - 播报仍只由 `FormField` 发出，控件不另播报。
 - 调用方在控件外层自带的 `.accessibilityLabel(...)` 不会被字段 label 覆盖（hint 照常挂上）；嵌套 `FormField`
   时取最近一层的 label、校验态与 description。不在 `FormField` 内、也没有校验态时，五个控件的无障碍 label / hint

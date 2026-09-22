@@ -34,6 +34,25 @@ TextField("", text: $value)
 - **macOS**：复用同一个 `TextField`，跳过以上两个 modifier——`.keyboardType` 在 macOS
   上不存在，`.textContentType(.oneTimeCode)` 在 macOS 上无实际效果。
 
+### 隐藏输入框不留残影
+
+隐藏 `TextField` 带 `.fixedSize()`、居中叠在格子行下面，宽度只有当前值的文本宽，于是正好落在
+中间两格之间的空隙里（那里没有格子背景遮挡）。`.opacity(0.01)` 压不到零：浅色下空隙处仍差约 3 个色阶
+（模拟器截图 242 → 239），在均匀底色上能看见一串淡淡的数字。
+⇒ 隐藏输入框的文字与光标取透明色（`.foregroundStyle(Color.clear)` + `.tint(Color.clear)`），并用
+`.clipShape(Rectangle().size(.zero))` 在几何上裁掉它——编辑态的系统选区高亮不跟 `tint` 走（macOS 深色下全选时
+仍差 2 个色阶），只有裁切能把它也去掉。opacity 仍是 0.01（UIKit 下 alpha < 0.01 的视图不参与命中与响应链），
+焦点、`oneTimeCode` / `numberPad`、无障碍隐藏都不变。
+
+证据与射程：
+- `PinCodeHiddenFieldTests`：未获焦、获焦光标在末尾、获焦全选三种状态下，藏掉输入框前后逐像素相同（两端，light / dark）；
+  macOS 进程内获焦编辑：末尾键入 `3a4` → `1234`、部分选区替换 `1234` 选中 `23` 输入 `9` → `194`、全选输入 `56` → `56`。
+- iOS 进程内的 `insertText` 不回写 SwiftUI 绑定（`PlatformTextFieldCoordinator` 只认真实用户编辑），所以 iOS 的键入 / 退格 /
+  全选替换 / 粘贴走预览宿主 + AXe：改动前后同一序列得到同一取值与同一逐格无障碍 value（`1234` → `123` → `56` → `987654`），
+  弹出的都是同一个数字键盘（键盘区截图逐像素相同，无 QuickType 栏、无听写键）。
+- **未验证**：短信验证码的 QuickType 自动填充建议（模拟器收不到短信，改动前后都不出现建议栏）；听写（数字键盘没有听写键，
+  两版都无法触发）；真实 VoiceOver 朗读（只核对了 AXe 读到的 label / value / hint，改动前后逐项相同）。
+
 ## 预览 / Preview
 
 运行 `scripts/run-snapshots.sh`（默认模式）后，预览图落地 `docs/snapshots/`——但前提是该组件已在 `App/Sources/Previews.swift` 注册（导出文件名形如 `OhMyDesignPreview_<组件名>.png`）；组件源码内自带的 `#Preview` 仅用于开发期本地预览，或经 `KEEP_LIBRARY_SNAPSHOTS=1 scripts/run-snapshots.sh` 导出到本地 scratch 目录做逐组件视觉核对（不写入 docs/snapshots，见 `.claude/epics/semi-mobile-components/phase0-decisions.md` §3）。同文件 `#Preview`
@@ -80,7 +99,9 @@ PinCode(value: $code, length: 6)
   SwiftUI 的默认 tint），`CoreBorderWidth.thick`
 - 非焦点格边框：`Color.borderMuted`，`CoreBorderWidth.thin`
 - 校验态（`.fieldValidation(_:)`，见 `form-field.md`）：invalid 时**每一格**边框取
-  `Color.statusDangerForeground`（压过焦点色）；当前格仍保留 `CoreBorderWidth.thick` 作位置提示。
+  `Color.statusDangerForeground`（压过焦点色）；获焦时当前格保留 `CoreBorderWidth.thick`，并在格外
+  再画一圈 `CoreBorderWidth.thicker` 的 `Color.statusDangerForeground` 30% 不透明度的光晕（不占布局），与其他 invalid 格
+  可区分。光晕只在 invalid 下出现，valid 获焦格外观不变。
   disabled 优先于 invalid——禁用时与禁用 + valid 外观一致。
 - 禁用态文字：`Color.contentDisabled`；正常态：`Color.contentPrimary`
 - 圆角：`CoreRadius.medium`

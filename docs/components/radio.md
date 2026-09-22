@@ -76,8 +76,11 @@ RadioGroup(
 
 `RadioGroup` 与 `CheckBoxToggleStyle` 都读 `.fieldValidation(_:)`（见 `form-field.md`）：
 
-- invalid 时圆点 / 方框图标取 `Color.statusDangerForeground`（选中与未选中都换）；标题文字不变。
-- disabled 优先于 invalid：禁用时与禁用 + valid 外观一致。
+- invalid 时 Radio 的**圆环**与 CheckBox 的方框图标取 `Color.statusDangerForeground`；Radio 选中的实心点
+  仍取 `Color.contentPrimary`（`circle.inset.filled` 走 `.palette`：primary 层是实心点、secondary 层是圆环），
+  避免读成「选中的这一项是错的」。标题文字不变。
+- **disabled**：整行（图标 + 标题）降到 0.4 不透明度，与 `TagGroup` / 按钮样式的禁用态一致；enabled 外观不变。
+  disabled 优先于 invalid：禁用 + invalid 与禁用 + valid 外观一致（不画红色）。
 - 无障碍：错误原因与 `FormField` 的 description 作为 hint 挂在**每个可切换节点**上
   （Radio 的每一行、CheckBox 的 `Toggle`）；label 保留选项 / Toggle 自身的文字，
   不替换成字段 label——否则同组的每个选项都会读成同一个字段名。

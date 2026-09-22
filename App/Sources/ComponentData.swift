@@ -130,6 +130,12 @@ extension ComponentMeta {
         ComponentMeta(id: "banner", name: "Banner", description: "通知横幅，五级语义，可带标题 / 动作 / 关闭", category: .indicator) {
             BannerPreview()
         },
+        ComponentMeta(id: "banner-levels", name: "Banner · 五档 Plain / Bordered", description: "五档语义在分组画布上的 Plain 与 Bordered 外观", category: .indicator) {
+            BannerLevelsPreview(backdrop: .canvas)
+        },
+        ComponentMeta(id: "banner-on-card", name: "Banner · 白底卡片里", description: "同一组五档放进 systemBackground 白底卡片，对照分组画布", category: .indicator) {
+            BannerLevelsPreview(backdrop: .card)
+        },
         ComponentMeta(id: "progress-indicator", name: "ProgressIndicator", description: "通用圆形加载指示器，可选文案渲染于 spinner 下方", category: .indicator) {
             ProgressIndicatorGalleryPreview()
         },
@@ -214,6 +220,15 @@ extension ComponentMeta {
         },
         ComponentMeta(id: "toast-rich-hud", name: "Toast · centeredHUD 动作", description: "centeredHUD：title + description + ToastAction", category: .feedback) {
             ToastRichPreview(presentation: .centeredHUD)
+        },
+        ComponentMeta(id: "toast-rich-danger-capsule", name: "Toast · danger 胶囊", description: "floatingCapsule：danger 单行标题（含长单词，检视 AX 字号折行）", category: .feedback) {
+            ToastRichPreview(presentation: .floatingCapsule, sample: ToastPreviewSamples.danger())
+        },
+        ComponentMeta(id: "toast-rich-danger-banner", name: "Toast · danger 横幅", description: "fullWidthBanner：danger 单行标题，外壳延伸进状态栏", category: .feedback) {
+            ToastRichPreview(presentation: .fullWidthBanner, sample: ToastPreviewSamples.danger())
+        },
+        ComponentMeta(id: "toast-rich-danger-hud", name: "Toast · danger HUD", description: "centeredHUD：danger 单行标题，外壳不透底层文字", category: .feedback) {
+            ToastRichPreview(presentation: .centeredHUD, sample: ToastPreviewSamples.danger())
         },
         ComponentMeta(id: "spinning", name: "Spinning", description: "View.spinning(_:text:presentation:tint:)：overlay 遮罩（阻塞）/ topBar / inline（非阻塞）；取色走 tint: 参数，三个形态一致", category: .feedback) {
             SpinningPreview()
@@ -647,6 +662,59 @@ private struct BannerPreview: View {
     }
 }
 
+private struct BannerLevelsPreview: View {
+    enum Backdrop {
+        case canvas
+        case card
+    }
+
+    let backdrop: Backdrop
+
+    private static let levels: [(StatusLevel, String)] = [
+        (.info, "Info message"),
+        (.success, "Success message"),
+        (.warning, "Warning message"),
+        (.danger, "Danger message"),
+        (.neutral, "Neutral message"),
+    ]
+
+    var body: some View {
+        switch self.backdrop {
+        case .canvas:
+            self.stack
+        case .card:
+            self.stack
+                .padding(CoreSpacing.md)
+                .background(Color.surfaceBase, in: CoreShape.rounded(CoreRadius.large))
+        }
+    }
+
+    private var stack: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            self.group("Plain") {
+                ForEach(Self.levels, id: \.1) { level, text in
+                    Banner(level: level) { Text(verbatim: text) }
+                }
+            }
+            self.group("Bordered") {
+                ForEach(Self.levels, id: \.1) { level, text in
+                    Banner(level: level) { Text(verbatim: text) }
+                }
+                .bannerStyle(BorderedBannerStyle())
+            }
+        }
+    }
+
+    private func group(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+            Text(verbatim: title)
+                .coreFont(.caption)
+                .foregroundStyle(Color.contentSecondary)
+            content()
+        }
+    }
+}
+
 private struct SizeSystemPreview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.md) {
@@ -810,19 +878,25 @@ private enum ToastPreviewSamples {
             action: ToastAction("Undo") {}
         )
     }
+
+    static func danger() -> ToastItem {
+        ToastItem(title: "Connection interrupted", level: .danger, duration: .persistent)
+    }
 }
 
 private struct ToastRichPreview: View {
     let presentation: ToastPresentation
+    var sample: ToastItem = ToastPreviewSamples.archived(duration: .persistent)
 
     var body: some View {
-        ToastRichPreviewContent()
+        ToastRichPreviewContent(sample: self.sample)
             .frame(maxWidth: .infinity, minHeight: 320, maxHeight: .infinity)
             .toastHost(edge: .top, presentation: self.presentation)
     }
 }
 
 private struct ToastRichPreviewContent: View {
+    let sample: ToastItem
     @Environment(\.toastHost) private var toast
 
     var body: some View {
@@ -832,13 +906,16 @@ private struct ToastRichPreviewContent: View {
                 .foregroundStyle(Color.contentMuted)
             Button("Show again") {
                 self.toast?.dismissAll()
-                self.toast?.show(ToastPreviewSamples.archived(duration: .persistent))
+                self.toast?.show(ToastItem(
+                    title: self.sample.title, description: self.sample.description,
+                    level: self.sample.level, duration: .persistent, action: self.sample.action
+                ))
             }
             .buttonStyle(.light(role: .secondary))
             .controlSize(.small)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .task { self.toast?.show(ToastPreviewSamples.archived(duration: .persistent)) }
+        .task { self.toast?.show(self.sample) }
     }
 }
 
@@ -879,7 +956,11 @@ private struct CardPreview: View {
                 VStack(alignment: .leading, spacing: CoreSpacing.sm) {
                     Text("外层 Card：raised").coreFont(.headline)
                     Card {
-                        Text("内层 Card：elevated，无投影").coreFont(.subheadline)
+                        #if os(macOS)
+                        Text("内层 Card：elevated，无投影，保留描边").coreFont(.subheadline)
+                        #else
+                        Text("内层 Card：elevated，无投影、无描边").coreFont(.subheadline)
+                        #endif
                     }
                     Card(kind: .grouped) {
                         Text("内层 grouped：elevated").coreFont(.subheadline)
@@ -1398,7 +1479,6 @@ private struct FormFieldControlsPreview: View {
             }
             .fieldValidation(self.validation("Pro is unavailable in your region."))
         }
-        .fixedSize(horizontal: false, vertical: true)
         .disabled(self.state == .disabledInvalid)
     }
 
@@ -1427,7 +1507,6 @@ private struct FormFieldControlsPlainPreview: View {
                 axis: .horizontal
             )
         }
-        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -1459,7 +1538,6 @@ private struct FormFieldControlsEdgePreview: View {
             }
             .fieldValidation(.invalid("Outer is wrong."))
         }
-        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -1538,6 +1616,7 @@ private struct StepsPreview: View {
 private struct TimelinePreview: View {
     private static var items: [TimelineItem] {
         [
+            TimelineItem(status: .info) { Text("已创建").coreFont(.callout) },
             TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) },
             TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) },
             TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) },
