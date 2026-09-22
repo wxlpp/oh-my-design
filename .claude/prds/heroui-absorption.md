@@ -129,6 +129,8 @@ Banner 无状态：`onDismiss` 只回调，由调用方移除。动作与关闭�
 - 状态机：按住或拖拽都暂停计时，松手按剩余时长恢复，手势取消同样恢复；`.persistent` 在被关闭前阻塞队列
   （文档写明）；`dismissAll()` 清空当前与排队项，退场动画中调用也成立，清空后立即 `show` 正常显示。
   显示计时与退场等待不得再共用同一任务字段而互相覆盖。
+- 排版与命中：常规字号下标题 1 行、说明最多 2 行；辅助功能字号（AX1+）下两者不限行数（HIG：大字号不截断）。
+  动作按钮视觉保持紧凑，但命中区 ≥ 44×44pt（不撑高 toast）。`.seconds(.infinity)` 视同 `.persistent`。
 
 **FR-7 尺寸体系**：`Badge` / `Tag` 读 `\.controlSize`，字号 / 内边距 / 图标尺寸取 `CoreControlMetrics`
 （不够时在该文件补查询函数）；`Tag` 关闭钮随档。`Avatar`：在 `CoreControlMetrics` 新增五档头像直径表，
