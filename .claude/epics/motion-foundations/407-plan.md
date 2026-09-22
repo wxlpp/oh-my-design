@@ -1,6 +1,6 @@
 # #407 计划：动效 token + Reduce Motion 纪律（含实测 spike）
 
-契约：`.claude/prds/motion-foundations.md` FR-1 / FR-2 / FR-3。范围只在 `Sources/OhMyDesign`（Effects / Charts 不动）。
+契约：`.claude/prds/motion-foundations.md` FR-1 / FR-2 / FR-3。范围只在 `Sources/OhMyDesign`（Effects / Charts 不动行为；Effects 只改五处 `properties` 上的文档注释，按更正传播约定同步 `hasMotion` 的实测结论）。
 
 ## FR-1 spike 结论（先做，决定下面的写法）
 
@@ -100,8 +100,9 @@ public extension View {
 scale = 1、opacity = 0.7；Toast 转场种类 / 退场位移 / HUD 缩放在 `.resting` 下为淡变 / 0 / 1；Segmented /
 UnderlinedTabBar 的滑动指示在 `.resting` 下关闭；Disclosure chevron 在 `.resting` 下旋转不补间；TopBar 在
 `.resting` 下不扫动；`CoreMotion` 取值与 `animation(for:)` 映射；`EnvironmentValues.coreMotionPresentation`
-随 `_accessibilityReduceMotion` 注入翻转；静息外观对照原样拷贝的旧实现逐像素相等（按钮背景、Telegram、
-Segmented、UnderlinedTabBar、Disclosure、Toast）。
+随 `_accessibilityReduceMotion` 注入翻转；静息外观：按钮背景与 Telegram 对照原样拷贝的旧实现逐像素相等
+（按下态缩放后 ±1 LSB 有界等价），Segmented / UnderlinedTabBar / Disclosure / Toast 断言 RM 开关下静息位图相同
+（RM 关路径只换了几何 ID 的类型与曲线，未另拷旧实现）。
 
 ## 文档 / 登记落点
 
