@@ -1,7 +1,7 @@
 ---
 name: heroui-absorption
 description: 对照 HeroUI v3 吸收 P1 + P2 共 11 项组件能力，保留 HIG 原生观感、墨色 accent 与「换皮不重造」
-status: backlog
+status: completed
 created: 2026-09-22T01:14:14Z
 ---
 
