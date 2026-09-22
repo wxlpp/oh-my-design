@@ -35,6 +35,7 @@ private struct CheckBoxBody: View {
             self.configuration.label
                 .fieldAccessibilityHint()
         }
+        .opacity(appearance.controlOpacity)
         .frame(minHeight: CoreControlMetrics.height(for: .regular))
         .contentShape(Rectangle())
         .animation(.easeOut(duration: 0.25), value: self.configuration.isOn)

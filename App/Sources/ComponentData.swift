@@ -1457,7 +1457,6 @@ private struct FormFieldControlsPreview: View {
             }
             .fieldValidation(self.validation("Pro is unavailable in your region."))
         }
-        .fixedSize(horizontal: false, vertical: true)
         .disabled(self.state == .disabledInvalid)
     }
 
@@ -1486,7 +1485,6 @@ private struct FormFieldControlsPlainPreview: View {
                 axis: .horizontal
             )
         }
-        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -1518,7 +1516,6 @@ private struct FormFieldControlsEdgePreview: View {
             }
             .fieldValidation(.invalid("Outer is wrong."))
         }
-        .fixedSize(horizontal: false, vertical: true)
     }
 }
 

@@ -17,10 +17,11 @@ import AppKit
 /// 导航栏 / 工具栏；本组件是可内联摆放的独立控件（筛选栏 / 侧栏列）。
 /// 该替代方案在 `docs/component-registry.json` 的本组件条目里已评估并否决。
 ///
-/// ⚠️ **两端尺寸行为不同**：iOS 26.4 实测 `UISearchTextField` 的绘制带随 frame 撑满
-/// （44pt 下即 44pt 高，放进不限高的容器会被纵向拉伸）；macOS `NSSearchField` 取固有高度
-/// （实测 24pt）。**44pt 触控下限由外层包装层承担**（见 `body` 里的 `frame(minHeight:)` +
-/// `contentShape`）；invalid 描边叠在 representable 自身的 bounds 上，两端都贴合绘制带。
+/// 纵向取固有高度（下限 44pt 触控区），放进不限高的容器也不会被拉伸，调用方不需要 `fixedSize`；
+/// 外层 `.frame(height:)` 只改外框，原生搜索框与命中区不会随之变高。
+/// ⚠️ 别去掉包装层的 `fixedSize(vertical)`：iOS `UISearchTextField` 的绘制带随 frame 撑满，
+/// 去掉后在不限高容器里会被纵向拉伸（macOS `NSSearchField` 本身不拉伸）。
+/// invalid 描边叠在 representable 自身的 bounds 上，两端都贴合绘制带。
 public struct SearchField: View {
     /// 创建搜索输入框 / Creates a search input field.
     ///
@@ -58,6 +59,7 @@ public struct SearchField: View {
             }
         }
         .frame(minHeight: CoreControlMetrics.height(for: .regular))
+        .fixedSize(horizontal: false, vertical: true)
         .contentShape(Rectangle())
         .onTapGesture { self.focusRequests += 1 }
     }

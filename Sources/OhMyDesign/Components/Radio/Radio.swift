@@ -69,12 +69,12 @@ public struct RadioGroup<SelectionValue: Hashable & Sendable>: View {
         let selected = Self.isSelected(option, in: self.selection)
         let appearance = FieldAppearance.resolve(isEnabled: self.isEnabled, validation: self.validation, isFocused: false)
         HStack(alignment: .top, spacing: CoreSpacing.sm) {
-            Image(systemName: selected ? "circle.inset.filled" : "circle")
+            self.indicator(selected: selected, appearance: appearance)
                 .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
-                .foregroundStyle(appearance.indicatorColor(normal: selected ? Color.contentPrimary : Color.contentSecondary))
                 .accessibilityHidden(true)
             Text(option.title)
         }
+        .opacity(appearance.controlOpacity)
         .frame(minHeight: CoreControlMetrics.height(for: .regular))
         .contentShape(Rectangle())
         .animation(.easeOut(duration: 0.25), value: selected)
@@ -84,6 +84,18 @@ public struct RadioGroup<SelectionValue: Hashable & Sendable>: View {
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
         .fieldAccessibilityHint()
+    }
+
+    @ViewBuilder
+    private func indicator(selected: Bool, appearance: FieldAppearance) -> some View {
+        if selected && appearance == .invalid {
+            Image(systemName: "circle.inset.filled")
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(Color.contentPrimary, appearance.indicatorColor(normal: Color.contentPrimary))
+        } else {
+            Image(systemName: selected ? "circle.inset.filled" : "circle")
+                .foregroundStyle(appearance.indicatorColor(normal: selected ? Color.contentPrimary : Color.contentSecondary))
+        }
     }
 
     static func isSelected(_ option: RadioOption<SelectionValue>, in selection: SelectionValue) -> Bool {
