@@ -574,6 +574,19 @@ struct SymbolNumericInFlightTests {
         return (frames, before, window.pixels())
     }
 
+    /// 出现 / 退场两条在 CI runner 上无法下结论，按 `#407` 的先例跳过；读数与机理见 issue `#410`。
+    ///
+    /// ⚠️ 别靠放大徽标或放宽 `samplingWindows` 救它——缺的是**采样相位**不是幅度（已实测证伪）。
+    /// ⚠️ CI 上那两条判据盖不住「`.transition(self.appearanceTransition)` 整行被删」：
+    /// 终态与配置层都不变，`CI=1` 下实测 13 tests in 4 suites 全绿，只有本机这条 in-flight 抓得住。
+    nonisolated static let appearanceCISkip = """
+    跳过：CI runner 上采不到出现 / 退场转场的中间帧（观测量是单调收敛到端点的包围盒跨度，\
+    动画跑过约 95% 后与端点无从分辨；run 35786828672）。本条在本机跑。\
+    CI 上守着这条契约的是 AnchoredBadgeMotionTests.appearanceKindDegrades \
+    与 AnchoredBadgeSequenceTests；⚠️ 两者都盖不住「.transition(self.appearanceTransition) 整行被删」\
+    ——那种改动在 CI 上不判红，见 issue #410。
+    """
+
     // 量的是「与徽标不显示那一帧相比有变化」的像素跨度——与 alpha 无关，只与几何有关：
     // 缩放让它先窄后宽（或先宽后窄），淡变全程满宽（按红色饱和度取阈值会被 alpha 污染，实测淡入早期只量到 6 px）。
     static func widthTrace(
@@ -635,7 +648,10 @@ struct SymbolNumericInFlightTests {
 
     // MARK: - 出现 / 退场
 
-    @Test("徽标出现（0 → 3）：RM 关时从 0.6 放大，RM 开时全程满宽只淡入")
+    @Test(
+        "徽标出现（0 → 3）：RM 关时从 0.6 放大，RM 开时全程满宽只淡入",
+        .enabled(if: !CoreMotionTokenInFlightTests.isCIRunner, Comment(rawValue: Self.appearanceCISkip))
+    )
     func appearanceInFlight() {
         let on = Self.widthTrace(from: 0, to: 3, reduceMotion: true, sampleFor: 0.4)
         #expect(on.isConclusive, "RM 开：采样无法下结论（\(on)）")
@@ -649,7 +665,10 @@ struct SymbolNumericInFlightTests {
         }
     }
 
-    @Test("徽标退场（5 → 0）：退场转场真的在播 —— RM 关时缩小，RM 开时全程满宽只淡出")
+    @Test(
+        "徽标退场（5 → 0）：退场转场真的在播 —— RM 关时缩小，RM 开时全程满宽只淡出",
+        .enabled(if: !CoreMotionTokenInFlightTests.isCIRunner, Comment(rawValue: Self.appearanceCISkip))
+    )
     func exitInFlight() {
         let on = Self.widthTrace(from: 5, to: 0, reduceMotion: true, sampleFor: 0.4)
         #expect(on.isConclusive, "RM 开：采样无法下结论（\(on)）")
