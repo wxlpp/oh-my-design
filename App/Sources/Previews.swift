@@ -31,6 +31,7 @@ import OhMyDesign
         Banner(level: .success) { Text("Success message") }
         Banner(level: .warning) { Text("Warning message") }
         Banner(level: .danger) { Text("Danger message") }
+        Banner(level: .neutral) { Text("Neutral message") }
     }
     .padding()
 }
@@ -127,6 +128,7 @@ private struct ToastSnapshotHarness: View {
             Button("Success") { self.toast?.show("Success: demo", level: .success) }
             Button("Warning") { self.toast?.show("Warning: demo", level: .warning) }
             Button("Danger") { self.toast?.show("Danger: demo", level: .danger) }
+            Button("Neutral") { self.toast?.show("Neutral: demo", level: .neutral) }
         }
         .padding(CoreSpacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -24,7 +24,8 @@ FLOORS = {
     # components +1（InkSegmentedControlStyle）、viewext +1（View.coreAccent）、
     # styleext +3（SegmentedControlStyle 的 .glass / .plain / .ink 三个静态入口）。
     # #312：enums +5（五个 …Layout 配置枚举）、enumcases +18（4 + 4 + 4 + 3 + 3）。
-    "colors": 118, "components": 84, "enums": 34, "enumcases": 126,
+    # #375：enumcases +1（StatusLevel.neutral）。
+    "colors": 118, "components": 84, "enums": 34, "enumcases": 127,
     "protocols": 6, "viewext": 39, "styleext": 12, "others": 27,
 }
 

@@ -36,7 +36,7 @@ struct SharedFoundationTests {
     func accessibilityLabelKeysResolve() {
         let keys = [
             "Rating", "Verification code",
-            "Info", "Success", "Warning", "Error",
+            "Info", "Success", "Warning", "Error", "Neutral",
             "%@ of %@",
         ]
         for key in keys {

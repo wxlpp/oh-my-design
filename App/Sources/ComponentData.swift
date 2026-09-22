@@ -171,9 +171,7 @@ extension ComponentMeta {
 
         // Feedback
         ComponentMeta(id: "toast", name: "Toast", description: "Scene-scoped toast host + 队列状态机", category: .feedback, preview: {
-            Text("Toast 通过 `.toastHost(edge:)` modifier 挂载到 WindowGroup 根级别")
-                .font(CoreTypography.Token.footnote.font)
-                .foregroundStyle(Color.contentMuted)
+            ToastLevelPreview()
         }, demoAction: { AnyView(ToastDemoButton()) }),
         ComponentMeta(id: "spinning", name: "Spinning", description: "View.spinning(_:text:presentation:tint:)：overlay 遮罩（阻塞）/ topBar / inline（非阻塞）；取色走 tint: 参数，三个形态一致", category: .feedback) {
             SpinningPreview()
@@ -454,6 +452,11 @@ private struct BannerPreview: View {
             Banner(level: .success) { Text("Success message") }
             Banner(level: .warning) { Text("Warning message") }
             Banner(level: .danger) { Text("Danger message") }
+            Banner(level: .neutral) { Text("Neutral message") }
+            Banner(level: .info) { Text("Info bordered") }
+                .bannerStyle(BorderedBannerStyle())
+            Banner(level: .neutral) { Text("Neutral bordered") }
+                .bannerStyle(BorderedBannerStyle())
         }
     }
 }
@@ -485,6 +488,37 @@ private struct UnderlinedTabBarPreview: View {
     @State private var selection = "Tab 1"
     var body: some View {
         UnderlinedTabBar(items: self.items, selection: self.$selection, title: { $0 })
+    }
+}
+
+// MARK: - ToastLevelPreview
+
+private struct ToastLevelPreview: View {
+    @Environment(\.toastHost) private var toast
+
+    private let levels: [(label: String, level: StatusLevel)] = [
+        ("Info", .info),
+        ("Success", .success),
+        ("Warning", .warning),
+        ("Danger", .danger),
+        ("Neutral", .neutral),
+    ]
+
+    var body: some View {
+        VStack(spacing: CoreSpacing.md) {
+            Text("Toast 通过 `.toastHost(edge:)` modifier 挂载到 WindowGroup 根级别")
+                .font(CoreTypography.Token.footnote.font)
+                .foregroundStyle(Color.contentMuted)
+            FlowLayout(spacing: CoreSpacing.sm) {
+                ForEach(self.levels, id: \.label) { entry in
+                    Button(entry.label) {
+                        self.toast?.show("\(entry.label) message", level: entry.level)
+                    }
+                    .buttonStyle(.light(role: .secondary))
+                    .controlSize(.small)
+                }
+            }
+        }
     }
 }
 
@@ -857,6 +891,7 @@ private struct TimelinePreview: View {
             TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) },
             TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) },
             TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) },
+            TimelineItem(status: .neutral) { Text("已归档").coreFont(.callout) },
         ]
     }
 

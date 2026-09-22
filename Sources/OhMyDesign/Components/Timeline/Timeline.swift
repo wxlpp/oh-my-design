@@ -174,6 +174,7 @@ public struct Timeline: View {
         case .success: .statusSuccessEmphasis
         case .warning: .statusAttentionEmphasis
         case .danger: .statusDangerEmphasis
+        case .neutral: .contentSecondary
         }
     }
 
@@ -183,6 +184,7 @@ public struct Timeline: View {
         case .success: "Success"
         case .warning: "Warning"
         case .danger: "Error"
+        case .neutral: "Neutral"
         }
     }
 
@@ -367,7 +369,7 @@ private struct TimelinePreviewGallery: View {
         ScrollView {
             VStack(alignment: .leading, spacing: CoreSpacing.xl) {
                 VStack(alignment: .leading, spacing: CoreSpacing.sm) {
-                    Text("默认圆点节点（4 种 StatusLevel 状态色）")
+                    Text("默认圆点节点（5 种 StatusLevel 状态色）")
                         .coreFont(.footnote)
                         .foregroundStyle(.secondary)
                     Timeline(items: [
@@ -393,6 +395,12 @@ private struct TimelinePreviewGallery: View {
                             VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
                                 Text("处理失败").coreFont(.callout)
                                 Text("2026-07-24 18:45").coreFont(.footnote).foregroundStyle(.secondary)
+                            }
+                        },
+                        TimelineItem(status: .neutral) {
+                            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
+                                Text("已归档").coreFont(.callout)
+                                Text("2026-07-25 08:00").coreFont(.footnote).foregroundStyle(.secondary)
                             }
                         },
                     ])

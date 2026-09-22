@@ -2,7 +2,8 @@ import SwiftUI
 
 // MARK: - BannerPalette
 
-private struct BannerPalette {
+struct BannerPalette {
+    let icon: Color
     let foreground: Color
     let background: Color
     let border: Color
@@ -55,7 +56,7 @@ public struct BannerStyleConfiguration {
 
 // MARK: - Banner shared helpers
 
-private func bannerIcon(for level: StatusLevel) -> Image {
+func bannerIcon(for level: StatusLevel) -> Image {
     switch level {
     case .info:
         Image(systemName: "info.circle.fill")
@@ -65,19 +66,23 @@ private func bannerIcon(for level: StatusLevel) -> Image {
         Image(systemName: "exclamationmark.circle.fill")
     case .success:
         Image(systemName: "checkmark.circle.fill")
+    case .neutral:
+        Image(systemName: "bell.fill")
     }
 }
 
-private func bannerPalette(for level: StatusLevel) -> BannerPalette {
+func bannerPalette(for level: StatusLevel) -> BannerPalette {
     switch level {
     case .info:
-        BannerPalette(foreground: .statusAccentForeground, background: .statusAccentSubtle, border: .statusAccentBorder)
+        BannerPalette(icon: .statusAccentForeground, foreground: .statusAccentForeground, background: .statusAccentSubtle, border: .statusAccentBorder)
     case .warning:
-        BannerPalette(foreground: .statusAttentionForeground, background: .statusAttentionSubtle, border: .statusAttentionBorder)
+        BannerPalette(icon: .statusAttentionForeground, foreground: .statusAttentionForeground, background: .statusAttentionSubtle, border: .statusAttentionBorder)
     case .danger:
-        BannerPalette(foreground: .statusDangerForeground, background: .statusDangerSubtle, border: .statusDangerBorder)
+        BannerPalette(icon: .statusDangerForeground, foreground: .statusDangerForeground, background: .statusDangerSubtle, border: .statusDangerBorder)
     case .success:
-        BannerPalette(foreground: .statusSuccessForeground, background: .statusSuccessSubtle, border: .statusSuccessBorder)
+        BannerPalette(icon: .statusSuccessForeground, foreground: .statusSuccessForeground, background: .statusSuccessSubtle, border: .statusSuccessBorder)
+    case .neutral:
+        BannerPalette(icon: .contentSecondary, foreground: .contentPrimary, background: .tertiaryFill, border: .borderDefault)
     }
 }
 
@@ -86,7 +91,7 @@ private func bannerBody(configuration: BannerStyleConfiguration, bordered: Bool)
     let palette = bannerPalette(for: configuration.level)
     HStack(spacing: CoreSpacing.sm) {
         bannerIcon(for: configuration.level)
-            .foregroundStyle(palette.foreground)
+            .foregroundStyle(palette.icon)
             .accessibilityHidden(true)
         configuration.label
     }
@@ -152,6 +157,9 @@ public extension View {
         }
         Banner(level: .success) {
             Text("You are viewing the latest version of this document.")
+        }
+        Banner(level: .neutral) {
+            Text("Comments on this document are visible to all members.")
         }
     }
 }
