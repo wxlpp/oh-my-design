@@ -763,8 +763,21 @@ private struct SizeSystemPreview: View {
 }
 
 private struct AnchoredBadgePreview: View {
+    @State private var count = 9
+
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.xxl) {
+            HStack(spacing: CoreSpacing.xxl) {
+                Image(systemName: "bell.fill")
+                    .font(.title)
+                    .foregroundStyle(Color.contentSecondary)
+                    .anchoredBadge(.count(self.count, max: 999))
+                Button("−1") { self.count -= 1 }
+                Button("+1") { self.count += 1 }
+                Button("9") { self.count = 9 }
+                Button("99") { self.count = 99 }
+            }
+            .buttonStyle(.light())
             HStack(spacing: CoreSpacing.xxl) {
                 self.avatar("Evan", side: CoreSpacing.xxxxl)
                     .anchoredBadge(.dot, hostShape: .circle)
@@ -1338,15 +1351,29 @@ private struct PinCodePreview: View {
 
 private struct RadioGroupPreview: View {
     @State private var selection = "pro"
+    @State private var accepted = false
+
+    private let options = [
+        RadioOption(value: "basic", title: "Basic"),
+        RadioOption(value: "pro", title: "Pro"),
+        RadioOption(value: "enterprise", title: "Enterprise"),
+    ]
+
     var body: some View {
-        RadioGroup(
-            selection: self.$selection,
-            options: [
-                RadioOption(value: "basic", title: "Basic"),
-                RadioOption(value: "pro", title: "Pro"),
-                RadioOption(value: "enterprise", title: "Enterprise"),
-            ]
-        )
+        VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+            RadioGroup(selection: self.$selection, options: self.options)
+            Toggle("Accept terms", isOn: self.$accepted)
+                .toggleStyle(CheckBoxToggleStyle())
+            Separator()
+            Toggle("Disabled, on", isOn: .constant(true))
+                .toggleStyle(CheckBoxToggleStyle())
+                .disabled(true)
+            Toggle("Disabled, off", isOn: .constant(false))
+                .toggleStyle(CheckBoxToggleStyle())
+                .disabled(true)
+            RadioGroup(selection: .constant("pro"), options: self.options)
+                .disabled(true)
+        }
     }
 }
 

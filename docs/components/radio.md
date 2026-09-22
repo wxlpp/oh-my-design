@@ -62,12 +62,20 @@ RadioGroup(
 
 ## 视觉 Token（与 CheckBox 成对）
 
-- 选中态：`largecircle.fill.circle` SF Symbol，`Color.contentPrimary`
+- 选中态：`circle.inset.filled` SF Symbol，`Color.contentPrimary`
 - 未选中态：`circle` SF Symbol，`Color.contentSecondary`
 - 图标字号：`CoreControlMetrics.iconSize(for: .regular)`（16pt），与 `CheckBoxToggleStyle` 一致
 - 图标 ↔ 文字间距：`CoreSpacing.sm`
 - 命中区：`.frame(minHeight: CoreControlMetrics.height(for: .regular))`（44pt 地板）+ `.contentShape(Rectangle())`，复刻 `CheckBoxToggleStyle` 的手法——单靠 icon + label 的 intrinsic 高度会远低于 44pt，需要显式撑高整行命中区
-- 选中切换动画：`.coreAnimation(.selection, value:)`（#407 前是 0.25 s ease-out），与 CheckBox 一致；只有两张图的交叉淡变，无位移
+- 选中切换动画：`.coreAnimation(.selection, value:)`（#407 前是 0.25 s ease-out），与 CheckBox 一致，无位移；
+  指示符换图走 `.contentTransition(.symbolEffect(.replace))`（#408），圆点以描画方式出现。
+  CheckBox 为此把原来的两张 `Image`（`square` / `checkmark.square.fill`）并成一张——`.replace`
+  只在同一个视图身份上播，`if / else` 两个分支各一张图时换不出效果。
+  Reduce Motion 开启时内容过渡退为 `ContentTransition.identity`（直接换图、不描画），框架不代劳（#407 FR-1 实测）。
+  ⚠️ **invalid 且选中态变化时 `.replace` 播不出来**：invalid + 选中那一路走
+  `.symbolRenderingMode(.palette)`（见下节），与单色那一路是两个 `if` 分支、视图身份不同。
+  有意保留该分支——并成「始终 `.palette` + 两层同色」时 `circle.inset.filled` 实测有 1 LSB 取值差，
+  且同样的写法会让 CheckBox 的勾被同色实心层吃掉（逐通道差到 191）
 - 无障碍：每个选项 `.accessibilityElement(children: .combine)` + `.accessibilityAddTraits(.isButton)`，选中项额外带 `.isSelected`；圆点图标本身纯装饰、`.accessibilityHidden(true)`，避免 SF Symbol 隐式 label（如 "circle"）混入朗读结果
 
 > **不响应 `.tint`**：与本仓库 Phase 2 的 `.core` style 系统控件（`ProgressView`/`Label`/`DisclosureGroup`，见 `docs/components/core-control-styles.md`）不同，`RadioGroup` 的选中态颜色**固定用 `Color.contentPrimary`**，不经 `TintShapeStyle`——调用方 `.tint(_:)` 对它不生效。这是与 `CheckBoxToggleStyle` 视觉配对的显式取舍（两者都不引入强调色语义），而非疏漏；需要强调色响应的场景应换用系统 `Picker`/`Toggle` + `.tint`。

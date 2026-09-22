@@ -86,16 +86,26 @@ public nonisolated enum AnchoredBadgeHostShape: Sendable, Equatable, CaseIterabl
     }
 }
 
+// MARK: - 出现 / 消失转场 / Appearance transition
+
+nonisolated enum AnchoredBadgeTransitionKind: Equatable, Sendable {
+    case scale
+    case fade
+}
+
 // MARK: - AnchoredBadgeModifier
 
 struct AnchoredBadgeModifier: ViewModifier {
     static let fill: Color = .badgeFill
     static let foreground: Color = .contentOnEmphasis
     static let ring: Color = .surfaceCanvas
+    static let appearanceScale: CGFloat = 0.6
 
     let content: AnchoredBadgeContent
     let placement: AnchoredBadgePlacement
     let hostShape: AnchoredBadgeHostShape
+
+    @Environment(\.coreMotionPresentation) private var motionPresentation
 
     @ScaledMetric(relativeTo: .caption) private var dotSize: CGFloat = 10
     @ScaledMetric(relativeTo: .caption) private var labelHeight: CGFloat = 20
@@ -119,40 +129,58 @@ struct AnchoredBadgeModifier: ViewModifier {
         return CGPoint(x: x, y: y)
     }
 
+    nonisolated static func appearanceKind(motion: MotionPresentation) -> AnchoredBadgeTransitionKind {
+        motion == .animated ? .scale : .fade
+    }
+
     func body(content: Content) -> some View {
         let accessibilityText = self.content.accessibilityText
         return content
             .accessibilityValue(accessibilityText ?? Text(verbatim: String()), isEnabled: accessibilityText != nil)
-            .overlay {
+            .overlay { self.badgeLayer }
+    }
+
+    @ViewBuilder
+    private var badgeLayer: some View {
+        GeometryReader { proxy in
+            let host = proxy.size
+            let placement = self.placement
+            let hostShape = self.hostShape
+            ZStack(alignment: .topLeading) {
+                Color.clear
                 if self.content.isVisible {
-                    GeometryReader { proxy in
-                        let host = proxy.size
-                        let placement = self.placement
-                        let hostShape = self.hostShape
-                        ZStack(alignment: .topLeading) {
-                            Color.clear
-                            self.badge
-                                .alignmentGuide(.leading) { dimensions in
-                                    -Self.badgeOrigin(
-                                        hostSize: host,
-                                        badgeSize: CGSize(width: dimensions.width, height: dimensions.height),
-                                        placement: placement,
-                                        hostShape: hostShape
-                                    ).x
-                                }
-                                .alignmentGuide(.top) { dimensions in
-                                    -Self.badgeOrigin(
-                                        hostSize: host,
-                                        badgeSize: CGSize(width: dimensions.width, height: dimensions.height),
-                                        placement: placement,
-                                        hostShape: hostShape
-                                    ).y
-                                }
+                    self.badge
+                        .transition(self.appearanceTransition)
+                        .alignmentGuide(.leading) { dimensions in
+                            -Self.badgeOrigin(
+                                hostSize: host,
+                                badgeSize: CGSize(width: dimensions.width, height: dimensions.height),
+                                placement: placement,
+                                hostShape: hostShape
+                            ).x
                         }
-                    }
-                    .accessibilityHidden(true)
+                        .alignmentGuide(.top) { dimensions in
+                            -Self.badgeOrigin(
+                                hostSize: host,
+                                badgeSize: CGSize(width: dimensions.width, height: dimensions.height),
+                                placement: placement,
+                                hostShape: hostShape
+                            ).y
+                        }
                 }
             }
+        }
+        .accessibilityHidden(true)
+        .coreAnimation(.reveal, value: self.content.isVisible)
+    }
+
+    private var appearanceTransition: AnyTransition {
+        switch Self.appearanceKind(motion: self.motionPresentation) {
+        case .scale:
+            .scale(scale: Self.appearanceScale).combined(with: .opacity)
+        case .fade:
+            .opacity
+        }
     }
 
     @ViewBuilder
@@ -176,8 +204,10 @@ struct AnchoredBadgeModifier: ViewModifier {
             Circle()
                 .fill(Self.fill)
                 .frame(width: self.dotSize, height: self.dotSize)
-        case .count:
+        case .count(let value, _):
             self.pill(Text(verbatim: self.content.countText ?? String()))
+                .contentTransition(self.motionPresentation.numericRoll(to: value))
+                .animation(CoreMotionToken.reveal.transformAnimation(for: self.motionPresentation), value: value)
         case .text(let key):
             self.pill(Text(key))
         }
