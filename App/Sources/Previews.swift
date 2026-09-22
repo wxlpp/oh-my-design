@@ -322,6 +322,7 @@ private struct ToastSnapshotHarness: View {
         ProgressView(value: 0.6, label: { Text("Downloading") }, currentValueLabel: { Text("60%") })
             .progressViewStyle(.core)
             .tint(.red)
+        ProgressView(value: 0.6).progressViewStyle(.coreCircular).tint(.red)
         Label("Sync", systemImage: "arrow.triangle.2.circlepath").labelStyle(.core).tint(.blue)
         DisclosureGroup("Details", isExpanded: .constant(true)) {
             Text("Additional information goes here.").foregroundStyle(Color.contentSecondary)
@@ -618,6 +619,25 @@ enum PreviewSnapshotFixtures {
         LabeledContent("Status") { Text("Active") }
         LabeledContent("Total") { Text("$42.00") }
         LabeledContent("Placed") { Text("2026-07-20") }
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("Pressable Button Styles") {
+    VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+        InsetGroupedSection(header: ".pressableRow") {
+            Button {} label: {
+                SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: "Wi-Fi") {
+                    SettingsRowChevron()
+                }
+            }
+            .buttonStyle(.pressableRow)
+        }
+        Button {} label: {
+            Card { Text("Weekly report") }
+        }
+        .buttonStyle(.pressableCard)
     }
     .padding()
     .background(Color.surfaceCanvas)

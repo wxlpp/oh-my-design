@@ -402,6 +402,11 @@
 
 - **`LightButtonStyle`** *: ButtonStyle* — 次要操作按钮样式（"light button"）。
 
+### `Components/Button/styles/PressableButtonStyles.swift`
+
+- **`PressableRowButtonStyle`** *: ButtonStyle* — 行式按压反馈：按下时在调用方 label 之上叠一层半透明的中性按下色（`Color.pressedBackground`）， 自带背景的行（`ListRow`、`SettingsRow`）也看得见。
+- **`PressableCardButtonStyle`** *: ButtonStyle* — 卡片式按压反馈：按下时把调用方 label 按 `CoreButtonMetrics.pressedScale` 缩放； 系统开启「减弱动态效果」时不缩放、只变暗。
+
 ### `Components/Button/styles/SolidButtonStyle.swift`
 
 - **`SolidButtonStyle`** *: ButtonStyle* — 主操作按钮样式（"solid button"）。
@@ -553,6 +558,10 @@
   - `.navigation` — 导航式步骤条：去掉公共轴线与连线，每一步成为彼此直接拼接的块。 业界来源：Ant Design Steps `type="navigation"` / Shopify Polaris 结账步骤导航。
   - `.text` — 纯文本：N 个指示器槽与标题槽连同连线塌成一个文本槽。 业界来源：Typeform 的「1 of 5」进度文案。
 - *struct* **`StepItem`** — 单个步骤的数据模型：标题（必填）+ 可选描述 + 错误标记。
+
+### `Components/Style/CoreCircularProgressViewStyle.swift`
+
+- **`CoreCircularProgressViewStyle`** *: ProgressViewStyle* — 系统 `ProgressView` 的 OhMyDesign 环形外观——确定态画一条从 12 点方向顺时针增长的圆弧， 强调色经 `ShapeStyle.tint` 取值，所以 `.tint(_:)` 对它生效；不确定态回退系统环形 spinner。
 
 ### `Components/Style/CoreDisclosureGroupStyle.swift`
 
@@ -960,7 +969,7 @@
 
 # 样式入口点（`*Style where Self == …`）
 
-共 12 个（按 `Host.member` 去重，含参重载算一条——`.solid` 与 `.solid(role:)` 是同一条）。经 `.buttonStyle(_:)` / `.progressViewStyle(_:)` 等施加。
+共 15 个（按 `Host.member` 去重，含参重载算一条——`.solid` 与 `.solid(role:)` 是同一条）。经 `.buttonStyle(_:)` / `.progressViewStyle(_:)` 等施加。
 ⚠️ **`.borderless` 必须带括号**：该名与 SwiftUI 自带的 `PrimitiveButtonStyle.borderless` 重合，两者只差一对括号、**都能编译且无诊断**——`.buttonStyle(.borderless)` 拿到的是 **SwiftUI 的**样式，`.buttonStyle(.borderless())` 才是本包的。
 
 | 入口 | 协议 | 具体样式 | 说明 |
@@ -969,10 +978,13 @@
 | `.borderless` | `PrimitiveButtonStyle` | `CoreBorderlessButtonStyle` | 以指定 role 构造无边框按钮样式。 |
 | `.extendedFloat` | `ButtonStyle` | `ExtendedFloatButtonStyle` | 默认档位（`.large`，50pt）的胶囊玻璃悬浮按钮样式。 |
 | `.light` | `ButtonStyle` | `LightButtonStyle` | 构造次要操作按钮样式。 |
+| `.pressableRow` | `ButtonStyle` | `PressableRowButtonStyle` | 行式按压反馈样式：按下叠 `Color.pressedBackground`，不改布局。 |
+| `.pressableCard` | `ButtonStyle` | `PressableCardButtonStyle` | 卡片式按压反馈样式：按下缩放，减弱动态效果时只变暗，不改布局。 |
 | `.solid` | `ButtonStyle` | `SolidButtonStyle` | 构造主操作按钮样式。 |
 | `.glass` | `SegmentedControlStyle` | `GlassSegmentedControlStyle` | 默认外观：Liquid Glass 外壳。 |
 | `.plain` | `SegmentedControlStyle` | `PlainSegmentedControlStyle` | 纯色外壳外观。 |
 | `.ink` | `SegmentedControlStyle` | `InkSegmentedControlStyle` | 墨色外观：实心 accent 胶囊 + on-accent 文字（缺省按 accent 亮度派生黑 / 白， `View.coreAccent(_:on:)` 的 `on` 参数可覆盖）。 |
+| `.coreCircular` | `ProgressViewStyle` | `CoreCircularProgressViewStyle` | OhMyDesign 的环形 `ProgressView` 外观。 |
 | `.core` | `DisclosureGroupStyle` | `CoreDisclosureGroupStyle` | OhMyDesign 的默认 `DisclosureGroup` 外观：chevron 走 `.tint`，展开内容 作 leading 缩进（贴近原生，不加卡片）。 |
 | `.core` | `LabelStyle` | `CoreLabelStyle` | OhMyDesign 的默认 `Label` 外观：icon 走 `.tint`、title 走默认前景色。 |
 | `.core` | `LabeledContentStyle` | `CoreLabeledContentStyle` | OhMyDesign 的默认 `LabeledContent` 外观：label 走 `contentSecondary`， content 走 `contentPrimary`（描述列表惯例：字段名弱化、值强化）。 |
@@ -994,11 +1006,11 @@
 | elevation | 4 | 4 |
 | controlsize | 5 | 5 |
 | colors | 120 | 120 |
-| components | 85 | 85 |
+| components | 88 | 88 |
 | enums | 41 | 41 |
 | enumcases | 144 | 144 |
 | protocols | 6 | 6 |
 | viewext | 44 | 44 |
-| styleext | 12 | 12 |
+| styleext | 15 | 15 |
 | others | 27 | 27 |
 

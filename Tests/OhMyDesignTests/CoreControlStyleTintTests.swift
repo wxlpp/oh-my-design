@@ -60,6 +60,22 @@ struct CoreControlStyleTintTests {
         #expect(blueAvg.b > blueAvg.r, ".tint(.blue) 下填充条蓝通道应显著高于红通道，实测 r=\(blueAvg.r) b=\(blueAvg.b)")
     }
 
+    @Test("CoreCircularProgressViewStyle 的圆弧随 .tint 变色，而非恒取 accent")
+    func circularProgressViewStyleRespondsToTint() throws {
+        let redRing = ProgressView(value: 1.0)
+            .progressViewStyle(.coreCircular)
+            .tint(.red)
+        let blueRing = ProgressView(value: 1.0)
+            .progressViewStyle(.coreCircular)
+            .tint(.blue)
+
+        let redAvg = try #require(averageColor(of: redRing, size: CGSize(width: 48, height: 48)), "渲染失败——无法取得 cgImage")
+        let blueAvg = try #require(averageColor(of: blueRing, size: CGSize(width: 48, height: 48)), "渲染失败——无法取得 cgImage")
+
+        #expect(redAvg.r > redAvg.b, ".tint(.red) 下圆弧红通道应显著高于蓝通道，实测 r=\(redAvg.r) b=\(redAvg.b)")
+        #expect(blueAvg.b > blueAvg.r, ".tint(.blue) 下圆弧蓝通道应显著高于红通道，实测 r=\(blueAvg.r) b=\(blueAvg.b)")
+    }
+
     @Test("CoreLabelStyle 的 icon 随 .tint 变色，而非恒取 accent")
     func labelStyleRespondsToTint() throws {
         let redLabel = Label("", systemImage: "star.fill")
