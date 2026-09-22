@@ -60,8 +60,6 @@ struct CoreMotionTokenDisciplineGuard {
             "同 CheckBox：resting / hidden 下为 ContentTransition.identity",
         "Modifier/AnchoredBadgeModifier.swift|contentTransition(self.motionPresentation.numericRoll(from: self.roll?.previous ?? shown, to: shown))":
             "numericRoll 在 resting / hidden 下为 ContentTransition.identity，数字直接替换、不纵向滚动",
-        "Modifier/AnchoredBadgeModifier.swift|scaleEffect(self.scale)":
-            "只由 appearanceKind(motion:) == .scale 的转场取用，resting / hidden 走 .opacity；identity 相为 scale 1",
         "Components/Button/styles/PressableButtonStyles.swift|scaleEffect(feedback.scale)":
             "feedback 取自 PressFeedback.card(presentation:)，resting 下 scale = 1",
         "Modifier/ButtonBackgroundModifier.swift|scaleEffect(feedback.scale)":

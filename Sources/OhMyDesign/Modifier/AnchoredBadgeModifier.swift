@@ -107,14 +107,6 @@ nonisolated enum AnchoredBadgeTransitionKind: Equatable, Sendable {
     case fade
 }
 
-struct AnchoredBadgeScaleModifier: ViewModifier {
-    let scale: CGFloat
-
-    func body(content: Content) -> some View {
-        content.scaleEffect(self.scale)
-    }
-}
-
 // MARK: - AnchoredBadgeModifier
 
 struct AnchoredBadgeModifier: ViewModifier {
@@ -214,11 +206,7 @@ struct AnchoredBadgeModifier: ViewModifier {
     private var appearanceTransition: AnyTransition {
         switch Self.appearanceKind(motion: self.motionPresentation) {
         case .scale:
-            .modifier(
-                active: AnchoredBadgeScaleModifier(scale: Self.appearanceScale),
-                identity: AnchoredBadgeScaleModifier(scale: 1)
-            )
-            .combined(with: .opacity)
+            .scale(scale: Self.appearanceScale).combined(with: .opacity)
         case .fade:
             .opacity
         }

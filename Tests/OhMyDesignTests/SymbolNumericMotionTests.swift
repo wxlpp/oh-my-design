@@ -197,8 +197,8 @@ enum AnchoredBadgeSample: CaseIterable, CustomStringConvertible {
 @MainActor
 struct AnchoredBadgeStaticAppearanceTests {
     // 容差 1：并行负载下同一份视图两次渲染会抖 1/111360 字节、逐通道 ±1（实测）。
-    // 把转场换成系统 `.scale`（而不是 identity 相无变换的 `.modifier(active:identity:)`）时，
-    // 圆形宿主上实测 369 字节偏差、maxDelta 196 —— 远在容差外，这道网抓得住真实位移。
+    // 把出现转场挂到外层 `GeometryReader`（而不是徽标本身）时，圆形宿主上实测 369 字节偏差、
+    // maxDelta 196 —— 远在容差外，这道网抓得住真实的亚像素位移。
     @Test("静息外观与旧实现在光栅化噪声内逐像素一致（light / dark，两条腿）", arguments: AnchoredBadgeSample.allCases)
     func matchesLegacy(_ sample: AnchoredBadgeSample) {
         for scheme in [ColorScheme.light, .dark] {

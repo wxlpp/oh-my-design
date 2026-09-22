@@ -22,7 +22,7 @@
 | `.count(Int, max: Int = 99)` | 数字；超过 `max` 显示 `"\(max)+"`（`.count(120, max: 99)` → `99+`）。`max < 1` 按 1 处理 | 计数 `≤ 0` |
 | `.text(LocalizedStringKey)` | 短文案 | 空键 `""` |
 
-不显示时 overlay 里不渲染任何视图，宿主的可访问值也不被改动。
+不显示时 overlay 里只剩一层 `Color.clear`（`#408` 起外层 `GeometryReader` 常驻，理由见《动效》），不画任何像素；宿主的可访问值也不被改动。
 
 ### 文本分类
 
@@ -69,10 +69,10 @@ ScrollView(.horizontal) {
   因此 modifier 内部镜像一层「上一次显示的值 + 当前显示值」，由 `onChange` 推进；显示的数字来自这份镜像，
   所以计数变化会比真实值晚一帧（约 16 ms）落地，朗读文本（`accessibilityValue`）不受影响、立即跟上真实值。
   徽标不显示时镜像被清空，因此「计数掉到 0 再涨回来」不会闪一帧旧数字。
-- **出现 / 消失**：缩放（`0.6 → 1`）+ 淡变，走 `CoreMotionToken.reveal`。缩放用
-  `.modifier(active:identity:)` 自写而非系统 `.scale` 转场：后者在 identity 相仍留着一层变换，
-  圆形宿主上实测让徽标的亚像素光栅位置偏 0.5pt（逐通道差到 196），自写的版本 identity 相无变换、
-  与改动前逐像素一致。
+- **出现 / 消失**：缩放（`0.6 → 1`）+ 淡变，走 `CoreMotionToken.reveal`。
+  ⚠️ 转场挂在**徽标本身**、而不是挂在填满宿主的那层 `GeometryReader` 上：挂在外层时缩放锚点落在宿主中心
+  （徽标会从宿主中间飞出来），而且圆形宿主上实测让徽标的亚像素光栅位置偏 0.5pt（逐通道差到 196、369 字节），
+  与改动前的实现对不上。为此显示 / 不显示的条件判断下移到 `ZStack` 内部，外层 `GeometryReader` 常驻。
 - `.dot` 与 `.text` 不加内容过渡：红点没有数字；`.text` 是调用方的 `LocalizedStringKey`，滚动读不出方向。
 - **Reduce Motion**：计数改为 `ContentTransition.identity`（直接替换，不滚动不模糊），出现 / 消失改纯淡变。
   框架不替调用方降级这两条（`#407` FR-1 逐帧实测），全部由本 modifier 显式分支。
