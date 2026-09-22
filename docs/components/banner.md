@@ -57,9 +57,10 @@ Banner(level: .warning, title: "Storage almost full", message: "Free up space to
 ## 视觉 Token
 
 - 布局：图标与文字列首行基线对齐，`CoreSpacing.sm` icon-to-label 间距；标题与正文间距 `CoreSpacing.xxs`；
-  动作行在文字下方、间距 `CoreSpacing.sm`；关闭钮居右上，44pt 命中区经负内边距不撑高 banner；`CoreSpacing.md` 内边距
+  动作行与文字列左缘对齐、在正文下方 `CoreSpacing.md`；关闭钮居右上，命中区 ≥ 44pt，占位随 Dynamic Type 缩放，
+  经负内边距不撑高 banner；`CoreSpacing.md` 内边距
 - 字号：正文 `.callout`，标题 `.headline`
-- 颜色（标题与正文同取前景色，关闭钮取图标色）：按 `StatusLevel` 走 status color token（`statusAccentForeground` / `statusAccentSubtle` / `statusAccentBorder` 等）；
+- 颜色（有标题时标题取状态前景色、正文取 `contentPrimary`；无标题时正文取状态前景色；关闭钮恒为 `contentSecondary`）：按 `StatusLevel` 走 status color token（`statusAccentForeground` / `statusAccentSubtle` / `statusAccentBorder` 等）；
   `neutral` 不取状态色：图标 `contentSecondary`、正文 `contentPrimary`、背景 `tertiaryFill`、描边 `borderDefault`
 - 图标：`info.circle.fill` / `exclamationmark.triangle.fill` / `exclamationmark.circle.fill` / `checkmark.circle.fill` / `bell.fill`（neutral）
 - 描边（BorderedBannerStyle）：`CoreBorderWidth.thin`

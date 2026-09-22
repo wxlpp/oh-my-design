@@ -537,10 +537,10 @@ private struct BannerPreview: View {
         if !self.dismissed.contains(id) {
             Banner(level: level, title: "Update available", message: "Restart the app to finish installing version 2.4.") {
                 Button("Restart now") {}
-                    .buttonStyle(.solid(role: .primary))
+                    .buttonStyle(.solid(role: level == .danger ? .danger : .primary))
                     .controlSize(.small)
                 Button("Later") {}
-                    .buttonStyle(.light(role: .secondary))
+                    .buttonStyle(.borderless(role: .primary))
                     .controlSize(.small)
             } onDismiss: {
                 self.dismissed.insert(id)

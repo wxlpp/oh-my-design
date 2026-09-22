@@ -128,22 +128,42 @@ func bannerPalette(for level: StatusLevel) -> BannerPalette {
 }
 
 enum BannerMetrics {
-    static let dismissHitTarget: CGFloat = 44
-    static let dismissFootprint: CGFloat = 20
-    static let dismissGlyphInset: CGFloat = (dismissHitTarget - dismissFootprint) / 2
+    static let minimumHitTarget: CGFloat = 44
+    static let baseDismissFootprint: CGFloat = 20
+
+    static func dismissHitTarget(footprint: CGFloat) -> CGFloat {
+        max(self.minimumHitTarget, footprint)
+    }
+
+    static func dismissGlyphInset(footprint: CGFloat) -> CGFloat {
+        (self.dismissHitTarget(footprint: footprint) - footprint) / 2
+    }
+}
+
+extension HorizontalAlignment {
+    private enum BannerTextLeading: AlignmentID {
+        static func defaultValue(in context: ViewDimensions) -> CGFloat {
+            context[.leading]
+        }
+    }
+
+    static let bannerTextLeading = HorizontalAlignment(BannerTextLeading.self)
 }
 
 struct BannerDismissButton: View {
     let color: Color
     let action: () -> Void
 
+    @ScaledMetric(relativeTo: .body) private var footprint = BannerMetrics.baseDismissFootprint
+
     var body: some View {
+        let side = BannerMetrics.dismissHitTarget(footprint: self.footprint)
         Button(action: self.action) {
             Image(systemName: "xmark")
-                .font(.body.weight(.semibold))
+                .font(.body.weight(.medium))
                 .imageScale(.small)
                 .foregroundStyle(self.color)
-                .frame(width: BannerMetrics.dismissHitTarget, height: BannerMetrics.dismissHitTarget)
+                .frame(width: side, height: side)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -151,46 +171,57 @@ struct BannerDismissButton: View {
     }
 }
 
-@ViewBuilder
-private func bannerBody(configuration: BannerStyleConfiguration, bordered: Bool) -> some View {
-    let palette = bannerPalette(for: configuration.level)
-    VStack(alignment: .leading, spacing: CoreSpacing.sm) {
-        HStack(alignment: .firstTextBaseline, spacing: CoreSpacing.sm) {
-            bannerIcon(for: configuration.level)
-                .foregroundStyle(palette.icon)
-                .accessibilityLabel(Text(LocalizedStringKey(bannerIconAccessibilityKey(for: configuration.level)), bundle: .module))
-            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
-                if let title = configuration.title {
-                    title.coreFont(.headline)
+private struct BannerBody: View {
+    let configuration: BannerStyleConfiguration
+    let bordered: Bool
+
+    @ScaledMetric(relativeTo: .body) private var dismissFootprint = BannerMetrics.baseDismissFootprint
+
+    var body: some View {
+        let palette = bannerPalette(for: self.configuration.level)
+        VStack(alignment: .bannerTextLeading, spacing: CoreSpacing.md) {
+            HStack(alignment: .firstTextBaseline, spacing: CoreSpacing.sm) {
+                bannerIcon(for: self.configuration.level)
+                    .foregroundStyle(palette.icon)
+                    .accessibilityLabel(Text(LocalizedStringKey(bannerIconAccessibilityKey(for: self.configuration.level)), bundle: .module))
+                VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
+                    if let title = self.configuration.title {
+                        title.coreFont(.headline)
+                        self.configuration.label
+                            .foregroundStyle(Color.contentPrimary)
+                    } else {
+                        self.configuration.label
+                    }
                 }
-                configuration.label
+                .alignmentGuide(.bannerTextLeading) { $0[.leading] }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.trailing, self.configuration.dismiss == nil ? 0 : self.dismissFootprint + CoreSpacing.sm)
+            .accessibilityElement(children: .combine)
+            if let actions = self.configuration.actions {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: CoreSpacing.sm) { actions }
+                    VStack(alignment: .leading, spacing: CoreSpacing.sm) { actions }
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.trailing, configuration.dismiss == nil ? 0 : BannerMetrics.dismissFootprint + CoreSpacing.sm)
-        .accessibilityElement(children: .combine)
-        if let actions = configuration.actions {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: CoreSpacing.sm) { actions }
-                VStack(alignment: .leading, spacing: CoreSpacing.sm) { actions }
+        .overlay(alignment: .topTrailing) {
+            if let dismiss = self.configuration.dismiss {
+                BannerDismissButton(color: .contentSecondary, action: dismiss)
+                    .padding(-BannerMetrics.dismissGlyphInset(footprint: self.dismissFootprint))
             }
         }
-    }
-    .overlay(alignment: .topTrailing) {
-        if let dismiss = configuration.dismiss {
-            BannerDismissButton(color: palette.icon, action: dismiss)
-                .padding(-BannerMetrics.dismissGlyphInset)
-        }
-    }
-    .accessibilityElement(children: .contain)
-    .coreFont(.callout)
-    .foregroundStyle(palette.foreground)
-    .padding(CoreSpacing.md)
-    .background {
-        if bordered {
-            Rectangle().fill(palette.background).bordered(style: palette.border)
-        } else {
-            Rectangle().fill(palette.background)
+        .accessibilityElement(children: .contain)
+        .coreFont(.callout)
+        .foregroundStyle(palette.foreground)
+        .padding(CoreSpacing.md)
+        .background {
+            if self.bordered {
+                Rectangle().fill(palette.background).bordered(style: palette.border)
+            } else {
+                Rectangle().fill(palette.background)
+            }
         }
     }
 }
@@ -202,7 +233,7 @@ public struct PlainBannerStyle: BannerStyle {
     public init() {}
 
     public func makeBody(configuration: Configuration) -> some View {
-        bannerBody(configuration: configuration, bordered: false)
+        BannerBody(configuration: configuration, bordered: false)
     }
 }
 
@@ -213,7 +244,7 @@ public struct BorderedBannerStyle: BannerStyle {
     public init() {}
 
     public func makeBody(configuration: Configuration) -> some View {
-        bannerBody(configuration: configuration, bordered: true)
+        BannerBody(configuration: configuration, bordered: true)
     }
 }
 
