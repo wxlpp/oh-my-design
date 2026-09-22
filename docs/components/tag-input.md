@@ -61,9 +61,10 @@ TagInput(tags: $tags, placeholder: "Add tag") { committed in
 - 输入框文字色：`Color.contentPrimary`
 - 输入框最小宽度：80pt（避免 `FlowLayout` 压缩到不可用宽度）
 - 输入框最小高度：`CoreControlMetrics.height(for: .regular)`
-- 校验态（`.fieldValidation(_:)`，见 `form-field.md`）：invalid 时输入框底部叠一条
-  `CoreBorderWidth.thin` 的 `Color.statusDangerForeground` 描边线（overlay，不改布局）；
-  disabled 优先于 invalid，禁用时不画。组件整体没有外框，所以描边只落在输入框上。
+- 校验态（`.fieldValidation(_:)`，见 `form-field.md`）：invalid 时整个字段底部叠一条
+  `CoreBorderWidth.thin` 的 `Color.statusDangerForeground` 基线（overlay，不改布局），横跨字段全宽、
+  落在最后一行（chips 与输入框共用的那一行）底部——`FlowLayout` 的宽度取提议宽度，所以基线随字段宽度走；
+  disabled 优先于 invalid，禁用时不画。
 
 ## 无障碍
 

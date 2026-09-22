@@ -19,6 +19,23 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.10.0`）——Issue #400：输入控件的校验 / 禁用 / 尺寸外观
+
+**视觉与布局变更（无签名破坏，无公开 API 增减）。**
+
+| 控件 / 状态 | 之前 | 现在 |
+|---|---|---|
+| `CheckBoxToggleStyle` / `RadioGroup` 在 `.disabled(true)` 下 | 与 enabled 外观相同 | 整行（图标 + 标题）降到 0.4 不透明度；enabled 外观逐像素不变 |
+| `RadioGroup` invalid 且选中 | 圆环与实心点都取 `statusDangerForeground` | 只有圆环取 danger，实心点保持 `contentPrimary` |
+| `TagInput` invalid | 只在输入框下面画一条 80pt 起的红线 | 整个字段底部一条横跨全宽的红色基线 |
+| `PinCode` invalid 且获焦的那一格 | 2pt 红边 | 2pt 红边 + 格外 4pt `statusDangerForeground` 30% 光晕（不占布局） |
+| `PinCode` 有值时（浅色最明显） | 中间两格的空隙里透出淡淡的数字 | 不再透出（隐藏输入框的文字 / 光标取透明色） |
+| `SearchField` 放进不限高的容器（iOS） | 被纵向拉伸到容器高度 | 取固有高度 44pt；macOS 本来就不拉伸，布局不变 |
+
+- **迁移**：一般不需要。依赖 `SearchField` 被拉高去填满空间的布局（少见）改为在外层显式
+  `.frame(maxHeight: .infinity)` 包一个容器；之前为规避拉伸加的 `.fixedSize(horizontal: false, vertical: true)`
+  可以删掉（留着也无害）。想让禁用的 CheckBox / Radio 保持不变淡的旧观感，没有开关——这是有意对齐系统控件的行为。
+
 ## 未发布（相对 `v0.10.0`）——Issue #398：Banner 圆角与 neutral 不透明底色、Timeline 浅色 warning 圆点
 
 **视觉变更（无签名破坏）。** 新增公开 token：`Color.systemGray5`（第 2 层）、`Color.statusNeutralSubtle`（第 3 层）。

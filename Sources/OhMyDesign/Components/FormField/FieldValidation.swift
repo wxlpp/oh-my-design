@@ -159,6 +159,12 @@ enum FieldAppearance: Equatable {
         self == .disabled ? Color.contentDisabled : Color.statusDangerForeground
     }
 
+    static let disabledControlOpacity: Double = 0.4
+
+    var controlOpacity: Double {
+        self == .disabled ? Self.disabledControlOpacity : 1
+    }
+
     func indicatorColor(normal: Color) -> Color {
         self == .invalid ? Color.statusDangerForeground : normal
     }

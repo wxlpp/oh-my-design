@@ -88,6 +88,8 @@ enum FieldControlSample: CaseIterable, CustomStringConvertible {
         }
     }
 
+    nonisolated static let choiceCases: [FieldControlSample] = [.checkBoxOff, .checkBoxOn, .radioVertical, .radioHorizontal]
+
     private static let options = [
         RadioOption(value: "basic", title: "Basic"),
         RadioOption(value: "pro", title: "Pro"),
@@ -102,6 +104,14 @@ enum FieldControlSample: CaseIterable, CustomStringConvertible {
         case .checkBoxOn: AnyView(Toggle("Accept", isOn: .constant(true)).toggleStyle(CheckBoxToggleStyle()))
         case .radioVertical: AnyView(RadioGroup(selection: .constant("basic"), options: Self.options))
         case .radioHorizontal: AnyView(RadioGroup(selection: .constant("pro"), options: Self.options, axis: .horizontal))
+        }
+    }
+
+    var legacyDisabled: AnyView {
+        switch self {
+        case .pinCode, .pinCodeSecure, .tagInput: AnyView(self.legacy.disabled(true))
+        case .checkBoxOff, .checkBoxOn, .radioVertical, .radioHorizontal:
+            AnyView(self.legacy.disabled(true).opacity(FieldAppearance.disabledControlOpacity))
         }
     }
 
@@ -155,12 +165,15 @@ struct FieldValidationControlsAppearanceTests {
         }
     }
 
-    @Test("disabled 压过 invalid：disabled + invalid 与旧实现的 disabled 在光栅化噪声内逐像素一致", arguments: FieldControlSample.allCases)
+    @Test(
+        "disabled 压过 invalid：disabled + invalid 与旧实现的 disabled（CheckBox / Radio 另整体降到禁用不透明度）在光栅化噪声内逐像素一致",
+        arguments: FieldControlSample.allCases
+    )
     func disabledInvalidMatchesLegacyDisabled(_ sample: FieldControlSample) {
         for scheme in ControlRender.schemes {
             expectBitmapsEquivalent(
                 ControlRender.pixels(sample.current.fieldValidation(sampleInvalid).disabled(true), scheme: scheme),
-                ControlRender.pixels(sample.legacy.disabled(true), scheme: scheme),
+                ControlRender.pixels(sample.legacyDisabled, scheme: scheme),
                 maxChannelDelta: 1,
                 "\(sample) \(scheme)：disabled + invalid 仍画出了 invalid 外观"
             )
@@ -186,6 +199,156 @@ struct FieldValidationControlsAppearanceTests {
             #expect(ControlRender.dangerPixelCount(valid, scheme: scheme) == 0, "\(sample) \(scheme)：valid 里出现了 danger 色")
             #expect(ControlRender.dangerPixelCount(broken, scheme: scheme) > 40, "\(sample) \(scheme)：invalid 没画出 danger 色")
             expectBitmapsDiffer(valid, broken, "\(sample) \(scheme)：invalid 与 valid 外观相同")
+        }
+    }
+}
+
+// MARK: - #384 跟进 / Follow-ups
+
+private extension ControlRender {
+    static func matches(_ bytes: [UInt8], at index: Int, _ color: Color.Resolved, tolerance: Int = 30) -> Bool {
+        let delta = abs(Int(bytes[index]) - Int(color.red * 255)) + abs(Int(bytes[index + 1]) - Int(color.green * 255))
+            + abs(Int(bytes[index + 2]) - Int(color.blue * 255))
+        return bytes[index + 3] > 200 && delta < tolerance
+    }
+
+    static func resolved(_ color: Color, scheme: ColorScheme) -> Color.Resolved {
+        var environment = EnvironmentValues()
+        environment.colorScheme = scheme
+        return color.resolve(in: environment)
+    }
+
+    static func count(_ bytes: [UInt8]?, _ color: Color, scheme: ColorScheme) -> Int {
+        guard let bytes else { return -1 }
+        let target = Self.resolved(color, scheme: scheme)
+        return stride(from: 0, to: bytes.count, by: 4).filter { Self.matches(bytes, at: $0, target) }.count
+    }
+}
+
+@Suite("输入控件跟进：TagInput 下划线 / Radio 圆环 / PinCode 获焦 / 禁用变淡")
+@MainActor
+struct FieldControlFollowUpTests {
+    private static let catalogOnly = "跳过：bundle 里没有 Assets.car，status* 取自 asset catalog，在 SwiftPM native 腿上解析为全透明；本条在 iOS Simulator 腿上跑。"
+
+    @Test(
+        "TagInput invalid 下划线横跨整个字段宽度并位于最后一行底部（单行 / 多行换行，light / dark）",
+        .enabled(if: assetCatalogIsCompiled, Comment(rawValue: Self.catalogOnly)),
+        arguments: [["design", "ios"], ["bug", "enhancement", "help wanted", "documentation", "good first issue"]]
+    )
+    func tagInputUnderlineSpansField(_ tags: [String]) throws {
+        for scheme in ControlRender.schemes {
+            let image = try #require(ControlRender.image(TagInput(tags: .constant(tags)).fieldValidation(sampleInvalid), scheme: scheme))
+            let bytes = try #require(ControlRender.pixels(image))
+            let target = ControlRender.resolved(.statusDangerForeground, scheme: scheme)
+            var rows: [Int: (minX: Int, maxX: Int)] = [:]
+            for index in stride(from: 0, to: bytes.count, by: 4) where ControlRender.matches(bytes, at: index, target) {
+                let pixel = index / 4
+                let x = pixel % image.width, y = pixel / image.width
+                let row = rows[y] ?? (x, x)
+                rows[y] = (min(row.minX, x), max(row.maxX, x))
+            }
+            let bottom = try #require(rows.keys.max(), "\(scheme)：没画出下划线")
+            let span = try #require(rows[bottom])
+            let fieldWidth = (360 - 16) * 2
+            #expect(span.maxX - span.minX + 1 >= fieldWidth - 2, "\(scheme)：下划线只覆盖 \(span.maxX - span.minX + 1)px，字段宽 \(fieldWidth)px")
+            #expect(image.height - bottom <= 8 * 2 + 2, "\(scheme)：下划线不在字段底部（距底 \(image.height - bottom)px）")
+        }
+    }
+
+    @Test(
+        "Radio invalid：只有圆环变红，选中实心点保持正常色（light / dark）",
+        .enabled(if: assetCatalogIsCompiled, Comment(rawValue: Self.catalogOnly))
+    )
+    func radioInvalidKeepsDotColor() {
+        let option = [RadioOption(value: "basic", title: "Basic")]
+        for scheme in ControlRender.schemes {
+            let selected = ControlRender.pixels(RadioGroup(selection: .constant("basic"), options: option).fieldValidation(sampleInvalid), scheme: scheme)
+            let unselected = ControlRender.pixels(RadioGroup(selection: .constant("other"), options: option).fieldValidation(sampleInvalid), scheme: scheme)
+            let ringOnly = ControlRender.count(unselected, .statusDangerForeground, scheme: scheme)
+            let selectedDanger = ControlRender.count(selected, .statusDangerForeground, scheme: scheme)
+            #expect(ringOnly > 40, "\(scheme)：未选中 invalid 没画出红色圆环")
+            #expect(selectedDanger > 40 && Double(selectedDanger) <= Double(ringOnly) * 1.25, "\(scheme)：选中 invalid 的红色像素 \(selectedDanger)，圆环只有 \(ringOnly)——实心点也变红了")
+            let dot = ControlRender.count(selected, .contentPrimary, scheme: scheme) - ControlRender.count(unselected, .contentPrimary, scheme: scheme)
+            #expect(dot > 100, "\(scheme)：选中实心点没有保持 contentPrimary（多出 \(dot) 个像素）")
+        }
+    }
+
+    @Test(
+        "PinCode 获焦 + invalid 格与其他 invalid 格可区分：格外多一圈光晕、红边更粗（light / dark）",
+        .enabled(if: assetCatalogIsCompiled, Comment(rawValue: Self.catalogOnly))
+    )
+    func pinCodeFocusedInvalidCellIsDistinct() throws {
+        for scheme in ControlRender.schemes {
+            let focused = try #require(ControlRender.image(PinCodeCell(character: nil, isSecure: false, isCurrent: true).fieldValidation(sampleInvalid), scheme: scheme))
+            let other = try #require(ControlRender.image(PinCodeCell(character: nil, isSecure: false, isCurrent: false).fieldValidation(sampleInvalid), scheme: scheme))
+            let focusedBytes = ControlRender.pixels(focused), otherBytes = ControlRender.pixels(other)
+            expectBitmapsDiffer(focusedBytes, otherBytes, "\(scheme)")
+            #expect(
+                ControlRender.count(focusedBytes, .statusDangerForeground, scheme: scheme)
+                    > ControlRender.count(otherBytes, .statusDangerForeground, scheme: scheme) * 3 / 2,
+                "\(scheme)：获焦格红边没有明显更粗"
+            )
+            let canvas = ControlRender.resolved(.surfaceCanvas, scheme: scheme)
+            func haloPixels(_ image: CGImage, _ bytes: [UInt8]?, tolerance: Int) -> Int {
+                guard let bytes else { return -1 }
+                let cellSide = Int(CoreControlMetrics.height(for: .regular)) * 2
+                let minX = (image.width - cellSide) / 2, minY = (image.height - cellSide) / 2
+                var count = 0
+                for index in stride(from: 0, to: bytes.count, by: 4) {
+                    let pixel = index / 4
+                    let x = pixel % image.width, y = pixel / image.width
+                    let outside = x < minX - 1 || x > minX + cellSide || y < minY - 1 || y > minY + cellSide
+                    if outside && !ControlRender.matches(bytes, at: index, canvas, tolerance: tolerance) { count += 1 }
+                }
+                return count
+            }
+            #expect(haloPixels(focused, focusedBytes, tolerance: 60) > 200, "\(scheme)：获焦 invalid 格外没有与底色拉开差距的光晕")
+            #expect(haloPixels(other, otherBytes, tolerance: 6) == 0, "\(scheme)：非获焦 invalid 格外出现了像素")
+        }
+    }
+
+    @Test("PinCode 获焦 valid 格与旧实现逐像素一致（光晕只属于 invalid，light / dark）")
+    func pinCodeFocusedValidCellUnchanged() {
+        for scheme in ControlRender.schemes {
+            expectBitmapsEqual(
+                ControlRender.pixels(PinCodeCell(character: "4", isSecure: false, isCurrent: true), scheme: scheme),
+                ControlRender.pixels(LegacyPinCodeCell(value: "4", index: 0, isSecure: false, isCurrent: true), scheme: scheme),
+                "\(scheme)"
+            )
+        }
+    }
+
+    @Test("CheckBox / Radio disabled 整体变淡：与旧实现整体降到禁用不透明度等价，且与 enabled 不同（light / dark，两条腿）", arguments: FieldControlSample.choiceCases)
+    func choiceControlsDimWhenDisabled(_ sample: FieldControlSample) {
+        for scheme in ControlRender.schemes {
+            let disabled = ControlRender.pixels(sample.current.disabled(true), scheme: scheme)
+            expectBitmapsDiffer(disabled, ControlRender.pixels(sample.current, scheme: scheme), "\(scheme)：disabled 没有变淡")
+            expectBitmapsEquivalent(
+                disabled,
+                ControlRender.pixels(sample.legacy.opacity(FieldAppearance.disabledControlOpacity), scheme: scheme),
+                maxChannelDelta: 1,
+                "\(scheme)"
+            )
+        }
+    }
+
+    @Test("CheckBox / Radio enabled 与旧实现逐像素一致（light / dark，两条腿）", arguments: FieldControlSample.choiceCases)
+    func choiceControlsEnabledUnchanged(_ sample: FieldControlSample) {
+        for scheme in ControlRender.schemes {
+            expectBitmapsEqual(
+                ControlRender.pixels(sample.current, scheme: scheme),
+                ControlRender.pixels(sample.legacy, scheme: scheme),
+                "\(scheme)"
+            )
+        }
+    }
+
+    @Test("禁用不透明度与外观解析同源：只有 disabled 降低")
+    func disabledOpacityFollowsAppearance() {
+        #expect(FieldAppearance.disabled.controlOpacity == FieldAppearance.disabledControlOpacity)
+        #expect(FieldAppearance.disabledControlOpacity < 1)
+        for appearance in [FieldAppearance.normal, .focused, .invalid] {
+            #expect(appearance.controlOpacity == 1)
         }
     }
 }
@@ -290,13 +453,14 @@ private struct LegacyPinCodeCell: View {
     let value: String
     let index: Int
     let isSecure: Bool
+    var isCurrent = false
 
     @Environment(\.controlSize) private var controlSize
     @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
         let character = PinCode.character(at: self.index, in: self.value)
-        let isCurrent = false
+        let isCurrent = self.isCurrent
         let shape = CoreShape.rounded(CoreRadius.medium)
         let cellSize = CoreControlMetrics.height(for: self.controlSize)
 

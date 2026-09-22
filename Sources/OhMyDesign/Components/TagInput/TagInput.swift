@@ -47,13 +47,6 @@ public struct TagInput: View {
                 .foregroundStyle(Color.contentPrimary)
                 .frame(minWidth: Self.minimumInputWidth)
                 .frame(minHeight: CoreControlMetrics.height(for: .regular))
-                .overlay(alignment: .bottom) {
-                    if FieldAppearance.resolve(isEnabled: self.isEnabled, validation: self.validation, isFocused: false) == .invalid {
-                        Rectangle()
-                            .fill(Color.statusDangerForeground)
-                            .frame(height: CoreBorderWidth.thin)
-                    }
-                }
                 .fieldAccessibility(fallbackLabel: Text(self.placeholder))
                 .onSubmit {
                     self.commitDraft()
@@ -61,6 +54,14 @@ public struct TagInput: View {
                 .onChange(of: self.draft) { _, newValue in
                     self.handleDraftChange(newValue)
                 }
+        }
+        .overlay(alignment: .bottom) {
+            if FieldAppearance.resolve(isEnabled: self.isEnabled, validation: self.validation, isFocused: false) == .invalid {
+                Rectangle()
+                    .fill(Color.statusDangerForeground)
+                    .frame(height: CoreBorderWidth.thin)
+                    .accessibilityHidden(true)
+            }
         }
     }
 

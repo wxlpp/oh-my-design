@@ -38,10 +38,11 @@ SearchField(text: $query, placeholder: "Filter issues") { submitted in
 仍由库指定的只有两项：
 
 - **命中区高度**：`CoreControlMetrics.height(for: .regular)` = 44pt，由外层包装层承担。
-  ⚠️ 两端尺寸行为不同：iOS 26.4 实测 `UISearchTextField` 的绘制带**随 frame 撑满**
-  （44pt 下即 44pt 高；放进不限高的容器会被纵向拉伸，需要调用方给定高度或 `fixedSize`）；
-  macOS `NSSearchField` 取固有高度（实测 24pt）。包装层用 `contentShape` + tap 转
-  `becomeFirstResponder()` 把命中区上下缘也接上。
+  包装层纵向 `fixedSize`，整个控件取固有高度（44pt），放进不限高的容器（如占满一屏的
+  `VStack`）也**不会被纵向拉伸**，调用方不需要再加 `fixedSize`。⚠️ 这一条只对 iOS 有实际作用：
+  `UISearchTextField` 的绘制带随 frame 撑满，没有它就会被拉高；macOS `NSSearchField` 本身取
+  固有高度（24pt），改动前后布局相同（`SearchFieldIntrinsicHeightTests`，两端托管窗口实测）。
+  包装层用 `contentShape` + tap 转 `becomeFirstResponder()` 把命中区上下缘也接上。
 - **横向撑满**：`frame(maxWidth: .infinity)`。
 
 ## 校验态与禁用 / Validation and disabled

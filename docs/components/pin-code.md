@@ -34,6 +34,15 @@ TextField("", text: $value)
 - **macOS**：复用同一个 `TextField`，跳过以上两个 modifier——`.keyboardType` 在 macOS
   上不存在，`.textContentType(.oneTimeCode)` 在 macOS 上无实际效果。
 
+### 隐藏输入框不留残影
+
+隐藏 `TextField` 带 `.fixedSize()`、居中叠在格子行下面，宽度只有当前值的文本宽，于是正好落在
+中间两格之间的空隙里（那里没有格子背景遮挡）。`.opacity(0.01)` 压不到零：浅色下空隙处仍差约 3 个色阶
+（模拟器截图 242 → 239），在均匀底色上能看见一串淡淡的数字。
+⇒ 隐藏输入框的文字与光标取透明色（`.foregroundStyle(Color.clear)` + `.tint(Color.clear)`）；
+opacity、焦点、`oneTimeCode` / `numberPad`、无障碍隐藏都不变，键盘、粘贴与 OTP 自动填充走的
+仍是同一个输入框（`PinCodeHiddenFieldTests`：两端托管窗口里藏掉输入框前后逐像素相同）。
+
 ## 预览 / Preview
 
 运行 `scripts/run-snapshots.sh`（默认模式）后，预览图落地 `docs/snapshots/`——但前提是该组件已在 `App/Sources/Previews.swift` 注册（导出文件名形如 `OhMyDesignPreview_<组件名>.png`）；组件源码内自带的 `#Preview` 仅用于开发期本地预览，或经 `KEEP_LIBRARY_SNAPSHOTS=1 scripts/run-snapshots.sh` 导出到本地 scratch 目录做逐组件视觉核对（不写入 docs/snapshots，见 `.claude/epics/semi-mobile-components/phase0-decisions.md` §3）。同文件 `#Preview`
@@ -80,7 +89,9 @@ PinCode(value: $code, length: 6)
   SwiftUI 的默认 tint），`CoreBorderWidth.thick`
 - 非焦点格边框：`Color.borderMuted`，`CoreBorderWidth.thin`
 - 校验态（`.fieldValidation(_:)`，见 `form-field.md`）：invalid 时**每一格**边框取
-  `Color.statusDangerForeground`（压过焦点色）；当前格仍保留 `CoreBorderWidth.thick` 作位置提示。
+  `Color.statusDangerForeground`（压过焦点色）；获焦时当前格保留 `CoreBorderWidth.thick`，并在格外
+  再画一圈 `CoreBorderWidth.thicker` 的 `Color.statusDangerForeground` 30% 不透明度的光晕（不占布局），与其他 invalid 格
+  可区分。光晕只在 invalid 下出现，valid 获焦格外观不变。
   disabled 优先于 invalid——禁用时与禁用 + valid 外观一致。
 - 禁用态文字：`Color.contentDisabled`；正常态：`Color.contentPrimary`
 - 圆角：`CoreRadius.medium`

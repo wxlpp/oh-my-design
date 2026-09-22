@@ -82,11 +82,14 @@ private struct HostedSnapshot {
 @Suite("SearchField 托管快照：原生搜索框真实渲染下的 valid 不变与 invalid 描边位置")
 @MainActor
 struct SearchFieldHostedSnapshotTests {
-    @Test("valid 与改动前实现（92d224b 原样拷贝）在光栅化噪声内一致（light / dark）")
+    @Test("valid 与改动前实现（92d224b 原样拷贝，外加调用方当时需要的 fixedSize(vertical)）在光栅化噪声内一致（light / dark）")
     func validMatchesLegacy() {
         for scheme in [ColorScheme.light, .dark] {
             let now = HostedSnapshot(SearchField(text: .constant("release")), scheme: scheme)
-            let old = HostedSnapshot(LegacySearchField(text: .constant("release")), scheme: scheme)
+            let old = HostedSnapshot(
+                LegacySearchField(text: .constant("release")).fixedSize(horizontal: false, vertical: true),
+                scheme: scheme
+            )
             #expect(now.fieldFrame != nil && now.fieldFrame == old.fieldFrame, "\(scheme)：原生框位置变了")
             expectBitmapsEquivalent(now.pixels, old.pixels, maxChannelDelta: 1, "\(scheme)")
         }
