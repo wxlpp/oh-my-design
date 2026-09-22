@@ -40,7 +40,7 @@ Apple HIG 原生观感、墨色 accent、SwiftUI 有原生控件的只换皮不�
 
 **US-1 表单开发者**：我想给任意输入控件标注「必填」与「校验失败 + 原因」，控件与标签自动变成错误态，
 VoiceOver 读到错误原因。
-- 验收：`FormField` 内放系统 `TextField`（加 `.fieldAccessibilityHint()`）与本仓 `PinCode`，
+- 验收：`FormField` 内放系统 `TextField`（加 `.fieldAccessibility()`）与本仓 `PinCode`，
   设 `.fieldValidation(.invalid(Text("…")))` 后，标签与错误行以 danger 色显示、`PinCode` 描边变 danger，
   两者的真实输入节点都读到错误原因；错误出现时播报一次；设回 `.valid` 错误行淡出。
   `.fieldRequirement(.required)` 显示星号。
@@ -87,19 +87,20 @@ VoiceOver 读到错误原因。
 Banner = FR-4 + FR-5；Toast = FR-6；尺寸 = FR-7；锚定徽标 = FR-8；TagGroup = FR-9；进度环 = FR-10；
 按压反馈 = FR-11；surface 嵌套 = FR-12；sheet 预设 = FR-13。
 
-**FR-1 字段校验基础层**：新增 `public enum FieldValidation: Equatable { case valid; case invalid(Text) }`
+**FR-1 字段校验基础层**：新增 `public enum FieldValidation: Equatable, Sendable { case valid; case invalid(LocalizedStringResource) }`（关联值用 `LocalizedStringResource`：可直接用于 `AccessibilityNotification.Announcement`，不依赖私有 / 下划线 API）
 与 `public enum FieldRequirement { case optional, required }`，经 `@Entry` 环境值下发，公开
 `View.fieldValidation(_:)` / `View.fieldRequirement(_:)`；嵌套时按 SwiftUI 惯例最近一层生效，
 推荐施加在 `FormField` 上。新增 `FormField` 容器：label（必填星号取 `statusDangerForeground`）、
 可选 description、错误行（来自 `fieldValidation`，`.transition(.opacity)`）。无障碍契约：
-- label 与控件用 `accessibilityLabeledPair` 关联；必填以「必填」追加到 label 的可访问文本。
+- label：`accessibilityLabeledPair` 保留（macOS 生效），但 iOS 26 实测不会把 label 关联到系统 `TextField`（AXe 读到空 label），所以 label（含必填追加）也由下面的公开 modifier 设到真实输入节点上。
 - description 与错误原因**不由容器挂 hint**——容器不知道真实输入节点；容器经环境值把 description
   文本传下去，由「真实输入节点」自己挂：FR-2 的 5 个自有控件在内部挂；系统控件（`TextField` 等）由调用方
-  在控件上加公开 modifier `View.fieldAccessibilityHint()`（读同一组环境值，自有控件内部也走它）。
+  在控件上加公开 modifier `View.fieldAccessibility()`（读同一组环境值，把 label + 必填、错误原因 + description 分别设为该节点的 accessibilityLabel / accessibilityHint；自有控件内部也走它）。
   系统控件的 danger 描边**不自动出现**——错误态由 `FormField` 的 label 与错误行表达。
 - 播报：仅在 `valid → invalid` 转变、或 invalid 的错误文本变化时播报一次；首次渲染即 invalid、
   视图重建（值未变）不播报。
 - 视觉优先级：disabled > invalid > focused。
+- 布局扩展点（公约出口 1）：`FormFieldLayout` D2 枚举，`.stacked`（缺省，label 在上）与 `.inline`（label 在前一列）。
 
 **FR-2 控件接入校验态 + FR-3 `SearchField` 修复（同一个 issue，两者同改 SearchField）**：
 `PinCode`、`TagInput`、`SearchField`、`CheckBoxToggleStyle`、`RadioGroup` 读取 `fieldValidation`，
