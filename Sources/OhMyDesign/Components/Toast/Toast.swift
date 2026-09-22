@@ -487,9 +487,10 @@ struct ToastView: View {
     }
 
     private var message: some View {
-        HStack(spacing: CoreSpacing.sm) {
+        HStack(alignment: .firstTextBaseline, spacing: CoreSpacing.sm) {
             self.icon
                 .foregroundStyle(self.iconColor)
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
                 Text(self.item.title)
@@ -516,6 +517,7 @@ struct ToastView: View {
             self.onAction()
         } label: {
             Text(action.label)
+                .fontWeight(.semibold)
                 .lineLimit(self.isAccessibilityLayout ? nil : 1)
                 .fixedSize(horizontal: !self.isAccessibilityLayout, vertical: true)
         }

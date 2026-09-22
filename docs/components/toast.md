@@ -130,7 +130,7 @@ struct DetailView: View {
 ## 视觉 Token
 
 - 容器：`.floatingGlass(in: Capsule(style: .continuous), isInteractive: false)`——iOS 26 液态玻璃浮起外壳，不消费 `.surface(.card)`（Phase 3A 迁移，见 `ToastView`）
-- 字号：标题 `callout`（有说明时 semibold），说明 `footnote` + `contentSecondary`；动作按钮 `.light(role: .primary)` + `.controlSize(.small)`
+- 字号：标题 `callout`（有说明时 semibold），说明 `footnote` + `contentSecondary`；动作按钮 `.light(role: .primary)` + `.controlSize(.small)`、semibold；图标与标题首行基线对齐，字号上限 `xxxLarge`
 - 内边距：`CoreSpacing.md`
 - Icon / 前景色：按 `StatusLevel` 走 status color token（`statusAccentForeground` / `statusSuccessForeground` / `statusAttentionForeground` / `statusDangerForeground`）；
   `neutral` 图标 `bell`、图标色 `contentSecondary`（正文各档统一为 `contentPrimary`）

@@ -290,7 +290,7 @@ struct ToastPresentationRenderTests {
 
     private func standaloneActionInk(_ label: String, dynamicTypeSize: DynamicTypeSize) -> (width: Int, pixels: Int)? {
         self.redInk(
-            Button {} label: { Text(label) }
+            Button {} label: { Text(label).fontWeight(.semibold) }
                 .buttonStyle(.light(role: .primary))
                 .controlSize(.small)
                 .fixedSize()
