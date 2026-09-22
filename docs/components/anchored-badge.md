@@ -74,8 +74,14 @@ ScrollView(.horizontal) {
   （徽标会从宿主中间飞出来），而且圆形宿主上实测让徽标的亚像素光栅位置偏 0.5pt（逐通道差到 196、369 字节），
   与改动前的实现对不上。为此显示 / 不显示的条件判断下移到 `ZStack` 内部，外层 `GeometryReader` 常驻。
 - `.dot` 与 `.text` 不加内容过渡：红点没有数字；`.text` 是调用方的 `LocalizedStringKey`，滚动读不出方向。
-- **Reduce Motion**：计数改为 `ContentTransition.identity`（直接替换，不滚动不模糊），出现 / 消失改纯淡变。
-  框架不替调用方降级这两条（`#407` FR-1 逐帧实测），全部由本 modifier 显式分支。
+- **两处动画驱动，各管一件事**（刻意分开，别并成一个）：
+  出现 / 消失由 `.coreAnimation(.reveal, value: content.isVisible)` 驱动（RM 下退为同时长 `easeInOut`，用于淡变）；
+  计数变化由施在胶囊上的 `.animation(CoreMotionToken.reveal.transformAnimation(for:), value: count)` 驱动
+  （RM 下为 `nil`）。并成一个 `value: content` 时，RM 下胶囊宽度会随位数变化被插值——那是横向位移，
+  实测端点包络外像素 17–28，不该在 RM 下发生。反过来把计数那一处提到外层，它的 `nil` 会压掉出现 / 消失的淡变
+  （实测退场一帧都不播）⇒ 计数那一处必须**贴在胶囊上**，作用域只覆盖它自己。
+- **Reduce Motion**：计数改为 `ContentTransition.identity`（直接替换，不滚动不模糊）且宽度不补间，
+  出现 / 消失改纯淡变。框架不替调用方降级这几条（`#407` FR-1 逐帧实测），全部由本 modifier 显式分支。
 
 ## 无障碍
 

@@ -46,9 +46,10 @@
   不想要动画的调用点可注入 `.environment(\.coreMotionPresentationOverride, .hidden)`。
 ## 未发布（相对 `v0.11.0`）——Issue #408：原生符号 / 数字动效接入小件
 
-**行为变更（无签名破坏）。** 公开符号的签名一个都没变；静息外观也不变（`anchoredBadge` 的八种内容 ×
-两种宿主外形、CheckBox / RadioGroup 的 enabled / disabled / invalid 外观都与改动前的实现逐像素对照过）。
-变的是「状态切换时怎么动」：
+**行为变更（无签名破坏）。** 公开符号的签名一个都没变；静息外观也不变——`anchoredBadge` 取了
+**八种内容 / 宿主外形组合**（红点、`count` 的 9 / 99 / 截断、`text`、不显示各一种矩形宿主，
+另加红点与 `count` 各一种圆形宿主；**不是**八种内容 × 两种外形的全矩阵），CheckBox / RadioGroup
+取 enabled / disabled / invalid，都与改动前的实现逐像素对照过。变的是「状态切换时怎么动」：
 
 | 位置 | 之前 | 现在 |
 |---|---|---|
@@ -66,7 +67,7 @@
 
 | 位置 | RM 开的行为 |
 |---|---|
-| 计数变化 | `ContentTransition.identity`：数字直接替换，不滚动、不模糊 |
+| 计数变化 | `ContentTransition.identity`：数字直接替换，不滚动、不模糊；胶囊宽度也**不补间**（位数变化时直接跳到新宽度——补间等于横向位移，不该在 RM 下发生） |
 | 徽标出现 / 消失 | 纯淡变，不缩放 |
 | CheckBox / RadioGroup 指示符 | `ContentTransition.identity`：直接换图，不描画 |
 

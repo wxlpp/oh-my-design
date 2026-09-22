@@ -171,7 +171,7 @@ struct AnchoredBadgeModifier: ViewModifier {
             }
         }
         .accessibilityHidden(true)
-        .coreAnimation(.reveal, value: self.content)
+        .coreAnimation(.reveal, value: self.content.isVisible)
     }
 
     private var appearanceTransition: AnyTransition {
@@ -207,6 +207,7 @@ struct AnchoredBadgeModifier: ViewModifier {
         case .count(let value, _):
             self.pill(Text(verbatim: self.content.countText ?? String()))
                 .contentTransition(self.motionPresentation.numericRoll(to: value))
+                .animation(CoreMotionToken.reveal.transformAnimation(for: self.motionPresentation), value: value)
         case .text(let key):
             self.pill(Text(key))
         }
