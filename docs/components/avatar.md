@@ -42,7 +42,11 @@ Avatar(name: "Alice", size: .fixed(100))    // 任意直径
 ## 视觉 Token
 
 - 边长：`AvatarSize.automatic` → `CoreControlMetrics.avatarDiameter(for:)`；`.fixed(d)` → `d`
-- 首字符字号：`CoreControlMetrics.avatarInitialFontSize(forDiameter:)`（直径的 7/12，粗体，不随 Dynamic Type 缩放——字号必须装进固定边长）
+- 首字符字号：`CoreControlMetrics.avatarInitialFontSize(forDiameter:)`（直径的 7/12，粗体系统字体）
+
+⚠️ **首字母不跟随 Dynamic Type**：头像是固定直径的圆，字号若随辅助功能字号放大会溢出圆形被裁掉，
+因此字号只由直径决定。需要更大的首字母请加大直径（换 `controlSize` 档或用 `.fixed(_:)`）；
+头像的可访问名称仍是完整的 `name`，VoiceOver 不受影响。
 - 前景色：`Color.white`
 - 背景色：由 `Color(text: name)` 从姓名哈希稳定派生
 - 圆角：由调用方 `.clipShape(Circle())` 保证（`AvatarGroup` 内自动裁圆）

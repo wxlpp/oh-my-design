@@ -42,7 +42,7 @@ public struct AvatarGroup<Avatars: View>: View {
     @Environment(\.controlSize) private var controlSize
 
     private var overlapOffset: CGFloat {
-        CoreControlMetrics.avatarGroupOverlap(for: self.controlSize)
+        CoreControlMetrics.avatarGroupOverlap(forDiameter: self.avatarSize)
     }
 
     public var body: some View {
@@ -96,7 +96,7 @@ public struct AvatarGroup<Avatars: View>: View {
 
     private func countBadge(total: Int) -> some View {
         Text(verbatim: total.formatted())
-            .coreFont(.caption)
+            .coreFont(CoreControlMetrics.avatarCountFontToken(for: self.controlSize))
             .foregroundStyle(.secondary)
             .frame(width: self.avatarSize, height: self.avatarSize)
             .background(Circle().fill(Color.surfaceCanvasInset))
@@ -115,7 +115,7 @@ public struct AvatarGroup<Avatars: View>: View {
 
     private func overflowBadge(_ overflow: Int) -> some View {
         Text("+\(overflow)")
-            .coreFont(.caption)
+            .coreFont(CoreControlMetrics.avatarCountFontToken(for: self.controlSize))
             .foregroundStyle(.secondary)
             .frame(width: self.avatarSize, height: self.avatarSize)
             .background(Circle().fill(Color.surfaceCanvasInset))

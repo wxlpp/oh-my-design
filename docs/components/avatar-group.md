@@ -61,11 +61,12 @@ AvatarGroup(layout: .countOnly) { avatars }
 ## 视觉 Token
 
 - 形状：`Circle`，描边 `Color.systemBackground` / `CoreBorderWidth.thin` 用作 stacking 间隔
-- 重叠偏移：`CoreControlMetrics.avatarGroupOverlap(for:)`——`-6` (mini/small) / `-8` (regular) / `-10` (large+)
+- 重叠偏移：直径的 1/4（mini -5 / small -6 / regular -8 / large -10 / extraLarge -12）
 - 头像尺寸：`CoreControlMetrics.avatarDiameter(for:)`——mini 20 / small 24 / regular 32 / large 40 / extraLarge 48。
   与 `Avatar` 的 `.automatic` 共用同一张表；组件**不改写**传入的子视图，`Avatar` 经环境 `controlSize` 自然取到同一直径。
   传入非 `Avatar` 的自定义视图时由调用方自己定尺寸（如上例的 `Circle().frame(...)`）
-- "+N" pill：`Color.surfaceCanvasInset` 填充 + `Color.borderMuted` 描边，文字 `.caption2`
+- "+N" pill / 计数徽标：`Color.surfaceCanvasInset` 填充 + `Color.borderMuted` 描边，
+  文字随档缩放（mini / small `.caption2`、regular `.caption`、large `.footnote`、extraLarge `.subheadline`）
 - 可访问性：每个 avatar 保留自身可访问性；"+N" 读 `"<N> more avatars"`
   （`AvatarGroupAccessibility.overflowLabel(for:)`）
 - `.countOnly` 徽标读 `"<N> avatars"` / `count == 1` 时读 `"1 avatar"`

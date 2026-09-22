@@ -44,10 +44,15 @@
 3. **`Badge` / `Tag` 跟随 `\.controlSize`（视觉变化，非 API 破坏）**：`.regular`（缺省）档取值与旧版一致；
    但处在 `.controlSize(.small)` 等非缺省环境里的 Badge / Tag 会随之缩放。要保持旧外观，在它们上面
    显式加 `.controlSize(.regular)`。
+4. **可删除 `Tag` 变矮（视觉变化）**：关闭钮外围的可见 `CoreSpacing.xxs` 内边距移除、关闭钮不再撑高行，
+   `removable: true` 的 Tag 在各档都与普通 Tag 等高（regular 档因此比旧版矮）；点击热区大小不变。
+5. **`AvatarGroup` 非 regular 档的几何变化（视觉变化）**：交叠量改为直径的 1/4（mini -6→-5、
+   extraLarge -10→-12，其余不变）；`+N` / 计数徽标文字随档缩放（regular 仍为 `.caption`）。
 
 新增公开符号：`AvatarSize`（`.automatic` / `.fixed(CGFloat)`）；`CoreControlMetrics.compactFontToken(for:)` /
 `compactHorizontalPadding(for:)` / `compactVerticalPadding(for:)` / `compactIconSize(for:)` /
-`avatarDiameter(for:)` / `avatarInitialFontSize(forDiameter:)` / `avatarGroupOverlap(for:)`。
+`compactMinHeight(for:)` / `compactCornerRadius(for:)` /
+`avatarDiameter(for:)` / `avatarInitialFontSize(forDiameter:)`。
 
 ## 未发布（相对 `v0.10.0`）——Issue #375：`StatusLevel` 新增 `.neutral`
 

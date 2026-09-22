@@ -249,7 +249,7 @@ def control_metrics(root):
     table = {}
     for func in ["height", "horizontalPadding", "verticalPadding", "fontToken", "iconSize",
                  "compactHorizontalPadding", "compactVerticalPadding", "compactFontToken",
-                 "compactIconSize", "avatarDiameter"]:
+                 "compactIconSize", "compactMinHeight", "compactCornerRadius", "avatarDiameter"]:
         segment = src.split(f"public static func {func}(")[1].split("\n    }")[0]
         for size, value in re.findall(r"case\s+\.(\w+):\s*(?:return\s+)?([\w.]+)", segment):
             if size in order:
@@ -482,12 +482,14 @@ def main():
         )
     add("")
     add("紧凑 chip（`Badge` / `Tag`）与头像（`Avatar` / `AvatarGroup`）：\n")
-    add("| ControlSize | compact h-padding | compact v-padding | compact font | compact icon | avatar diameter |")
-    add("|---|---|---|---|---|---|")
+    add("| ControlSize | compact h-padding | compact v-padding | compact font | compact icon "
+        "| compact min height（iOS 表；macOS 另一张，见源码） | compact radius | avatar diameter |")
+    add("|---|---|---|---|---|---|---|---|")
     for size, row in metrics:
         add(
             f"| `.{size}` | {row.get('compactHorizontalPadding','—')} | {row.get('compactVerticalPadding','—')} "
-            f"| {row.get('compactFontToken','—')} | {row.get('compactIconSize','—')} | {row.get('avatarDiameter','—')} |"
+            f"| {row.get('compactFontToken','—')} | {row.get('compactIconSize','—')} "
+            f"| {row.get('compactMinHeight','—')} | {row.get('compactCornerRadius','—')} | {row.get('avatarDiameter','—')} |"
         )
     add("")
 

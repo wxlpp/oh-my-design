@@ -120,6 +120,9 @@ extension ComponentMeta {
         ComponentMeta(id: "avatar", name: "Avatar", description: "头像组件，按名称首字母生成", category: .layout) {
             AvatarPreview()
         },
+        ComponentMeta(id: "size-system", name: "Size System", description: "同一 controlSize 下 Avatar / 文本 / Badge / Tag 同排对齐，五档对照", category: .layout) {
+            SizeSystemPreview()
+        },
         ComponentMeta(id: "list-row", name: "ListRow", description: "3-槽位泛型列表行：leading / label / trailing", category: .layout) {
             ListRowPreview()
         },
@@ -494,6 +497,24 @@ private struct BannerPreview: View {
                 .bannerStyle(BorderedBannerStyle())
             Banner(level: .neutral) { Text("Neutral bordered") }
                 .bannerStyle(BorderedBannerStyle())
+        }
+    }
+}
+
+private struct SizeSystemPreview: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            ForEach(sizeLadder, id: \.0) { label, size in
+                SizeLadderRow(label: label) {
+                    Avatar(name: "Evan").clipShape(Circle())
+                    Text(verbatim: "Evan")
+                        .coreFont(CoreControlMetrics.compactFontToken(for: size))
+                        .foregroundStyle(Color.contentPrimary)
+                    Badge("Pro", variant: .success)
+                    Tag("design", color: .blue, removable: true, onRemove: {})
+                }
+                .controlSize(size)
+            }
         }
     }
 }

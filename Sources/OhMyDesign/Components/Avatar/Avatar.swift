@@ -6,13 +6,13 @@ import SwiftUI
 public nonisolated enum AvatarSize: Sendable, Equatable {
     /// 按环境 `\.controlSize` 取 `CoreControlMetrics.avatarDiameter(for:)`。
     case automatic
-    /// 固定直径（pt），负值按 0 处理。
+    /// 固定直径（pt）。负值与非有限值（`.infinity` / `.nan`）按 0 处理。
     case fixed(CGFloat)
 
     func diameter(for controlSize: ControlSize) -> CGFloat {
         switch self {
         case .automatic: CoreControlMetrics.avatarDiameter(for: controlSize)
-        case .fixed(let diameter): Swift.max(0, diameter)
+        case .fixed(let diameter): diameter.isFinite ? Swift.max(0, diameter) : 0
         }
     }
 }

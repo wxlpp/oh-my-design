@@ -151,13 +151,13 @@
 
 紧凑 chip（`Badge` / `Tag`）与头像（`Avatar` / `AvatarGroup`）：
 
-| ControlSize | compact h-padding | compact v-padding | compact font | compact icon | avatar diameter |
-|---|---|---|---|---|---|
-| `.mini` | CoreSpacing.xxs | CoreSpacing.none | .caption2 | 10 | 20 |
-| `.small` | CoreSpacing.xs | CoreSpacing.xxs | .caption | 12 | 24 |
-| `.regular` | CoreSpacing.sm | CoreSpacing.xs | .footnote | 14 | 32 |
-| `.large` | CoreSpacing.md | CoreSpacing.xs | .subheadline | 16 | 40 |
-| `.extraLarge` | CoreSpacing.lg | CoreSpacing.sm | .callout | 18 | 48 |
+| ControlSize | compact h-padding | compact v-padding | compact font | compact icon | compact min height（iOS 表；macOS 另一张，见源码） | compact radius | avatar diameter |
+|---|---|---|---|---|---|---|---|
+| `.mini` | 6 | CoreSpacing.xxs | .caption2 | 10 | 18 | 4 | 20 |
+| `.small` | 7 | CoreSpacing.xxs | .caption | 12 | 21 | 5 | 24 |
+| `.regular` | CoreSpacing.sm | CoreSpacing.xs | .footnote | 14 | nil | CoreRadius.small | 32 |
+| `.large` | CoreSpacing.md | CoreSpacing.xs | .subheadline | 16 | 28 | 7 | 40 |
+| `.extraLarge` | CoreSpacing.lg | CoreSpacing.xs | .callout | 18 | 32 | 8 | 48 |
 
 
 ---
@@ -352,7 +352,7 @@
 - **`Avatar`** *: View* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
 - *enum* **`AvatarSize`** — `Avatar` 的尺寸：跟随环境 `controlSize`，或指定固定直径。
   - `.automatic` — 按环境 `\.controlSize` 取 `CoreControlMetrics.avatarDiameter(for:)`。
-  - `.fixed` — 固定直径（pt），负值按 0 处理。
+  - `.fixed` — 固定直径（pt）。负值与非有限值（`.infinity` / `.nan`）按 0 处理。
 
 ### `Components/AvatarGroup/AvatarGroup.swift`
 

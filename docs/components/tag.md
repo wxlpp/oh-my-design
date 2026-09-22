@@ -34,9 +34,11 @@ Tag(color: .green, removable: true, onRemove: {}) {
 
 ## 视觉 Token
 
-- 圆角：`CoreRadius.small`（3pt），与 Badge 的 pill 形态区分
+- 圆角：`CoreControlMetrics.compactCornerRadius(for:)`（4 / 5 / 6 / 7 / 8，regular 为 `CoreRadius.small`），圆角矩形与 Badge 的 pill 形态区分
 - 字号：`CoreControlMetrics.compactFontToken(for:)`
 - Padding：横向 `CoreControlMetrics.compactHorizontalPadding(for:)`，纵向 `CoreControlMetrics.compactVerticalPadding(for:)`
+- 最小高度：`CoreControlMetrics.compactMinHeight(for:)`（与 Badge 同一张表）
 - 背景：`color.opacity(0.12)` 衬底
 - 前景：直接使用 `color`
-- 关闭按钮：`xmark.circle.fill`，尺寸 `CoreControlMetrics.compactIconSize(for:)`（mini 10 / small 12 / regular 14 / large 16 / extraLarge 18）
+- 关闭按钮：`xmark.circle.fill`，尺寸 `CoreControlMetrics.compactIconSize(for:)`（mini 10 / small 12 / regular 14 / large 16 / extraLarge 18）。
+  关闭钮不参与行高（可删除与普通 Tag 等高），点击热区仍向外扩 `CoreSpacing.md + CoreSpacing.xxs`

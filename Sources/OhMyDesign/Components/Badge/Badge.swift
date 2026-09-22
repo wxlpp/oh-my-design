@@ -39,6 +39,7 @@ public struct Badge<Label: View>: View {
             .coreFont(CoreControlMetrics.compactFontToken(for: self.controlSize))
             .padding(.horizontal, CoreControlMetrics.compactHorizontalPadding(for: self.controlSize))
             .padding(.vertical, CoreControlMetrics.compactVerticalPadding(for: self.controlSize))
+            .frame(minHeight: CoreControlMetrics.compactMinHeight(for: self.controlSize))
             .background {
                 shape.fill(Self.backgroundColor(for: self.variant))
             }

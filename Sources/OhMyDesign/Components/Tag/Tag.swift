@@ -45,17 +45,18 @@ public struct Tag<Label: View>: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(self.onRemove == nil)
-                .padding(CoreSpacing.xxs)
-                .padding(CoreSpacing.md)
+                .padding(Self.removeHitInset)
                 .contentShape(Rectangle())
-                .padding(-CoreSpacing.md)
+                .padding(-Self.removeHitInset)
+                .frame(height: 0)
                 .accessibilityLabel(Text("Remove tag", bundle: .module))
             }
         }
         .padding(.horizontal, CoreControlMetrics.compactHorizontalPadding(for: self.controlSize))
         .padding(.vertical, CoreControlMetrics.compactVerticalPadding(for: self.controlSize))
+        .frame(minHeight: CoreControlMetrics.compactMinHeight(for: self.controlSize))
         .background(
-            CoreShape.rounded(CoreRadius.small)
+            CoreShape.rounded(CoreControlMetrics.compactCornerRadius(for: self.controlSize))
                 .fill(self.color.opacity(Self.backgroundOpacity))
         )
     }
@@ -63,6 +64,8 @@ public struct Tag<Label: View>: View {
     // MARK: - Tokens
 
     private static var backgroundOpacity: Double { 0.12 }
+
+    private static var removeHitInset: CGFloat { CoreSpacing.md + CoreSpacing.xxs }
 
     private let color: Color
     private let removable: Bool

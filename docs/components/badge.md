@@ -39,6 +39,7 @@ Badge(variant: .success) {
 
 - 圆角：`Capsule()`（pill 形态）
 - 字号：`CoreControlMetrics.compactFontToken(for:)`（mini `caption2` / small `caption` / regular `footnote` / large `subheadline` / extraLarge `callout`）
-- Padding：横向 `CoreControlMetrics.compactHorizontalPadding(for:)`，纵向 `CoreControlMetrics.compactVerticalPadding(for:)`（regular 档为 `CoreSpacing.sm` / `CoreSpacing.xs`）
+- Padding：横向 `CoreControlMetrics.compactHorizontalPadding(for:)`（6 / 7 / 8 / 12 / 16），纵向 `CoreControlMetrics.compactVerticalPadding(for:)`（regular 档为 `CoreSpacing.sm` / `CoreSpacing.xs`）
+- 最小高度：`CoreControlMetrics.compactMinHeight(for:)`，让五档高度近似等距（iOS 18 / 21 / 24 / 28 / 32）；regular 不设下限，外观与旧版一致
 - 背景色：`Color.surfaceCanvasSubtle`（neutral）/ status background token（info/success/warning/danger）
 - 边框（`outlined: true` 时）：`Color.borderMuted`（neutral）/ status border token，宽度 `CoreBorderWidth.thin`

@@ -115,15 +115,15 @@ public nonisolated enum CoreControlMetrics {
         }
     }
 
-    /// 紧凑 chip 的横向 padding（pt）。逐档严格递增：macOS 上 `caption2` / `caption` / `footnote`
-    /// 同为 10pt，只靠字号撑不出五档差异。
+    /// 紧凑 chip 的横向 padding（pt）。逐档严格递增；mini / small 约为 chip 高度的 0.35 倍，
+    /// 避免文字压进 capsule 两端的圆弧。
     ///
     /// - Parameter controlSize: SwiftUI 环境 `\.controlSize`。
-    /// - Returns: 该尺寸下推荐的左右 padding，单位 pt，必为 `CoreSpacing.*` 命名常量。
+    /// - Returns: 该尺寸下推荐的左右 padding，单位 pt。
     public static func compactHorizontalPadding(for controlSize: ControlSize) -> CGFloat {
         switch controlSize {
-        case .mini: return CoreSpacing.xxs
-        case .small: return CoreSpacing.xs
+        case .mini: return 6
+        case .small: return 7
         case .regular: return CoreSpacing.sm
         case .large: return CoreSpacing.md
         case .extraLarge: return CoreSpacing.lg
@@ -132,19 +132,67 @@ public nonisolated enum CoreControlMetrics {
         }
     }
 
-    /// 紧凑 chip 的纵向 padding（pt）。
+    /// 紧凑 chip 的纵向 padding（pt）。mini 与 small 同为 `xxs`，保证 mini 档描边不贴字；
+    /// 默认字号下 chip 高度的五档节奏由 `compactMinHeight(for:)` 决定，padding 负责 Dynamic Type 放大后的留白。
     ///
     /// - Parameter controlSize: SwiftUI 环境 `\.controlSize`。
     /// - Returns: 该尺寸下推荐的上下 padding，单位 pt，必为 `CoreSpacing.*` 命名常量。
     public static func compactVerticalPadding(for controlSize: ControlSize) -> CGFloat {
         switch controlSize {
-        case .mini: return CoreSpacing.none
+        case .mini: return CoreSpacing.xxs
         case .small: return CoreSpacing.xxs
         case .regular: return CoreSpacing.xs
         case .large: return CoreSpacing.xs
-        case .extraLarge: return CoreSpacing.sm
+        case .extraLarge: return CoreSpacing.xs
         @unknown default:
             return CoreSpacing.xs
+        }
+    }
+
+    /// 紧凑 chip 的最小高度（pt），让五档高度在默认字号下近似等距递增。
+    /// `.regular` 返回 `nil`：该档不设下限，保持由字号与 padding 自然撑开的原外观。
+    /// 两个平台的系统字号行高不同（iOS `footnote` 行高 16pt、macOS 13pt），因此按平台各取一张表，
+    /// 使相邻档的步长都落在 regular 自然高度的两侧。
+    ///
+    /// - Parameter controlSize: SwiftUI 环境 `\.controlSize`。
+    /// - Returns: 该尺寸下的最小高度，单位 pt；`.regular` 为 `nil`。
+    public static func compactMinHeight(for controlSize: ControlSize) -> CGFloat? {
+        #if os(macOS)
+        switch controlSize {
+        case .mini: return 17
+        case .small: return 19
+        case .regular: return nil
+        case .large: return 25
+        case .extraLarge: return 29
+        @unknown default:
+            return nil
+        }
+        #else
+        switch controlSize {
+        case .mini: return 18
+        case .small: return 21
+        case .regular: return nil
+        case .large: return 28
+        case .extraLarge: return 32
+        @unknown default:
+            return nil
+        }
+        #endif
+    }
+
+    /// 紧凑圆角矩形 chip（`Tag`）的圆角半径（pt），与 chip 高度之比约 0.25；`.regular` 为 `CoreRadius.small`。
+    ///
+    /// - Parameter controlSize: SwiftUI 环境 `\.controlSize`。
+    /// - Returns: 该尺寸下的圆角半径，单位 pt。
+    public static func compactCornerRadius(for controlSize: ControlSize) -> CGFloat {
+        switch controlSize {
+        case .mini: return 4
+        case .small: return 5
+        case .regular: return CoreRadius.small
+        case .large: return 7
+        case .extraLarge: return 8
+        @unknown default:
+            return CoreRadius.small
         }
     }
 
@@ -190,17 +238,18 @@ public nonisolated enum CoreControlMetrics {
         diameter * 7 / 12
     }
 
-    /// `AvatarGroup` 交叠形态下相邻头像的间距（pt，负值即交叠量）。
-    ///
-    /// - Parameter controlSize: SwiftUI 环境 `\.controlSize`。
-    /// - Returns: 该尺寸下的负间距，单位 pt。
-    public static func avatarGroupOverlap(for controlSize: ControlSize) -> CGFloat {
+    static func avatarGroupOverlap(forDiameter diameter: CGFloat) -> CGFloat {
+        -diameter / 4
+    }
+
+    static func avatarCountFontToken(for controlSize: ControlSize) -> CoreTypography.Token {
         switch controlSize {
-        case .mini, .small: return -6
-        case .regular: return -8
-        case .large, .extraLarge: return -10
-        @unknown default:
-            return -8
+        case .mini:       .caption2
+        case .small:      .caption2
+        case .regular:    .caption
+        case .large:      .footnote
+        case .extraLarge: .subheadline
+        @unknown default: .caption
         }
     }
 }

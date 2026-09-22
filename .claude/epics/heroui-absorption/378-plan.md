@@ -4,7 +4,7 @@
 
 | 文件 | 改动 |
 |---|---|
-| `Sources/OhMyDesign/Tokens/CoreControlMetrics.swift` | 新增查询函数：`compactFontToken(for:)`、`compactHorizontalPadding(for:)`、`compactVerticalPadding(for:)`、`compactIconSize(for:)`（Badge / Tag 这类紧凑 chip 用）；`avatarDiameter(for:)`（五档头像直径表）；`avatarInitialFontSize(forDiameter:)`；`avatarGroupOverlap(for:)`（AvatarGroup 交叠量，从组件内搬出） |
+| `Sources/OhMyDesign/Tokens/CoreControlMetrics.swift` | 新增查询函数：`compactFontToken(for:)`、`compactHorizontalPadding(for:)`、`compactVerticalPadding(for:)`、`compactIconSize(for:)`（Badge / Tag 这类紧凑 chip 用）；`avatarDiameter(for:)`（五档头像直径表）；`avatarInitialFontSize(forDiameter:)`；internal `avatarGroupOverlap(for:)`（AvatarGroup 交叠量，从组件内搬出，无外部消费者故不公开） |
 | `Sources/OhMyDesign/Components/Avatar/Avatar.swift` | 新增 `AvatarSize`；`Avatar(name:size:)`；按直径绘制并 `.frame` 固定 |
 | `Sources/OhMyDesign/Components/AvatarGroup/AvatarGroup.swift` | 私有 `avatarSize` 表 / `overlapOffset` 表改读 `CoreControlMetrics`；子视图不改写 |
 | `Sources/OhMyDesign/Components/Badge/Badge.swift` | 读 `\.controlSize`，字号 / 内边距取 compact 查询 |
@@ -29,9 +29,12 @@ extension CoreControlMetrics {
     public static func compactHorizontalPadding(for: ControlSize) -> CGFloat
     public static func compactVerticalPadding(for: ControlSize) -> CGFloat
     public static func compactIconSize(for: ControlSize) -> CGFloat
+    public static func compactMinHeight(for: ControlSize) -> CGFloat?   // regular 为 nil；iOS / macOS 各一张表
+    public static func compactCornerRadius(for: ControlSize) -> CGFloat
     public static func avatarDiameter(for: ControlSize) -> CGFloat
     public static func avatarInitialFontSize(forDiameter: CGFloat) -> CGFloat
-    public static func avatarGroupOverlap(for: ControlSize) -> CGFloat
+    static func avatarGroupOverlap(forDiameter: CGFloat) -> CGFloat   // internal，直径的 1/4
+    static func avatarCountFontToken(for: ControlSize) -> CoreTypography.Token   // internal
 }
 ```
 
