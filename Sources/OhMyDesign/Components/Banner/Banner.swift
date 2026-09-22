@@ -127,6 +127,28 @@ func bannerPalette(for level: StatusLevel) -> BannerPalette {
     }
 }
 
+nonisolated enum BannerRegion: Hashable, Sendable {
+    case icon
+    case title
+    case body
+    case actions
+    case dismiss
+}
+
+nonisolated struct BannerRegionAnchorsKey: PreferenceKey {
+    static var defaultValue: [BannerRegion: Anchor<CGRect>] { [:] }
+
+    static func reduce(value: inout [BannerRegion: Anchor<CGRect>], nextValue: () -> [BannerRegion: Anchor<CGRect>]) {
+        value.merge(nextValue()) { current, _ in current }
+    }
+}
+
+extension View {
+    func bannerRegion(_ region: BannerRegion) -> some View {
+        self.anchorPreference(key: BannerRegionAnchorsKey.self, value: .bounds) { [region: $0] }
+    }
+}
+
 enum BannerMetrics {
     static let minimumHitTarget: CGFloat = 44
     static let baseDismissFootprint: CGFloat = 20
@@ -156,6 +178,7 @@ struct BannerDismissButton: View {
                 .font(.body.weight(.medium))
                 .imageScale(.small)
                 .foregroundStyle(self.color)
+                .bannerRegion(.dismiss)
                 .frame(width: side, height: side)
                 .contentShape(Rectangle())
         }
@@ -193,6 +216,7 @@ private struct BannerBody: View {
     private func icon(palette: BannerPalette) -> some View {
         bannerIcon(for: self.configuration.level)
             .foregroundStyle(palette.icon)
+            .bannerRegion(.icon)
             .accessibilityLabel(Text(LocalizedStringKey(bannerIconAccessibilityKey(for: self.configuration.level)), bundle: .module))
     }
 
@@ -204,6 +228,7 @@ private struct BannerBody: View {
             HStack(spacing: CoreSpacing.sm) {
                 self.icon(palette: palette)
                 self.configuration.label
+                    .bannerRegion(.body)
             }
             .accessibilityElement(children: .combine)
         }
@@ -216,10 +241,13 @@ private struct BannerBody: View {
                 VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
                     if let title = self.configuration.title {
                         title.coreFont(.headline)
+                            .bannerRegion(.title)
                         self.configuration.label
                             .foregroundStyle(Color.contentPrimary)
+                            .bannerRegion(.body)
                     } else {
                         self.configuration.label
+                            .bannerRegion(.body)
                     }
                 }
             }
@@ -237,6 +265,7 @@ private struct BannerBody: View {
                         HStack(spacing: CoreSpacing.sm) { actions }
                         VStack(alignment: .leading, spacing: CoreSpacing.sm) { actions }
                     }
+                    .bannerRegion(.actions)
                 }
                 .accessibilityElement(children: .contain)
                 .accessibilitySortPriority(BannerMetrics.actionsSortPriority)

@@ -434,48 +434,153 @@ struct BannerSlotTests {
         }
     }
 
-    private func extendedBanner(bordered: Bool, probe: FrameProbe) -> AnyView {
-        let banner = Banner(level: .neutral, title: "Update available", message: "Restart the app to finish installing version 2.4.") {
-            Button("Restart now") {}
-                .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("banner")) } action: { probe.frames["restart"] = $0 }
-            Button("Later") {}
-                .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("banner")) } action: { probe.frames["later"] = $0 }
-        } onDismiss: {}
-        let styled: AnyView = bordered ? AnyView(banner.bannerStyle(BorderedBannerStyle())) : AnyView(banner)
-        return AnyView(styled.coordinateSpace(.named("banner")))
+    private final class RegionProbe {
+        var rects: [BannerRegion: CGRect] = [:]
+        var size: CGSize = .zero
+
+        func record(_ rects: [BannerRegion: CGRect], size: CGSize) {
+            self.rects = rects
+            self.size = size
+        }
+    }
+
+    private func probed(_ banner: some View, _ probe: RegionProbe) -> some View {
+        banner.overlayPreferenceValue(BannerRegionAnchorsKey.self) { anchors in
+            GeometryReader { proxy in
+                let _ = probe.record(anchors.mapValues { proxy[$0] }, size: proxy.size)
+                Color.clear
+            }
+        }
+    }
+
+    private func extendedBanner(titled: Bool, bordered: Bool) -> AnyView {
+        let message: LocalizedStringKey = "Restart the app to finish installing version 2.4."
+        let actions = {
+            Group {
+                Button("Restart now") {}
+                Button("Later") {}
+            }
+        }
+        let banner = titled
+            ? Banner(level: .neutral, title: "Update available", message: message, actions: actions, onDismiss: {})
+            : Banner(level: .neutral, message: message, actions: actions, onDismiss: {})
+        return bordered ? AnyView(banner.bannerStyle(BorderedBannerStyle())) : AnyView(banner)
     }
 
     private func expectExtendedContentInsideShape(_ size: DynamicTypeSize) throws {
         for scheme in [ColorScheme.light, .dark] {
             for bordered in [false, true] {
-                let label = "\(size) \(scheme) bordered=\(bordered)"
-                let probe = FrameProbe()
-                let view = self.extendedBanner(bordered: bordered, probe: probe)
-                    .frame(width: 320)
-                    .dynamicTypeSize(size)
-                    .environment(\.colorScheme, scheme)
-                let renderer = ImageRenderer(content: view)
-                renderer.scale = 1
-                let image = try #require(renderer.cgImage, "ImageRenderer 未产出位图")
-                let bitmap = Bitmap(width: image.width, height: image.height, bytes: self.pixels(of: image))
-                let geometry = CornerGeometry(frame: CGRect(x: 0, y: 0, width: bitmap.width, height: bitmap.height))
-                var cutAway = 0
-                var painted: [String] = []
-                for y in 0..<bitmap.height {
-                    for x in 0..<bitmap.width where geometry.inCornerSquare(x, y) && geometry.isClearOfShape(x, y) {
-                        cutAway += 1
-                        if bitmap.alpha(x, y) != 0 { painted.append("(\(x), \(y))") }
+                for titled in [true, false] {
+                    let label = "\(size) \(scheme) bordered=\(bordered) titled=\(titled)"
+                    let probe = RegionProbe()
+                    let margin: CGFloat = 40
+                    let view = self.probed(self.extendedBanner(titled: titled, bordered: bordered), probe)
+                        .frame(width: 320)
+                        .padding(margin)
+                        .dynamicTypeSize(size)
+                        .environment(\.colorScheme, scheme)
+                    let renderer = ImageRenderer(content: view)
+                    renderer.scale = 1
+                    let image = try #require(renderer.cgImage, "ImageRenderer 未产出位图")
+                    let bitmap = Bitmap(width: image.width, height: image.height, bytes: self.pixels(of: image))
+
+                    let expected: Set<BannerRegion> = titled ? [.icon, .title, .body, .actions, .dismiss] : [.icon, .body, .actions, .dismiss]
+                    #expect(Set(probe.rects.keys) == expected, "\(label)：内容区探针 \(probe.rects.keys)")
+                    let shape = CornerGeometry(frame: CGRect(origin: .zero, size: probe.size))
+                    for (region, rect) in probe.rects {
+                        let inset = rect.insetBy(dx: 0.01, dy: 0.01)
+                        let corners = [inset.origin, CGPoint(x: inset.maxX, y: inset.minY), CGPoint(x: inset.minX, y: inset.maxY), CGPoint(x: inset.maxX, y: inset.maxY)]
+                        #expect(!rect.isEmpty, "\(label)：\(region) 探针为空")
+                        #expect(corners.allSatisfy { shape.path.contains($0) }, "\(label)：\(region) \(rect) 伸出圆角形状 \(probe.size)")
                     }
-                }
-                #expect(cutAway > 0, "\(label)：没有落在形状外的角像素")
-                #expect(painted.isEmpty, "\(label)：圆角外有 \(painted.count)/\(cutAway) 个像素被画到，如 \(painted.prefix(4))")
-                #expect(probe.frames.count == 2, "\(label)：动作按钮探针未回调")
-                for (name, frame) in probe.frames {
-                    let inset = frame.insetBy(dx: 0.01, dy: 0.01)
-                    let points = [inset.origin, CGPoint(x: inset.maxX, y: inset.minY), CGPoint(x: inset.minX, y: inset.maxY), CGPoint(x: inset.maxX, y: inset.maxY)]
-                    #expect(points.allSatisfy { geometry.path.contains($0) }, "\(label)：\(name) \(frame) 伸出圆角形状")
+
+                    let placed = CornerGeometry(frame: CGRect(x: margin, y: margin, width: probe.size.width, height: probe.size.height))
+                    let reach = placed.frame.insetBy(dx: -CornerGeometry.antialiasReach, dy: -CornerGeometry.antialiasReach)
+                    var clear = 0
+                    var painted: [String] = []
+                    for y in 0..<bitmap.height {
+                        for x in 0..<bitmap.width {
+                            let pixel = CGRect(x: x, y: y, width: 1, height: 1)
+                            let isClear = !reach.intersects(pixel) || (placed.inCornerSquare(x, y) && placed.isClearOfShape(x, y))
+                            guard isClear else { continue }
+                            clear += 1
+                            if bitmap.alpha(x, y) != 0 { painted.append("(\(x), \(y))") }
+                        }
+                    }
+                    #expect(clear > 0, "\(label)：没有落在形状外的像素")
+                    #expect(painted.isEmpty, "\(label)：圆角形状外有 \(painted.count)/\(clear) 个像素被画到，如 \(painted.prefix(4))")
                 }
             }
+        }
+    }
+
+    private static let overflowSide: CGFloat = 12
+
+    private static func isOverflowRed(_ bitmap: Bitmap, _ x: Int, _ y: Int) -> Bool {
+        let offset = (y * bitmap.width + x) * 4
+        return Array(bitmap.bytes[offset..<offset + 4]) == [255, 0, 0, 255]
+    }
+
+    private func overflowMarker(offset: CGSize) -> some View {
+        Color(red: 1, green: 0, blue: 0)
+            .frame(width: Self.overflowSide, height: Self.overflowSide)
+            .offset(offset)
+    }
+
+    private func expectOverflowDrawn(label: String, build: (CGSize) -> AnyView, region: BannerRegion, corner: (CGSize) -> CGPoint) throws {
+        let margin: CGFloat = 40
+        let probe = RegionProbe()
+        _ = ImageRenderer(content: self.probed(build(.zero), probe).frame(width: 320, alignment: .leading)).cgImage
+        let anchor = try #require(probe.rects[region], "\(label)：\(region) 探针未回调")
+        let target = corner(probe.size)
+        let half = Self.overflowSide / 2
+        let offset = CGSize(width: target.x - half - anchor.minX, height: target.y - half - anchor.minY)
+
+        let renderer = ImageRenderer(content: build(offset).frame(width: 320, alignment: .leading).padding(margin))
+        renderer.scale = 1
+        let image = try #require(renderer.cgImage, "ImageRenderer 未产出位图")
+        let bitmap = Bitmap(width: image.width, height: image.height, bytes: self.pixels(of: image))
+        let side = Int(Self.overflowSide)
+        let originX = Int(margin + target.x - half)
+        let originY = Int(margin + target.y - half)
+        var red = 0
+        for y in originY..<(originY + side) {
+            for x in originX..<(originX + side) where Self.isOverflowRed(bitmap, x, y) {
+                red += 1
+            }
+        }
+        let shape = CornerGeometry(frame: CGRect(x: margin, y: margin, width: probe.size.width, height: probe.size.height))
+        let outside = (originY..<(originY + side)).flatMap { y in (originX..<(originX + side)).map { (x: $0, y: y) } }
+            .filter { shape.isClearOfShape($0.x, $0.y) }.count
+        #expect(outside > 0, "\(label)：溢出块没有越过圆角")
+        #expect(red == side * side, "\(label)：越过圆角的溢出块只画出 \(red)/\(side * side) 像素（其中 \(outside) 个在形状外）——容器在裁切内容")
+    }
+
+    @Test("内容越过圆角时照常画出：容器不裁切（只有正文 / 带动作两种分支，两条腿都跑）")
+    func overflowingContentIsNotClipped() throws {
+        for bordered in [false, true] {
+            try self.expectOverflowDrawn(
+                label: "body-only bordered=\(bordered)",
+                build: { offset in
+                    let banner = Banner(level: .neutral) {
+                        Text(verbatim: "Saved").overlay(alignment: .topLeading) { self.overflowMarker(offset: offset) }
+                    }
+                    return bordered ? AnyView(banner.bannerStyle(BorderedBannerStyle())) : AnyView(banner)
+                },
+                region: .body,
+                corner: { _ in .zero }
+            )
+            try self.expectOverflowDrawn(
+                label: "extended bordered=\(bordered)",
+                build: { offset in
+                    let banner = Banner(level: .neutral, title: "Update available", message: "Restart to finish installing.") {
+                        self.overflowMarker(offset: offset)
+                    } onDismiss: {}
+                    return bordered ? AnyView(banner.bannerStyle(BorderedBannerStyle())) : AnyView(banner)
+                },
+                region: .actions,
+                corner: { size in CGPoint(x: 0, y: size.height) }
+            )
         }
     }
 
@@ -532,6 +637,8 @@ private enum LegacyBannerCorners {
     case rounded
 }
 
+/// 只有正文形态的旧 `Banner` 布局（直角原样拷贝，另可选同样的圆角）。取色走**当前**的 `bannerPalette`，
+/// 所以「只有四角不同」是在 neutral 底色改为 `statusNeutralSubtle` 之后量的；底色变更另由 neutral 调色板判据覆盖。
 private struct LegacyBanner<Label: View>: View {
     let level: StatusLevel
     let bordered: Bool

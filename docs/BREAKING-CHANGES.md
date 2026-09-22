@@ -25,8 +25,8 @@
 
 | 外观 | 之前 | 现在 |
 |---|---|---|
-| `Banner` 容器（`PlainBannerStyle` / `BorderedBannerStyle`） | 直角矩形 | `CoreRadius.medium`（10pt）连续圆角；Bordered 描边沿同一圆角形状内描。内容布局与尺寸不变，只有四角像素不同 |
-| `Banner` `.neutral` 背景 | `tertiaryFill`（半透明，随背后底色变深浅） | `statusNeutralSubtle` → `systemGray5`（不透明；iOS 浅 `#E5E5EA` / 深 `#2C2C2E`，macOS 取 `unemphasizedSelectedContentBackgroundColor`） |
+| `Banner` 容器（`PlainBannerStyle` / `BorderedBannerStyle`） | 直角矩形 | `CoreRadius.medium`（10pt）连续圆角；Bordered 描边沿同一圆角形状内描。内容布局与尺寸不变；形状这一项只改变四角像素（该对照在 neutral 底色变更之后测得，底色变更见下一行） |
+| `Banner` `.neutral` 背景 | `tertiaryFill`（半透明，随背后底色变深浅） | `statusNeutralSubtle` → `systemGray5`（不透明；iOS 浅 `#E5E5EA` / 深 `#2C2C2E`，macOS 取 `unemphasizedSelectedContentBackgroundColor`——外观近似而非语义等价，增强对比度与 vibrancy 下的表现未经验证） |
 | `Timeline` 浅色 `warning` 默认圆点 | `statusAttentionEmphasis`（`#D1A72D`，对分组背景约 2.0:1） | `statusAttentionForeground`（`#9A6700`，对分组背景 4.36:1）；暗色不变 |
 
 - **迁移（保留旧观感）**：想要直角或旧的半透明 neutral 底色，写一个自定义 `BannerStyle`（`makeBody` 里用
