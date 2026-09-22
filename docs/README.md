@@ -18,7 +18,7 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 33 个 Apple HIG 对齐组件（�
 |---|---|---|
 | Button | [<img src="snapshots/OhMyDesignPreview_Previews.swift_Button.png" width="200">](components/button.md) | [button.md](components/button.md) |
 | FloatButton（ExtendedFloatButtonStyle / CircularGlassButtonStyle） | [<img src="snapshots/OhMyDesignPreview_Previews.swift_Float_Button.png" width="200">](components/float-button.md) | [float-button.md](components/float-button.md) |
-| Pressable Button Styles（PressableRowButtonStyle / PressableCardButtonStyle） | _快照待 `scripts/run-snapshots.sh` 重新生成_ | [pressable-button-styles.md](components/pressable-button-styles.md) |
+| Pressable Button Styles（PressableRowButtonStyle / PressableCardButtonStyle） | [<img src="snapshots/OhMyDesignPreview_Previews.swift_Pressable_Button_Styles.png" width="200">](components/pressable-button-styles.md) | [pressable-button-styles.md](components/pressable-button-styles.md) |
 
 ### Form 表单
 

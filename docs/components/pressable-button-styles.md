@@ -6,7 +6,7 @@
 
 | 静态入口 | 返回类型 | 按下时 | reduce motion 下按下 | 禁用 |
 |---|---|---|---|---|
-| `.pressableRow` | `PressableRowButtonStyle` | label 背后铺满 `Color.pressedBackground` | 同左（不涉及动效） | 不给反馈，整体 `opacity 0.4` |
+| `.pressableRow` | `PressableRowButtonStyle` | label 之上叠一层 `Color.pressedBackground`（半透明，不拦点击） | 同左（不涉及动效） | 不给反馈，整体 `opacity 0.4` |
 | `.pressableCard` | `PressableCardButtonStyle` | label 按 `CoreButtonMetrics.pressedScale`（0.94）缩放 | **不缩放**，只变暗（`opacity 0.7`） | 不给反馈，整体 `opacity 0.4` |
 
 两者都是无参数 `init()`，经 `ButtonStyle` 的静态成员使用；按下 / 抬起有 0.15s 的 ease-out 过渡。
@@ -48,6 +48,6 @@ Button { openDetail() } label: {
 
 ## 视觉 Token
 
-- 行按下底色：`Color.pressedBackground`（委托 `tertiaryFill` 系统色），铺满 label 的矩形区域；label 同时获得矩形 `contentShape`，行内空白处也可点
+- 行按下高亮：`Color.pressedBackground`（委托 `tertiaryFill` 系统色，本身半透明），以 overlay 铺满 label 的矩形区域——叠在行自带背景（`ListRow` 的 `.surface(.canvas)`、分组卡片的 raised 底）**之上**，放在背后会被这些不透明背景整个盖住；文字透过这层半透明色仍清晰可读。label 同时获得矩形 `contentShape`，行内空白处也可点
 - 卡片按下缩放：`CoreButtonMetrics.pressedScale`
 - 禁用透明度 0.4 与 `CircularGlassButtonStyle` / `ExtendedFloatButtonStyle` 的禁用态一致

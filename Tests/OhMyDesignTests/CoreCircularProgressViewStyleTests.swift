@@ -89,15 +89,25 @@ struct CoreCircularProgressViewStyleTests {
         #expect(CoreCircularProgressViewStyle.clampedFraction(0.4) == 0.4)
     }
 
-    @Test("不确定态不画确定态的轨道与圆弧")
+    @Test("不确定态回退系统环形 spinner：与系统 .circular 同样渲染逐像素一致")
     func indeterminateFallsBackToSystem() throws {
-        let indeterminate = try #require(renderPixels(
+        let system = try #require(renderPixels(
+            ProgressView().progressViewStyle(.circular).tint(.red), size: self.canvas
+        ))
+        let systemDrawn = system.count(where: { r, g, b, _ in r < 250 || g < 250 || b < 250 })
+        guard systemDrawn > 0 else {
+            withKnownIssue("ImageRenderer 在本条腿上画不出系统 spinner，无法用像素证明回退——本条不作数") {
+                Issue.record("系统 .circular spinner 渲染为空")
+            }
+            return
+        }
+        let fallback = try #require(renderPixels(
             ProgressView().progressViewStyle(.coreCircular).tint(.red), size: self.canvas
         ))
         let determinateZero = try #require(renderPixels(
             ProgressView(value: 0).progressViewStyle(.coreCircular).tint(.red), size: self.canvas
         ))
-        let differs = indeterminate.rgba != determinateZero.rgba
-        #expect(differs, "nil 进度应回退系统样式，而不是画一条空轨道")
+        expectBitmapsEqual(fallback.rgba, system.rgba, "nil 进度应画出系统 spinner 本身")
+        expectBitmapsDiffer(fallback.rgba, determinateZero.rgba, "nil 进度不应画确定态的空轨道")
     }
 }

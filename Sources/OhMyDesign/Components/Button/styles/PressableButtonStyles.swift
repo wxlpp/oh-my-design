@@ -2,7 +2,8 @@ import SwiftUI
 
 // MARK: - PressableRowButtonStyle
 
-/// 行式按压反馈：按下时在调用方 label 背后铺满中性按下底色（`Color.pressedBackground`）。
+/// 行式按压反馈：按下时在调用方 label 之上叠一层半透明的中性按下色（`Color.pressedBackground`），
+/// 自带背景的行（`ListRow`、`SettingsRow`）也看得见。
 ///
 /// 只装饰 label——不接 role 色板、不改前景色、不读 `controlSize`、不加内边距，
 /// 适合把整条 `SettingsRow` / `ListRow` 做成可点击行。禁用时不给按压反馈并整体变淡。
@@ -32,7 +33,7 @@ public struct PressableCardButtonStyle: ButtonStyle {
 // MARK: - ButtonStyle convenience
 
 public extension ButtonStyle where Self == PressableRowButtonStyle {
-    /// 行式按压反馈样式：按下铺 `Color.pressedBackground`，不改布局。
+    /// 行式按压反馈样式：按下叠 `Color.pressedBackground`，不改布局。
     static var pressableRow: PressableRowButtonStyle { PressableRowButtonStyle() }
 }
 
@@ -79,9 +80,9 @@ struct PressableRowBody<Label: View>: View {
         let feedback = PressFeedback.row(isPressed: self.isPressed, isEnabled: self.isEnabled)
         self.label
             .contentShape(Rectangle())
-            .background {
+            .overlay {
                 if let fill = feedback.fill {
-                    fill
+                    fill.allowsHitTesting(false)
                 }
             }
             .opacity(feedback.opacity)
@@ -92,6 +93,7 @@ struct PressableRowBody<Label: View>: View {
 struct PressableCardBody<Label: View>: View {
     let label: Label
     let isPressed: Bool
+    var reduceMotionOverride: Bool?
 
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -100,7 +102,7 @@ struct PressableCardBody<Label: View>: View {
         let feedback = PressFeedback.card(
             isPressed: self.isPressed,
             isEnabled: self.isEnabled,
-            reduceMotion: self.reduceMotion
+            reduceMotion: self.reduceMotionOverride ?? self.reduceMotion
         )
         self.label
             .scaleEffect(feedback.scale)

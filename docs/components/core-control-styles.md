@@ -12,7 +12,7 @@
 
 ### CoreCircularProgressViewStyle
 
-`.progressViewStyle(.coreCircular)`。确定态渲染一圈轨道 + 从 12 点方向顺时针增长的圆弧，进度越界时钳到 0…1；环的外径随 `\.controlSize` 取 `CoreControlMetrics.height(for:)`（regular 44pt）。`label` 在环上方、`currentValueLabel` 在环下方（不进无障碍树，读数由 `accessibilityValue` 的百分比给出）。不确定态与 `.core` 相同，退回系统环形 spinner。
+`.progressViewStyle(.coreCircular)`。确定态渲染一圈轨道 + 从 12 点方向顺时针增长的圆弧，进度越界时钳到 0…1；环的外径随 `\.controlSize` 取 `CoreControlMetrics.height(for:)`（regular 44pt）。`label` 在环上方、`currentValueLabel` 在环下方（不进无障碍树，读数由 `accessibilityValue` 的百分比给出）。不确定态与 `.core` 相同，退回系统环形 spinner；spinner 放在与圆环同外径的方框里居中，确定态 / 不确定态切换时占位不跳（spinner 本身的尺寸仍是系统的）。
 
 ### CoreLabelStyle
 

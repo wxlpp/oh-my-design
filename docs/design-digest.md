@@ -404,7 +404,7 @@
 
 ### `Components/Button/styles/PressableButtonStyles.swift`
 
-- **`PressableRowButtonStyle`** *: ButtonStyle* — 行式按压反馈：按下时在调用方 label 背后铺满中性按下底色（`Color.pressedBackground`）。
+- **`PressableRowButtonStyle`** *: ButtonStyle* — 行式按压反馈：按下时在调用方 label 之上叠一层半透明的中性按下色（`Color.pressedBackground`）， 自带背景的行（`ListRow`、`SettingsRow`）也看得见。
 - **`PressableCardButtonStyle`** *: ButtonStyle* — 卡片式按压反馈：按下时把调用方 label 按 `CoreButtonMetrics.pressedScale` 缩放； 系统开启「减弱动态效果」时不缩放、只变暗。
 
 ### `Components/Button/styles/SolidButtonStyle.swift`
@@ -978,7 +978,7 @@
 | `.borderless` | `PrimitiveButtonStyle` | `CoreBorderlessButtonStyle` | 以指定 role 构造无边框按钮样式。 |
 | `.extendedFloat` | `ButtonStyle` | `ExtendedFloatButtonStyle` | 默认档位（`.large`，50pt）的胶囊玻璃悬浮按钮样式。 |
 | `.light` | `ButtonStyle` | `LightButtonStyle` | 构造次要操作按钮样式。 |
-| `.pressableRow` | `ButtonStyle` | `PressableRowButtonStyle` | 行式按压反馈样式：按下铺 `Color.pressedBackground`，不改布局。 |
+| `.pressableRow` | `ButtonStyle` | `PressableRowButtonStyle` | 行式按压反馈样式：按下叠 `Color.pressedBackground`，不改布局。 |
 | `.pressableCard` | `ButtonStyle` | `PressableCardButtonStyle` | 卡片式按压反馈样式：按下缩放，减弱动态效果时只变暗，不改布局。 |
 | `.solid` | `ButtonStyle` | `SolidButtonStyle` | 构造主操作按钮样式。 |
 | `.glass` | `SegmentedControlStyle` | `GlassSegmentedControlStyle` | 默认外观：Liquid Glass 外壳。 |
