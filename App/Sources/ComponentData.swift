@@ -221,13 +221,13 @@ extension ComponentMeta {
         ComponentMeta(id: "toast-rich-hud", name: "Toast · centeredHUD 动作", description: "centeredHUD：title + description + ToastAction", category: .feedback) {
             ToastRichPreview(presentation: .centeredHUD)
         },
-        ComponentMeta(id: "toast-danger-capsule", name: "Toast · danger 胶囊", description: "floatingCapsule：danger 单行标题（含长单词，检视 AX 字号折行）", category: .feedback) {
+        ComponentMeta(id: "toast-rich-danger-capsule", name: "Toast · danger 胶囊", description: "floatingCapsule：danger 单行标题（含长单词，检视 AX 字号折行）", category: .feedback) {
             ToastRichPreview(presentation: .floatingCapsule, sample: ToastPreviewSamples.danger())
         },
-        ComponentMeta(id: "toast-danger-banner", name: "Toast · danger 横幅", description: "fullWidthBanner：danger 单行标题，外壳延伸进状态栏", category: .feedback) {
+        ComponentMeta(id: "toast-rich-danger-banner", name: "Toast · danger 横幅", description: "fullWidthBanner：danger 单行标题，外壳延伸进状态栏", category: .feedback) {
             ToastRichPreview(presentation: .fullWidthBanner, sample: ToastPreviewSamples.danger())
         },
-        ComponentMeta(id: "toast-danger-hud", name: "Toast · danger HUD", description: "centeredHUD：danger 单行标题，外壳不透底层文字", category: .feedback) {
+        ComponentMeta(id: "toast-rich-danger-hud", name: "Toast · danger HUD", description: "centeredHUD：danger 单行标题，外壳不透底层文字", category: .feedback) {
             ToastRichPreview(presentation: .centeredHUD, sample: ToastPreviewSamples.danger())
         },
         ComponentMeta(id: "spinning", name: "Spinning", description: "View.spinning(_:text:presentation:tint:)：overlay 遮罩（阻塞）/ topBar / inline（非阻塞）；取色走 tint: 参数，三个形态一致", category: .feedback) {
