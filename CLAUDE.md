@@ -288,8 +288,8 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
     输出越长，丢得越多**；全绿的这一遍已经丢掉四成 `started` 行。
     ⚠️ **别按「起止配对」判某条判据跑没跑**：抽一个子集去数往往恰好配得上
     （本轮 `#312：` 前缀的 11 条就是 11/11），那是抽样的产物，不是证据。
-    ⇒ SwiftPM 侧要权威条数走 `swift test --xunit-output <path>`，
-    或只读 `Test run with … tests` 那一行的总数。
+    ⇒ SwiftPM 侧只能读 `Test run with … tests` 那一行的总数。
+    ⚠️ **不要指望 `--xunit-output`**：本仓实测它**不产出文件**（见下方第 5 条末尾）。
 
 - **公开 `static` 成员的 MainActor 隔离棘轮只在 CI 上跑**（`#307`）：本包三个 target
   都开了 `.defaultIsolation(MainActor.self)`，新加的公开 `static` 成员**默认**被卷进
@@ -369,9 +369,20 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
    `grep -qE` 的网只当「一条都没跑」的兜底用，**不要**把 console 行数当权威条数。
    ⚠️ 权威条数**不要写「取 `.xcresult`」**（上一版就是这么写的）：`.xcresult` 是 `xcodebuild`
    的产物，`swift test --help` 实测**没有任何产出 `.xcresult` 的选项** ⇒ 读者在 SwiftPM 腿上
-   照那句话**无处可取**。SwiftPM 侧要权威条数走 `swift test --xunit-output <path>`
-   （实测 `--help` 里有：“Path where the xUnit xml file should be generated.”），
-   或把**每个 target 那一行汇总相加**。
+   照那句话**无处可取**。
+   ⚠️⚠️ **但上一版给的替代品 `swift test --xunit-output <path>` 在本仓同样无处可取**
+   （`#408` 实测，2026-09-23）：`--help` 里确有该选项
+   （逐字 “Path where the xUnit xml file should be generated.”），但**跑完不产出任何文件**
+   —— 全量跑一遍、`--filter` 单跑一遍各试一次，都是退出码 0、指定路径上**没有文件**，
+   也**没有任何报错**（裸跑，未经 `rtk`）。
+   ⇒ **SwiftPM 腿目前没有逐条权威结果的取法**，只能读 `Test run with … tests` 那一行的总数
+   （或把每个 target 那一行相加）。失败要指认到具体哪条时，**当场把 console 全文存盘**
+   ——事后没有别的地方可取。
+   ⚠️ **成因未查明，别往下传播猜测**：本仓 `import XCTest` 零命中（`--xunit-output` 是 XCTest
+   时代的旗标），这只是相关性。想做决定性实验时注意：临时加一个 `XCTestCase` 子类**根本编译不过**
+   —— 三个 target 都开了 `.defaultIsolation(MainActor.self)`，报
+   `main actor-isolated initializer 'init()' has different actor isolation from nonisolated
+   overridden declaration`。⇒ 那次尝试**不下结论**，成因仍然是开放问题。
 
 ⚠️ **`#302` 把第 5 条记成了「`--build-system swiftbuild --filter` 静默跑零个测试」——
 复现不出来**（本次在 `main` 与 `epic/shipswift-shaders` 各测一遍）：后者上
