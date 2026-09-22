@@ -1,8 +1,8 @@
 ---
 name: ui-followups
-status: in-progress
+status: completed
 created: 2026-09-22T10:50:10Z
-updated: 2026-09-22T13:32:31Z
+updated: 2026-09-22T13:50:36Z
 progress: 100%
 prd: .claude/prds/ui-followups.md
 github: https://github.com/wxlpp/oh-my-design/issues/397

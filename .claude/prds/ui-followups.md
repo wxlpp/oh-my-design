@@ -1,7 +1,7 @@
 ---
 name: ui-followups
 description: 处理 #384 登记的 heroui-absorption 评审跟进项（状态视觉、浮层与层级、输入控件）
-status: active
+status: completed
 created: 2026-09-22T10:50:10Z
 ---
 
