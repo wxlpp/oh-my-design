@@ -36,7 +36,7 @@ disabled + invalid → 走 disabled 分支 = 与 disabled + valid 逐像素一�
 - `PinCode.swift` / `TagInput.swift` / `SearchField.swift` / `CheckBox.swift` / `Radio.swift`。
 - 测试：`SearchFieldNativeStateTests.swift`（新）、`FieldValidationControlsTests.swift`（新）：
   - 外观解析映射（纯函数，两条腿）；
-  - valid 与改动前实现（`60c8616` 原样拷贝的 Legacy*）逐像素一致（`expectBitmapsEqual`，两条腿；PinCode / TagInput / CheckBox / Radio）；
+  - valid 与改动前实现（`92d224b` 原样拷贝的 Legacy*）在光栅化噪声内一致（`expectBitmapsEquivalent(maxChannelDelta: 1)`，两条腿；PinCode / TagInput / CheckBox / Radio）；
   - disabled + invalid 与 disabled + valid 逐像素一致；
   - invalid 出现 danger 像素、valid 没有（`assetCatalogIsCompiled` 腿）；
   - 无障碍：托管后读 iOS 可访问元素的 label / hint（iOS 腿），另以 AXe describe-ui 作证据。
