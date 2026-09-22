@@ -176,9 +176,12 @@ count ≤ 0 不显示。名字避开 SwiftUI `.badge`。
   `SurfaceKindAlphaContractGuard` 等按 kind 取色的判据随之按「角色 × 层级」更新，不得放宽。
 - macOS 系统色在 raised / elevated 塌缩（既有文档裁决），有描边的角色靠描边区分；grouped 嵌套 grouped
   在 macOS 无视觉区分，登记为已知限制。
-- `coreSheetPresentation()` 打包 `presentationCornerRadius(CoreRadius.xLarge)`、
-  `presentationDragIndicator(.visible)`、`presentationBackground(Color.surfaceRaised)`，
-  并把 sheet 内容的有效层级设为 raised。
+- `coreSheetPresentation(background:)` 与 iOS 26 系统 sheet 对齐：**不设** `presentationCornerRadius`（交给系统，保持浮动 sheet
+  与屏幕圆角同心），`presentationDragIndicator(.visible)`；`background: CoreSheetBackground` 缺省 `.system`（保留系统
+  Liquid Glass）、可选 `.raised`（不透明 `surfaceRaised`）；并把 sheet 内容的有效层级设为 raised——这也是推荐的层级边界：
+  SwiftUI 无法拦截任意 `.sheet` / `.popover`，若实测环境值会传进弹层，普通 `.sheet` 内的顶层 surface 会继承宿主层级，
+  作为已知限制写进文档与 BREAKING-CHANGES。（原定 `CoreRadius.xLarge` 圆角经视觉评审推翻：iOS 26 上与系统浮动 sheet 不同心。）
+- `Card` 在子层级为 elevated 时自动不出投影（嵌套卡片的下凹底色与投影信号相反）。
 
 ## Non-Functional Requirements
 
@@ -203,8 +206,7 @@ count ≤ 0 不显示。名字避开 SwiftUI `.badge`。
 - 行为验收（主判据）：Badge / Tag / Avatar 在五档 `ControlSize` 下渲染尺寸单调变化（测试断言尺寸，
   不是 grep）；TagGroup 选中色随自定义 `coreAccent` 变化；FormField + 5 个控件的 invalid 态在
   iOS 腿可见且播报次数符合 FR-1；Toast 状态机各场景（暂停 / 恢复 / persistent / dismissAll 后 show）有测试。
-- 辅助检查：`Color.pressedBackground` 与 `CoreRadius.xLarge` 在 **`Sources/OhMyDesign` 生产代码**
-  各至少 1 处消费（今天均为 0；`xLarge` 仅在 Effects target 预览里出现）。
+- 辅助检查：`Color.pressedBackground` 在 **`Sources/OhMyDesign` 生产代码**至少 1 处消费（今天为 0）。
 - 两条 CI 腿（SwiftPM、iOS Simulator）与 downstream-probe、Bool 棘轮全绿；MainActor 棘轮豁免数不增。
 - 每个新组件 / 新状态在预览宿主可见，并通过一次视觉评审（无 Blocker）。
 
