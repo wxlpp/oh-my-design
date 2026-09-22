@@ -4,6 +4,9 @@ import Testing
 
 // MARK: - 动画进行中的帧（#407 FR-3）
 
+// iOS 上 `layer.render(in:)` 取的是模型层，拍不到进行中的帧 ⇒ 只在 macOS 腿观测。
+#if os(macOS)
+
 @MainActor
 private final class SelectionBox: ObservableObject {
     @Published var value = "A"
@@ -213,3 +216,4 @@ struct CoreMotionInFlightTests {
         #expect(peaks[true] == 0, "RM 开时 chevron 不得途经中间角度，实测 \(peaks[true] ?? -1)")
     }
 }
+#endif

@@ -114,3 +114,19 @@ Effects 三份 transition 文档 + registry notes 更正 `hasMotion`；`scripts/
 ## 待决点
 
 - 类型名 `CoreMotion` 与 Apple 框架同名（见上）。备选 `CoreMotionToken`；按派单先用 `CoreMotion`。
+
+## 实现后取证（iOS 26.4 模拟器录屏，30 fps 抽帧，像素为 @3x）
+
+| 动效 | RM 关 | RM 开 |
+|---|---|---|
+| Segmented 滑块 A → C（`.ink`） | 暗色块 x 起点逐帧 18 → 199 → 454 → 613 → 687 → 722，途经 B | x 起点只有 18 与 722 两个值，中间一帧两处同时半透明（原地交叉淡变） |
+| 按压缩放（`TelegramGlassButtonModifier`） | 描边包围盒 47–399 → 58–388（缩放 0.94） | 包围盒恒为 47–399，只有暗像素数下降（变暗） |
+| `.spinning(.topBar)` 顶条 | 暗条 x 逐帧右移 ≈ 42 px / 帧 | 暗条恒在 384–701（居中静止） |
+| Toast 退场 / 入场 | 胶囊下沿 y 167 → 131 → 72 → 1（上滑出）、入场 101 → 167（下滑入） | 下沿恒为 166–167，只有像素数下降 / 回升（原地淡变） |
+
+单测侧：`CoreMotionInFlightTests`（仅 macOS 腿——iOS 上 `layer.render(in:)` 拍不到进行中的帧）在托管窗口里
+逐帧采样，Segmented / UnderlinedTabBar / Toast / Disclosure chevron 四处在 RM 开时「途经像素」为 0、RM 关时为正；
+把 Segmented / UnderlinedTabBar 的几何 ID 改回固定串、或把 chevron 的补间改回无条件，对应判据当场判红。
+
+⚠️ iOS 上 `SegmentedControl` 的默认 `.glass` 样式是原生 `UISegmentedControl`，本库的 RM 分支只作用于
+`.plain` / `.ink` 这两条 SwiftUI 路径；原生控件的动效由 UIKit 自己处理。
