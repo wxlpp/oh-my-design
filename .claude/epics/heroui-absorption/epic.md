@@ -1,11 +1,11 @@
 ---
 name: heroui-absorption
-status: backlog
+status: in-progress
 created: 2026-09-22T01:21:37Z
-updated: 2026-09-22T01:21:37Z
+updated: 2026-09-22T01:25:02Z
 progress: 0%
 prd: .claude/prds/heroui-absorption.md
-github: (will be set on sync)
+github: https://github.com/wxlpp/oh-my-design/issues/372
 ---
 
 # Epic: heroui-absorption
@@ -53,25 +53,25 @@ Issue 级 PR 进 `epic/heroui-absorption`，每个 issue 私有 worktree。第�
 
 | # | task | FR | size | 依赖 |
 |---|---|---|---|---|
-| 001 | 字段校验基础层 + `FormField` | FR-1 | M | — |
-| 002 | 5 个控件接入校验态 + `SearchField` 禁用透传 / 回车键 | FR-2、FR-3 | M | 001 |
-| 003 | `StatusLevel.neutral`（原子，含全部消费者） | FR-4 | S | — |
-| 004 | Banner 补齐（title / actions / dismiss，a11y 拆元素） | FR-5 | M | 003 |
-| 005 | Toast 补齐（API 改名、ToastAction、ToastDuration、状态机） | FR-6 | L | 003 |
-| 006 | Badge / Tag / Avatar 尺寸体系 + `AvatarSize` | FR-7 | M | — |
-| 007 | `anchoredBadge` modifier | FR-8 | S | — |
-| 008 | `TagGroup` | FR-9 | M | 006 |
-| 009 | `.coreCircular` 进度环 + 按压反馈 ButtonStyle | FR-10、FR-11 | S | — |
-| 010 | surface 有效层级 + `coreSheetPresentation()` | FR-12、FR-13 | M | — |
+| #373 | 字段校验基础层 + `FormField` | FR-1 | M | — |
+| #374 | 5 个控件接入校验态 + `SearchField` 禁用透传 / 回车键 | FR-2、FR-3 | M | #373 |
+| #375 | `StatusLevel.neutral`（原子，含全部消费者） | FR-4 | S | — |
+| #376 | Banner 补齐（title / actions / dismiss，a11y 拆元素） | FR-5 | M | #375 |
+| #377 | Toast 补齐（API 改名、ToastAction、ToastDuration、状态机） | FR-6 | L | #375 |
+| #378 | Badge / Tag / Avatar 尺寸体系 + `AvatarSize` | FR-7 | M | — |
+| #379 | `anchoredBadge` modifier | FR-8 | S | — |
+| #380 | `TagGroup` | FR-9 | M | #378 |
+| #381 | `.coreCircular` 进度环 + 按压反馈 ButtonStyle | FR-10、FR-11 | S | — |
+| #382 | surface 有效层级 + `coreSheetPresentation()` | FR-12、FR-13 | M | — |
 
 ## Dependencies
 
 - 冲突面（共享文件，合并时按「未发布」节各自追加、rebase 解决）：`docs/BREAKING-CHANGES.md`、
   `docs/component-registry.json`、`docs/README.md`、`docs/design-digest.md`、`App/Sources/ComponentData.swift` /
   `Previews.swift`、bool 基线——几乎所有 issue 都会碰，**不据此串行**，只要求每个 PR 合入前 rebase 到最新 epic 分支并重跑守卫。
-- 真实源码冲突：004 与 005 都依赖 003 改过的 `Banner.swift` / `Toast.swift`；004 只改 Banner、005 只改 Toast，
-  可在 003 合入后并行。002 独占 `SearchField.swift`。006 与 008 同触 `Tag.swift`（008 在后）。
-  006 与 009/010 同触 `CoreControlMetrics.swift` / `CoreButtonMetrics.swift` 的可能性低，出现时后合者 rebase。
+- 真实源码冲突：#376 与 #377 都依赖 #375 改过的 `Banner.swift` / `Toast.swift`；#376 只改 Banner、#377 只改 Toast，
+  可在 #375 合入后并行。#374 独占 `SearchField.swift`。#378 与 #380 同触 `Tag.swift`（#380 在后）。
+  #378 与 #381/#382 同触 `CoreControlMetrics.swift` / `CoreButtonMetrics.swift` 的可能性低，出现时后合者 rebase。
 
 ## Success Criteria (Technical)
 
@@ -85,18 +85,18 @@ Issue 级 PR 进 `epic/heroui-absorption`，每个 issue 私有 worktree。第�
 S×3、M×6、L×1，约 8–12 个 agent 工作日；两波并行后日历时间约 3–4 天。
 
 ## Tasks Created
-- [ ] 001.md - 字段校验基础层 + FormField (parallel: true)
-- [ ] 002.md - 5 个控件接入校验态 + SearchField 修复 (parallel: true, depends 001)
-- [ ] 003.md - StatusLevel.neutral（原子，含全部消费者） (parallel: true)
-- [ ] 004.md - Banner 补齐 (parallel: true, depends 003)
-- [ ] 005.md - Toast 补齐 (parallel: true, depends 003)
-- [ ] 006.md - Badge / Tag / Avatar 尺寸体系 (parallel: true)
-- [ ] 007.md - anchoredBadge modifier (parallel: true)
-- [ ] 008.md - TagGroup (parallel: true, depends 006)
-- [ ] 009.md - coreCircular 进度环 + 按压反馈 ButtonStyle (parallel: true)
-- [ ] 010.md - surface 有效层级 + coreSheetPresentation (parallel: true)
+- [ ] 373.md - 字段校验基础层 + FormField (parallel: true)
+- [ ] 374.md - 5 个控件接入校验态 + SearchField 修复 (parallel: true, depends #373)
+- [ ] 375.md - StatusLevel.neutral（原子，含全部消费者） (parallel: true)
+- [ ] 376.md - Banner 补齐 (parallel: true, depends #375)
+- [ ] 377.md - Toast 补齐 (parallel: true, depends #375)
+- [ ] 378.md - Badge / Tag / Avatar 尺寸体系 (parallel: true)
+- [ ] 379.md - anchoredBadge modifier (parallel: true)
+- [ ] 380.md - TagGroup (parallel: true, depends #378)
+- [ ] 381.md - coreCircular 进度环 + 按压反馈 ButtonStyle (parallel: true)
+- [ ] 382.md - surface 有效层级 + coreSheetPresentation (parallel: true)
 
 Total tasks: 10
-Parallel tasks: 6（第一波：001、003、006、007、009、010；003 合入后 004/005，001 后 002，006 后 008）
-Sequential tasks: 4（002、004、005、008）
+Parallel tasks: 6（第一波：#373、#375、#378、#379、#381、#382；#375 合入后 #376/#377，#373 后 #374，#378 后 #380）
+Sequential tasks: 4（#374、#376、#377、#380）
 Estimated total effort: 85 hours
