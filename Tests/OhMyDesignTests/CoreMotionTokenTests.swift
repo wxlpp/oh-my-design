@@ -108,7 +108,7 @@ struct CoreMotionTokenReduceMotionRenderTests {
             .frame(width: 80, height: 40)
             .buttonBackground(shape: Rectangle(), fill: .red, border: .clear, isPressed: true)
             .frame(width: 100, height: 60)
-            .environment(\._accessibilityReduceMotion, reduceMotion)
+            .environment(\.coreMotionPresentationOverride, reduceMotion ? .resting : .animated)
     }
 
     @Test("按钮背景按下：RM 关缩放、RM 开不缩放只变暗")
@@ -130,7 +130,7 @@ struct CoreMotionTokenReduceMotionRenderTests {
             .frame(width: 80, height: 40)
             .modifier(TelegramGlassButtonModifier(shape: Rectangle(), isPressed: true, border: .clear, pressFeedback: feedback))
             .frame(width: 100, height: 60)
-            .environment(\._accessibilityReduceMotion, reduceMotion)
+            .environment(\.coreMotionPresentationOverride, reduceMotion ? .resting : .animated)
     }
 
     @Test("Telegram 玻璃按钮按下：RM 开不缩放只变暗；关掉按压反馈时两者都没有")
@@ -163,6 +163,28 @@ struct CoreMotionTokenDegradationTableTests {
         #expect(PressFeedback.chrome(isPressed: true, pressedOpacity: nil, presentation: .hidden).scale == 1)
     }
 
+    @Test("按下透明度不叠乘：Light / Toast 操作按钮 / 圆形玻璃按钮的最终值（含禁用）")
+    func pressedOpacityIsNotStacked() {
+        let light = { (presentation: MotionPresentation) in
+            PressFeedback.chrome(isPressed: true, pressedOpacity: LightButtonStyle.pressedOpacity, presentation: presentation).opacity
+        }
+        #expect(light(.animated) == 0.9)
+        #expect(light(.resting) == PressFeedback.reducedMotionPressedOpacity, "RM 下是 0.7，不是 0.9 × 0.7")
+
+        func circular(isEnabled: Bool, isPressed: Bool, _ presentation: MotionPresentation) -> Double {
+            CircularGlassButtonStyle.outerOpacity(isEnabled: isEnabled, isPressed: isPressed, presentation: presentation)
+                * PressFeedback.chrome(isPressed: isPressed, pressedOpacity: nil, presentation: presentation).opacity
+        }
+        #expect(circular(isEnabled: true, isPressed: false, .animated) == 1)
+        #expect(circular(isEnabled: true, isPressed: true, .animated) == 0.9)
+        #expect(circular(isEnabled: true, isPressed: true, .resting) == PressFeedback.reducedMotionPressedOpacity,
+                "RM 下是 0.7，不是 0.9 × 0.7")
+        #expect(circular(isEnabled: false, isPressed: false, .resting) == 0.4)
+        #expect(circular(isEnabled: false, isPressed: true, .animated) == 0.4)
+        #expect(abs(circular(isEnabled: false, isPressed: true, .resting) - 0.28) < 1e-9,
+                "禁用按钮拿不到按下态；若真出现，登记值是 0.4 × 0.7")
+    }
+
     @Test("Toast 转场：animated 按形态滑入 / 缩放，resting 一律纯淡变")
     func toastTransitionKind() {
         #expect(ToastOverlay.transitionKind(presentation: .floatingCapsule, edge: .top, motion: .animated) == .slide(.top))
@@ -175,12 +197,13 @@ struct CoreMotionTokenDegradationTableTests {
         }
     }
 
-    @Test("Toast 退场：animated 位移 60 / HUD 缩到 0.92；resting 不位移不缩放")
+    @Test("Toast 退场：animated 位移 60 / HUD 缩到 0.92；resting 停在松手位置、不缩放")
     func toastDismissMotion() {
-        #expect(ToastView.dismissOffset(edge: .top, motion: .animated) == -ToastDefaults.dismissSlideDistance)
-        #expect(ToastView.dismissOffset(edge: .bottom, motion: .animated) == ToastDefaults.dismissSlideDistance)
-        #expect(ToastView.dismissOffset(edge: .top, motion: .resting) == 0)
-        #expect(ToastView.dismissOffset(edge: .bottom, motion: .resting) == 0)
+        #expect(ToastView.dismissOffset(edge: .top, motion: .animated, releasedAt: -40) == -ToastDefaults.dismissSlideDistance)
+        #expect(ToastView.dismissOffset(edge: .bottom, motion: .animated, releasedAt: 40) == ToastDefaults.dismissSlideDistance)
+        #expect(ToastView.dismissOffset(edge: .top, motion: .resting, releasedAt: 0) == 0, "点击关闭：原地淡出")
+        #expect(ToastView.dismissOffset(edge: .top, motion: .resting, releasedAt: -40) == -40, "滑动松手：停在松手位置淡出")
+        #expect(ToastView.dismissOffset(edge: .bottom, motion: .resting, releasedAt: 37) == 37)
         #expect(ToastView.dismissScale(presentation: .centeredHUD, isDismissing: true, motion: .animated) == ToastDefaults.hudDismissScale)
         #expect(ToastView.dismissScale(presentation: .centeredHUD, isDismissing: true, motion: .resting) == 1)
         #expect(ToastView.dismissScale(presentation: .centeredHUD, isDismissing: false, motion: .animated) == 1)
@@ -241,7 +264,7 @@ struct CoreMotionTokenRestingAppearanceTests {
             }
         }
         .frame(width: 80, height: 40)
-        .environment(\._accessibilityReduceMotion, reduceMotion)
+        .environment(\.coreMotionPresentationOverride, reduceMotion ? .resting : .animated)
     }
 
     @Test("按钮背景：未按下 / 按下（RM 关）与旧实现逐像素相同；未按下与 RM 无关")
@@ -281,7 +304,7 @@ struct CoreMotionTokenRestingAppearanceTests {
     }
 
     private func underRM<V: View>(_ view: V, _ reduceMotion: Bool) -> some View {
-        view.environment(\._accessibilityReduceMotion, reduceMotion)
+        view.environment(\.coreMotionPresentationOverride, reduceMotion ? .resting : .animated)
     }
 
     @Test("SegmentedControl / DisclosureGroup / Toast / TopBar 静息外观与 RM 无关")
@@ -318,7 +341,7 @@ struct CoreMotionTokenRestingAppearanceTests {
         for reduceMotion in [false, true] {
             let window = HostedWindow(
                 UnderlinedTabBar(items: ["A", "B"], selection: .constant("A"), title: { $0 })
-                    .environment(\._accessibilityReduceMotion, reduceMotion),
+                    .environment(\.coreMotionPresentationOverride, reduceMotion ? .resting : .animated),
                 size: CGSize(width: 240, height: 60),
                 scheme: .light
             )
@@ -331,5 +354,75 @@ struct CoreMotionTokenRestingAppearanceTests {
         let barA = pixels(self.underRM(restingBar, true))
         let barB = pixels(self.underRM(restingBar, true))
         expectBitmapsEqual(barA, barB, "RM 下顶条应静止（两次渲染相同）")
+    }
+}
+
+// MARK: - 注入入口（coreMotionPresentationOverride）
+
+@MainActor
+private final class OverrideBox: ObservableObject {
+    @Published var value: MotionPresentation?
+    var seen: [MotionPresentation] = []
+}
+
+private struct PresentationProbe: View {
+    let box: OverrideBox
+
+    @Environment(\.coreMotionPresentation) private var presentation
+
+    var body: some View {
+        self.box.seen.append(self.presentation)
+        return Color.black.frame(width: 10, height: 10)
+    }
+}
+
+private struct OverrideHarness: View {
+    @ObservedObject var box: OverrideBox
+
+    var body: some View {
+        PresentationProbe(box: self.box)
+            .environment(\.coreMotionPresentationOverride, self.box.value)
+    }
+}
+
+@Suite("coreMotionPresentationOverride：注入优先，nil 跟随系统", .serialized)
+@MainActor
+struct CoreMotionTokenOverrideTests {
+    @Test("注入值优先于 accessibilityReduceMotion；nil 回到系统值")
+    func overrideTakesPrecedence() {
+        var environment = EnvironmentValues()
+        environment._accessibilityReduceMotion = true
+        #expect(environment.coreMotionPresentationOverride == nil)
+        #expect(environment.coreMotionPresentation == .resting)
+        environment.coreMotionPresentationOverride = .animated
+        #expect(environment.coreMotionPresentation == .animated)
+        environment.coreMotionPresentationOverride = .hidden
+        #expect(environment.coreMotionPresentation == .hidden)
+        environment.coreMotionPresentationOverride = nil
+        #expect(environment.coreMotionPresentation == .resting)
+        environment._accessibilityReduceMotion = false
+        environment.coreMotionPresentationOverride = .resting
+        #expect(environment.coreMotionPresentation == .resting)
+    }
+
+    @Test("托管视图上现场切换注入值，再撤回到跟随系统")
+    func liveSwitchAndRestore() throws {
+        let box = OverrideBox()
+        let window = HostedWindow(OverrideHarness(box: box), size: CGSize(width: 40, height: 40), scheme: .light)
+        defer { window.close() }
+        let system = try #require(box.seen.last, "探针没有被求值")
+        var systemEnvironment = EnvironmentValues()
+        systemEnvironment._accessibilityReduceMotion = system == .resting
+        #expect(system == systemEnvironment.coreMotionPresentation)
+
+        for (value, expected) in [(MotionPresentation.resting, MotionPresentation.resting), (.animated, .animated)] {
+            box.value = value
+            window.settle()
+            #expect(box.seen.last == expected, "注入 \(value) 后读到 \(String(describing: box.seen.last))")
+        }
+        box.value = nil
+        window.settle()
+        #expect(box.seen.last == system, "撤回注入后应回到系统值 \(system)，读到 \(String(describing: box.seen.last))")
+        #expect(Set(box.seen).isSuperset(of: [.resting, .animated]), "两个注入值都没有真的到达视图：\(box.seen)")
     }
 }

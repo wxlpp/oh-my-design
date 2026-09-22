@@ -680,17 +680,17 @@ struct TransitionClusterTests {
         }
     }
 
-    @Test("六条转场都声明 hasMotion == true（系统那道 Reduce Motion 闸必须留着）")
-    func everyTransitionKeepsTheSystemGateOpen() {
+    @Test("六条转场都如实声明 hasMotion == true（它们确含几何运动）")
+    func everyTransitionDeclaresItsMotion() {
         #expect(TransitionProperties(hasMotion: false).hasMotion == false,
                 "`hasMotion` 恒为 true —— 下面六条断言不作数")
 
-        #expect(FlipTransition.properties.hasMotion, "`.flip` 关掉了系统那道 Reduce Motion 闸")
-        #expect(Rotate3DTransition.properties.hasMotion, "`.rotate3D` 关掉了系统那道 Reduce Motion 闸")
-        #expect(SwooshTransition.properties.hasMotion, "`.swoosh` 关掉了系统那道 Reduce Motion 闸")
-        #expect(BoingTransition.properties.hasMotion, "`.boing` 关掉了系统那道 Reduce Motion 闸")
-        #expect(SkidTransition.properties.hasMotion, "`.skid` 关掉了系统那道 Reduce Motion 闸")
-        #expect(PolarMoveTransition.properties.hasMotion, "`.move` 关掉了系统那道 Reduce Motion 闸")
+        #expect(FlipTransition.properties.hasMotion, "`.flip` 声明成了无运动（hasMotion == false），与它的几何运动不符")
+        #expect(Rotate3DTransition.properties.hasMotion, "`.rotate3D` 声明成了无运动（hasMotion == false），与它的几何运动不符")
+        #expect(SwooshTransition.properties.hasMotion, "`.swoosh` 声明成了无运动（hasMotion == false），与它的几何运动不符")
+        #expect(BoingTransition.properties.hasMotion, "`.boing` 声明成了无运动（hasMotion == false），与它的几何运动不符")
+        #expect(SkidTransition.properties.hasMotion, "`.skid` 声明成了无运动（hasMotion == false），与它的几何运动不符")
+        #expect(PolarMoveTransition.properties.hasMotion, "`.move` 声明成了无运动（hasMotion == false），与它的几何运动不符")
     }
 
     @Test("经 Transition.apply 走完整条链：恒等帧与裸内容逐字节相同，两端各是一张空背景")

@@ -232,7 +232,7 @@ struct PressableButtonStyleTests {
 
     @Test("卡片按下 + 减弱动态效果：不缩放，只变暗")
     func cardPressedReduceMotionRendersDimmed() throws {
-        let pressed = alphaStats(try #require(rgba(self.cardHost(PressableCardBody(label: self.cardLabel, isPressed: true).environment(\._accessibilityReduceMotion, true)))))
+        let pressed = alphaStats(try #require(rgba(self.cardHost(PressableCardBody(label: self.cardLabel, isPressed: true).environment(\.coreMotionPresentationOverride, .resting)))))
         #expect(pressed.covered == 1600, "减弱动态效果下不应缩放，实测覆盖 \(pressed.covered)")
         #expect(abs(pressed.meanAlpha - 255 * PressFeedback.reducedMotionPressedOpacity) < 3, "应按 0.7 变暗，实测平均 α=\(pressed.meanAlpha)")
     }

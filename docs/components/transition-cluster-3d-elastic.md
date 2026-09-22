@@ -178,7 +178,7 @@ direction(of:) // Edge → 单位方向向量（三条位移转场共用一份 s
 
 本簇六条都显式声明 `hasMotion: true`（它们确实含运动），各有一行
 `public nonisolated static var properties: TransitionProperties { .init(hasMotion: true) }`，
-由 `TransitionClusterTests.everyTransitionKeepsTheSystemGateOpen` 逐条钉住。
+由 `TransitionClusterTests.everyTransitionDeclaresItsMotion` 逐条钉住。
 
 ⚠️ 本节原写「系统也会替换掉整个转场：两道闸、系统那道在外，内层三元门控在生产中很可能不可达」，
 **实测为假**（#407）（iOS 26.4 模拟器系统 RM 开、macOS 26 环境注入 RM；`hasMotion == true` 的转场经 `if` 分支插入 / 移除，`withAnimation` 与隐式 `.animation(_:value:)` 两种驱动下都照常位移，`body` 照常收到 `.willAppear` / `.didDisappear`；取证见 `.claude/epics/motion-foundations/407-plan.md`）。⇒ 生产路径上把这六条降级成纯淡入淡出的，就是各转场层 3 的三元门控；

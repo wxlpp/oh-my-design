@@ -25,7 +25,8 @@ Apple HIG 风格按钮样式 / Apple HIG-styled button styles.
 
 **按压反馈**（#407）：`.solidButton` / `.lightButton` / `.circularGlass`（经 `TelegramGlassButtonModifier`）按下时缩到
 `CoreButtonMetrics.pressedScale`（0.94），曲线 `CoreMotionToken.press`（`.snappy`，0.16 s）；Reduce Motion 下不缩放，
-改为按下变暗到 0.7（调用方给的按下透明度更暗时保留它）。`.borderless()` 只变色，曲线同为 `CoreMotionToken.press`
+改为按下透明度 0.7，与样式自带的按下透明度（`.lightButton` / `.circularGlass` 0.9、`.solidButton` 0.92）取较小值、不叠乘
+（禁用的 `.circularGlass` 整体 0.4；禁用按钮拿不到按下态）。`.borderless()` 只变色，曲线同为 `CoreMotionToken.press`
 （#407 前是默认时长的 `.easeInOut`）。
 
 ## 预览 / Preview

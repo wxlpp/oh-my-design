@@ -43,7 +43,8 @@ public nonisolated enum CoreMotionToken: Sendable, CaseIterable {
     public func animation(for presentation: MotionPresentation) -> Animation?
 }
 public extension EnvironmentValues {
-    var coreMotionPresentation: MotionPresentation { get }   // RM ⇒ .resting，否则 .animated
+    var coreMotionPresentationOverride: MotionPresentation? { get set }   // nil ⇒ 跟随系统
+    var coreMotionPresentation: MotionPresentation { get }   // 注入值优先；否则 RM ⇒ .resting，否则 .animated
 }
 public extension View {
     func coreAnimation(_ motion: CoreMotionToken, value: some Equatable) -> some View
@@ -76,7 +77,7 @@ public extension View {
 | `Components/FormField/FormField.swift:104` | `.easeInOut(duration: 0.2)` | `reveal` | 0.2 easeInOut → 0.25 smooth |
 | `Components/Style/CoreDisclosureGroupStyle.swift:31` | `.snappy`（默认时长） | `reveal` | 曲线换成 smooth 0.25；RM 下 chevron 不转、直接到位 |
 | `Components/Carousel/Carousel.swift:81,100` | `withAnimation {}`（`.default`） | `scroll` | 曲线换成 smooth 0.35；RM 下点页点直接跳 |
-| `Components/Toast/Toast.swift:112,375,376` | `easeInOut(0.25)` | `reveal` | 曲线 easeInOut → smooth（时长同）；RM 下滑入 / 滑出 / HUD 缩放改纯淡变 |
+| `Components/Toast/Toast.swift:112,375,376` | `easeInOut(0.25)` | `reveal` | 曲线 easeInOut → smooth（时长同）；RM 下滑入 / 滑出 / HUD 缩放改纯淡变；滑动松手后停在松手位置淡出 |
 | `Components/Skeleton/Skeleton.swift:38` | `.default` | `reveal` | 曲线换成 smooth 0.25 |
 | `Modifier/SpinningModifier.swift:64,75,92` | `.default` | `reveal` | 同上；RM 下 `.topBar` 顶条不扫动、静止居中 |
 
@@ -96,7 +97,7 @@ public extension View {
    gated 文件不读入口）。
 
 行为判据（每个 gated 点一条，优先渲染 / 纯函数，不靠 grep）：`PressFeedback.chrome` / `.card` 在 `.resting` 下
-scale = 1、opacity = 0.7；Toast 转场种类 / 退场位移 / HUD 缩放在 `.resting` 下为淡变 / 0 / 1；Segmented /
+scale = 1、opacity = 0.7；Toast 转场种类 / 退场位移 / HUD 缩放在 `.resting` 下为淡变 / 松手位置（点击为 0）/ 1；Segmented /
 UnderlinedTabBar 的滑动指示在 `.resting` 下关闭；Disclosure chevron 在 `.resting` 下旋转不补间；TopBar 在
 `.resting` 下不扫动；`CoreMotionToken` 取值与 `animation(for:)` 映射；`EnvironmentValues.coreMotionPresentation`
 随 `_accessibilityReduceMotion` 注入翻转；静息外观：按钮背景与 Telegram 对照原样拷贝的旧实现逐像素相等
@@ -126,3 +127,24 @@ Effects 三份 transition 文档 + registry notes 更正 `hasMotion`；`scripts/
 
 ⚠️ iOS 上 `SegmentedControl` 的默认 `.glass` 样式是原生 `UISegmentedControl`，本库的 RM 分支只作用于
 `.plain` / `.ink` 这两条 SwiftUI 路径；原生控件的动效由 UIKit 自己处理。
+
+## 评审第 1 轮后的补充
+
+- **Toast 滑动松手**：RM 下退场位移取松手时的拖动位移（`dismissOffset(edge:motion:releasedAt:)`），
+  不再从松手位置补间回 0。判据 `toastSwipeRelease` 在 macOS 托管窗口里合成鼠标拖动越过阈值再松手，
+  逐帧量文字行的顶边：RM 开最大位移 0 行、RM 关为正；把 resting 分支改回 `.zero` 时 RM 开位移 27 行、判红。
+  iOS 腿不跑（`layer.render(in:)` 拍不到进行中的帧，且无同等的合成事件入口）；iOS 只有纯函数真值表。
+- **判据**：改为 SwiftSyntax 逐调用点收集（测试 target 已依赖 swift-syntax）：`withAnimation` / `withTransaction` /
+  `Transaction(animation:)` / `.transaction { }` / `animation(_:value:)`（带或不带前导点）/ `.animation =` 赋值 /
+  `Animation` 类型或构造的存储值，都必须引用 `CoreMotionToken`（或恰为 `nil`）；位移 / 缩放 / 旋转 /
+  matchedGeometry 调用点逐点登记门控理由（12 个点，双向）。已知未覆盖的形态写在判据类型的文档注释里。
+- **注入入口**：`EnvironmentValues.coreMotionPresentationOverride`（`MotionPresentation?`，`nil` ⇒ 跟随系统）；
+  新测试改用它注入，只留一条经 `_accessibilityReduceMotion` 验证「跟随系统」的推导。
+  为保持 `nonisolated`，键手写为 `nonisolated struct: EnvironmentKey`（`@Entry` 生成的键在本 target 的默认 MainActor 隔离下不能从 nonisolated 访问）。
+- **按下透明度不叠乘**：`.lightButton` / Toast 操作按钮把 0.9 交给 `buttonBackground(pressedOpacity:)`，与 RM 的 0.7 取较小值；
+  `.circularGlass` 的外层 0.9 只在 animated 下施加。最终值：RM 关 0.9、RM 开 0.7；禁用 0.4（禁用按钮拿不到按下态，
+  若真出现为 0.4 × 0.7）。macOS 上合成鼠标按下真实 `.lightButton`，RM 开时对比度比 0.70 ± 0.03（把 0.7 改成 0.5 时量到 0.50，
+  说明按下态真的到达）；⚠️ 但这个 harness 看不到样式链尾的外层 `.opacity`——把 0.9 加回 `.lightButton` 链尾，比值仍是 0.70
+  （`cacheDisplay` 与 `layer.render(in:)` 两种取像都一样）。⇒ 叠乘回归只由真值表 `pressedOpacityIsNotStacked` 兜：
+  `.circularGlass` 调的就是被测的 `outerOpacity`，`.lightButton` / Toast 操作按钮则只核「0.9 交给 chrome 后 RM 下为 0.7」，
+  有人在它们链尾再加一层 `.opacity` 不会判红。

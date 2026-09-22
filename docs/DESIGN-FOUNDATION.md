@@ -233,8 +233,10 @@ role 的底色是明暗镜像的 `ColorGrade` 色阶，前景仍走它、不吃 
 
 ### 动效（`CoreMotionToken`，#407）
 
-核心库所有过渡动画只经 `CoreMotionToken` 取（判据 `CoreMotionTokenDisciplineGuard`：`withAnimation` / `.animation(_:value:)`
-的实参必须引用 `CoreMotionToken`，曲线字面量只许出现在 `Tokens/CoreMotionToken.swift`）。
+核心库所有过渡动画只经 `CoreMotionToken` 取（判据 `CoreMotionTokenDisciplineGuard`，SwiftSyntax 逐调用点：
+`withAnimation` / `withTransaction` / `Transaction(animation:)` / `.transaction { }` / `animation(_:value:)` /
+`.animation =` 赋值 / `Animation` 类型的存储值都必须引用 `CoreMotionToken`；曲线字面量只许出现在
+`Tokens/CoreMotionToken.swift`；位移 / 缩放 / 旋转调用点逐点登记门控理由。已知未覆盖的形态写在该判据的文档注释里）。
 
 | token | 曲线 | 时长 | 用途 | 取值理由 |
 |---|---|---|---|---|
@@ -246,14 +248,15 @@ role 的底色是明暗镜像的 `ColorGrade` 色阶，前景仍走它、不吃 
 有意不提供 `.bouncy` 档：过冲与墨色 accent 的安静观感冲突，需要时下游直接用 SwiftUI 的曲线。
 
 **Reduce Motion 纪律。** 入口是 `EnvironmentValues.coreMotionPresentation`（复用 `MotionPresentation`：RM 开 ⇒
-`.resting`，否则 `.animated`；只看 RM、不看能耗）。`CoreMotionToken.animation(for:)` 在 `.resting` 下把 `press` /
+`.resting`，否则 `.animated`；只看 RM、不看能耗）。预览与测试用 `\.coreMotionPresentationOverride` 注入固定值，
+`nil`（默认）⇒ 跟随系统。`CoreMotionToken.animation(for:)` 在 `.resting` 下把 `press` /
 `selection` / `reveal` 退为同时长 `easeInOut`（只用于淡变），把 `scroll` 退为 `nil`（直接到位）。位移 / 缩放 /
 旋转本身必须由调用点去掉——**框架不代劳**（#407 实测，见下）：
 
 | 组件 | RM 关 | RM 开 |
 |---|---|---|
-| 按钮背景 / Telegram 玻璃按钮 / `.pressableCard` | 按下缩到 0.94 | 不缩放，按下变暗到 0.7 |
-| `Toast` | 从贴边一侧滑入滑出；HUD 缩放 0.92 进出 | 原地淡入淡出，退场不位移不缩放 |
+| 按钮背景 / Telegram 玻璃按钮 / `.pressableCard` | 按下缩到 0.94（`.lightButton` / `.circularGlass` / Toast 操作按钮另带 0.9 按下透明度） | 不缩放，按下透明度取 0.7（与样式自带的按下透明度取较小值，不叠乘） |
+| `Toast` | 从贴边一侧滑入滑出；HUD 缩放 0.92 进出 | 原地淡入淡出；滑动松手后停在松手位置淡出；HUD 不缩放 |
 | `SegmentedControl` 滑块、`UnderlinedTabBar` 下划线 | 滑到新位置 | 旧位置淡出、新位置淡入，不途经中间 |
 | `CoreDisclosureGroupStyle` chevron | 旋转 90° | 直接到位 |
 | `.spinning(presentation: .topBar)` | 顶条循环扫动 | 静止居中 |

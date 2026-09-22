@@ -483,6 +483,7 @@ struct ToastView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.coreMotionPresentation) private var motionPresentation
     @State private var dragOffset: CGFloat = .zero
+    @State private var releasedOffset: CGFloat = .zero
     @GestureState private var isPressing = false
     @GestureState private var isDragging = false
 
@@ -613,7 +614,7 @@ struct ToastView: View {
             return .zero
         }
         return self.isDismissing
-            ? Self.dismissOffset(edge: self.edge, motion: self.motionPresentation)
+            ? Self.dismissOffset(edge: self.edge, motion: self.motionPresentation, releasedAt: self.releasedOffset)
             : self.dragOffset
     }
 
@@ -621,8 +622,8 @@ struct ToastView: View {
         presentation == .centeredHUD && isDismissing && motion == .animated ? ToastDefaults.hudDismissScale : 1
     }
 
-    static func dismissOffset(edge: VerticalEdge, motion: MotionPresentation) -> CGFloat {
-        guard motion == .animated else { return .zero }
+    static func dismissOffset(edge: VerticalEdge, motion: MotionPresentation, releasedAt releasedOffset: CGFloat) -> CGFloat {
+        guard motion == .animated else { return releasedOffset }
         switch edge {
         case .top: return -ToastDefaults.dismissSlideDistance
         case .bottom: return ToastDefaults.dismissSlideDistance
@@ -681,6 +682,7 @@ struct ToastView: View {
                 let dy = value.translation.height
                 let pastThreshold = abs(dy) >= ToastDefaults.swipeDismissThreshold
                 if pastThreshold, self.allowsDrag(dy) {
+                    self.releasedOffset = self.dragOffset
                     self.onDismiss()
                 }
                 self.dragOffset = .zero
@@ -719,9 +721,9 @@ struct ToastActionButtonStyle: ButtonStyle {
                 shape: Capsule(style: .continuous),
                 fill: Color.surfaceInteractive,
                 border: Color.borderSubtle,
-                isPressed: isPressed
+                isPressed: isPressed,
+                pressedOpacity: LightButtonStyle.pressedOpacity
             )
-            .opacity(isPressed ? 0.9 : 1)
             .padding(Self.hitOutset)
             .contentShape(Rectangle())
     }

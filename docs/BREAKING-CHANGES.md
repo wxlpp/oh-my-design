@@ -23,7 +23,7 @@
 ## 未发布（相对 `v0.11.0`）——Issue #407：动效 token 与 Reduce Motion 纪律
 
 **行为变更（无签名破坏）。** 公开符号的签名一个都没变；新增 `CoreMotionToken`、`EnvironmentValues.coreMotionPresentation`、
-`View.coreAnimation(_:value:)`。核心库所有过渡曲线改经 `CoreMotionToken` 取，下列时长 / 曲线随之变化：
+`EnvironmentValues.coreMotionPresentationOverride`（`nil` ⇒ 跟随系统）、`View.coreAnimation(_:value:)`。核心库所有过渡曲线改经 `CoreMotionToken` 取，下列时长 / 曲线随之变化：
 
 | 位置 | 之前 | 现在 |
 |---|---|---|
@@ -45,8 +45,8 @@
 
 | 位置 | 之前（RM 开） | 现在（RM 开） |
 |---|---|---|
-| `.solidButton` / `.lightButton` / `.circularGlass` / `TelegramGlassButtonModifier` / Toast 操作按钮 按下 | 缩到 0.94 | 不缩放，按下变暗到 0.7 |
-| `Toast` 进出 / 退场 | 滑入滑出、退场位移 60pt、HUD 缩放 0.92 | 原地淡入淡出，不位移不缩放 |
+| `.solidButton` / `.lightButton` / `.circularGlass` / `TelegramGlassButtonModifier` / Toast 操作按钮 按下 | 缩到 0.94 | 不缩放，按下透明度 0.7（与样式自带的 0.9 / 0.92 取较小值，不叠乘） |
+| `Toast` 进出 / 退场 | 滑入滑出、退场位移 60pt、HUD 缩放 0.92 | 原地淡入淡出；滑动松手后停在松手位置淡出；HUD 不缩放 |
 | `SegmentedControl` 滑块、`UnderlinedTabBar` 下划线 | 滑到新位置 | 原地淡变，不途经中间 |
 | `.disclosureGroupStyle(.core)` chevron | 旋转补间 | 直接到位 |
 | `.spinning(_:presentation: .topBar)` 顶条 | 循环扫动 | 静止居中 |

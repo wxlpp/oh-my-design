@@ -52,12 +52,24 @@ public nonisolated enum CoreMotionToken: Sendable, CaseIterable {
 
 // MARK: - Reduce Motion 入口 / Reduce Motion entry
 
+private nonisolated struct CoreMotionPresentationOverrideKey: EnvironmentKey {
+    static let defaultValue: MotionPresentation? = nil
+}
+
 public extension EnvironmentValues {
-    /// 一次性过渡动效的呈现裁决：Reduce Motion 开启 ⇒ `.resting`，否则 `.animated`。
+    /// **可注入**的一次性动效呈现裁决。`nil`（默认）⇒ 跟随系统「减弱动态效果」。
     ///
-    /// 只看 `accessibilityReduceMotion`，不看能耗——能耗闸只管常驻渲染层（`EnergyState`）。
+    /// 供预览与测试固定一种呈现；产品代码通常不写它。
+    nonisolated var coreMotionPresentationOverride: MotionPresentation? {
+        get { self[CoreMotionPresentationOverrideKey.self] }
+        set { self[CoreMotionPresentationOverrideKey.self] = newValue }
+    }
+
+    /// 一次性过渡动效的呈现裁决：有注入值取注入值；否则 Reduce Motion 开启 ⇒ `.resting`，关闭 ⇒ `.animated`。
+    ///
+    /// 只看 Reduce Motion，不看能耗——能耗闸只管常驻渲染层（`EnergyState`）。
     nonisolated var coreMotionPresentation: MotionPresentation {
-        self.accessibilityReduceMotion ? .resting : .animated
+        self.coreMotionPresentationOverride ?? (self.accessibilityReduceMotion ? .resting : .animated)
     }
 }
 

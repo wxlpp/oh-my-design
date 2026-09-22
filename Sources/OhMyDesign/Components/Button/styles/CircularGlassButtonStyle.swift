@@ -16,6 +16,7 @@ public struct CircularGlassButtonStyle: ButtonStyle {
     }
 
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.coreMotionPresentation) private var motionPresentation
 
     private var resolvedDiameter: CGFloat {
         self.diameter ?? CoreControlMetrics.height(for: self.size)
@@ -32,7 +33,20 @@ public struct CircularGlassButtonStyle: ButtonStyle {
                 shape: Circle(),
                 isPressed: configuration.isPressed
             ))
-            .opacity(self.isEnabled ? (configuration.isPressed ? 0.9 : 1) : 0.4)
+            .opacity(Self.outerOpacity(
+                isEnabled: self.isEnabled,
+                isPressed: configuration.isPressed,
+                presentation: self.motionPresentation
+            ))
+    }
+
+    static let pressedOpacity: Double = 0.9
+    static let disabledOpacity: Double = 0.4
+
+    static func outerOpacity(isEnabled: Bool, isPressed: Bool, presentation: MotionPresentation) -> Double {
+        guard isEnabled else { return Self.disabledOpacity }
+        guard isPressed, presentation == .animated else { return 1 }
+        return Self.pressedOpacity
     }
 }
 

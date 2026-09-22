@@ -1235,7 +1235,7 @@
       "target": "OhMyDesignEffects",
       "host": "Transition",
       "member": "blur",
-      "notes": "视图进出时内容失焦并淡出。含参重载 .blur(radius:) 与无参 .blur 按 Host.member 去重算同一条。两条曲线（半径、不透明度）在进度上都是仿射的 ⇒ 绘制层有意不套 Animatable（判据 blurCurvesAreAffine 守着这张豁免）。全簇唯一一个 Reduce Motion 与「减弱闪烁灯光」两个信号都不读的：无位移/缩放/旋转 ⇒ 无光流，亮度单调不往复 ⇒ 无闪光；降级会把这条转场本身抹成 .opacity。该裁决由 blurConsumesNoAccessibilitySignal（源码形状）与 everyTransitionOptsOutOfTheFrameworkMotionSubstitution（运行时性质）两条判据共同钉住 —— 后者钉的是声明本身：SDK 文档称 hasMotion == true（协议默认值）的转场会在 Reduce Motion 下被整条替换成 opacity，#407 实测 iOS 26.4 / macOS 26 上框架并不替换，故 false 是与「无运动」一致的显式裁决，今天不承担开关作用。"
+      "notes": "视图进出时内容失焦并淡出。含参重载 .blur(radius:) 与无参 .blur 按 Host.member 去重算同一条。两条曲线（半径、不透明度）在进度上都是仿射的 ⇒ 绘制层有意不套 Animatable（判据 blurCurvesAreAffine 守着这张豁免）。全簇唯一一个 Reduce Motion 与「减弱闪烁灯光」两个信号都不读的：无位移/缩放/旋转 ⇒ 无光流，亮度单调不往复 ⇒ 无闪光；降级会把这条转场本身抹成 .opacity。该裁决由 blurConsumesNoAccessibilitySignal（源码形状）与 everyTransitionDeclaresNoMotion（运行时性质）两条判据共同钉住 —— 后者钉的是声明本身：SDK 文档称 hasMotion == true（协议默认值）的转场会在 Reduce Motion 下被整条替换成 opacity，#407 实测 iOS 26.4 / macOS 26 上框架并不替换，故 false 是与「无运动」一致的显式裁决，今天不承担开关作用。"
     },
     {
       "target": "OhMyDesignEffects",

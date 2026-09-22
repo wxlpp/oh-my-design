@@ -147,8 +147,8 @@ struct DetailView: View {
   `neutral` 图标 `bell`、图标色 `contentSecondary`（正文各档统一为 `contentPrimary`）
 - 入场/出场动画：从 `edge` 方向滑入 + 淡入（⚠️ `.centeredHUD` 例外：改用不依赖方向的
   缩放 + 淡入淡出），曲线 `CoreMotionToken.reveal`（`.smooth`，0.25 s），退场移除计时取同一个时长
-- Reduce Motion（#407）：三种形态一律原地淡入淡出，退场不位移、HUD 不缩放；拖拽跟手不受影响
-  （直接操作）
+- Reduce Motion（#407）：三种形态一律原地淡入淡出，HUD 不缩放；点击关闭原地淡出，滑过阈值松手后
+  停在松手位置淡出（不回弹、不继续滑）；拖拽跟手不受影响（直接操作）
 - 滑动手势：向 edge 方向滑动超过 `CoreSpacing.xxl`（32pt）触发 dismiss
   （⚠️ `.centeredHUD` 例外：关闭滑动，只保留点击）
 - 容器形状：`.floatingCapsule` 单行时用 `Capsule`，有说明或处于 AX 字号时改用

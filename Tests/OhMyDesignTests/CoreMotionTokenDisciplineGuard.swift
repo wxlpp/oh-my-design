@@ -1,8 +1,21 @@
 import Foundation
+import SwiftParser
+import SwiftSyntax
 import Testing
 
 // MARK: - 核心库动效纪律 / Core motion discipline
 
+/// 核心库动效纪律的源码判据（SwiftSyntax 逐调用点）。
+///
+/// 覆盖：`withAnimation` / `withTransaction` / `Transaction(animation:)` / `.transaction { }` /
+/// `animation(_:value:)`（带或不带前导点）/ `x.animation = …` 赋值 / `Animation` 类型或构造的存储值，
+/// 每个调用点必须引用 `CoreMotionToken`（或恰为 `nil`）；位移 / 缩放 / 旋转 / matchedGeometry 调用点逐点登记门控理由。
+///
+/// 不覆盖（已知）：实参里任何位置提到 `CoreMotionToken` 即放行，同一表达式的另一分支若给出系统曲线
+/// （如 `flag ? CoreMotionToken.press.animation : .spring`，`.spring` 不带括号时字面量表也抓不到）照样通过；
+/// `phaseAnimator` / `keyframeAnimator` 的 `animation:` 闭包；经 `.modifier(…)` / `GeometryEffect` /
+/// `visualEffect` 施加的变换；`.transition(…)` 未逐点登记（只在 fadeOnly 文件里禁 move / scale）；
+/// 布局尺寸变化被动画插值产生的位移。台账键是调用点实参的归一化文本，改写实参即须同步台账。
 @Suite("核心库动效纪律：动画只经 CoreMotionToken 取、含动效的文件登记 Reduce Motion 策略")
 struct CoreMotionTokenDisciplineGuard {
     enum Strategy: Sendable {
@@ -34,8 +47,35 @@ struct CoreMotionTokenDisciplineGuard {
         "Components/Carousel/Carousel.swift": .gated,
     ]
 
+    static let transformLedger: [String: String] = [
+        "Components/Button/styles/PressableButtonStyles.swift|scaleEffect(feedback.scale)":
+            "feedback 取自 PressFeedback.card(presentation:)，resting 下 scale = 1",
+        "Modifier/ButtonBackgroundModifier.swift|scaleEffect(feedback.scale)":
+            "feedback 取自 PressFeedback.chrome(presentation:)，resting 下 scale = 1",
+        "Modifier/TelegramGlassButtonModifier.swift|scaleEffect(feedback.scale)":
+            "feedback 取自 PressFeedback.chrome(presentation:)，resting 下 scale = 1",
+        "Components/SegmentedControl/SegmentedControl.swift|matchedGeometryEffect(id: self.motionPresentation.slidingIndicatorID( \"SegmentedControl.thumb\", slot: AnyHashable(segment.index) ), in: self.namespace)":
+            "resting 下每槽各自 ID，不滑",
+        "Components/TabBar/UnderlinedTabBar.swift|matchedGeometryEffect(id: self.motionPresentation.slidingIndicatorID(\"underline\", slot: self.slot), in: self.namespace)":
+            "resting 下每槽各自 ID，不滑",
+        "Components/Skeleton/Skeleton.swift|offset(x: SkeletonShimmerMath.offset(at: timeline.date, width: width))":
+            "只在 motionPresentation == .animated 的分支里建",
+        "Components/Style/CoreCircularProgressViewStyle.swift|rotationEffect(.degrees(-90))":
+            "常量变换，无动画",
+        "Components/Style/CoreDisclosureGroupStyle.swift|rotationEffect(.degrees(self.rotation))":
+            "补间走 CoreMotionToken.reveal.transformAnimation(for:)，resting 下不补间",
+        "Components/Toast/Toast.swift|scaleEffect(Self.dismissScale( presentation: self.presentation, isDismissing: self.isDismissing, motion: self.motionPresentation ))":
+            "dismissScale 在 resting 下恒为 1",
+        "Components/Toast/Toast.swift|offset(y: self.verticalOffset)":
+            "拖动跟手；退场位移经 dismissOffset(motion:releasedAt:)，resting 下停在松手位置",
+        "Modifier/SpinningModifier.swift|offset(x: Self.offset(at: context.date, trackWidth: proxy.size.width))":
+            "只在 TopBarIndicator.sweeps(for:) 为真（animated）的分支里建",
+        "Modifier/SpinningModifier.swift|offset(x: Self.restingOffset(trackWidth: proxy.size.width))":
+            "静止位，无动画",
+    ]
+
     static let animationTriggers = [
-        "withAnimation", ".animation(", ".transition(", ".coreAnimation(",
+        "withAnimation", "withTransaction", ".transaction", ".animation(", ".transition(", ".coreAnimation(",
         "TimelineView(", "phaseAnimator(", "keyframeAnimator(",
         "symbolEffect(", "contentTransition(", "matchedGeometryEffect(",
     ]
@@ -105,23 +145,25 @@ struct CoreMotionTokenDisciplineGuard {
 
     static func curveViolations(path: String, code: String) -> [String] {
         guard path != Self.tokenFile else { return [] }
+        let sites = MotionSiteCollector.collect(code)
         var out: [String] = []
-        for name in ["withAnimation", ".animation("] {
-            for (line, args) in Self.callArguments(of: name, in: code) {
-                guard let args else {
-                    out.append("\(path):\(line) \(name) 没有实参 —— 曲线落到 SwiftUI 默认值，不经 CoreMotionToken")
-                    continue
-                }
-                let trimmed = args.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !args.contains("CoreMotionToken") && !trimmed.hasPrefix("nil") {
-                    out.append("\(path):\(line) \(name)(\(trimmed)) 的曲线不经 CoreMotionToken")
-                }
+        for site in sites.animationSites + sites.assignments {
+            let text = site.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.contains("CoreMotionToken") && text != "nil" {
+                out.append("\(path):\(site.line) \(site.kind)(\(text)) 的曲线不经 CoreMotionToken")
             }
+        }
+        for site in sites.animationDecls where !site.text.contains("CoreMotionToken") {
+            out.append("\(path):\(site.line) 声明了 Animation 类型的值（\(site.text)）—— 曲线只许经 CoreMotionToken 取")
         }
         for literal in Self.curveLiterals where code.contains(literal) {
             out.append("\(path) 出现曲线字面量 `\(literal)` —— 曲线只许在 \(Self.tokenFile) 里定义")
         }
         return out
+    }
+
+    static func transformSiteKeys(path: String, code: String) -> [String] {
+        MotionSiteCollector.collect(code).transformSites.map { "\(path)|\($0.kind)(\($0.text))" }
     }
 
     static func strategyViolations(path: String, code: String, strategy: Strategy?) -> [String] {
@@ -188,6 +230,21 @@ struct CoreMotionTokenDisciplineGuard {
         #expect(motionFiles == Set(Self.ledger.keys), "台账 \(Self.ledger.keys.sorted()) 与实际含动效文件 \(motionFiles.sorted()) 不一致")
     }
 
+    static func transformLedgerViolations(sites: [String], ledger: [String: String]) -> [String] {
+        let actual = Set(sites)
+        let unregistered = actual.subtracting(ledger.keys).sorted().map { "未登记的位移 / 缩放 / 旋转调用点：\($0)" }
+        let stale = Set(ledger.keys).subtracting(actual).sorted().map { "台账里的调用点已不存在：\($0)" }
+        return unregistered + stale
+    }
+
+    @Test("每个位移 / 缩放 / 旋转调用点都逐点登记了 Reduce Motion 门控（双向）")
+    func transformSitesAreRegistered() {
+        let sites = Self.coreSources().flatMap { Self.transformSiteKeys(path: $0.path, code: $0.code) }
+        #expect(sites.count >= Self.transformLedger.count, "只扫到 \(sites.count) 个调用点 —— 扫描器失灵")
+        let offenders = Self.transformLedgerViolations(sites: sites, ledger: Self.transformLedger)
+        #expect(offenders.isEmpty, "\n\(offenders.joined(separator: "\n"))")
+    }
+
     // MARK: - 自证：合成输入必须打红
 
     @Test("自证：扫描器对每一种违规形态都判红")
@@ -221,8 +278,143 @@ struct CoreMotionTokenDisciplineGuard {
                 "staticTransform 里出现动画触发必须判红")
         #expect(!Self.strategyViolations(path: path, code: "let x = 1", strategy: .gated).isEmpty,
                 "台账里的文件已无动效必须判红")
-        #expect(Self.strategyViolations(
-            path: path, code: "@Environment(\\.coreMotionPresentation) var m\n.scaleEffect(s)", strategy: .gated
+        let ungated = "@Environment(\\.coreMotionPresentation) var m\nvar body: some View { x.scaleEffect(s) }"
+        #expect(!Self.transformLedgerViolations(
+            sites: Self.transformSiteKeys(path: path, code: ungated), ledger: [:]
+        ).isEmpty, "只读入口、却无条件缩放的 gated 文件必须判红（逐点台账）")
+        #expect(Self.transformLedgerViolations(
+            sites: Self.transformSiteKeys(path: path, code: ungated), ledger: ["\(path)|scaleEffect(s)": "测试"]
         ).isEmpty)
+        #expect(Self.transformSiteKeys(path: path, code: "let y = Math.offset(at: d)").isEmpty, "类型上的纯函数不是变换调用点")
+    }
+
+    @Test("自证：已知的绕过写法逐条判红")
+    func scannerCatchesKnownBypasses() {
+        let path = "Components/Fake/Fake.swift"
+        let bypasses: [(String, String)] = [
+            ("transaction 闭包", "x.transaction { $0.animation = a }"),
+            ("transaction 赋字面量", "x.transaction { t in t.animation = .easeIn }"),
+            ("withTransaction", "withTransaction(Transaction(animation: a)) { v = 1 }"),
+            ("Transaction 构造", "var t = Transaction(animation: a)"),
+            ("存储的 Animation 值", "let a: Animation = .default"),
+            ("存储的可选 Animation 值", "var a: Animation? = nil"),
+            ("Animation 构造值", "let a = Animation.easeIn(duration: 1)"),
+            ("隐式 self 的 animation", "extension View { func f() -> some View { animation(a, value: 1) } }"),
+            ("nil ?? a", "x.animation(nil ?? a, value: v)"),
+            ("无参 withAnimation", "withAnimation { v = 1 }"),
+        ]
+        for (name, code) in bypasses {
+            #expect(!Self.curveViolations(path: path, code: code).isEmpty, "绕过写法没被抓住：\(name) —— \(code)")
+        }
+        let allowed = [
+            "x.transaction { $0.animation = CoreMotionToken.press.animation }",
+            "withTransaction(Transaction(animation: CoreMotionToken.press.animation)) { }",
+            "let a = CoreMotionToken.press.animation(for: p)",
+            "x.animation(nil, value: v)",
+            "x.animation(CoreMotionToken.press.animation(for: p), value: v)",
+        ]
+        for code in allowed {
+            #expect(Self.curveViolations(path: path, code: code).isEmpty, "合规写法被误判：\(code)")
+        }
+    }
+}
+
+// MARK: - 调用点收集 / Call-site collection
+
+nonisolated final class MotionSiteCollector: SyntaxVisitor {
+    struct Site: Sendable {
+        let line: Int
+        let kind: String
+        let text: String
+    }
+
+    static let transformCallees: Set<String> = [
+        "scaleEffect", "rotationEffect", "rotation3DEffect", "offset",
+        "matchedGeometryEffect", "transformEffect", "projectionEffect",
+    ]
+
+    private let converter: SourceLocationConverter
+    private(set) var animationSites: [Site] = []
+    private(set) var assignments: [Site] = []
+    private(set) var animationDecls: [Site] = []
+    private(set) var transformSites: [Site] = []
+
+    init(converter: SourceLocationConverter) {
+        self.converter = converter
+        super.init(viewMode: .sourceAccurate)
+    }
+
+    static func collect(_ code: String) -> MotionSiteCollector {
+        let tree = Parser.parse(source: code)
+        let collector = MotionSiteCollector(converter: SourceLocationConverter(fileName: "", tree: tree))
+        collector.walk(tree)
+        return collector
+    }
+
+    private func line(_ node: some SyntaxProtocol) -> Int {
+        node.startLocation(converter: self.converter).line
+    }
+
+    private static func normalized(_ text: String) -> String {
+        text.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    }
+
+    private static func calleeName(_ expression: ExprSyntax) -> String? {
+        if let reference = expression.as(DeclReferenceExprSyntax.self) { return reference.baseName.text }
+        if let member = expression.as(MemberAccessExprSyntax.self) { return member.declName.baseName.text }
+        return nil
+    }
+
+    override func visit(_ node: FunctionCallExprSyntax) -> SyntaxVisitorContinueKind {
+        guard let name = Self.calleeName(node.calledExpression) else { return .visitChildren }
+        let arguments = Self.normalized(node.arguments.description)
+        switch name {
+        case "withAnimation":
+            let first = node.arguments.first.map { Self.normalized($0.expression.description) } ?? ""
+            self.animationSites.append(Site(line: self.line(node), kind: name, text: first))
+        case "withTransaction":
+            self.animationSites.append(Site(line: self.line(node), kind: name, text: arguments))
+        case "animation":
+            if node.arguments.first?.label == nil {
+                let first = node.arguments.first.map { Self.normalized($0.expression.description) } ?? ""
+                self.animationSites.append(Site(line: self.line(node), kind: name, text: first))
+            }
+        case "transaction":
+            self.animationSites.append(Site(line: self.line(node), kind: name, text: Self.normalized(node.description)))
+        case "Transaction":
+            if let animation = node.arguments.first(where: { $0.label?.text == "animation" }) {
+                self.animationSites.append(Site(line: self.line(node), kind: name, text: Self.normalized(animation.expression.description)))
+            }
+        default:
+            if Self.transformCallees.contains(name), !Self.isTypeQualified(node.calledExpression) {
+                self.transformSites.append(Site(line: self.line(node), kind: name, text: arguments))
+            }
+        }
+        return .visitChildren
+    }
+
+    private static func isTypeQualified(_ expression: ExprSyntax) -> Bool {
+        guard let base = expression.as(MemberAccessExprSyntax.self)?.base?.as(DeclReferenceExprSyntax.self) else { return false }
+        return base.baseName.text.first?.isUppercase == true
+    }
+
+    override func visit(_ node: InfixOperatorExprSyntax) -> SyntaxVisitorContinueKind {
+        if node.operator.is(AssignmentExprSyntax.self),
+           let member = node.leftOperand.as(MemberAccessExprSyntax.self),
+           member.declName.baseName.text == "animation" {
+            self.assignments.append(Site(line: self.line(node), kind: "animation =", text: Self.normalized(node.rightOperand.description)))
+        }
+        return .visitChildren
+    }
+
+    override func visit(_ node: PatternBindingSyntax) -> SyntaxVisitorContinueKind {
+        let type = node.typeAnnotation.map { Self.normalized($0.type.description) } ?? ""
+        let initializer = node.initializer.map { Self.normalized($0.value.description) } ?? ""
+        let typed = type == "Animation" || type == "Animation?" || type == "SwiftUI.Animation"
+        let constructed = initializer.hasPrefix("Animation.") || initializer.hasPrefix("Animation(")
+        if typed || constructed {
+            self.animationDecls.append(Site(line: self.line(node), kind: "binding", text: Self.normalized(node.description)))
+        }
+        return .visitChildren
     }
 }
