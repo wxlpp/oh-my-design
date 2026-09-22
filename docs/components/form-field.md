@@ -84,7 +84,11 @@ extension View {
 
 - 外观统一走 disabled > invalid：禁用时与禁用 + valid 一致；valid 时与接入前逐像素一致。
 - 播报仍只由 `FormField` 发出，控件不另播报。
-- 预览宿主：`form-field-controls-valid` / `form-field-controls-invalid` / `form-field-controls-disabled`。
+- 调用方在控件外层自带的 `.accessibilityLabel(...)` 不会被字段 label 覆盖（hint 照常挂上）；嵌套 `FormField`
+  时取最近一层的 label、校验态与 description。不在 `FormField` 内、也没有校验态时，五个控件的无障碍 label / hint
+  与接入前一致（AXe 对照记录见 `.claude/epics/heroui-absorption/374-plan.md`）。
+- 预览宿主：`form-field-controls-valid` / `form-field-controls-invalid` / `form-field-controls-disabled`，
+  以及无障碍对照用的 `form-field-controls-plain`（不在 FormField 内）/ `form-field-controls-edge`（自带 label、嵌套）。
 
 ## 使用示例 / Usage
 

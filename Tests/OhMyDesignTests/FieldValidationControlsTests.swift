@@ -192,12 +192,12 @@ struct FieldValidationControlsAppearanceTests {
 
 // MARK: - 无障碍 label 策略 / Accessibility label policy
 
-@Suite("五个控件接入校验态：无障碍 label 策略")
+@Suite("无障碍 label 策略的判定函数（只测 FieldAccessibilityLabel.resolved，不读真实无障碍节点）")
 struct FieldAccessibilityLabelPolicyTests {
     private let field = Text(verbatim: "Code")
     private let own = Text(verbatim: "Verification code")
 
-    @Test("文本输入节点：在 FormField 内用字段 label（含必填），不在时回退控件原有 label")
+    @Test("fieldLabel(fallback:)：有字段 label 时取字段 label（含必填），没有时取回退值")
     func textEntryUsesFieldLabelThenFallback() {
         let policy = FieldAccessibilityLabel.fieldLabel(fallback: self.own)
         #expect(policy.resolved(fieldLabel: self.field, requirement: .optional) == self.field)
@@ -208,12 +208,12 @@ struct FieldAccessibilityLabelPolicyTests {
         #expect(policy.resolved(fieldLabel: nil, requirement: .required) == self.own)
     }
 
-    @Test("选择类节点：保留选项自身 label，不被字段 label 覆盖")
+    @Test("keepOwn：不产出 label")
     func choiceKeepsOwnLabel() {
         #expect(FieldAccessibilityLabel.keepOwn.resolved(fieldLabel: self.field, requirement: .required) == nil)
     }
 
-    @Test("公开 fieldAccessibility() 的策略不变：不在 FormField 内时不挂 label")
+    @Test("fieldLabel(fallback: nil)：没有字段 label 时不产出 label")
     func publicModifierHasNoFallback() {
         #expect(FieldAccessibilityLabel.fieldLabel(fallback: nil).resolved(fieldLabel: nil, requirement: .optional) == nil)
     }
@@ -221,11 +221,11 @@ struct FieldAccessibilityLabelPolicyTests {
 
 // MARK: - SearchField 描边 / SearchField stroke
 
-@Suite("SearchField 校验态：原生搜索框外沿的 danger 描边")
+@Suite("SearchField 包装层（ImageRenderer 不渲染原生控件，只看 SwiftUI 叠加层）")
 @MainActor
-struct SearchFieldValidationStrokeTests {
+struct SearchFieldWrapperStrokeTests {
     @Test(
-        "invalid 画出 danger 描边，valid 与 disabled + invalid 没有（light / dark）",
+        "包装层：invalid 叠加 danger 描边，valid 与 disabled + invalid 不叠加（light / dark）",
         .enabled(
             if: assetCatalogIsCompiled,
             "跳过：bundle 里没有 Assets.car，statusDangerForeground 解析为全透明；本条在 iOS Simulator 腿上跑。"
@@ -243,7 +243,7 @@ struct SearchFieldValidationStrokeTests {
         }
     }
 
-    @Test("valid 与 disabled + invalid 的包装层与 disabled + valid 在光栅化噪声内一致（两条腿都跑）")
+    @Test("包装层：disabled + invalid 与 disabled + valid 在光栅化噪声内一致（两条腿都跑）")
     func disabledInvalidMatchesDisabledValid() {
         for scheme in ControlRender.schemes {
             let field = SearchField(text: .constant("release"))

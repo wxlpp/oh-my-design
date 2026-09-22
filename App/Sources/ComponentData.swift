@@ -107,6 +107,12 @@ extension ComponentMeta {
         ComponentMeta(id: "form-field-controls-invalid", name: "FormField · 控件 invalid", description: "五个控件 invalid：描边 / 图标取 statusDangerForeground，错误原因挂到真实输入节点的 hint", category: .form) {
             FormFieldControlsPreview(state: .invalid)
         },
+        ComponentMeta(id: "form-field-controls-plain", name: "FormField · 控件不在 FormField 内", description: "五个控件裸放、无校验态：无障碍 label / hint 与接入前一致", category: .form) {
+            FormFieldControlsPlainPreview()
+        },
+        ComponentMeta(id: "form-field-controls-edge", name: "FormField · 控件边界情形", description: "调用方自带 accessibilityLabel、嵌套 FormField 最近一层生效", category: .form) {
+            FormFieldControlsEdgePreview()
+        },
         ComponentMeta(id: "form-field-controls-disabled", name: "FormField · 控件 disabled + invalid", description: "disabled 压过 invalid：与 disabled + valid 外观一致，错误原因只留在 hint", category: .form) {
             FormFieldControlsPreview(state: .disabledInvalid)
         },
@@ -1399,6 +1405,62 @@ private struct FormFieldControlsPreview: View {
 
     private func validation(_ reason: LocalizedStringResource) -> FieldValidation {
         self.state == .valid ? .valid : .invalid(reason)
+    }
+}
+
+private struct FormFieldControlsPlainPreview: View {
+    @State private var code = "12"
+    @State private var tags = ["design"]
+    @State private var query = "release"
+    @State private var accepted = false
+    @State private var plan = "basic"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            PinCode(value: self.$code, length: 4)
+            TagInput(tags: self.$tags, placeholder: "Add tag")
+            SearchField(text: self.$query, placeholder: "Search releases")
+            Toggle("I accept the terms of service", isOn: self.$accepted)
+                .toggleStyle(CheckBoxToggleStyle())
+            RadioGroup(
+                selection: self.$plan,
+                options: [RadioOption(value: "basic", title: "Basic"), RadioOption(value: "pro", title: "Pro")],
+                axis: .horizontal
+            )
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+private struct FormFieldControlsEdgePreview: View {
+    @State private var code = ""
+    @State private var query = ""
+    @State private var accepted = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            FormField("Filter") {
+                SearchField(text: self.$query, placeholder: "Search releases")
+                    .accessibilityLabel(Text(verbatim: "Caller search label"))
+            }
+            .fieldValidation(.invalid("Filter is invalid."))
+
+            FormField("Terms") {
+                Toggle("I accept the terms of service", isOn: self.$accepted)
+                    .toggleStyle(CheckBoxToggleStyle())
+                    .accessibilityLabel(Text(verbatim: "Caller toggle label"))
+            }
+            .fieldValidation(.invalid("Terms are required."))
+
+            FormField("Outer", description: "Outer description.") {
+                FormField("Inner", description: "Inner description.") {
+                    PinCode(value: self.$code, length: 4)
+                }
+                .fieldValidation(.invalid("Inner is wrong."))
+            }
+            .fieldValidation(.invalid("Outer is wrong."))
+        }
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 

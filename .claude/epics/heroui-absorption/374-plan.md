@@ -47,3 +47,24 @@ disabled + invalid → 走 disabled 分支 = 与 disabled + valid 逐像素一�
 ## 守卫台账
 
 design-digest 按 `python3 scripts/design-digest.py` 实际值；Bool 基线、MainActor 豁免预计不变。
+
+## 评审第 1 轮：无障碍证据
+
+**进程内读不到真实节点（公开 API）**：iOS 测试里把控件放进 `UIHostingController` + `UIWindow`，遍历
+`accessibilityElements`，托管视图下的元素数为 0。原生 `UISearchTextField` 及其宿主视图
+（`UIKitPlatformViewHost`）的 `accessibilityLabel` / `accessibilityHint` 都是 `nil`，`isAccessibilityElement == false`。
+经私有 SPI `_AXSApplicationAccessibilitySetEnabled(true)`（`dlopen` libAccessibility）打开后，SwiftUI 节点可读
+（PinCode 各格为 `Code` / `Bad.`，CheckBox 为 `Accept` / `Bad.`）；原生搜索框仍然读不到。未采用：
+私有 SPI、会改动整个测试进程的全局状态、仓库也没有先例。⇒ `FieldAccessibilityLabelPolicyTests` 改名为只声称
+「判定函数」；真实节点的证据用下面这组 AXe 矩阵。
+
+**AXe 矩阵**（iPhone 17 Pro / iOS 26.4，`axe describe-ui`，预览宿主直达条目。「改动前」= 在 `d9ee148` 上构建、
+放入同一份 `ComponentData.swift` 的预览宿主）：
+
+| 情形 | 条目 | 改动前 | 改动后 |
+|---|---|---|---|
+| 五个控件都不在 FormField 内、没有校验态 | `form-field-controls-plain` | PinCode 各格 label `Verification code`、无 hint；TagInput 输入框 label `Add tag`；SearchField label 为空；CheckBox `I accept…`；Radio `Basic` / `Pro`；全部无 hint | **逐项完全相同**（11 个节点的 label / value / hint 都一致） |
+| 五个控件在 FormField 内且 invalid | `form-field-controls-invalid` | — | PinCode 每格：label `Verification code, required`，hint `The code has expired., Sent to your phone.`；TagInput 输入框：`Labels` / `Add at most 3 labels., Press Return or comma to add.`；SearchField：`Filter` / `No results match this filter.`；CheckBox 保留自身 label，hint 为错误原因（只出现一次）；Radio 每个选项保留标题，hint 为错误原因 + description |
+| TagInput 删除按钮 | `form-field-controls-invalid` | — | 两个 `Remove tag` 按钮 hint 均为 `None` |
+| 调用方自带 `.accessibilityLabel(...)` | `form-field-controls-edge` | `Caller search label` / `Caller toggle label`，无 hint | label **不被覆盖**（仍是 `Caller search label` / `Caller toggle label`），另挂上 hint `Filter is invalid.` / `Terms are required.` |
+| 嵌套 FormField，内层自带 `.fieldValidation` | `form-field-controls-edge` | PinCode 各格 `Verification code`，无 hint | 取最近一层：label `Inner`，hint `Inner is wrong., Inner description.`（没有 Outer 的任何文本） |
