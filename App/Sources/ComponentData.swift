@@ -453,6 +453,10 @@ private struct BannerPreview: View {
             Banner(level: .warning) { Text("Warning message") }
             Banner(level: .danger) { Text("Danger message") }
             Banner(level: .neutral) { Text("Neutral message") }
+            Banner(level: .info) { Text("Info bordered") }
+                .bannerStyle(BorderedBannerStyle())
+            Banner(level: .neutral) { Text("Neutral bordered") }
+                .bannerStyle(BorderedBannerStyle())
         }
     }
 }

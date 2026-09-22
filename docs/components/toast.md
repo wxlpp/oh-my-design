@@ -82,7 +82,7 @@ struct DetailView: View {
 - 字号：`CoreTypography.bodyMediumFont`
 - 内边距：`CoreSpacing.md`
 - Icon / 前景色：按 `StatusLevel` 走 status color token（`statusAccentForeground` / `statusSuccessForeground` / `statusAttentionForeground` / `statusDangerForeground`）；
-  `neutral` 前景取 `contentPrimary`、图标 `text.bubble`
+  `neutral` 图标 `bell`、图标色 `contentSecondary`（正文各档统一为 `contentPrimary`）
 - 入场/出场动画：从 `edge` 方向滑入 + 淡入（⚠️ `.centeredHUD` 例外：改用不依赖方向的
   缩放 + 淡入淡出）
 - 滑动手势：向 edge 方向滑动超过 `CoreSpacing.xxl`（32pt）触发 dismiss

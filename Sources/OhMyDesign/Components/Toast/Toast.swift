@@ -289,7 +289,7 @@ struct ToastView: View {
     var body: some View {
         HStack(spacing: CoreSpacing.sm) {
             self.icon
-                .foregroundStyle(self.foregroundColor)
+                .foregroundStyle(self.iconColor)
                 .accessibilityHidden(true)
             Text(self.item.message)
                 .coreFont(.callout)
@@ -327,8 +327,8 @@ struct ToastView: View {
         Self.icon(for: self.item.level)
     }
 
-    private var foregroundColor: Color {
-        Self.foregroundColor(for: self.item.level)
+    private var iconColor: Color {
+        Self.iconColor(for: self.item.level)
     }
 
     static func icon(for level: StatusLevel) -> Image {
@@ -337,17 +337,17 @@ struct ToastView: View {
         case .success: Image(systemName: "checkmark.circle")
         case .warning: Image(systemName: "exclamationmark.triangle")
         case .danger: Image(systemName: "exclamationmark.octagon")
-        case .neutral: Image(systemName: "text.bubble")
+        case .neutral: Image(systemName: "bell")
         }
     }
 
-    static func foregroundColor(for level: StatusLevel) -> Color {
+    static func iconColor(for level: StatusLevel) -> Color {
         switch level {
         case .info: .statusAccentForeground
         case .success: .statusSuccessForeground
         case .warning: .statusAttentionForeground
         case .danger: .statusDangerForeground
-        case .neutral: .contentPrimary
+        case .neutral: .contentSecondary
         }
     }
 

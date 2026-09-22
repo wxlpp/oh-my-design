@@ -3,6 +3,7 @@ import SwiftUI
 // MARK: - BannerPalette
 
 struct BannerPalette {
+    let icon: Color
     let foreground: Color
     let background: Color
     let border: Color
@@ -66,22 +67,22 @@ func bannerIcon(for level: StatusLevel) -> Image {
     case .success:
         Image(systemName: "checkmark.circle.fill")
     case .neutral:
-        Image(systemName: "text.bubble.fill")
+        Image(systemName: "bell.fill")
     }
 }
 
 func bannerPalette(for level: StatusLevel) -> BannerPalette {
     switch level {
     case .info:
-        BannerPalette(foreground: .statusAccentForeground, background: .statusAccentSubtle, border: .statusAccentBorder)
+        BannerPalette(icon: .statusAccentForeground, foreground: .statusAccentForeground, background: .statusAccentSubtle, border: .statusAccentBorder)
     case .warning:
-        BannerPalette(foreground: .statusAttentionForeground, background: .statusAttentionSubtle, border: .statusAttentionBorder)
+        BannerPalette(icon: .statusAttentionForeground, foreground: .statusAttentionForeground, background: .statusAttentionSubtle, border: .statusAttentionBorder)
     case .danger:
-        BannerPalette(foreground: .statusDangerForeground, background: .statusDangerSubtle, border: .statusDangerBorder)
+        BannerPalette(icon: .statusDangerForeground, foreground: .statusDangerForeground, background: .statusDangerSubtle, border: .statusDangerBorder)
     case .success:
-        BannerPalette(foreground: .statusSuccessForeground, background: .statusSuccessSubtle, border: .statusSuccessBorder)
+        BannerPalette(icon: .statusSuccessForeground, foreground: .statusSuccessForeground, background: .statusSuccessSubtle, border: .statusSuccessBorder)
     case .neutral:
-        BannerPalette(foreground: .contentPrimary, background: .secondaryFill, border: .borderDefault)
+        BannerPalette(icon: .contentSecondary, foreground: .contentPrimary, background: .tertiaryFill, border: .borderDefault)
     }
 }
 
@@ -90,7 +91,7 @@ private func bannerBody(configuration: BannerStyleConfiguration, bordered: Bool)
     let palette = bannerPalette(for: configuration.level)
     HStack(spacing: CoreSpacing.sm) {
         bannerIcon(for: configuration.level)
-            .foregroundStyle(palette.foreground)
+            .foregroundStyle(palette.icon)
             .accessibilityHidden(true)
         configuration.label
     }

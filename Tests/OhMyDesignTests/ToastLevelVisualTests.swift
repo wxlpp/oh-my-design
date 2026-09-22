@@ -5,10 +5,10 @@ import Testing
 @Suite("Toast level visuals")
 @MainActor
 struct ToastLevelVisualTests {
-    @Test("neutral 前景取 contentPrimary，不取资源色")
-    func neutralForegroundUsesContentToken() {
-        let color = ToastView.foregroundColor(for: .neutral)
-        #expect(color == Color.contentPrimary)
+    @Test("neutral 图标色取 contentSecondary，不取资源色")
+    func neutralIconColorUsesContentToken() {
+        let color = ToastView.iconColor(for: .neutral)
+        #expect(color == Color.contentSecondary)
         #expect(assetName(of: color) == nil)
         for scheme in [ColorScheme.light, .dark] {
             var env = EnvironmentValues()

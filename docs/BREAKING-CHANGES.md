@@ -28,8 +28,8 @@
 
 - 迁移：在该 `switch` 里补一个 `case .neutral:` 分支（推荐，按中性语义给出取值）；或加 `default:`。
 - 只构造 / 比较 `StatusLevel` 值、或把它传给 `Banner` / `ToastHost.show` / `TimelineItem` 的调用点**不受影响**。
-- 本库内的三处消费者已同步：`Banner`（`contentPrimary` / `secondaryFill` / `borderDefault`，
-  图标 `text.bubble.fill`）、`Toast`（前景 `contentPrimary`，图标 `text.bubble`）、`Timeline`
+- 本库内的三处消费者已同步，neutral 一律「图标 / 节点 `contentSecondary`、正文 `contentPrimary`」：
+  `Banner`（背景 `tertiaryFill`、描边 `borderDefault`，图标 `bell.fill`）、`Toast`（图标 `bell`）、`Timeline`
   （圆点 `contentSecondary`，VoiceOver 文案键 `"Neutral"`，已登记进 `en.lproj/Localizable.strings`）。
 
 ## 未发布（相对 `v0.10.0`）——移除 `Sidebar` 与 `BottomInputBar` 组件

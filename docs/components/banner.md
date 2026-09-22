@@ -32,6 +32,6 @@ Banner(level: .warning) {
 - 布局：横向 HStack，`CoreSpacing.sm` icon-to-label 间距，`CoreSpacing.md` 内边距
 - 字号：`CoreTypography.bodyMediumFont`
 - 颜色：按 `StatusLevel` 走 status color token（`statusAccentForeground` / `statusAccentSubtle` / `statusAccentBorder` 等）；
-  `neutral` 不取状态色，取 `contentPrimary`（前景）/ `secondaryFill`（背景）/ `borderDefault`（描边）
-- 图标：`info.circle.fill` / `exclamationmark.triangle.fill` / `exclamationmark.circle.fill` / `checkmark.circle.fill` / `text.bubble.fill`（neutral）
+  `neutral` 不取状态色：图标 `contentSecondary`、正文 `contentPrimary`、背景 `tertiaryFill`、描边 `borderDefault`
+- 图标：`info.circle.fill` / `exclamationmark.triangle.fill` / `exclamationmark.circle.fill` / `checkmark.circle.fill` / `bell.fill`（neutral）
 - 描边（BorderedBannerStyle）：`CoreBorderWidth.thin`
