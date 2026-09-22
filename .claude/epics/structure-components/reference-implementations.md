@@ -793,7 +793,8 @@ features: [syncDataLoaderFeature, hotkeysCoreFeature],
 
 （文档页 WebFetch 摘要只列出 4 个"演示变体"：Basic / With line / With Icon / With Plus and Minus Icons——与 registry 里 7 个 block 标题对不齐，可能是页面只挑了代表性的几个做视觉演示，registry 里还有 org chart / permissions 两个未在页面正文单独强调的变体。两者并存记录，不强行统一。）
 
-**没有找到官方的"拖拽重排"或"多选"完整示例**——`TreeDragLine` 组件存在，`tree.getDragLineStyle()` 接口存在，但 7 个 registry 示例里没有一个引入拖拽 feature（`dragAndDropFeature` 之类）或渲染 `<TreeDragLine />`，也没有一个示例展示多选（`Ctrl+Space`/`Shift+方向键`）的视觉反馈。列入下方"取不到的部分"。
+**没有找到官方的"拖拽重排"或"多选"完整示例**——`TreeDragLine` 组件存在，`tree.getDragLineStyle()` 接口存在，但 7 个 registry 示例里没有一个引入拖拽 feature（`dragAndDropFeature` 之类）或渲染 `<TreeDragLine />`，至于**行多选**（`Ctrl+Space` / `Shift+方向键`）——⚠️ **本报告证不了它不存在**：行多选由 `hotkeysCoreFeature` 自带、**不需要额外的 feature import**，所以「查 import 未见」对拖拽是有效证据、对行多选不是。按未核实处理。
+⚠️ 另外**不要把这条读成「没有任何多选视觉反馈」**：权限树示例（`c-tree-7`，下方 2.6 存有完整源码）就是多个叶子**复选框**的受控勾选形态，且勾选与展开/选中是两套独立的点击目标。列入下方"取不到的部分"。
 
 ### 2.6 两个代表性示例的完整源码
 
@@ -1232,7 +1233,7 @@ SlideButton("Slide to Unlock") { await unlockDevice() }
 
 2. **reui Tree 组件内部对 ARIA 的处理（`role="tree"`/`role="treeitem"`/`aria-selected` 等）**：本次抓到的 `tree.tsx` 源码里**没有**看到这些属性被显式设置，但 `item.getProps()` / `tree.getContainerProps()` 会把 headless-tree 内部生成的 props 展开合并进去——**这部分内部逻辑在 `@headless-tree/core` 包内部，不在 reui 的 registry 源码范围内，本次未追进 headless-tree 的包源码去确认**。如果需要精确核实，需要另外拉取 `@headless-tree/core` 的 npm 包源码或它自己的 GitHub 仓库。
 
-3. **reui Tree 的拖拽重排（drag-and-drop）与多选完整示例**：`TreeDragLine` 组件与 `tree.getDragLineStyle()` 接口在基础组件源码里存在，但抓到的全部 7 个官方 registry 示例（`c-tree-1` 到 `c-tree-7`）**没有一个**引入 headless-tree 的拖拽 feature 或渲染 `<TreeDragLine />`，也没有一个展示多选交互的视觉反馈。尝试过的 URL：`https://reui.io/r/c-tree-{1..7}.json`（全部 200，已逐个查看标题与 import 语句，确认均未涉及拖拽/多选）。如果 reui 有专门的拖拽示例，本次没能定位到它的 slug。
+3. **reui Tree 的拖拽重排（drag-and-drop）与多选完整示例**：`TreeDragLine` 组件与 `tree.getDragLineStyle()` 接口在基础组件源码里存在，但抓到的全部 7 个官方 registry 示例（`c-tree-1` 到 `c-tree-7`）**没有一个**引入 headless-tree 的拖拽 feature 或渲染 `<TreeDragLine />`，尝试过的 URL：`https://reui.io/r/c-tree-{1..7}.json`（全部 200，已逐个查看标题与 import 语句）。⚠️ **证据强度分两档**：拖拽需要 `dragAndDropFeature` 这类 import，「7 份 import 里都没有」是**有效**证据；而**行多选**由 `hotkeysCoreFeature` 自带、不需要额外 import，所以本报告**无法**证明没有行多选示例——只保存了 7 份中 2 份的完整源码。这一半按未核实处理。（复选框勾选形态是**有**的，见 `c-tree-7`。）如果 reui 有专门的拖拽示例，本次没能定位到它的 slug。
 
 4. **reui Tree 文档页的"演示变体"列表与 registry 标题对不上**：WebFetch 摘要页面正文只提到 4 种演示（Basic / With line / With Icon / With Plus-Minus Icons），但 registry 有 7 个 block（另外 3 个是"custom indent"×2、"organization chart with avatars"、"permissions with checkboxes"）。可能是页面正文只展示了部分，或页面结构导致 WebFetch 没抓全；两份清单都已如实列在报告里，未强行合并或猜测哪份更权威。
 

@@ -113,10 +113,17 @@ updated: 2026-09-22T22:10:00Z
   把 `StatusLevel` 播报出去，**这个能力必须保留**——装饰元素不进无障碍树，但状态要播报在行上；
   新增的阶段维度同样要可被辅助技术读到。
 
-**FR-1 的迁移面（必须逐条处置，漏一条 CI 就红）**
+**FR-1 的迁移面（必须逐条处置）**
 
-- `App/Sources/ComponentData.swift` 3 个调用点、`App/Sources/Previews.swift` 4 个调用点
+⚠️ 不是每一条漏掉都会让 CI 判红：`QuotedEvidenceGuard` 与 downstream-probe 会红，
+但活文档措辞失真、登记表 `notes` 过时这类**没有机器判据**（`CLAUDE.md`「更正传播」一节明说
+两族 `notes` 的守卫都只看长度、不校验真伪）⇒ 那几条要靠人工复核。
+
+- `App/Sources/ComponentData.swift` **4 个**调用点、`App/Sources/Previews.swift` **5 个**调用点
   （含 `PreviewSnapshotFixtures.timelineItems` 这个共享 fixture）。
+  ⚠️ 上一版写的是 3 / 4，**少算了各一处**：口径用的 `grep "Timeline(items:"` 只匹配单行写法，
+  漏掉了 `Timeline(` 换行后再写参数的两处（`ComponentData.swift` 与 `Previews.swift` 各一）。
+  ⇒ **数调用点用 `grep "Timeline("` 并排除 `TimelineView`**，别按参数名匹配。
 - `scripts/downstream-probe`（独立 SwiftPM 包，只有 CI 的 downstream-probe job 覆盖它）。
 - **`Tests/OhMyDesignTests/QuotedEvidenceGuard.swift` 登记了 5 条指向 Timeline 源码的原文**
   （`@ViewBuilder node: () -> Node,` ×2、`private var nodeContent: some View` ×2、
@@ -142,8 +149,13 @@ Timeline 不吸收 Steps 的向导行为，Steps 不因本 epic 改动。两者�
 被排除的只是 `OutlineGroup(_:children:content:)` 这条路径——官方文档明写
 「All generated disclosure groups begin in the collapsed state」，且它不暴露展开态
 ⇒「默认展开到第 N 层」「程序化展开某节点」「持久化展开态」三件事做不到。
-**但这不等于必须放弃全部原生控件**：递归的 `DisclosureGroup(isExpanded:)` 同时具备受控展开与原生
-展开动画 / chevron，且本仓已有 `CoreDisclosureGroupStyle` 可复用其外观。
+**但这不等于必须放弃全部原生控件**：递归的 `DisclosureGroup(isExpanded:)` 具备受控展开，
+且**不限制嵌套**（`CoreDisclosureGroupStyle` 只重排 label / content，「展开状态仍由系统驱动」）。
+⚠️ **但换皮的代价要写准**（本轮定向复审指出上一版说过头了）：`CoreDisclosureGroupStyle` 自己画
+`DisclosureChevron` 并自己 `withAnimation(.snappy)` ⇒ **chevron 与展开动画都不是系统原生的**；
+`docs/components/core-control-styles.md` 还明确登记了一项已知代价：
+「换皮后系统不再自动为这个自绘 `Button` 播报展开态」。
+⇒ 走这条路能免费拿到的是**系统的展开态接口与嵌套能力**，不是原生外观与原生无障碍播报。
 ⇒ **实现路径由 FR-2a 的 spike 比较后定案**，候选三条：① 递归 `DisclosureGroup(isExpanded:)`（首选评估）；
 ② `List(selection:)` 承载受控层级；③ 完全自定义。
 **不得预先宣称「选择与键盘导航全部要重做」**——哪些原生行为能保留由 spike 给证据。
@@ -168,19 +180,20 @@ Timeline 不吸收 Steps 的向导行为，Steps 不因本 epic 改动。两者�
   **右** = 折叠时展开、已展开时移到首个子节点；Home / End 跳首末。
 - **搜索过滤与命中高亮**：按关键词过滤，自动展开到命中节点并高亮匹配片段。
 
-**FR-2 的行为真值表（必须在任务级 spec 里落定，否则不同 agent 会做出不同产品）**
+**FR-2 的行为真值表（本 PRD 定案，不留给实现期自选）**
 
-首轮评审指出这几项不是互相独立的功能，现在至少允许两种都能「满足 PRD」的实现。须明确：
+首轮评审指出这几项不是互相独立的功能，只写「spec 须给出」仍允许两种都能「满足 PRD」的实现
+⇒ 在此逐行定案。每一行都要有判据；**实现期若认为某行定错了，回来改 PRD，不要就地另做一套**。
 
-| 待定行为 | 必须给出的答案 |
-|---|---|
-| 行选中与复选框 | 共享同一个选择集合，还是两套独立状态 |
-| 点击 mixed 父节点 | 结果是全选还是全不选；是否级联到全部后代 |
-| 父节点自身 | 是否进入选择集合，还是只由后代推导 |
-| 搜索期间的展开 | 是否写进调用方那个持久化的 `Set<ID>`，还是只临时展开 |
-| 清空搜索 | 是否恢复搜索前的展开态 |
-| 过滤后「全选」 | 范围是可见节点还是全树 |
-| 焦点节点被过滤隐藏 | 焦点去哪 |
+| 行为 | 定案 | 依据 |
+|---|---|---|
+| 行选中与复选框 | **两套独立状态** | 「当前高亮哪一行」是导航语义、「勾了哪些」是数据语义；reui 权限树示例也明说两者是独立点击目标 |
+| 点击 mixed 父节点 | **全选**（级联到全部后代）；再点一次**全不选** | 与 Finder / Xcode 的多选层级一致；系统 `Toggle(sources:)` 的 `isOn.toggle()` 语义也是这样 |
+| 父节点自身 | **只由后代推导，不单独进选择集合** | 叶子才承载数据；父节点本身也是可选数据时，调用方把它建成叶子 |
+| 搜索期间的展开 | **不写进调用方的持久化 `Set<ID>`**，只临时展开 | 否则搜一次就永久改了用户的展开偏好 |
+| 清空搜索 | **恢复搜索前的展开态** | 与上一行是同一个决定的两面 |
+| 过滤后「全选」 | **范围是可见节点** | 「全选」作用在用户看得见的集合上；作用到全树会静默勾上看不见的项 |
+| 焦点节点被过滤隐藏 | 移到**最近的仍可见祖先**；无祖先则移到首个可见节点 | 焦点不能落到不可见节点上，也不应直接丢失 |
 
 **FR-2a 实现路径与键盘先验实测（spike，结论写进 plan 与 docs）**
 
@@ -282,7 +295,10 @@ RM 下手势本身不受影响（手势驱动），但**回弹与触发后的转
   （若活文档引了新组件的源码原文）。
   ⚠️ 其中有**精确计数**的断言，加组件时要**逐项裁决是否进入该定义域**，不要按新增数量直接加：
   `ComponentExtensionPointGuard` 当前写 `#expect(result.inspected.count == 16, ...)` 并逐项列出 16 个组件名。
-  （⚠️ `CLAUDE.md` 原写「实测 17」，本轮已更正为 16——那个数是失真的。）
+  （⚠️ 这个数刚漂过一次：`#312` 落地时确为 17，`39fecab` 移除 `Sidebar` / `BottomInputBar` 后降到 16，
+  而 `CLAUDE.md` / `AGENTS.md` 的注记停在 17 没跟上，本轮已同步。
+  **17 在当时是对的，失真的是那条注记**——`docs/components/orbiting-logos.md` 里的「J-2 定义域 17 条」
+  是 `#312` 的历史记账，正确、不要改成 16。）
 - 动效难以用静态位图证明：承重判据用「动画值 / transition 配置的单元判据」+「在飞帧采样」，
   且**承重量取互异中间位置的个数这类结构量，不取具体读数**（读数随机器负载变化、不可复现）。
   只能人工看的部分在报告里写明。
@@ -316,7 +332,10 @@ RM 下手势本身不受影响（手势驱动），但**回弹与触发后的转
 ## Out of Scope
 
 - **Tree 的拖拽重排**与**懒加载子节点**（用户未勾选）。`TreeDragLine` 那类插入指示线不做。
-  ⚠️ reui 自己的 7 个示例里也**没有**一个展示拖拽或多选的视觉反馈（已核实），无可对照的现成形态。
+  ⚠️ 射程写准（上一版说过头了）：取证材料里**没有**找到拖拽重排、也没有找到 headless-tree
+  那套**行多选**（`Shift+方向键` / 全选）的完整示例；但**复选框勾选形态是有的**
+  ——权限树示例（`c-tree-7`）就是多个叶子复选框的受控勾选，且材料里明说「勾选与展开/选中是两套独立的点击目标」。
+  ⚠️ 「7 个示例都没有行多选」这一条**未独立证实**（材料只存了其中两份完整源码），按未核实处理。
 - Tree 的 `F2` 重命名与 type-ahead——属 FR-2a 的可降级项，除实测证明成本很低否则不做。
 - `SlideToConfirm` 的速度补偿确认（显式不采，理由见 FR-4）。
 - `Steps` 组件的任何改动（边界见 FR-1）；`AsyncButton` 的重构或废弃。

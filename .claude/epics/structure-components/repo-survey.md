@@ -560,7 +560,10 @@ public init(
 
 全仓 grep `OutlineGroup`：仅命中 `docs/components/core-control-styles.md`（**Sources 下零命中**，未逐字确认该文档提到 OutlineGroup 的上下文）。全仓 grep "recursive/递归"：无 Sources 命中。
 
-**结论：Tree 组件会是本仓第一个处理层级数据的组件，没有可复用的既有模式**，`InsetGroupedSection` 和 `DisclosureGroup` 的 `.core` style 都只覆盖单层。
+**结论：Tree 组件会是本仓第一个处理层级数据的组件，没有可复用的既有模式。**
+
+⚠️ **本行原写「`InsetGroupedSection` 和 `DisclosureGroup` 的 `.core` style 都只覆盖单层」，对后者为假**（PRD 首轮评审指出）：`CoreDisclosureGroupStyle` 只重排 `configuration.label` / `configuration.content`、「展开状态仍由系统驱动」，**不限制嵌套**。准确的缺口是「没有任何组件**接受层级数据结构**」——用 `DisclosureGroup` 表达树时，递归、缩进、展开态管理、选择、键盘全要调用方手写。
+⚠️ 换皮的代价另记：该 style 自绘 `DisclosureChevron` 并自行 `withAnimation(.snappy)`，chevron 与展开动画都不是系统原生的；`docs/components/core-control-styles.md` 已登记「换皮后系统不再自动为这个自绘 `Button` 播报展开态」。
 
 ---
 
