@@ -466,8 +466,17 @@ private struct BadgePreview: View {
 }
 
 private struct TagPreview: View {
+    @State private var removedCount = 0
+
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            HStack(spacing: CoreSpacing.md) {
+                Tag("removable", color: .blue, removable: true, onRemove: { self.removedCount += 1 })
+                Text(verbatim: "Removed: \(self.removedCount)")
+                    .coreFont(.caption)
+                    .foregroundStyle(Color.contentSecondary)
+                    .accessibilityIdentifier("tag-removed-count")
+            }
             HStack(spacing: CoreSpacing.sm) {
                 Tag("bug", color: .red)
                 Tag("enhancement", color: .blue)

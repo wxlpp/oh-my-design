@@ -30,35 +30,41 @@ public struct Tag<Label: View>: View {
     @Environment(\.controlSize) private var controlSize
 
     public var body: some View {
-        HStack(spacing: CoreSpacing.xs) {
-            self.label
-                .coreFont(CoreControlMetrics.compactFontToken(for: self.controlSize))
-                .foregroundStyle(self.color)
-
-            if self.removable {
-                Button {
-                    self.onRemove?()
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: CoreControlMetrics.compactIconSize(for: self.controlSize)))
-                        .foregroundStyle(self.color)
+        let iconSize = CoreControlMetrics.compactIconSize(for: self.controlSize)
+        return self.label
+            .coreFont(CoreControlMetrics.compactFontToken(for: self.controlSize))
+            .foregroundStyle(self.color)
+            .padding(.trailing, self.removable ? CoreSpacing.xs + iconSize : 0)
+            .overlay(alignment: .trailing) {
+                if self.removable {
+                    self.removeButton(iconSize: iconSize)
                 }
-                .buttonStyle(.plain)
-                .disabled(self.onRemove == nil)
+            }
+            .padding(.horizontal, CoreControlMetrics.compactHorizontalPadding(for: self.controlSize))
+            .padding(.vertical, CoreControlMetrics.compactVerticalPadding(for: self.controlSize))
+            .frame(minHeight: CoreControlMetrics.compactMinHeight(for: self.controlSize))
+            .background(
+                CoreShape.rounded(CoreControlMetrics.compactCornerRadius(for: self.controlSize))
+                    .fill(self.color.opacity(Self.backgroundOpacity))
+            )
+    }
+
+    private func removeButton(iconSize: CGFloat) -> some View {
+        Button {
+            self.onRemove?()
+        } label: {
+            Image(systemName: "xmark.circle.fill")
+                .resizable()
+                .scaledToFit()
+                .frame(width: iconSize, height: iconSize)
+                .foregroundStyle(self.color)
                 .padding(Self.removeHitInset)
                 .contentShape(Rectangle())
-                .padding(-Self.removeHitInset)
-                .frame(height: 0)
-                .accessibilityLabel(Text("Remove tag", bundle: .module))
-            }
         }
-        .padding(.horizontal, CoreControlMetrics.compactHorizontalPadding(for: self.controlSize))
-        .padding(.vertical, CoreControlMetrics.compactVerticalPadding(for: self.controlSize))
-        .frame(minHeight: CoreControlMetrics.compactMinHeight(for: self.controlSize))
-        .background(
-            CoreShape.rounded(CoreControlMetrics.compactCornerRadius(for: self.controlSize))
-                .fill(self.color.opacity(Self.backgroundOpacity))
-        )
+        .buttonStyle(.plain)
+        .disabled(self.onRemove == nil)
+        .accessibilityLabel(Text("Remove tag", bundle: .module))
+        .padding(.trailing, -Self.removeHitInset)
     }
 
     // MARK: - Tokens

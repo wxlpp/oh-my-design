@@ -91,24 +91,102 @@ struct SizeSystemTests {
         }
     }
 
-    @Test(".regular 档 Badge / Tag 与接入尺寸体系前的写法渲染尺寸一致")
-    func regularChipsMatchPreviousRecipe() throws {
-        let badge = try self.renderedSize(Badge("Beta", variant: .info).controlSize(.regular))
-        let oldBadge = try self.renderedSize(
-            Text("Beta").coreFont(.footnote)
-                .padding(.horizontal, CoreSpacing.sm)
-                .padding(.vertical, CoreSpacing.xs)
-                .background(Capsule(style: .continuous).fill(Color.contentPrimary))
+    private func pixels(of image: CGImage) -> [UInt8] {
+        let width = image.width
+        let height = image.height
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        bytes.withUnsafeMutableBytes { buffer in
+            let context = CGContext(
+                data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
+                bytesPerRow: width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )
+            context?.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        }
+        return bytes
+    }
+
+    private func expectPixelIdentical(_ current: some View, _ legacy: some View, _ label: String) throws {
+        for scheme in [ColorScheme.light, .dark] {
+            let now = try self.render(current.controlSize(.regular).environment(\.colorScheme, scheme))
+            let old = try self.render(legacy.environment(\.colorScheme, scheme))
+            #expect(CGSize(width: now.width, height: now.height) == CGSize(width: old.width, height: old.height),
+                    "\(label) \(scheme)：尺寸与旧实现不同")
+            guard now.width == old.width, now.height == old.height else { continue }
+            expectBitmapsEqual(self.pixels(of: now), self.pixels(of: old), "\(label) \(scheme)：像素与旧实现不同")
+        }
+    }
+
+    private static let badgeVariants: [BadgeVariant] = [.info, .success, .warning, .danger, .neutral]
+
+    @Test("可删除 Tag 五档：关闭钮不压住文字——label 区域与普通 Tag 逐像素一致")
+    func removeButtonDoesNotOverlapLabel() throws {
+        for controlSize in Self.ladder {
+            let removable = try self.render(Tag("bug", color: .red, removable: true, onRemove: {}).controlSize(controlSize))
+            let plain = try self.render(Tag("bug", color: .red).controlSize(controlSize))
+            #expect(removable.height == plain.height, "\(controlSize)：高度不同")
+            guard removable.height == plain.height else { continue }
+            let untouched = plain.width
+                - Int(CoreControlMetrics.compactHorizontalPadding(for: controlSize))
+                - Int(CoreControlMetrics.compactCornerRadius(for: controlSize).rounded(.up))
+            let removablePixels = self.pixels(of: removable)
+            let plainPixels = self.pixels(of: plain)
+            var differing = 0
+            for y in 0..<plain.height {
+                for x in 0..<untouched {
+                    for channel in 0..<4 where
+                        removablePixels[(y * removable.width + x) * 4 + channel]
+                        != plainPixels[(y * plain.width + x) * 4 + channel] {
+                        differing += 1
+                    }
+                }
+            }
+            #expect(differing == 0, "\(controlSize)：label 区域（前 \(untouched) 列）有 \(differing) 个通道值被关闭钮改写")
+        }
+    }
+
+    @Test(".regular 档 Badge 与接入尺寸体系前的实现（9a99845 原样拷贝）渲染尺寸一致（两条腿都跑）")
+    func regularBadgeMatchesLegacySize() throws {
+        for variant in Self.badgeVariants {
+            for outlined in [false, true] {
+                let now = try self.renderedSize(Badge("Beta", variant: variant, outlined: outlined).controlSize(.regular))
+                let old = try self.renderedSize(LegacyBadge("Beta", variant: variant, outlined: outlined))
+                #expect(now == old, "\(variant) outlined=\(outlined)：\(now) ≠ \(old)")
+            }
+        }
+    }
+
+    @Test(
+        ".regular 档 Badge 与旧实现逐像素一致（light / dark × 5 variant × 描边有无）",
+        .enabled(
+            if: assetCatalogIsCompiled,
+            """
+            跳过：bundle 里没有 Assets.car（SwiftPM native 腿），Badge 的 status 底色 / 描边取自 asset catalog，\
+            在这条腿上解析为全透明，像素比对判不到颜色。本条在 iOS Simulator 腿 / swiftbuild 腿上跑；\
+            native 腿由 regularBadgeMatchesLegacySize 兜尺寸。
+            """
         )
-        #expect(badge == oldBadge)
-        let tag = try self.renderedSize(Tag("bug", color: .red).controlSize(.regular))
-        let oldTag = try self.renderedSize(
-            HStack(spacing: CoreSpacing.xs) { Text("bug").coreFont(.footnote) }
-                .padding(.horizontal, CoreSpacing.sm)
-                .padding(.vertical, CoreSpacing.xs)
-                .background(CoreShape.rounded(CoreRadius.small).fill(Color.red))
+    )
+    func regularBadgeMatchesLegacyPixels() throws {
+        for variant in Self.badgeVariants {
+            for outlined in [false, true] {
+                try self.expectPixelIdentical(
+                    Badge("Beta", variant: variant, outlined: outlined),
+                    LegacyBadge("Beta", variant: variant, outlined: outlined),
+                    "Badge \(variant) outlined=\(outlined)"
+                )
+            }
+        }
+    }
+
+    @Test(".regular 档普通 Tag 与旧实现（9a99845 原样拷贝）逐像素一致（Tag 只用调用方系统色，两条腿都跑）")
+    func regularTagMatchesLegacyPixels() throws {
+        try self.expectPixelIdentical(Tag("bug", color: .red), LegacyTag("bug", color: .red), "Tag Text")
+        try self.expectPixelIdentical(
+            Tag(color: .green) { SwiftUI.Label("verified", systemImage: "checkmark.seal.fill") },
+            LegacyTag(color: .green) { SwiftUI.Label("verified", systemImage: "checkmark.seal.fill") },
+            "Tag Label"
         )
-        #expect(tag == oldTag)
     }
 
     // MARK: - Avatar
@@ -262,5 +340,138 @@ struct CoreControlMetricsCompactTests {
         let large = CoreControlMetrics.avatarInitialFontSize(forDiameter: 48)
         #expect(small > 0 && small < 24)
         #expect(large == small * 2)
+    }
+}
+
+// MARK: - 接入尺寸体系前的 Badge / Tag（取自 9a99845，仅改类型名与访问级别，作 .regular 档外观基准）
+
+private struct LegacyBadge<Label: View>: View {
+    init(
+        variant: BadgeVariant = .neutral,
+        outlined: Bool = false,
+        @ViewBuilder label: () -> Label
+    ) {
+        self.variant = variant
+        self.outlined = outlined
+        self.label = label()
+    }
+
+    var body: some View {
+        let shape = Capsule(style: .continuous)
+        return self.label
+            .coreFont(.footnote)
+            .padding(.horizontal, CoreSpacing.sm)
+            .padding(.vertical, CoreSpacing.xs)
+            .background {
+                shape.fill(Self.backgroundColor(for: self.variant))
+            }
+            .overlay {
+                if self.outlined {
+                    shape.strokeBorder(Self.borderColor(for: self.variant), lineWidth: CoreBorderWidth.thin)
+                }
+            }
+            .accessibilityElement(children: .combine)
+            .clipShape(shape)
+    }
+
+    let variant: BadgeVariant
+    let outlined: Bool
+    let label: Label
+}
+
+private extension LegacyBadge where Label == Text {
+    init(_ text: String, variant: BadgeVariant = .neutral, outlined: Bool = false) {
+        self.init(variant: variant, outlined: outlined) {
+            Text(text)
+        }
+    }
+}
+
+private extension LegacyBadge {
+    static func backgroundColor(for variant: BadgeVariant) -> Color {
+        switch variant {
+        case .info: .statusAccentSubtle
+        case .success: .statusSuccessSubtle
+        case .warning: .statusAttentionSubtle
+        case .danger: .statusDangerSubtle
+        case .neutral: .secondaryFill
+        }
+    }
+
+    static func borderColor(for variant: BadgeVariant) -> Color {
+        switch variant {
+        case .info: .statusAccentBorder
+        case .success: .statusSuccessBorder
+        case .warning: .statusAttentionBorder
+        case .danger: .statusDangerBorder
+        case .neutral: .borderMuted
+        }
+    }
+}
+
+private struct LegacyTag<Label: View>: View {
+    init(
+        color: Color,
+        removable: Bool = false,
+        onRemove: (() -> Void)? = nil,
+        @ViewBuilder label: () -> Label
+    ) {
+        self.color = color
+        self.removable = removable
+        self.onRemove = onRemove
+        self.label = label()
+    }
+
+    var body: some View {
+        HStack(spacing: CoreSpacing.xs) {
+            self.label
+                .coreFont(.footnote)
+                .foregroundStyle(self.color)
+
+            if self.removable {
+                Button {
+                    self.onRemove?()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: Self.removeIconSize))
+                        .foregroundStyle(self.color)
+                }
+                .buttonStyle(.plain)
+                .disabled(self.onRemove == nil)
+                .padding(CoreSpacing.xxs)
+                .padding(CoreSpacing.md)
+                .contentShape(Rectangle())
+                .padding(-CoreSpacing.md)
+                .accessibilityLabel(Text("Remove tag", bundle: .module))
+            }
+        }
+        .padding(.horizontal, CoreSpacing.sm)
+        .padding(.vertical, CoreSpacing.xs)
+        .background(
+            CoreShape.rounded(CoreRadius.small)
+                .fill(self.color.opacity(Self.backgroundOpacity))
+        )
+    }
+
+    private static var backgroundOpacity: Double { 0.12 }
+
+    private static var removeIconSize: CGFloat { CoreControlMetrics.iconSize(for: .small) }
+
+    private let color: Color
+    private let removable: Bool
+    private let onRemove: (() -> Void)?
+    private let label: Label
+}
+
+private extension LegacyTag where Label == Text {
+    init(
+        _ text: String,
+        color: Color,
+        removable: Bool = false,
+        onRemove: (() -> Void)? = nil
+    ) {
+        self.init(color: color, removable: removable, onRemove: onRemove) {
+            Text(text)
+        }
     }
 }
