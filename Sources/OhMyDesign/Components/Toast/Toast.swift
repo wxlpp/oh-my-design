@@ -324,20 +324,30 @@ struct ToastView: View {
     // MARK: visuals
 
     private var icon: Image {
-        switch self.item.level {
+        Self.icon(for: self.item.level)
+    }
+
+    private var foregroundColor: Color {
+        Self.foregroundColor(for: self.item.level)
+    }
+
+    static func icon(for level: StatusLevel) -> Image {
+        switch level {
         case .info: Image(systemName: "info.circle")
         case .success: Image(systemName: "checkmark.circle")
         case .warning: Image(systemName: "exclamationmark.triangle")
         case .danger: Image(systemName: "exclamationmark.octagon")
+        case .neutral: Image(systemName: "text.bubble")
         }
     }
 
-    private var foregroundColor: Color {
-        switch self.item.level {
+    static func foregroundColor(for level: StatusLevel) -> Color {
+        switch level {
         case .info: .statusAccentForeground
         case .success: .statusSuccessForeground
         case .warning: .statusAttentionForeground
         case .danger: .statusDangerForeground
+        case .neutral: .contentPrimary
         }
     }
 
@@ -401,6 +411,7 @@ private struct ToastDemoView: View {
         ("Success", .success),
         ("Warning", .warning),
         ("Danger", .danger),
+        ("Neutral", .neutral),
     ]
 
     var body: some View {

@@ -502,7 +502,12 @@
 
 ### `Components/StatusLevel.swift`
 
-- *enum* **`StatusLevel`**: `.info`, `.success`, `.warning`, `.danger` — 状态语义等级，决定组件的图标 + 配色映射。
+- *enum* **`StatusLevel`** — 状态语义等级，决定组件的图标 + 配色映射。
+  - `.info`
+  - `.success`
+  - `.warning`
+  - `.danger`
+  - `.neutral` — 不带状态倾向的中性提示，取内容 / 填充语义色而非状态色。
 
 ### `Components/Steps/Steps.swift`
 
@@ -940,7 +945,7 @@
 | colors | 118 | 118 |
 | components | 84 | 84 |
 | enums | 34 | 34 |
-| enumcases | 126 | 126 |
+| enumcases | 127 | 127 |
 | protocols | 6 | 6 |
 | viewext | 39 | 39 |
 | styleext | 12 | 12 |

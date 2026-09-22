@@ -18,7 +18,7 @@ Scene 级 Toast 通知 / Scene-scoped toast notification.
 | `show(_ item: ToastItem)` | 入队预构造的 ToastItem |
 | `dismiss(_ id: ToastItem.ID)` | 取消指定 toast |
 
-StatusLevel: info / success / warning / danger。
+StatusLevel: info / success / warning / danger / neutral。
 
 ## 预览 / Preview
 
@@ -81,7 +81,8 @@ struct DetailView: View {
 - 容器：`.floatingGlass(in: Capsule(style: .continuous), isInteractive: false)`——iOS 26 液态玻璃浮起外壳，不消费 `.surface(.card)`（Phase 3A 迁移，见 `ToastView`）
 - 字号：`CoreTypography.bodyMediumFont`
 - 内边距：`CoreSpacing.md`
-- Icon / 前景色：按 `StatusLevel` 走 status color token（`statusAccentForeground` / `statusSuccessForeground` / `statusAttentionForeground` / `statusDangerForeground`）
+- Icon / 前景色：按 `StatusLevel` 走 status color token（`statusAccentForeground` / `statusSuccessForeground` / `statusAttentionForeground` / `statusDangerForeground`）；
+  `neutral` 前景取 `contentPrimary`、图标 `text.bubble`
 - 入场/出场动画：从 `edge` 方向滑入 + 淡入（⚠️ `.centeredHUD` 例外：改用不依赖方向的
   缩放 + 淡入淡出）
 - 滑动手势：向 edge 方向滑动超过 `CoreSpacing.xxl`（32pt）触发 dismiss

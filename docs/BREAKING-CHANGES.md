@@ -19,6 +19,19 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.10.0`）——Issue #375：`StatusLevel` 新增 `.neutral`
+
+**源码破坏性变更。** `public enum StatusLevel` 新增 `case neutral`（中性提示，取内容 / 填充语义色，
+不取状态色）。本包以源码形式分发、不开 library evolution，下游对 `StatusLevel` 写的 **exhaustive `switch`**
+（逐个列出 `.info` / `.success` / `.warning` / `.danger`、不带 `default`）会在升级后编译失败：
+`switch must be exhaustive`。
+
+- 迁移：在该 `switch` 里补一个 `case .neutral:` 分支（推荐，按中性语义给出取值）；或加 `default:`。
+- 只构造 / 比较 `StatusLevel` 值、或把它传给 `Banner` / `ToastHost.show` / `TimelineItem` 的调用点**不受影响**。
+- 本库内的三处消费者已同步：`Banner`（`contentPrimary` / `secondaryFill` / `borderDefault`，
+  图标 `text.bubble.fill`）、`Toast`（前景 `contentPrimary`，图标 `text.bubble`）、`Timeline`
+  （圆点 `contentSecondary`，VoiceOver 文案键 `"Neutral"`，已登记进 `en.lproj/Localizable.strings`）。
+
 ## 未发布（相对 `v0.10.0`）——移除 `Sidebar` 与 `BottomInputBar` 组件
 
 **破坏性变更。** 这两个组件不再属于本库，整体删除（不迁到其他 target）；需要它们的调用方请在

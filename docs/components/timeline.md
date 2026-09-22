@@ -3,7 +3,7 @@
 数据驱动的纵向时间线：节点（node）+ 连线（line）+ 节点右侧内容（content）/ Data-driven
 vertical timeline: node + connecting line + trailing content.
 
-节点状态色**直接复用 `StatusLevel`**（`info/success/warning/danger`），不新增公开状态语义
+节点状态色**直接复用 `StatusLevel`**（`info/success/warning/danger/neutral`），不新增公开状态语义
 枚举；连线颜色复用 `Color.dividerDefault`。承接
 `.claude/epics/semi-mobile-components/phase0-decisions.md` §1 的架构决定。
 
@@ -120,7 +120,8 @@ Timeline(items: items, layout: .grouped)
 - 节点方框：`24×24pt`，默认圆点直径 `10pt`
 - 默认圆点颜色：`StatusColors` emphasis 档，按 `StatusLevel` 映射——
   `info → statusAccentEmphasis` / `success → statusSuccessEmphasis` /
-  `warning → statusAttentionEmphasis` / `danger → statusDangerEmphasis`
+  `warning → statusAttentionEmphasis` / `danger → statusDangerEmphasis`；
+  `neutral` 不取状态色，取 `contentSecondary`
 - 连线：`Color.dividerDefault`（= 系统 `separator` 色），`CoreBorderWidth.thin`（1pt）宽度——
   竖向长连线用 1pt 比 separator hairline（0.5pt）观感更实，是对 phase0「连线对齐 separator」
   决策的有意偏离（与 Steps 横向连线同源，指示性连线需强于分隔线；phase0/013 统一记录）
@@ -130,7 +131,7 @@ Timeline(items: items, layout: .grouped)
 
 - 默认圆点节点携带 `accessibilityLabel`，取 Phase 0 预登记键
   （`.claude/epics/semi-mobile-components/phase0-decisions.md` §2）：
-  `StatusLevel.info/success/warning/danger` → `"Info"/"Success"/"Warning"/"Error"`
+  `StatusLevel.info/success/warning/danger/neutral` → `"Info"/"Success"/"Warning"/"Error"/"Neutral"`
   （`danger` 播报为 "Error"，比 "Danger" 对 VoiceOver 更清晰），经
   `Timeline.accessibilityLabelKey(for:)` 取键、`Text(LocalizedStringKey(...), bundle:
   .module)` 消费。

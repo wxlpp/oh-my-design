@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - BannerPalette
 
-private struct BannerPalette {
+struct BannerPalette {
     let foreground: Color
     let background: Color
     let border: Color
@@ -55,7 +55,7 @@ public struct BannerStyleConfiguration {
 
 // MARK: - Banner shared helpers
 
-private func bannerIcon(for level: StatusLevel) -> Image {
+func bannerIcon(for level: StatusLevel) -> Image {
     switch level {
     case .info:
         Image(systemName: "info.circle.fill")
@@ -65,10 +65,12 @@ private func bannerIcon(for level: StatusLevel) -> Image {
         Image(systemName: "exclamationmark.circle.fill")
     case .success:
         Image(systemName: "checkmark.circle.fill")
+    case .neutral:
+        Image(systemName: "text.bubble.fill")
     }
 }
 
-private func bannerPalette(for level: StatusLevel) -> BannerPalette {
+func bannerPalette(for level: StatusLevel) -> BannerPalette {
     switch level {
     case .info:
         BannerPalette(foreground: .statusAccentForeground, background: .statusAccentSubtle, border: .statusAccentBorder)
@@ -78,6 +80,8 @@ private func bannerPalette(for level: StatusLevel) -> BannerPalette {
         BannerPalette(foreground: .statusDangerForeground, background: .statusDangerSubtle, border: .statusDangerBorder)
     case .success:
         BannerPalette(foreground: .statusSuccessForeground, background: .statusSuccessSubtle, border: .statusSuccessBorder)
+    case .neutral:
+        BannerPalette(foreground: .contentPrimary, background: .secondaryFill, border: .borderDefault)
     }
 }
 
@@ -152,6 +156,9 @@ public extension View {
         }
         Banner(level: .success) {
             Text("You are viewing the latest version of this document.")
+        }
+        Banner(level: .neutral) {
+            Text("Comments on this document are visible to all members.")
         }
     }
 }
