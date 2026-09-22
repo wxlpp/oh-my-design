@@ -165,7 +165,7 @@ direction(of:) // Edge → 单位方向向量（三条位移转场共用一份 s
 **`MicroInteractionReduceMotionGuard.motionCalls` 关键字表里没有**的东西：
 实测把 `swoosh` 的动态模糊门控去掉，那份守卫**全绿**，只有这条相等断言判红。
 
-### ⚠️ 系统还有一道同向的闸，别把它当成"本簇不必降级"的理由
+### `properties.hasMotion` 取 `true`
 
 `Transition.properties` 默认是 `TransitionProperties(hasMotion: true)`
 （`swiftinterface` 逐字：`public init(hasMotion: Swift.Bool = true)`）。
@@ -176,46 +176,13 @@ direction(of:) // Edge → 单位方向向量（三条位移转场共用一份 s
 > replaced by opacity when Reduce Motion is enabled.
 > Defaults to `true`.
 
-> ⚠️ 这里原先引的是**转述**（"When true, the transition is replaced by opacity…"）
-> 却写着"逐字"，已按 SDK 原文改（#267 终审 I-3）。
+本簇六条都显式声明 `hasMotion: true`（它们确实含运动），各有一行
+`public nonisolated static var properties: TransitionProperties { .init(hasMotion: true) }`，
+由 `TransitionClusterTests.everyTransitionKeepsTheSystemGateOpen` 逐条钉住。
 
-⇒ 系统**也**会替换掉整个转场。本簇六条**都显式声明 `hasMotion: true`**
-（它们确实含运动；谎报 `false` 会把系统那道闸关掉）。
-
-> ⚠️ 这里原先写的是「都保留该默认值」——那是一句关于**别人家默认实现**的断言：
-> 当时全仓 `grep "TransitionProperties\|hasMotion"` **零命中声明**，本仓既证不了它、
-> 也拦不住有人写下 `false`（姊妹 PR #289 终审带出）。现在六条各有一行
-> `public nonisolated static var properties: TransitionProperties { .init(hasMotion: true) }`，
-> 由 `TransitionClusterTests.everyTransitionKeepsTheSystemGateOpen` 逐条钉住。
-
-⇒ 同一件事有两道闸：系统那道在外、本仓的三元门控在内。**两道都要**——
-系统那道是 SwiftUI 的实现细节（替换发生在哪一层、对 `.combined(with:)` /
-`AnyTransition` 包装是否仍成立，都不在契约里），而本仓守卫量的是**本仓代码里**
-每一处运动有没有门控。内层门控是**冗余**的、不是**多余**的。
-
-| 闸 | 谁 | 何时生效 |
-|---|---|---|
-| **第一道（文档语义上先触发的那道）** | SwiftUI，看 `properties.hasMotion` | 六条都声明 `hasMotion == true` ⇒ 按文档语义 **RM 打开时框架把整条转场换成 `.opacity`**，于是**预期**各类型的 `body` 不被求值（**未实测**，见下） |
-| 第二道（兜底） | 各转场层 3 的三元门控 | 只在框架**没有**替换时才轮得到 |
-
-⚠️⚠️ **内层是否可达：按文档语义预期不可达**（#292 收口时逐条对齐的口径）。经
-`.transition(.flip)` 这条正常路径，**预期**层 3 的 `isReduced` 读不到 `true`。
-⚠️ **这是推论不是实测**：Apple 原文只承诺「that transition will be replaced by opacity」，
-没有承诺被替换掉的转场的 `body` 不被求值，而本仓没有任何判据求值过它
-——下面那条 `#267` 终审 I-3 的按语（「很可能根本不可达」）才是口径，`#292`
-**不**把它升级成断言。保留内层门控的理由已写在上面
-（`hasMotion` 一行就能改回 `false`、包装与平台版本没有文档承诺）；**代价照录**：
-本簇的 RM 降级判据全绿**不等于**"我们亲手把这六条转场降级给用户看了"——
-生产里处置它的是 SwiftUI。两道闸的结论一致（都是一次纯淡入淡出），
-所以行为上没有分歧，分歧只在"谁做的"。
-
-> ⚠️⚠️ **文档漏掉的那一面**（#267 终审 I-3）：既然系统那道闸在外，
-> **Reduce Motion 开启时本簇的内层三元门控在生产中很可能根本不可达**
-> ——整个转场已被换成 opacity，`XMotion.body` 不会被求值到。
-> 两道闸的**结论一致**（都降级成一次纯淡入淡出），分歧只在"谁做的"。
-> ⇒ 内层门控的价值是**契约与可测性**（让降级这件事有机器判据、且不依赖 SwiftUI
-> 在哪一层做替换），不是"用户靠它才看到降级"。
-> 别把本簇 Reduce Motion 判据全绿读成"我们亲手把这六条降级给用户看了"。
+⚠️ 本节原写「系统也会替换掉整个转场：两道闸、系统那道在外，内层三元门控在生产中很可能不可达」，
+**实测为假**（#407）（iOS 26.4 模拟器系统 RM 开、macOS 26 环境注入 RM；`hasMotion == true` 的转场经 `if` 分支插入 / 移除，`withAnimation` 与隐式 `.animation(_:value:)` 两种驱动下都照常位移，`body` 照常收到 `.willAppear` / `.didDisappear`；取证见 `.claude/epics/motion-foundations/407-plan.md`）。⇒ 生产路径上把这六条降级成纯淡入淡出的，就是各转场层 3 的三元门控；
+上面三条降级判据量的正是用户看到的东西。
 
 ## a11y 分工（FR-13）
 

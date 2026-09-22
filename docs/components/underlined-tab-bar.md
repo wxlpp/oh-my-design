@@ -40,7 +40,8 @@ UnderlinedTabBar(
 - 选中文字：`Color.contentPrimary` + `.semibold`
 - 非选中文字：`Color.contentSecondary` + `.regular`
 - 字号：`CoreTypography.bodyMediumFont`
-- 下划线：`Color.accent`，厚度 `CoreBorderWidth.thick`（2pt），通过 `matchedGeometryEffect` 动画过渡
+- 下划线：`Color.accent`，厚度 `CoreBorderWidth.thick`（2pt），通过 `matchedGeometryEffect` 以 `CoreMotion.selection` 过渡；Reduce Motion 下不滑，旧位置淡出、新位置淡入（#407）
+- 选中项滚到中间：`CoreMotion.scroll`（`.smooth`，0.35 s；#407 前是 0.2 s snappy），Reduce Motion 下直接到位
 - 横向间距：`CoreSpacing.xs`（item 间），`CoreSpacing.md`（左右 padding）
 - 垂直间距：`CoreSpacing.sm`（文字顶部），`CoreSpacing.xs`（underline 左右）
 - 分隔线（trailing 存在时）：`Color.dividerDefault`，宽度 `CoreBorderWidth.hairline`

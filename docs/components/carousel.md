@@ -115,6 +115,7 @@ Carousel(items, autoAdvance: false) { item in
   不变，睡满 `interval` 的自动推进 tick 仍会写 `selection`、与活跃手势竞争（AC #171 的「拖拽时
   不推走」在「按住未换页」这一子场景下不完全覆盖）。这是方案 2（只在 `selection` 变化时重计时）
   的已知取舍；彻底消除需叠加方案 1 的 `.onScrollPhaseChange` 拖拽标志位（规格允许，留后续）
+- **翻页曲线**：自动轮播与点页点都走 `CoreMotion.scroll`（`.smooth`，0.35 s）；Reduce Motion 下点页点直接到位、不滚动（#407）
 - **自动轮播的暂停**：Reduce Motion 开启时**不启动**自动轮播（仅保留手势/页点跳转），符合
   WCAG 2.2.2；但运行期无终端用户级「暂停」按钮（VoiceOver 浏览时的运行时暂停可作后续增强）
 - **页点命中区**：页点视觉 4pt，隐形命中区经负 padding 扩为**纵向 44pt、横向按点距(8pt)平铺不重叠**

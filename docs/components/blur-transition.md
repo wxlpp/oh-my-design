@@ -45,7 +45,7 @@ public extension Transition where Self == BlurTransition {
 ⇒ 判据 `FilterTransitionTests.blurConsumesNoAccessibilitySignal` 把这个决定**钉在源码上**：
 文件里出现 `reduceMotion` / `dimFlashingLights` 任一即判红，逼人回到这份文档重新裁决。
 
-### ⚠️⚠️ `properties.hasMotion` 必须是 `false`，否则上表在运行时是假的
+### `properties.hasMotion` 取 `false`
 
 `Transition` 协议有 `static var properties: TransitionProperties`，**默认 `hasMotion == true`**。
 SDK 对该位的原文：
@@ -53,8 +53,8 @@ SDK 对该位的原文：
 > Whether the transition includes motion. When this behavior is included in a transition,
 > that transition will be replaced by opacity when Reduce Motion is enabled. Defaults to `true`.
 
-⇒ 不显式声明的话，**框架已经在 Reduce Motion 下把本转场整个换成了 `.opacity`**
-——正是上表「降级的代价：等于删掉它」那一行说绝不能发生的事。
+⚠️ 原写「不显式声明的话，框架已经在 Reduce Motion 下把本转场整个换成了 `.opacity`」，**实测为假**（#407）（iOS 26.4 模拟器系统 RM 开、macOS 26 环境注入 RM；`hasMotion == true` 的转场经 `if` 分支插入 / 移除，`withAnimation` 与隐式 `.animation(_:value:)` 两种驱动下都照常位移，`body` 照常收到 `.willAppear` / `.didDisappear`；取证见 `.claude/epics/motion-foundations/407-plan.md`）。
+⇒ 声明 `false` 与「本转场无运动」的事实一致、仍保留，但今天不承担「挡住框架替换」的作用。
 本类型因此写了 `public nonisolated static let properties = TransitionProperties(hasMotion: false)`，
 由 `everyTransitionOptsOutOfTheFrameworkMotionSubstitution` 直接断言那个**性质**
 （并用一个不覆写 `properties` 的探针类型互锁，证明默认值真的是 `true`）。

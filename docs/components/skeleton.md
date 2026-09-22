@@ -77,4 +77,5 @@ Skeleton(isLoading: viewModel.isLoading) {
 - 圆角：`SkeletonLine` 用 `lineHeight / 2`（胶囊化行占位，末行收窄用显式 `frame(width:)` 而非 `.scaleEffect`，避免压扁圆角端）；`SkeletonRect` 默认 `CoreRadius.medium`
 - shimmer 周期：1.4s，`TimelineView(.periodic(from:by:))` 以 ~30fps 驱动（多行同屏时比 `.animation` 的屏幕最高刷新率更省电），不使用 `repeatForever`
 - 可访问性：占位态整体收敛为一个 `accessibilityElement(children: .ignore)` + `"Loading"` 标签（复用 `ProgressIndicator` 已登记的 `Localizable` 键，非新增字符串）
-- reduce motion：`accessibilityReduceMotion` 开启时 `.skeletonShimmer()` 不叠加动画，只保留静态底色
+- reduce motion：`accessibilityReduceMotion` 开启时 `.skeletonShimmer()` 不叠加动画，只保留静态底色（#407 起经 `EnvironmentValues.coreMotionPresentation` 读取）
+- 占位 ↔ 内容切换：`.coreAnimation(.reveal, value: isLoading)`（#407 前是 `.animation(.default, …)`）

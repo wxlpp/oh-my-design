@@ -19,7 +19,7 @@ TARGETS = ["OhMyDesign", "OhMyDesignEffects", "OhMyDesignCharts"]
 # 有人看一眼再改数。随源码变动时连同 PR 正文写明增减理由。
 FLOORS = {
     "spacing": 11, "radius": 5, "border": 5, "typography": 12,
-    "elevation": 4, "controlsize": 5,
+    "elevation": 4, "controlsize": 5, "motion": 4,
     # 2026-09-08 设计系统配色回灌：colors +3（inkPrimary / dataAccent / dataAccentSubtle）、
     # components +1（InkSegmentedControlStyle）、viewext +1（View.coreAccent）、
     # styleext +3（SegmentedControlStyle 的 .glass / .plain / .ink 三个静态入口）。
@@ -37,8 +37,10 @@ FLOORS = {
     # #382：enums +1（CoreSheetBackground）、enumcases +2（.system / .raised）、viewext +1（View.coreSheetPresentation）。
     # #380：components +1（TagGroup）、enums +1（TagGroupSelectionMode）、enumcases +3（none / single / multiple）。
     # #398：colors +2（systemGray5 / statusNeutralSubtle）。
-    "colors": 122, "components": 89, "enums": 44, "enumcases": 151,
-    "protocols": 6, "viewext": 45, "styleext": 15, "others": 28,
+    # #407：motion 新节 4（press / selection / reveal / scroll）、enums +1（CoreMotion）、
+    # enumcases +4（同上四档）、viewext +1（View.coreAnimation）。
+    "colors": 122, "components": 89, "enums": 45, "enumcases": 155,
+    "protocols": 6, "viewext": 46, "styleext": 15, "others": 28,
 }
 
 # 组件判定：conformance 列表里出现这些名字之一，或以 Style 结尾。
@@ -252,6 +254,20 @@ def elevation_specs(root):
         if radius and y_off:
             rows.append((name, radius.group(1), y_off.group(1)))
     return rows
+
+
+def motion_tokens(root):
+    src = read(os.path.join(root, "Sources/OhMyDesign/Tokens/CoreMotion.swift"))
+    lines = src.split("\n")
+    start = next(i for i, l in enumerate(lines) if "enum CoreMotion" in l)
+    cases = enum_cases(lines, start)
+    durations = dict(re.findall(r"case\s+\.(\w+):\s*([\d.]+)", src.split("public var duration")[1].split("public var animation")[0]))
+    curve_body = src.split("public var animation: Animation")[1].split("public func animation")[0]
+    curves = {}
+    for names, curve in re.findall(r"case\s+([.\w,\s]+):\s*\.(\w+)\(", curve_body):
+        for name in re.findall(r"\.(\w+)", names):
+            curves[name] = curve
+    return [(name, durations.get(name, "—"), curves.get(name, "—"), summarise(doc)) for name, doc in cases]
 
 
 def control_metrics(root):
@@ -479,6 +495,17 @@ def main():
     add("|---|---|---|")
     for name, radius, y_off in elev:
         add(f"| `.{name}` | {radius} | {y_off} |")
+    add("")
+
+    motion = motion_tokens(root)
+    counts["motion"] = len(motion)
+    add(f"## `CoreMotion`（{len(motion)} 档，经 `.coreAnimation(_:value:)` 或 `animation(for:)` 取）\n")
+    add("Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting` 下前三档退为同时长 "
+        "`easeInOut`（只用于淡变），`scroll` 退为不补间；位移 / 缩放 / 旋转本身由调用点去掉，框架不代劳。\n")
+    add("| token | 时长 (s) | 曲线 | 用途 |")
+    add("|---|---|---|---|")
+    for name, duration, curve, doc in motion:
+        add(f"| `CoreMotion.{name}` | {duration} | `.{curve}` | {doc} |")
     add("")
 
     metrics = control_metrics(root)
