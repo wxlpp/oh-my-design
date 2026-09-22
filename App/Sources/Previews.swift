@@ -117,6 +117,17 @@ import OhMyDesign
         .toastHost(edge: .top, presentation: .centeredHUD)
 }
 
+#Preview("Toast · title + description + action") {
+    ToastSnapshotHarness(rich: ToastItem(
+        title: "Conversation archived",
+        description: "It moves back to the inbox if you undo within a few seconds.",
+        level: .neutral,
+        duration: .persistent,
+        action: ToastAction("Undo") {}
+    ))
+    .toastHost(edge: .top)
+}
+
 #Preview("Toast · fullWidthBanner bottom") {
     ToastSnapshotHarness()
         .toastHost(edge: .bottom, presentation: .fullWidthBanner)
@@ -125,6 +136,7 @@ import OhMyDesign
 /// Toast snapshot demo：按钮点击触发 toast 显示，初始状态展示场景脚手架。
 private struct ToastSnapshotHarness: View {
     @Environment(\.toastHost) private var toast
+    var rich: ToastItem?
 
     var body: some View {
         VStack(spacing: CoreSpacing.md) {
@@ -140,7 +152,13 @@ private struct ToastSnapshotHarness: View {
         .padding(CoreSpacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.surfaceCanvas)
-        .task { self.toast?.show("Toast snapshot", level: .info) }
+        .task {
+            if let rich = self.rich {
+                self.toast?.show(rich)
+            } else {
+                self.toast?.show("Toast snapshot", level: .info)
+            }
+        }
     }
 }
 

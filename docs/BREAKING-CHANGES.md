@@ -19,6 +19,38 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.10.0`）——Issue #377：Toast 标题 / 说明 / 动作、`ToastDuration`、计时状态机
+
+**破坏性变更（源码）。** 新旧签名映射：
+
+| 旧 | 新 |
+|---|---|
+| `ToastItem.message: String` | `ToastItem.title: String` |
+| `ToastItem(id:message:level:duration:)` | `ToastItem(id:title:description:level:duration:action:)` |
+| `ToastItem.duration: TimeInterval` | `ToastItem.duration: ToastDuration` |
+| `ToastHost.show(_ message:level:duration:)`，`duration: TimeInterval` | `ToastHost.show(_ title:description:level:duration:)`，`duration: ToastDuration` |
+| `ToastDefaults.duration: TimeInterval`（`3`） | `ToastDefaults.duration: ToastDuration`（`.seconds(3)`） |
+
+迁移：
+
+```swift
+// 旧
+host.show("Saved", level: .success, duration: 5)
+let item = ToastItem(message: "Saved", duration: 2)
+print(item.message)
+// 新
+host.show("Saved", level: .success, duration: .seconds(5))
+let item = ToastItem(title: "Saved", duration: .seconds(2))
+print(item.title)
+```
+
+- 位置实参调用 `show("…")` / `show("…", level:)` 不受影响；只有 `message:` 标签、读 `.message`、
+  传 `TimeInterval` 时长与把 `ToastDefaults.duration` 当 `TimeInterval` 用的调用点需要改。
+- 行为变化：旧版 `duration <= 0` 会立即关闭；新版 `.seconds` 的非正值（含 NaN）按缺省 3 秒处理，
+  `.seconds(.infinity)` 等同新增的 `.persistent`。
+- 新增（非破坏）：`ToastItem.description`、`ToastAction`、`ToastDuration.persistent`、`ToastHost.dismissAll()`；
+  按住 / 拖拽暂停计时。
+
 ## 未发布（相对 `v0.10.0`）——Issue #376：Banner 补齐 title / actions / dismiss
 
 **破坏性变更（自定义 style 行为 + 无障碍结构）；编译期无信号。**

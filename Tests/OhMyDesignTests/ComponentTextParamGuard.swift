@@ -6,6 +6,7 @@ struct ComponentTextParamGuard {
     static let ownerAliases: [String: String] = [
         "ToastItem": "Toast",
         "ToastHost": "Toast",
+        "ToastAction": "Toast",
         "RadioOption": "RadioGroup",
         "StepItem": "Steps",
         "SegmentedControlStyleConfiguration.Segment": "SegmentedControl",
@@ -17,7 +18,8 @@ struct ComponentTextParamGuard {
     ]
 
     static let knownFunctionSideBareText: Set<String> = [
-        "ToastHost.show#message",
+        "ToastHost.show#description",
+        "ToastHost.show#title",
         "View.spray#symbol",
     ]
 
@@ -105,10 +107,10 @@ struct ComponentTextParamGuard {
                 "只扫到 \(scan.bareTextKeys.count) 个裸文本参数 —— 扫描器失效，这不是『零违规』")
         #expect(scan.localizedTextKeys.count > 5,
                 "只扫到 \(scan.localizedTextKeys.count) 个 LSK/LSR 参数 —— 扫描器失效")
-        #expect(registryTextParams == 31,
-                "OhMyDesign 侧 textParams 实测 31 条（`#373` 新增 FormField 的 label / description 后由 27 变为 29；`#376` Banner 便利 init 的 title / message 两条 by-type 使 29 变为 31），实际 \(registryTextParams) —— 若为预期变化请同步改这个数字")
-        #expect(result.covered.count == 24,
-                "覆盖数实测 24（`#373` 新增 FormField 的 label / description 后由 22 变为 24），实际 \(result.covered.count)：\(result.covered.keys.sorted())")
+        #expect(registryTextParams == 33,
+                "OhMyDesign 侧 textParams 实测 33 条（`#373` 新增 FormField 的 label / description 后由 27 变为 29；`#376` Banner 便利 init 的 title / message 两条 by-type 使 29 变为 31；`#377` 把 Toast 的 message 改名 title 并新增 description / label 使 31 变为 33），实际 \(registryTextParams) —— 若为预期变化请同步改这个数字")
+        #expect(result.covered.count == 26,
+                "覆盖数实测 26（`#373` 新增 FormField 的 label / description 后由 22 变为 24；`#377` 的 ToastItem title / description、ToastAction label 取代 ToastItem.init#message 使 24 变为 26），实际 \(result.covered.count)：\(result.covered.keys.sorted())")
         #expect(abs(result.covered.count - registryTextParams) * 2 <= registryTextParams,
                 "扫到的覆盖数 \(result.covered.count) 与登记表 \(registryTextParams) 条不在同一量级 —— 两侧口径可能已经脱节")
 

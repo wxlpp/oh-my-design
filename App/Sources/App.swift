@@ -27,7 +27,7 @@ struct OhMyDesignPreviewApp: App {
     private static func directPreview(id: String, comp: ComponentMeta) -> some View {
         // 整屏 demo（设置页）自带内边距、全出血渲染;其余是小组件 demo,直达全屏
         // 时补水平边距,避免内容贴屏边、trailing accessory 被裁（视觉终审 #144）。
-        let fullBleed = (id == "settings-screen" || id == "settings-row-in-list")
+        let fullBleed = (id == "settings-screen" || id == "settings-row-in-list" || id.hasPrefix("toast-rich-"))
         comp.preview()
             .padding(.horizontal, fullBleed ? 0 : CoreSpacing.lg)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: fullBleed ? .top : .center)

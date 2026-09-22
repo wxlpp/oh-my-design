@@ -613,11 +613,15 @@
 
 ### `Components/Toast/Toast.swift`
 
+- *enum* **`ToastDuration`** — Toast 的显示时长。
+  - `.seconds` — 显示指定秒数后自动关闭；非正值（含 NaN）按 `ToastDefaults` 的缺省时长处理， `.infinity` 等同 `.persistent`。
+  - `.persistent` — 不自动关闭，直到被 `dismiss` / `dismissAll` / 点按关闭；关闭前阻塞其后的排队项。
 - *enum* **`ToastPresentation`** — `Toast` 的**呈现形态**（公约 §2 形态 D2「配置枚举」，`wxlpp/oh-my-story#65`）。
   - `.floatingCapsule` — 现状形态：`safeAreaInset` 贴边 + `Capsule` 几何 + 水平内边距，读起来像系统反馈。
   - `.fullWidthBanner` — 全宽横幅条（Android Snackbar / in-app banner）：贴边、横跨屏幕宽度、非胶囊。
   - `.centeredHUD` — 居中 HUD（经典 UIKit toast/HUD）：浮于屏幕中央而非贴边，宽度收缩为内容宽。 ⚠️ 本形态下 `edge` 不生效。
 - *struct* **`ToastItem`** — 单条 Toast 的数据载体。
+- *struct* **`ToastAction`** — Toast 上的单个动作按钮。
 - *enum* **`ToastDefaults`** — Toast 行为的默认值常量集合。
 - *final class* **`ToastHost`** — Scene 级的浮层 toast 队列与调度器，外壳形状由 `ToastPresentation` 三选一。
 
@@ -1007,10 +1011,10 @@
 | controlsize | 5 | 5 |
 | colors | 120 | 120 |
 | components | 88 | 88 |
-| enums | 41 | 41 |
-| enumcases | 144 | 144 |
+| enums | 42 | 42 |
+| enumcases | 146 | 146 |
 | protocols | 6 | 6 |
 | viewext | 44 | 44 |
 | styleext | 15 | 15 |
-| others | 27 | 27 |
+| others | 28 | 28 |
 
