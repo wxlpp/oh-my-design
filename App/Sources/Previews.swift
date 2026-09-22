@@ -652,6 +652,23 @@ private struct CarouselPreviewsPreviewGallery: View {
     }
 }
 
+#Preview("AnchoredBadge") {
+    VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+        HStack(spacing: CoreSpacing.xl) {
+            Avatar(name: "Evan").frame(width: CoreSpacing.xxxxl, height: CoreSpacing.xxxxl).clipShape(Circle()).anchoredBadge(.dot)
+            Avatar(name: "OhMyDesign").frame(width: CoreSpacing.xxxxl, height: CoreSpacing.xxxxl).clipShape(Circle()).anchoredBadge(.count(120, max: 99))
+            Avatar(name: "Design").frame(width: CoreSpacing.xxxxl, height: CoreSpacing.xxxxl).clipShape(Circle()).anchoredBadge(.text("NEW"), placement: .bottomTrailing)
+        }
+        HStack(spacing: CoreSpacing.xxl) {
+            Image(systemName: "bell.fill").font(.title).anchoredBadge(.dot)
+            Image(systemName: "envelope.fill").font(.title).anchoredBadge(.count(7))
+            Image(systemName: "gift.fill").font(.title).anchoredBadge(.text("NEW"), placement: .topLeading)
+        }
+    }
+    .padding(CoreSpacing.xl)
+    .background(Color.surfaceCanvas)
+}
+
 #Preview("Spinning") {
     VStack(spacing: CoreSpacing.lg) {
         Card {

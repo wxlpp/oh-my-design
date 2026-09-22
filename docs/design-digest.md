@@ -610,6 +610,18 @@
 
 - **`FlowLayout`** *: Layout* — Tag 自动换行布局容器。
 
+### `Modifier/AnchoredBadgeModifier.swift`
+
+- *enum* **`AnchoredBadgeContent`** — 锚定徽标的内容：红点、计数或短文本。
+  - `.dot` — 不带文字的红点。
+  - `.count` — 计数；`≤ 0` 时不显示，超过 `max` 时显示为 `"\(max)+"`。
+  - `.text` — 调用方提供的短文本，原样显示；空串时不显示。
+- *enum* **`AnchoredBadgePlacement`** — 锚定徽标贴在宿主的哪个角；徽标中心落在该角上。
+  - `.topTrailing` — 右上角（RTL 下为左上）。
+  - `.topLeading` — 左上角（RTL 下为右上）。
+  - `.bottomTrailing` — 右下角（RTL 下为左下）。
+  - `.bottomLeading` — 左下角（RTL 下为右下）。
+
 ### `Modifier/FloatingGlassModifier.swift`
 
 - **`FloatingGlassModifier`** *<S: InsettableShape>: ViewModifier* — ⚠️ 源码无文档注释
@@ -873,7 +885,7 @@
 
 # Modifier / Transition 入口点
 
-共 39 个（按 `Host.member` 去重，含参重载算一条）。
+共 40 个（按 `Host.member` 去重，含参重载算一条）。
 
 | target | 入口 | 说明 |
 |---|---|---|
@@ -883,6 +895,7 @@
 | `OhMyDesign` | `.segmentedControlStyle` on `View` | 为子树中的所有 `SegmentedControl` 设置外观（对齐 `View.bannerStyle(_:)`）。 |
 | `OhMyDesign` | `.skeletonShimmer` on `View` | 骨架屏 shimmer 扫光叠加。 |
 | `OhMyDesign` | `.toastHost` on `View` | 在当前 view 子树挂载一个 scene-scoped `ToastHost`，并在 `edge` 方向以 `safeAreaInset` 渲染当前队列的首条 toast。 |
+| `OhMyDesign` | `.anchoredBadge` on `View` | 在宿主的一个角上叠加红点 / 计数 / 短文本徽标；计数并入宿主的可访问值。 |
 | `OhMyDesign` | `.bordered` on `View` | 叠加一圈描边 / Add a border.  - Parameters: - style: 描边样式，任意 `ShapeStyle`（含 `Color` 与渐变）。 |
 | `OhMyDesign` | `.coreFont` on `View` | 施加 OhMyDesign 排版 token（直接取系统文本样式，随 Dynamic Type 缩放）。 |
 | `OhMyDesign` | `.floatingGlass` on `View` | ⚠️ 源码无文档注释 |
@@ -957,10 +970,10 @@
 | controlsize | 5 | 5 |
 | colors | 118 | 118 |
 | components | 84 | 84 |
-| enums | 35 | 35 |
-| enumcases | 129 | 129 |
+| enums | 37 | 37 |
+| enumcases | 136 | 136 |
 | protocols | 6 | 6 |
-| viewext | 39 | 39 |
+| viewext | 40 | 40 |
 | styleext | 12 | 12 |
 | others | 27 | 27 |
 

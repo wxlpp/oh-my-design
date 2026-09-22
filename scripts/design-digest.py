@@ -26,8 +26,10 @@ FLOORS = {
     # #312：enums +5（五个 …Layout 配置枚举）、enumcases +18（4 + 4 + 4 + 3 + 3）。
     # #375：enumcases +1（StatusLevel.neutral）。
     # #378：enums +1（AvatarSize）、enumcases +2（.automatic / .fixed）。
-    "colors": 118, "components": 84, "enums": 35, "enumcases": 129,
-    "protocols": 6, "viewext": 39, "styleext": 12, "others": 27,
+    # #379：enums +2（AnchoredBadgeContent / AnchoredBadgePlacement）、enumcases +7（3 + 4）、
+    # viewext +1（View.anchoredBadge）。
+    "colors": 118, "components": 84, "enums": 37, "enumcases": 136,
+    "protocols": 6, "viewext": 40, "styleext": 12, "others": 27,
 }
 
 # 组件判定：conformance 列表里出现这些名字之一，或以 Style 结尾。
