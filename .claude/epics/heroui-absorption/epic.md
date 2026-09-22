@@ -2,8 +2,8 @@
 name: heroui-absorption
 status: in-progress
 created: 2026-09-22T01:21:37Z
-updated: 2026-09-22T01:25:02Z
-progress: 0%
+updated: 2026-09-22T05:13:23Z
+progress: 10%
 prd: .claude/prds/heroui-absorption.md
 github: https://github.com/wxlpp/oh-my-design/issues/372
 ---
