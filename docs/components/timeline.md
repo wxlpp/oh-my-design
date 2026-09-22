@@ -122,6 +122,9 @@ Timeline(items: items, layout: .grouped)
   `info → statusAccentEmphasis` / `success → statusSuccessEmphasis` /
   `warning → statusAttentionEmphasis` / `danger → statusDangerEmphasis`；
   `neutral` 不取状态色，取 `contentSecondary`
+- 例外：**浅色**下 `warning` 取 `statusAttentionForeground`（与浅色 Banner warning 图标同色）——
+  `statusAttentionEmphasis` 的浅色金黄对分组背景只有约 2:1，达不到非文本对比度 3:1；
+  改后对 `systemGroupedBackground` 4.36:1、`systemBackground` 4.87:1（iOS 解析值）。暗色仍取 emphasis，不变
 - 连线：`Color.dividerDefault`（= 系统 `separator` 色），`CoreBorderWidth.thin`（1pt）宽度——
   竖向长连线用 1pt 比 separator hairline（0.5pt）观感更实，是对 phase0「连线对齐 separator」
   决策的有意偏离（与 Steps 横向连线同源，指示性连线需强于分隔线；phase0/013 统一记录）

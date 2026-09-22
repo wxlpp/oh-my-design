@@ -36,7 +36,8 @@ FLOORS = {
     # #382：viewext +1（View.coreSheetPresentation）。
     # #382：enums +1（CoreSheetBackground）、enumcases +2（.system / .raised）、viewext +1（View.coreSheetPresentation）。
     # #380：components +1（TagGroup）、enums +1（TagGroupSelectionMode）、enumcases +3（none / single / multiple）。
-    "colors": 120, "components": 89, "enums": 44, "enumcases": 151,
+    # #398：colors +2（systemGray5 / statusNeutralSubtle）。
+    "colors": 122, "components": 89, "enums": 44, "enumcases": 151,
     "protocols": 6, "viewext": 45, "styleext": 15, "others": 28,
 }
 

@@ -65,6 +65,7 @@ Banner(level: .warning, title: "Storage almost full", message: "Free up space to
   经负内边距不撑高 banner；`CoreSpacing.md` 内边距
 - 字号：正文 `.callout`，标题 `.headline`
 - 颜色（有标题时标题取状态前景色、正文取 `contentPrimary`；无标题时正文取状态前景色；关闭钮恒为 `contentSecondary`）：按 `StatusLevel` 走 status color token（`statusAccentForeground` / `statusAccentSubtle` / `statusAccentBorder` 等）；
-  `neutral` 不取状态色：图标 `contentSecondary`、正文 `contentPrimary`、背景 `tertiaryFill`、描边 `borderDefault`
+  `neutral` 不取状态色：图标 `contentSecondary`、正文 `contentPrimary`、背景 `statusNeutralSubtle`（第 2 层 `systemGray5`，不透明——叠在分组画布、白底卡片或图片上视觉重量不变）、描边 `borderDefault`
 - 图标：`info.circle.fill` / `exclamationmark.triangle.fill` / `exclamationmark.circle.fill` / `checkmark.circle.fill` / `bell.fill`（neutral）
-- 描边（BorderedBannerStyle）：`CoreBorderWidth.thin`
+- 形状：容器为 `CoreRadius.medium` 连续圆角（Plain 与 Bordered 都是），不裁切内容——内边距 `CoreSpacing.md` 保证图标、正文、动作与关闭钮都落在圆角以内
+- 描边（BorderedBannerStyle）：`CoreBorderWidth.thin`，沿同一圆角形状内描（`strokeBorder`）

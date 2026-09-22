@@ -117,4 +117,15 @@ public extension Color {
             Color(nsColor: .systemRed)
         #endif
     }
+
+    /// 不透明的中浅灰，桥接 `UIColor.systemGray5`，明暗两种外观 α 均为 1。
+    /// macOS 无 `systemGray5`，取同样两档都不透明、且比窗口背景高一档的
+    /// `NSColor.unemphasizedSelectedContentBackgroundColor`。
+    static var systemGray5: Color {
+        #if canImport(UIKit)
+            Color(uiColor: .systemGray5)
+        #else
+            Color(nsColor: .unemphasizedSelectedContentBackgroundColor)
+        #endif
+    }
 }

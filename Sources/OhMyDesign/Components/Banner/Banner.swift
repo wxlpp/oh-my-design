@@ -123,7 +123,7 @@ func bannerPalette(for level: StatusLevel) -> BannerPalette {
     case .success:
         BannerPalette(icon: .statusSuccessForeground, foreground: .statusSuccessForeground, background: .statusSuccessSubtle, border: .statusSuccessBorder)
     case .neutral:
-        BannerPalette(icon: .contentSecondary, foreground: .contentPrimary, background: .tertiaryFill, border: .borderDefault)
+        BannerPalette(icon: .contentSecondary, foreground: .contentPrimary, background: .statusNeutralSubtle, border: .borderDefault)
     }
 }
 
@@ -177,10 +177,11 @@ private struct BannerBody: View {
             .foregroundStyle(palette.foreground)
             .padding(CoreSpacing.md)
             .background {
+                let shape = CoreShape.rounded(CoreRadius.medium)
                 if self.bordered {
-                    Rectangle().fill(palette.background).bordered(style: palette.border)
+                    shape.fill(palette.background).bordered(style: palette.border, shape: shape)
                 } else {
-                    Rectangle().fill(palette.background)
+                    shape.fill(palette.background)
                 }
             }
     }
@@ -255,7 +256,7 @@ private struct BannerBody: View {
 
 // MARK: - PlainBannerStyle
 
-/// 默认的 Banner 外观：纯色背景 + 同色系前景，无描边。
+/// 默认的 Banner 外观：`CoreRadius.medium` 圆角纯色背景 + 同色系前景，无描边。
 public struct PlainBannerStyle: BannerStyle {
     public init() {}
 
@@ -266,7 +267,7 @@ public struct PlainBannerStyle: BannerStyle {
 
 // MARK: - BorderedBannerStyle
 
-/// 带同色系描边的 Banner 外观：背景 + `CoreBorderWidth.thin` 描边。
+/// 带同色系描边的 Banner 外观：`CoreRadius.medium` 圆角背景 + 沿同一形状的 `CoreBorderWidth.thin` 描边。
 public struct BorderedBannerStyle: BannerStyle {
     public init() {}
 

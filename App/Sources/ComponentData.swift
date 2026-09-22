@@ -130,6 +130,12 @@ extension ComponentMeta {
         ComponentMeta(id: "banner", name: "Banner", description: "通知横幅，五级语义，可带标题 / 动作 / 关闭", category: .indicator) {
             BannerPreview()
         },
+        ComponentMeta(id: "banner-levels", name: "Banner · 五档 Plain / Bordered", description: "五档语义在分组画布上的 Plain 与 Bordered 外观", category: .indicator) {
+            BannerLevelsPreview(backdrop: .canvas)
+        },
+        ComponentMeta(id: "banner-on-card", name: "Banner · 白底卡片里", description: "同一组五档放进 systemBackground 白底卡片，对照分组画布", category: .indicator) {
+            BannerLevelsPreview(backdrop: .card)
+        },
         ComponentMeta(id: "progress-indicator", name: "ProgressIndicator", description: "通用圆形加载指示器，可选文案渲染于 spinner 下方", category: .indicator) {
             ProgressIndicatorGalleryPreview()
         },
@@ -643,6 +649,59 @@ private struct BannerPreview: View {
                 self.dismissed.insert(id)
             }
             .bannerStyle(style)
+        }
+    }
+}
+
+private struct BannerLevelsPreview: View {
+    enum Backdrop {
+        case canvas
+        case card
+    }
+
+    let backdrop: Backdrop
+
+    private static let levels: [(StatusLevel, String)] = [
+        (.info, "Info message"),
+        (.success, "Success message"),
+        (.warning, "Warning message"),
+        (.danger, "Danger message"),
+        (.neutral, "Neutral message"),
+    ]
+
+    var body: some View {
+        switch self.backdrop {
+        case .canvas:
+            self.stack
+        case .card:
+            self.stack
+                .padding(CoreSpacing.md)
+                .background(Color.surfaceBase, in: CoreShape.rounded(CoreRadius.large))
+        }
+    }
+
+    private var stack: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            self.group("Plain") {
+                ForEach(Self.levels, id: \.1) { level, text in
+                    Banner(level: level) { Text(verbatim: text) }
+                }
+            }
+            self.group("Bordered") {
+                ForEach(Self.levels, id: \.1) { level, text in
+                    Banner(level: level) { Text(verbatim: text) }
+                }
+                .bannerStyle(BorderedBannerStyle())
+            }
+        }
+    }
+
+    private func group(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+            Text(verbatim: title)
+                .coreFont(.caption)
+                .foregroundStyle(Color.contentSecondary)
+            content()
         }
     }
 }
@@ -1538,6 +1597,7 @@ private struct StepsPreview: View {
 private struct TimelinePreview: View {
     private static var items: [TimelineItem] {
         [
+            TimelineItem(status: .info) { Text("已创建").coreFont(.callout) },
             TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) },
             TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) },
             TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) },
