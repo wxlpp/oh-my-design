@@ -40,9 +40,10 @@ Apple HIG 原生观感、墨色 accent、SwiftUI 有原生控件的只换皮不�
 
 **US-1 表单开发者**：我想给任意输入控件标注「必填」与「校验失败 + 原因」，控件与标签自动变成错误态，
 VoiceOver 读到错误原因。
-- 验收：`FormField` 内放系统 `TextField` 与本仓 `PinCode`，设 `.fieldValidation(.invalid(Text("…")))`
-  后，标签与错误行以 danger 色显示、`PinCode` 描边变 danger；错误出现时播报一次；设回 `.valid`
-  错误行淡出。`.fieldRequirement(.required)` 显示星号。
+- 验收：`FormField` 内放系统 `TextField`（加 `.fieldAccessibilityHint()`）与本仓 `PinCode`，
+  设 `.fieldValidation(.invalid(Text("…")))` 后，标签与错误行以 danger 色显示、`PinCode` 描边变 danger，
+  两者的真实输入节点都读到错误原因；错误出现时播报一次；设回 `.valid` 错误行淡出。
+  `.fieldRequirement(.required)` 显示星号。
 
 **US-2 应用开发者**：我想弹出带说明和「撤销」按钮的 toast，重要的 toast 不自动消失，退出页面时
 一次清掉全部。
@@ -92,8 +93,10 @@ Banner = FR-4 + FR-5；Toast = FR-6；尺寸 = FR-7；锚定徽标 = FR-8；TagG
 推荐施加在 `FormField` 上。新增 `FormField` 容器：label（必填星号取 `statusDangerForeground`）、
 可选 description、错误行（来自 `fieldValidation`，`.transition(.opacity)`）。无障碍契约：
 - label 与控件用 `accessibilityLabeledPair` 关联；必填以「必填」追加到 label 的可访问文本。
-- description 与错误原因**不由容器挂 hint**——容器不知道真实输入节点；改由 FR-2 的各控件把
-  「错误原因（若有）+ description」挂到自己的真实输入节点上。容器经环境值把 description 文本传下去。
+- description 与错误原因**不由容器挂 hint**——容器不知道真实输入节点；容器经环境值把 description
+  文本传下去，由「真实输入节点」自己挂：FR-2 的 5 个自有控件在内部挂；系统控件（`TextField` 等）由调用方
+  在控件上加公开 modifier `View.fieldAccessibilityHint()`（读同一组环境值，自有控件内部也走它）。
+  系统控件的 danger 描边**不自动出现**——错误态由 `FormField` 的 label 与错误行表达。
 - 播报：仅在 `valid → invalid` 转变、或 invalid 的错误文本变化时播报一次；首次渲染即 invalid、
   视图重建（值未变）不播报。
 - 视觉优先级：disabled > invalid > focused。
@@ -139,8 +142,10 @@ content 至少含 `.dot` / `.count(Int, max: Int)` / `.text(String)`；取色 `s
 
 **FR-9 `TagGroup`**（依赖 FR-7）：基于 `Tag` + `FlowLayout`；`selectionMode` 枚举（none / single / multiple）；
 `Binding<Set<ID>>` 选择；禁用集合。不变量：
-- single 模式点已选项 = 取消（允许空选）；外部写入多个 ID 时照样渲染，下一次用户点选才归一为单个；
-- 切换 `selectionMode` 不改写绑定；禁用项不可切换但可显示为已选；未知 ID 原样保留；
+- 基数约束只计**当前数据里存在的 ID**；不在数据里的未知 ID 原样保留、永不被组件增删。
+- single 模式点已选项 = 取消（允许空选）；点未选项 = 把「数据内已选集合」替换为该项（未知 ID 不动）；
+  外部写入多个数据内 ID 时照样渲染，下一次用户点选才归一。
+- 切换 `selectionMode` 不改写绑定；禁用项不可切换但可显示为已选；
 - 本轮不支持在 TagGroup 内删除（避免嵌套按钮）；每个标签是带 `.isSelected` trait 的按钮，键盘可聚焦。
 - 选中色：底色与描边**从环境 `coreAccent` 派生**（不用静态 `accentSubtleBackground` / `borderSelected`），
   标签内容色仍由调用方决定；验收含自定义 `coreAccent`。
@@ -153,10 +158,14 @@ content 至少含 `.dot` / `.count(Int, max: Int)` / `.text(String)`；取色 `s
 有意例外，写进 `docs/components/`。尊重 `\.isEnabled`；reduce motion 下卡片不缩放只变暗。
 
 **FR-12 surface 嵌套 + FR-13 sheet 预设（同一个 issue）**：
-- `.surface(_:)` 写入 `@Entry` 当前有效层级（base / raised / elevated）：`.canvas` 重置为 base；
-  `content` / `grouped` / `card` / `panel` 取「父层级 + 1」，封顶 elevated；`control` / `floating`
-  不改层级；别名与其目标角色等价。背景按有效层级取 `surfaceCanvas` / `surfaceRaised` / `surfaceElevated`，
-  描边规则仍由角色决定（grouped 仍无描边）。`Card` 保持 `.surface` 薄封装，不另写逻辑。
+- `.surface(_:)` 写入 `@Entry` 当前有效层级（base / raised / elevated），逐角色：
+  · `canvas` / `canvasSubtle`：层级重置为 base，背景保持各自现值；
+  · `content` / `grouped` / `card`：层级 = 父层级 + 1（封顶 elevated），**只有这三者的背景随层级变**
+    （raised → `surfaceCard` 现值，elevated → `surfaceElevated`）；
+  · `panel` / `sidebar` / `control` / `floating`：不改层级，背景保持各自现值（`surfacePanel` /
+    `surfaceSidebar` / `surfaceInteractive` / `surfaceOverlay`）。
+  描边与圆角仍由角色决定（grouped 仍无描边）。`Card` 保持 `.surface` 薄封装，不另写逻辑。
+  `SurfaceKindAlphaContractGuard` 等按 kind 取色的判据随之按「角色 × 层级」更新，不得放宽。
 - macOS 系统色在 raised / elevated 塌缩（既有文档裁决），有描边的角色靠描边区分；grouped 嵌套 grouped
   在 macOS 无视觉区分，登记为已知限制。
 - `coreSheetPresentation()` 打包 `presentationCornerRadius(CoreRadius.xLarge)`、
