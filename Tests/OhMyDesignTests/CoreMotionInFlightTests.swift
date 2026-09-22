@@ -203,7 +203,7 @@ struct CoreMotionInFlightTests {
             window.settle()
             let after = window.pixels()
             window.close()
-            #expect(before.bytes != after.bytes, "chevron 没转过去，判据无效")
+            expectBitmapsDiffer(before.bytes, after.bytes, "chevron 没转过去，判据无效")
             let headerRows = 0..<Int(40 * before.scale)
             peaks[reduceMotion] = frames.map {
                 Self.outsideEndpoints(before: before, after: after, frame: $0, rows: headerRows)
