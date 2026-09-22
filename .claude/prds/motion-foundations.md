@@ -46,7 +46,8 @@ MainActor 棘轮不增豁免）。核心库现有写死的动画参数迁到 tok
 避免正则追写法）。
 
 **FR-4 原生符号 / 数字动效接入小件**：
-- `anchoredBadge` 计数变化用 `.contentTransition(.numericText(countsDown:))`，出现 / 消失有 transition；
+- `anchoredBadge` 计数变化用 `.contentTransition(.numericText(value:))`（框架自己判方向，无需镜像显示值、无晚一帧；
+  原定 `countsDown:` 经 #408 实测推翻：它要求方向在数字变化的同一次事务里给出，`onChange` 晚一拍），出现 / 消失有 transition；
 - CheckBox / Radio 的指示符号切换改为 `.contentTransition(.symbolEffect(.replace))`（必要时加轻量 `.bounce`），
   替代两张 `Image` 淡变；
 - 默认 / 静态外观逐像素不变（对照原样拷贝的旧实现），Reduce Motion 行为按 FR-1 结论。
