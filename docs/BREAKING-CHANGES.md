@@ -26,7 +26,7 @@
 
 | 位置 | 之前 | 现在 |
 |---|---|---|
-| `TagInput` 的 chip 身份 | `ForEach(Array(tags.enumerated()), id: \.offset)` —— 删中间项时其后每一项都换身份 | 「标签值 + 该值的出现序号」—— 删中间项时存活 chip 身份不变 |
+| `TagInput` 的 chip 身份 | `ForEach(Array(tags.enumerated()), id: \.offset)` —— 删中间项时消失的恒是**末位** id、下标 ≥ 删除位置的每个 id 被重新绑定到邻居的值 ⇒ 退场动画落在最后一个 chip、中间几个原地换 label | 「标签值 + 该值的出现序号」—— 值唯一时消失的身份正是被点的那一项，没有任何身份换值 |
 | `TagInput` chip 增删 | 无动画，瞬间增删 | 缩放 0.86 + 淡变进出，存活标签连续重排（`CoreMotionToken.reveal`，0.25 s `.smooth`） |
 | `TagGroup` 标签增删 | 无动画 | 同上 |
 | `TagGroup` 选中态切换 | 无动画，底色 / 描边瞬变 | 0.22 s 交叉淡变（`CoreMotionToken.selection`） |
@@ -37,9 +37,11 @@
 
 **下游可能受影响的两处**（都不是编译期破坏）：
 
-- 重复标签（`allowDuplicates: true`）下删掉某个重复值的**前一个**出现时，该值的后续出现序号下降 ⇒
-  它们在 `ForEach` 看来换了身份，会各播一次移除 + 插入转场。`allowDuplicates: false`（默认）下标签唯一，
-  身份完全稳定。
+- 数组里有**重复值**时：删掉某个重复值的**任一次**出现，`ForEach` 的身份集合只少一个
+  `(值, 最大序号)`、没有任何新增（排在前面的同值身份被原样复用）⇒ 数据结果正确，但**退场动画播在
+  该值的最后一次出现上**，不一定是用户点的那一个。异值标签不受影响。
+  ⚠️ 「身份完全稳定」只在**输入数组里值唯一**时成立——`allowDuplicates: false`（默认）只约束
+  提交路径，外部绑定照样可以写进重复值。
 - `TagGroup` 的 `data` 在下游被频繁整体替换（例如每次搜索都换一批标签）时，现在会播增删动画；
   不想要动画的调用点可注入 `.environment(\.coreMotionPresentationOverride, .hidden)`。
 

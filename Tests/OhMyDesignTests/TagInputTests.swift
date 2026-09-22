@@ -114,7 +114,7 @@ struct TagInputTests {
         #expect(result.remainder == "enh")
     }
 
-    // MARK: - removingTag(at:from:) — offset-based identity, duplicate-safe
+    // MARK: - removingTag(at:from:) — 按下标定位删除，重复项安全
 
     @Test("removingTag deletes the correct element among duplicates by offset")
     func removingTagHandlesDuplicatesByOffset() {
@@ -163,7 +163,7 @@ struct TagInputTests {
         #expect(TagInput.chips(for: []).isEmpty)
     }
 
-    @Test("删中间项：存活 chip 的身份逐项不变（下标身份会让其后每项换身份）")
+    @Test("删中间项：存活 chip 的身份逐项不变（下标身份会把其后每项重新绑定到另一个值）")
     func removingMiddleTagKeepsSurvivorIdentities() {
         let before = ["bug", "enhancement", "docs", "chore"]
         let after = TagInput.removingTag(at: 1, from: before)
@@ -175,16 +175,67 @@ struct TagInputTests {
                 "index 没有跟着重排 —— 删除会命中错的下标")
     }
 
-    @Test("删重复项：只有同值的后续出现降序号，异值项身份不变")
-    func removingDuplicateOnlyRenumbersSameValue() {
-        let before = ["bug", "bug", "enhancement"]
-        let beforeChips = TagInput.chips(for: before)
-        let after = TagInput.removingTag(at: 0, from: before)
-        #expect(after == ["bug", "enhancement"])
-        let afterChips = TagInput.chips(for: after)
-        #expect(afterChips[1].id == beforeChips[2].id, "异值项 enhancement 换了身份")
-        #expect(afterChips[0].id != beforeChips[1].id,
-                "同值的后续出现应降序号 —— 这是本方案已登记的限制，不是可以静默的等价")
+    @Test("值唯一时：消失的身份正是被点的那一项，且没有任何存活身份被重新绑定到另一个值")
+    func uniqueValuesLoseExactlyTheTappedIdentity() {
+        let tags = ["bug", "enhancement", "docs", "chore"]
+        let before = TagInput.chips(for: tags)
+        let beforeByID = Dictionary(uniqueKeysWithValues: before.map { ($0.id, $0.value) })
+        for index in tags.indices {
+            let after = TagInput.chips(for: TagInput.removingTag(at: index, from: tags))
+            let afterByID = Dictionary(uniqueKeysWithValues: after.map { ($0.id, $0.value) })
+            #expect(
+                Set(beforeByID.keys).subtracting(afterByID.keys) == [before[index].id],
+                "删下标 \(index)：消失的身份是 \(Set(beforeByID.keys).subtracting(afterByID.keys))，应正是被点的 \(before[index].id)"
+            )
+            #expect(
+                Set(afterByID.keys).subtracting(beforeByID.keys).isEmpty,
+                "删下标 \(index)：凭空多出身份 \(Set(afterByID.keys).subtracting(beforeByID.keys))"
+            )
+            let rebound = afterByID.filter { beforeByID[$0.key] != $0.value }
+            #expect(
+                rebound.isEmpty,
+                """
+                删下标 \(index)：这些身份被重新绑定到了另一个值 \(rebound) \
+                —— 这正是下标身份的老毛病（chip 原地把 label 换成邻居的文案）
+                """
+            )
+        }
+    }
+
+    @Test("删重复项：异值项身份不变，留下的同值项复用原身份，消失的是末次出现")
+    func removingDuplicateReusesSameValueIdentities() {
+        let tags = ["bug", "bug", "enhancement"]
+        let before = TagInput.chips(for: tags)
+        let after = TagInput.chips(for: TagInput.removingTag(at: 0, from: tags))
+        #expect(after.map(\.value) == ["bug", "enhancement"])
+        #expect(after[0].id == before[0].id,
+                "留下的 bug 没有复用 (bug, 0) —— 它会被 ForEach 当成新插入的 chip")
+        #expect(after[1].id == before[2].id, "异值项 enhancement 换了身份")
+        #expect(Set(before.map(\.id)).subtracting(after.map(\.id)) == [before[1].id],
+                "消失的身份不是末次出现 (bug, 1)")
+    }
+
+    @Test("删任一次重复出现：身份集合只少一个「值 + 最大序号」，没有任何新增（交错重复）")
+    func duplicateRemovalReusesIdentitiesAndDropsTheLastOccurrence() throws {
+        let tags = ["a", "b", "a", "c", "a"]
+        let before = TagInput.chips(for: tags)
+        let beforeIDs = Set(before.map(\.id))
+        let lastOccurrence = try #require(before.last { $0.value == "a" })
+        #expect(lastOccurrence.index == 4 && lastOccurrence.occurrence == 2, "样本不对，判据无效：\(lastOccurrence)")
+        for index in [0, 2, 4] {
+            let afterIDs = Set(TagInput.chips(for: TagInput.removingTag(at: index, from: tags)).map(\.id))
+            #expect(
+                afterIDs.subtracting(beforeIDs).isEmpty,
+                "删下标 \(index)：凭空多出身份 \(afterIDs.subtracting(beforeIDs)) —— 不该有插入"
+            )
+            #expect(
+                beforeIDs.subtracting(afterIDs) == [lastOccurrence.id],
+                """
+                删下标 \(index)：消失的身份是 \(beforeIDs.subtracting(afterIDs))，应恒为末次出现 \(lastOccurrence.id)
+                —— 这正是「退场动画播在末次出现上、不一定是用户点的那一个」这条限制的来源
+                """
+            )
+        }
     }
 
     @Test("按 chip.index 删除命中的是该 chip 自己的那次出现")

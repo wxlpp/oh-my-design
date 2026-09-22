@@ -379,4 +379,199 @@ struct TagMotionInFlightTests {
     }
 }
 
+
+// MARK: - 逐项重排轨迹 / Per-item reflow trajectory
+
+// 每个标签的 label 是一块**唯一色相**的色卡（`Tag` 的 `foregroundStyle` 管不到 `Color` 视图），
+// 于是逐帧能按色相把每一项单独定位——行带像素数与整体边界做不到这件事：退场项自己的缩放 / 淡出
+// 也在改那些数。
+fileprivate struct SwatchItem: Identifiable, Hashable {
+    let id: String
+    let red: Double
+    let green: Double
+    let blue: Double
+
+    var color: Color { Color(.sRGB, red: self.red, green: self.green, blue: self.blue, opacity: 1) }
+}
+
+fileprivate let reflowSwatches: [SwatchItem] = [
+    SwatchItem(id: "red", red: 1, green: 0, blue: 0),
+    SwatchItem(id: "green", red: 0, green: 0.7, blue: 0),
+    SwatchItem(id: "blue", red: 0, green: 0, blue: 1),
+    SwatchItem(id: "yellow", red: 1, green: 0.85, blue: 0),
+    SwatchItem(id: "magenta", red: 1, green: 0, blue: 1),
+    SwatchItem(id: "cyan", red: 0, green: 0.8, blue: 0.8),
+]
+
+@MainActor
+private final class SwatchBox: ObservableObject {
+    @Published var items: [SwatchItem] = reflowSwatches
+}
+
+private struct SwatchHarness: View {
+    @ObservedObject var box: SwatchBox
+
+    var body: some View {
+        TagGroup(self.box.items, selection: .constant([]), color: .contentSecondary) { item in
+            item.color.frame(width: 26, height: 10)
+        }
+        .frame(width: 240, alignment: .leading)
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+}
+
+@Suite("标签增删：逐项重排轨迹", .serialized)
+@MainActor
+struct TagReflowTrajectoryTests {
+    static let size = CGSize(width: 240, height: 140)
+
+    static let removedIndex = 1
+
+    static let samplingWindows: [TimeInterval] = [0.45, 0.7, 1.0]
+
+    fileprivate static func origin(of item: SwatchItem, in pixels: HostedPixels) -> CGPoint? {
+        guard let bytes = pixels.bytes, pixels.width > 0 else { return nil }
+        let tr = Int(item.red * 255), tg = Int(item.green * 255), tb = Int(item.blue * 255)
+        var minX = pixels.width, minY = pixels.height, count = 0
+        for index in stride(from: 0, to: bytes.count, by: 4) {
+            let delta = abs(Int(bytes[index]) - tr) + abs(Int(bytes[index + 1]) - tg) + abs(Int(bytes[index + 2]) - tb)
+            guard delta < 60 else { continue }
+            count += 1
+            let pixel = index / 4
+            minX = min(minX, pixel % pixels.width)
+            minY = min(minY, pixel / pixels.width)
+        }
+        return count < 40 ? nil : CGPoint(x: minX, y: minY)
+    }
+
+    // 退场项用「色相方向」而不是精确色值计数：它一边淡出一边缩放，精确色值在第一帧就落出容差，
+    // 那样会把整段退场读成「一步到位」。
+    static func exitingInk(_ pixels: HostedPixels) -> Int {
+        guard let bytes = pixels.bytes else { return -1 }
+        var count = 0
+        for index in stride(from: 0, to: bytes.count, by: 4) {
+            let red = Int(bytes[index]), green = Int(bytes[index + 1]), blue = Int(bytes[index + 2])
+            if green - max(red, blue) > 12 { count += 1 }
+        }
+        return count
+    }
+
+    struct Run {
+        var origins: [String: [CGPoint?]] = [:]
+        var exitingInk: [Int] = []
+    }
+
+    static func sample(presentation: MotionPresentation, sampleFor duration: TimeInterval) -> Run {
+        let box = SwatchBox()
+        let window = HostedWindow(
+            SwatchHarness(box: box).environment(\.coreMotionPresentationOverride, presentation),
+            size: Self.size, scheme: .light
+        )
+        defer { window.close() }
+        var run = Run()
+        func record(_ pixels: HostedPixels) {
+            for item in reflowSwatches {
+                run.origins[item.id, default: []].append(Self.origin(of: item, in: pixels))
+            }
+            run.exitingInk.append(Self.exitingInk(pixels))
+        }
+        record(window.pixels())
+        box.items.remove(at: Self.removedIndex)
+        let start = Date()
+        while Date().timeIntervalSince(start) < duration {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.016))
+            record(window.pixels())
+        }
+        window.settle()
+        record(window.pixels())
+        return run
+    }
+
+    static func intermediates(_ series: [CGPoint?]) -> Int {
+        guard let first = series.first ?? nil, let last = series.last ?? nil else { return -1 }
+        guard first != last else { return 0 }
+        return Set(series.compactMap { point -> String? in
+            guard let point, point != first, point != last else { return nil }
+            return "\(Int(point.x)),\(Int(point.y))"
+        })
+        .count
+    }
+
+    @Test("完整动效：每个存活标签逐帧经过多个中间位置，跨行上移的那个 x 与 y 一起插值")
+    func survivorsMoveThroughIntermediatePositions() throws {
+        var lastRun: Run?
+        for window in Self.samplingWindows {
+            let run = Self.sample(presentation: .animated, sampleFor: window)
+            lastRun = run
+            let movers = reflowSwatches.filter { $0.id != reflowSwatches[Self.removedIndex].id }
+                .filter { Self.intermediates(run.origins[$0.id] ?? []) > 0 }
+            if movers.count >= 3 { break }
+        }
+        let run = try #require(lastRun)
+        let survivors = reflowSwatches.filter { $0.id != reflowSwatches[Self.removedIndex].id }
+        var movers: [String] = []
+        for item in survivors {
+            let series = try #require(run.origins[item.id], "\(item.id) 没被采到")
+            let first = try #require(series.first ?? nil, "\(item.id) 起点没渲染出来，判据无效")
+            let last = try #require(series.last ?? nil, "\(item.id) 终点没渲染出来，判据无效")
+            guard hypot(last.x - first.x, last.y - first.y) >= 8 else { continue }
+            movers.append(item.id)
+            #expect(
+                Self.intermediates(series) >= 2,
+                """
+                \(item.id) 从 \(first) 到 \(last) 只被拍到 \(Self.intermediates(series)) 个中间位置 \
+                —— 它是跳过去的，不是移过去的（或采样器失灵）
+                """
+            )
+        }
+        #expect(movers.count >= 3, "只有 \(movers) 动过 —— 样本没有构造出重排，判据无效")
+
+        let crossRow = try #require(run.origins["cyan"], "cyan 没被采到")
+        let crossFirst = try #require(crossRow.first ?? nil)
+        let crossLast = try #require(crossRow.last ?? nil)
+        #expect(crossFirst.y > crossLast.y + 8, "cyan 没有跨行上移（\(crossFirst) → \(crossLast)），跨行那一格没被覆盖")
+        #expect(crossFirst.x < crossLast.x - 8, "cyan 的 x 没有同时右移（\(crossFirst) → \(crossLast)）")
+        let diagonal = Set(crossRow.compactMap { point -> String? in
+            guard let point, point != crossFirst, point != crossLast,
+                  point.x != crossFirst.x, point.y != crossFirst.y else { return nil }
+            return "\(Int(point.x)),\(Int(point.y))"
+        })
+        #expect(diagonal.count >= 2, "cyan 的 x 与 y 没有同时插值，只拍到 \(diagonal) —— 跨行是跳过去的")
+
+        let exiting = run.exitingInk
+        let peak = try #require(exiting.first)
+        #expect(peak > 100, "退场项起始墨迹只有 \(peak)，判据无效")
+        #expect(exiting.last == 0, "退场项最后还剩 \(String(describing: exiting.last)) 墨迹 —— 没退完")
+        #expect(
+            exiting.contains { $0 > 0 && $0 < peak },
+            "退场项的墨迹从 \(peak) 直接到 0，中间一档都没拍到 —— 退场是瞬间的，或采样器失灵（实测序列 \(exiting)）"
+        )
+    }
+
+    @Test("Reduce Motion：第一帧起每个标签就在终位，退场墨迹直接归零（零中间位置）")
+    func restingHasNoIntermediatePositions() throws {
+        let run = Self.sample(presentation: .resting, sampleFor: 0.45)
+        let survivors = reflowSwatches.filter { $0.id != reflowSwatches[Self.removedIndex].id }
+        var moved = 0
+        for item in survivors {
+            let series = try #require(run.origins[item.id], "\(item.id) 没被采到")
+            let first = try #require(series.first ?? nil, "\(item.id) 起点没渲染出来")
+            let last = try #require(series.last ?? nil, "\(item.id) 终点没渲染出来")
+            if hypot(last.x - first.x, last.y - first.y) >= 8 { moved += 1 }
+            #expect(
+                Self.intermediates(series) == 0,
+                "\(item.id) 在 Reduce Motion 下仍经过中间位置（\(Self.intermediates(series)) 个）：\(series.compactMap { $0 })"
+            )
+        }
+        #expect(moved >= 3, "只有 \(moved) 个标签换了位置 —— 样本没有构造出重排，判据无效")
+        let exiting = run.exitingInk
+        let peak = try #require(exiting.first)
+        #expect(peak > 100, "退场项起始墨迹只有 \(peak)，判据无效")
+        #expect(
+            !exiting.dropFirst().contains { $0 > 0 && $0 < peak },
+            "Reduce Motion 下退场项仍在淡出（实测序列 \(exiting)）"
+        )
+    }
+}
+
 #endif

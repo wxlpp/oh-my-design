@@ -560,6 +560,9 @@ private struct TagGroupPreview: View {
     @State private var sized: Set<String> = ["On"]
     @State private var mutable: [TagGroupPreviewItem] = ["Alpha", "Bravo", "Charlie", "Delta"].map(TagGroupPreviewItem.init(id:))
     @State private var mutableSelection: Set<String> = ["Bravo"]
+    // 单调递增，不用 count —— 「加、删中间、再加」会让 count + 1 撞出两个同名 ID，
+    // 而 TagGroup 的契约要求 data 内 ID 唯一。
+    @State private var mutableSerial = 0
 
     private let ranges = ["Daily", "Weekly", "Monthly", "Yearly"].map(TagGroupPreviewItem.init(id:))
     private let languages = ["Swift", "Kotlin", "Rust", "TypeScript", "Python"].map(TagGroupPreviewItem.init(id:))
@@ -605,7 +608,8 @@ private struct TagGroupPreview: View {
                 }
                 HStack(spacing: CoreSpacing.sm) {
                     Button {
-                        self.mutable.append(TagGroupPreviewItem(id: "tag\(self.mutable.count + 1)"))
+                        self.mutableSerial += 1
+                        self.mutable.append(TagGroupPreviewItem(id: "tag\(self.mutableSerial)"))
                     } label: {
                         Text(verbatim: "Append")
                     }
@@ -1349,6 +1353,7 @@ private struct RadioGroupPreview: View {
 private struct TagInputPreview: View {
     @State private var tags: [String] = ["bug", "enhancement"]
     @State private var mutable: [String] = ["alpha", "bravo", "charlie", "delta", "echo"]
+    @State private var mutableSerial = 0
     var body: some View {
         // Phase 3 / #173 视觉复查发现：默认 tagColor（.contentSecondary）经 Tag 的
         // `.opacity(0.12)` 背景公式，在暗色纯黑画布上对比度接近不可辨——这是 Tag 既有
@@ -1365,7 +1370,8 @@ private struct TagInputPreview: View {
                 TagInput(tags: self.$mutable, placeholder: "Add tag", tagColor: .blue)
                 HStack(spacing: CoreSpacing.sm) {
                     Button {
-                        self.mutable.append("tag\(self.mutable.count + 1)")
+                        self.mutableSerial += 1
+                        self.mutable.append("tag\(self.mutableSerial)")
                     } label: {
                         Text(verbatim: "Append")
                     }
