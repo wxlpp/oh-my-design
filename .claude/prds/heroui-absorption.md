@@ -137,7 +137,7 @@ Banner 无状态：`onDismiss` 只回调，由调用方移除。动作与关闭�
 今天 `Avatar` 可被外部 `.frame` 任意拉伸，改为默认固定直径属于布局破坏，登记并给出 `.fixed` 迁移（如 100pt 用法）。
 
 **FR-8 `anchoredBadge`**：`View.anchoredBadge(_ content: AnchoredBadgeContent, placement: …)`，
-content 至少含 `.dot` / `.count(Int, max: Int)` / `.text(String)`；取色 `statusDangerEmphasis`
+content 至少含 `.dot` / `.count(Int, max: Int = 99)` / `.text(LocalizedStringKey)`（B 类文案，按公约第 4 节用 `LocalizedStringKey`）；取色 `statusDangerEmphasis`
 + `contentOnEmphasis`（与系统角标一致，不跟随 accent）；count 为 0 时不显示；计数并入宿主可访问值。
 名字避开 SwiftUI `.badge`。
 
