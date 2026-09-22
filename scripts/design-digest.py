@@ -28,13 +28,10 @@ FLOORS = {
     # #378：enums +1（AvatarSize）、enumcases +2（.automatic / .fixed）。
     # #379：colors +2（systemRed / badgeFill）、enums +3（AnchoredBadgeContent / AnchoredBadgePlacement /
     # AnchoredBadgeHostShape）、enumcases +9（3 + 4 + 2）、viewext +1（View.anchoredBadge）。
-    # #373：components +1（FormField）、enums +2（FieldValidation / FieldRequirement）、
-    # enumcases +4（2 + 2）、viewext +3（fieldValidation / fieldRequirement / fieldAccessibilityHint）。
     # #373：components +1（FormField）、enums +3（FieldValidation / FieldRequirement / FormFieldLayout）、
-    # enumcases +6（2 + 2 + 2）、viewext +3（fieldValidation / fieldRequirement / fieldAccessibility）。
     # enumcases +6（2 + 2 + 2）、viewext +4（fieldValidation / fieldRequirement / fieldAccessibility / formFieldLabelColumn）。
     "colors": 120, "components": 85, "enums": 41, "enumcases": 144,
-    "protocols": 6, "viewext": 43, "styleext": 12, "others": 27,
+    "protocols": 6, "viewext": 44, "styleext": 12, "others": 27,
 }
 
 # 组件判定：conformance 列表里出现这些名字之一，或以 Style 结尾。

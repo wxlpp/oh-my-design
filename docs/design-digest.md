@@ -998,7 +998,7 @@
 | enums | 41 | 41 |
 | enumcases | 144 | 144 |
 | protocols | 6 | 6 |
-| viewext | 44 | 43 |
+| viewext | 44 | 44 |
 | styleext | 12 | 12 |
 | others | 27 | 27 |
 
