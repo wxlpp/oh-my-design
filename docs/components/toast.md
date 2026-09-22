@@ -94,7 +94,8 @@ StatusLevel: info / success / warning / danger / neutral。
 - 无动作：整条是一个按钮元素（标题 + 说明合并朗读，提示「Tap to dismiss」，激活即关闭）。
 - 有动作：整条不再是单一按钮——「标题 + 说明」是一个可激活关闭的按钮元素，动作是另一个独立按钮，
   二者可分别聚焦（AXe 实测为两个 `Button` 节点）。
-- AX 字号下动作按钮换到消息下方一行、允许折行，标题与说明完整显示；常规字号下动作按钮保持完整单行，
+- AX 字号下图标不再单独占一列，改为独占标题上方一行（与文字列左对齐，朗读时隐藏），文字列拿到整条宽度，
+  长单词不会从中间折断，布局也不随首词长短变；动作按钮换到消息下方一行、允许折行，标题与说明完整显示；常规字号下动作按钮保持完整单行，
   由标题让出宽度（标题单行截断）。
 - 动作按钮外观是紧凑的 small 胶囊，但命中区向四周各扩 `CoreSpacing.md`（≥ 44×44pt），
   再以等量负内边距抵消，不撑高 toast。
@@ -134,10 +135,15 @@ struct DetailView: View {
 
 ## 视觉 Token
 
-- 容器：`.floatingGlass(in: Capsule(style: .continuous), isInteractive: false)`——iOS 26 液态玻璃浮起外壳，不消费 `.surface(.card)`（Phase 3A 迁移，见 `ToastView`）
-- 字号：标题 `callout`（有说明时 semibold），说明 `footnote` + `contentSecondary`；动作按钮外观同 `.light(role: .primary)` + `.controlSize(.small)`、semibold（内部样式另加命中区外扩）；图标与标题首行基线对齐，字号上限 `xxxLarge`
+- 容器：`floatingGlass` 液态玻璃外壳，不消费 `.surface(.card)`（Phase 3A 迁移，见 `ToastView`）。三形态外壳不同：
+  - `.floatingCapsule`：公开入口 `.floatingGlass(in:isInteractive:)` 的默认外壳（64% 背景色 + 玻璃 + 四周 hairline）；
+  - `.fullWidthBanner`：不画 hairline，底色与玻璃延伸进所贴那条边的安全区（顶部即状态栏），玻璃在左右与贴边那侧再外扩
+    `CoreSpacing.xs`，把玻璃自带的高光边推出屏幕，只留朝向内容那一侧的边；
+  - `.centeredHUD`：底色改为不透明 `surfaceRaised`（保留玻璃边缘与 hairline），叠在文字上不透字。
+- 字号：标题 `callout`（有说明时 semibold），说明 `footnote` + `contentSecondary`；动作按钮外观同 `.light(role: .primary)` + `.controlSize(.small)`、semibold（内部样式另加命中区外扩）；常规字号下图标与标题首行基线对齐，字号上限 `xxxLarge`；AX 字号下图标独占标题上方一行，字号上限 `accessibility1`（`ToastView.accessibilityIconCap`：AX 档里最小的一档——已比常规上限 `xxxLarge` 大一级、仍醒目，再往上只会占纵向空间而不增加辨识度）
 - 内边距：`CoreSpacing.md`
 - Icon / 前景色：按 `StatusLevel` 走 status color token（`statusAccentForeground` / `statusSuccessForeground` / `statusAttentionForeground` / `statusDangerForeground`）；
+  图标 `info.circle` / `checkmark.circle` / `exclamationmark.triangle` / `exclamationmark.circle`（danger，与 `Banner` 的 `exclamationmark.circle.fill` 同属 circle 族，Toast 保持描线）；
   `neutral` 图标 `bell`、图标色 `contentSecondary`（正文各档统一为 `contentPrimary`）
 - 入场/出场动画：从 `edge` 方向滑入 + 淡入（⚠️ `.centeredHUD` 例外：改用不依赖方向的
   缩放 + 淡入淡出）

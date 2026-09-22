@@ -221,6 +221,15 @@ extension ComponentMeta {
         ComponentMeta(id: "toast-rich-hud", name: "Toast · centeredHUD 动作", description: "centeredHUD：title + description + ToastAction", category: .feedback) {
             ToastRichPreview(presentation: .centeredHUD)
         },
+        ComponentMeta(id: "toast-rich-danger-capsule", name: "Toast · danger 胶囊", description: "floatingCapsule：danger 单行标题（含长单词，检视 AX 字号折行）", category: .feedback) {
+            ToastRichPreview(presentation: .floatingCapsule, sample: ToastPreviewSamples.danger())
+        },
+        ComponentMeta(id: "toast-rich-danger-banner", name: "Toast · danger 横幅", description: "fullWidthBanner：danger 单行标题，外壳延伸进状态栏", category: .feedback) {
+            ToastRichPreview(presentation: .fullWidthBanner, sample: ToastPreviewSamples.danger())
+        },
+        ComponentMeta(id: "toast-rich-danger-hud", name: "Toast · danger HUD", description: "centeredHUD：danger 单行标题，外壳不透底层文字", category: .feedback) {
+            ToastRichPreview(presentation: .centeredHUD, sample: ToastPreviewSamples.danger())
+        },
         ComponentMeta(id: "spinning", name: "Spinning", description: "View.spinning(_:text:presentation:tint:)：overlay 遮罩（阻塞）/ topBar / inline（非阻塞）；取色走 tint: 参数，三个形态一致", category: .feedback) {
             SpinningPreview()
         },
@@ -869,19 +878,25 @@ private enum ToastPreviewSamples {
             action: ToastAction("Undo") {}
         )
     }
+
+    static func danger() -> ToastItem {
+        ToastItem(title: "Connection interrupted", level: .danger, duration: .persistent)
+    }
 }
 
 private struct ToastRichPreview: View {
     let presentation: ToastPresentation
+    var sample: ToastItem = ToastPreviewSamples.archived(duration: .persistent)
 
     var body: some View {
-        ToastRichPreviewContent()
+        ToastRichPreviewContent(sample: self.sample)
             .frame(maxWidth: .infinity, minHeight: 320, maxHeight: .infinity)
             .toastHost(edge: .top, presentation: self.presentation)
     }
 }
 
 private struct ToastRichPreviewContent: View {
+    let sample: ToastItem
     @Environment(\.toastHost) private var toast
 
     var body: some View {
@@ -891,13 +906,16 @@ private struct ToastRichPreviewContent: View {
                 .foregroundStyle(Color.contentMuted)
             Button("Show again") {
                 self.toast?.dismissAll()
-                self.toast?.show(ToastPreviewSamples.archived(duration: .persistent))
+                self.toast?.show(ToastItem(
+                    title: self.sample.title, description: self.sample.description,
+                    level: self.sample.level, duration: .persistent, action: self.sample.action
+                ))
             }
             .buttonStyle(.light(role: .secondary))
             .controlSize(.small)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .task { self.toast?.show(ToastPreviewSamples.archived(duration: .persistent)) }
+        .task { self.toast?.show(self.sample) }
     }
 }
 
@@ -938,7 +956,11 @@ private struct CardPreview: View {
                 VStack(alignment: .leading, spacing: CoreSpacing.sm) {
                     Text("外层 Card：raised").coreFont(.headline)
                     Card {
-                        Text("内层 Card：elevated，无投影").coreFont(.subheadline)
+                        #if os(macOS)
+                        Text("内层 Card：elevated，无投影，保留描边").coreFont(.subheadline)
+                        #else
+                        Text("内层 Card：elevated，无投影、无描边").coreFont(.subheadline)
+                        #endif
                     }
                     Card(kind: .grouped) {
                         Text("内层 grouped：elevated").coreFont(.subheadline)

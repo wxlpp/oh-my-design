@@ -61,11 +61,42 @@ struct SurfaceLevelRuleTests {
         }
     }
 
-    @Test("描边与圆角仍只由角色决定：grouped 无描边")
-    func borderStaysRoleDriven() {
-        #expect(SurfaceKind.grouped.border == Color.clear)
-        #expect(SurfaceKind.content.border == Color.borderMuted)
-        #expect(SurfaceKind.card.border == Color.borderMuted)
+    /// 无 `default`：新增 `SurfaceKind` case 时编译不过，逼人当场为它定描边。
+    private static func expectedBorder(_ kind: SurfaceKind, at level: SurfaceLevel) -> Color {
+        switch kind {
+        case .canvas, .grouped, .sidebar: .clear
+        case .content, .card:
+            #if canImport(UIKit)
+                level == .elevated ? .clear : .borderMuted
+            #else
+                .borderMuted
+            #endif
+        case .floating, .canvasSubtle: .borderMuted
+        case .control: .borderSubtle
+        case .panel: .borderDefault
+        }
+    }
+
+    private static let allKinds: [SurfaceKind] = [
+        .canvas, .content, .control, .floating, .grouped, .canvasSubtle, .panel, .sidebar, .card,
+    ]
+
+    @Test("描边按角色 × 层级 × 平台取色：iOS 上 elevated 的 content / card 去描边，macOS 保留")
+    func borderFollowsRoleAndLevel() {
+        for kind in Self.allKinds {
+            for level in Self.parents {
+                #expect(kind.border(at: level) == Self.expectedBorder(kind, at: level), "\(kind) @ \(level)")
+            }
+        }
+        for kind in [SurfaceKind.content, .card] {
+            #expect(kind.border(at: .raised) == Color.borderMuted)
+            #expect(kind.border(at: .base) == Color.borderMuted)
+            #if canImport(UIKit)
+                #expect(kind.border(at: .elevated) == SurfaceKind.grouped.border(at: .elevated))
+            #else
+                #expect(kind.border(at: .elevated) == Color.borderMuted)
+            #endif
+        }
     }
 }
 
