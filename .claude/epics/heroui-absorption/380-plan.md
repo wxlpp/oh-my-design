@@ -27,7 +27,7 @@ public extension TagGroup where Data.Element: Identifiable, ID == Data.Element.I
 
 - `color` is the caller's content colour, forwarded to `Tag` unchanged (drives the label
   foreground and the unselected 12 % tint). Selection never recolours the label.
-- Selected chrome: fill `Color.accentSubtleBackground(from: coreAccent)`, 1pt stroke
+- Selected chrome: fill `Color.accentSubtleBackground(from: coreAccent)`, 2pt (`CoreBorderWidth.thick`) stroke
   `Color.accentSelectedBorder(from: coreAccent)` (new derivation in `InteractionColors.swift`;
   static `borderSelected` rewired to it so both share one source). `coreAccent` read from the
   environment (`resolvedAccent`).

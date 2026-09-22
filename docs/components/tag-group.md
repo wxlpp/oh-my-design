@@ -51,7 +51,7 @@ TagGroup(items, selection: $selection, color: .contentPrimary) { Text($0.name) }
 
 ## 外观
 
-- 选中：底色 `accentSubtleBackground(from: coreAccent)`、1pt 描边 `accentSelectedBorder(from: coreAccent)`，
+- 选中：底色 `accentSubtleBackground(from: coreAccent)`、2pt（`CoreBorderWidth.thick`）描边 `accentSelectedBorder(from: coreAccent)`，
   两者都从**环境 `coreAccent`** 派生（公式在 `Colors/InteractionColors.swift`），
   `.coreAccent(_:)` 换色即跟随；默认墨色 accent 下是淡灰底 + 墨色描边。
 - 标签内容色由 `color` 决定，选中不改变文字颜色。

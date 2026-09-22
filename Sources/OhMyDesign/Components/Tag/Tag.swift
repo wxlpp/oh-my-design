@@ -53,7 +53,7 @@ public struct Tag<Label: View>: View {
         if let selectionChrome = self.selectionChrome {
             shape
                 .fill(selectionChrome.fill)
-                .overlay(shape.strokeBorder(selectionChrome.stroke, lineWidth: CoreBorderWidth.thin))
+                .overlay(shape.strokeBorder(selectionChrome.stroke, lineWidth: CoreBorderWidth.thick))
         } else {
             shape.fill(self.color.opacity(Self.backgroundOpacity))
         }
