@@ -14,7 +14,7 @@ github: https://github.com/wxlpp/oh-my-design/issues/406
 
 | task | FR | 依赖 | 文件 |
 |---|---|---|---|
-| #407 动效 token + Reduce Motion 纪律（含 spike） | FR-1、FR-2、FR-3 | — | Tokens/CoreMotion.swift（新）、现有动效点、新判据 |
+| #407 动效 token + Reduce Motion 纪律（含 spike） | FR-1、FR-2、FR-3 | — | Tokens/CoreMotionToken.swift（新）、现有动效点、新判据 |
 | #408 原生符号 / 数字动效接入小件 | FR-4 | #407 | AnchoredBadgeModifier、CheckBox、Radio |
 | #409 TagGroup / TagInput 动画 | FR-5 | #407 | TagInput、TagGroup、Tag |
 

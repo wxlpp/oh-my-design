@@ -45,7 +45,7 @@ struct QuotedEvidenceGuard {
         ("docs/contract-defects.md", "Sources/OhMyDesign/Components/Timeline/Timeline.swift", "private var nodeContent: some View"),
         ("docs/contract-defects.md", "Sources/OhMyDesign/Components/StateLabel/StateLabel.swift", "let defaultLabel: String"),
         ("docs/contract-defects.md", "Sources/OhMyDesign/Modifier/TelegramGlassButtonModifier.swift", "self.border ?? Color.white.opacity(CoreButtonMetrics.glassBorderOpacity)"),
-        ("docs/contract-defects.md", "Sources/OhMyDesign/Modifier/TelegramGlassButtonModifier.swift", ".scaleEffect(self.pressFeedback && self.isPressed ? CoreButtonMetrics.pressedScale : 1)"),
+        ("docs/contract-defects.md", "Sources/OhMyDesign/Modifier/TelegramGlassButtonModifier.swift", "isPressed: self.pressFeedback && self.isPressed,"),
         ("docs/contract-defects.md", "Tests/OhMyDesignTests/ComponentJudgeRules.swift", "judgeTextParamCoverage"),
         ("docs/contract-defects.md", "Tests/OhMyDesignTests/ComponentJudgeRules.swift", "entry.repo == \"ohmydesign\" && entry.kind == \"semantic\" && entry.needsExtensionPoint"),
         ("docs/contract-defects.md", "Tests/OhMyDesignTests/ComponentExtensionPointGuard.swift", "entries.filter { $0.repo == \"storyui\" && $0.kind == \"semantic\" }.isEmpty"),
@@ -74,7 +74,7 @@ struct QuotedEvidenceGuard {
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/SettingsRow/SettingsRow.swift", ".font(.footnote.weight(.semibold))"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/StateLabel/StateLabel.swift", "let defaultLabel: String"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Modifier/TelegramGlassButtonModifier.swift", "self.border ?? Color.white.opacity(CoreButtonMetrics.glassBorderOpacity)"),
-        ("docs/component-registry.json", "Sources/OhMyDesign/Modifier/TelegramGlassButtonModifier.swift", ".scaleEffect(self.pressFeedback && self.isPressed ? CoreButtonMetrics.pressedScale : 1)"),
+        ("docs/component-registry.json", "Sources/OhMyDesign/Modifier/TelegramGlassButtonModifier.swift", "isPressed: self.pressFeedback && self.isPressed,"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Timeline/Timeline.swift", "static let nodeColumnWidth: CGFloat = 24"),
         // ---- docs/issues/234-a11y-smoke.md ----
         ("docs/issues/234-a11y-smoke.md", "Sources/OhMyDesign/Components/Section/SectionHeader.swift", ".accessibilityAddTraits(.isHeader)"),

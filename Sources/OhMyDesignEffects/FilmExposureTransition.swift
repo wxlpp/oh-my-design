@@ -12,7 +12,7 @@ public struct FilmExposureTransition: Transition {
     /// 默认过曝强度。
     public nonisolated static let defaultIntensity: Double = 0.55
 
-    /// 显式退出框架在 Reduce Motion 下的 opacity 替换（协议默认值是 `true`）。
+    /// 声明本转场无运动（协议默认值是 `true`）。
     public nonisolated static let properties = TransitionProperties(hasMotion: false)
 
     public init(intensity: Double = FilmExposureTransition.defaultIntensity) {

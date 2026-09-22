@@ -9,7 +9,14 @@ private struct ButtonBackgroundModifier<S: InsettableShape>: ViewModifier {
     let isPressed: Bool
     var pressedOpacity: Double?
 
+    @Environment(\.coreMotionPresentation) private var motionPresentation
+
     func body(content: Content) -> some View {
+        let feedback = PressFeedback.chrome(
+            isPressed: self.isPressed,
+            pressedOpacity: self.pressedOpacity,
+            presentation: self.motionPresentation
+        )
         content
             .background(
                 self.shape
@@ -19,9 +26,9 @@ private struct ButtonBackgroundModifier<S: InsettableShape>: ViewModifier {
                 self.shape
                     .strokeBorder(self.border, lineWidth: CoreBorderWidth.hairline)
             )
-            .scaleEffect(self.isPressed ? CoreButtonMetrics.pressedScale : 1)
-            .opacity(self.isPressed ? (self.pressedOpacity ?? 1) : 1)
-            .animation(.snappy(duration: 0.16), value: self.isPressed)
+            .scaleEffect(feedback.scale)
+            .opacity(feedback.opacity)
+            .animation(CoreMotionToken.press.animation(for: self.motionPresentation), value: self.isPressed)
     }
 }
 

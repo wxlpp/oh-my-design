@@ -13,7 +13,7 @@ public struct CoreBorderlessButtonStyle: PrimitiveButtonStyle {
             .buttonChrome(shape: Capsule(style: .continuous), controlSize: self.controlSize)
             .foregroundStyle(self.role.resolvedColor(accent: self.coreAccent, isEnabled: self.isEnabled, isPressed: self.isPressed))
             .clipShape(Capsule(style: .continuous))
-            .animation(.easeInOut, value: self.isPressed)
+            .coreAnimation(.press, value: self.isPressed)
             .simultaneousGesture(self.pressedStateGesture)
             .onTapGesture(count: 1, perform: configuration.trigger)
     }

@@ -56,6 +56,9 @@ extension View {
   （如 `.foregroundStyle(Color.contentDisabled)`），容器不改写它。
 - **系统控件不自动出现 danger 描边**：`TextField` 等系统控件的错误态由 label 与错误行表达。
 
+校验消息 / 说明文字的出现与替换走 `.coreAnimation(.reveal, …)`（`.smooth`，0.25 s；#407 前是 0.2 s `easeInOut`），
+只有淡入淡出与布局重排，无位移类动效。
+
 ## 无障碍
 
 - label 与控件另用 `accessibilityLabeledPair(role:id:in:)` 配对（macOS 生效）；iOS 26 实测它不会把 label 关联到系统 `TextField`，所以 label 也由 `fieldAccessibility()` 设到输入节点上。

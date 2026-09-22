@@ -101,7 +101,7 @@ public struct FormField<Content: View>: View {
             self.controlColumn(appearance: appearance)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .animation(.easeInOut(duration: 0.2), value: FormFieldSlot.resolve(
+        .coreAnimation(.reveal, value: FormFieldSlot.resolve(
             appearance: appearance,
             validation: self.validation,
             hasDescription: self.description != nil

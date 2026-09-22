@@ -778,11 +778,8 @@ struct MaskRevealTransitionBodyTests {
     @Test("MaskRevealTransition 显式声明 properties，且 hasMotion 为 true")
     func transitionDeclaresItHasMotion() throws {
         #expect(MaskRevealTransition.properties.hasMotion, """
-        `hasMotion` 变成了 `false` —— 那是在对系统说"本转场不含运动"，
-        Reduce Motion 下 SwiftUI 将**不再**把它替换成 `.opacity`,
-        整簇的无障碍降级就只剩 `MaskReveal.plan(…isReduced:)` 这一道手写闸。
-        若这是有意的改动，请连同 `MaskRevealTransition` 的两段裁决记录一起改
-        （「两道闸，框架那道在前」与「内层 RM 路径：显式裁定为保留」）。
+        `hasMotion` 变成了 `false` —— 那是在声明"本簇不含运动"，与揭示几何不符。
+        本断言只核声明；Reduce Motion 降级由 `MaskReveal.plan(…isReduced:)` 负责（框架不替换，#407 实测）。
         """)
         let code = try MaskRevealSourceGuard.code("MaskRevealTransitions.swift")
         #expect(code.contains("TransitionProperties(hasMotion: true)"), """

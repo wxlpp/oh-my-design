@@ -20,6 +20,39 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.11.0`）——Issue #407：动效 token 与 Reduce Motion 纪律
+
+**行为变更（无签名破坏）。** 公开符号的签名一个都没变；新增 `CoreMotionToken`、`EnvironmentValues.coreMotionPresentation`、
+`EnvironmentValues.coreMotionPresentationOverride`（`nil` ⇒ 跟随系统）、`View.coreAnimation(_:value:)`。核心库所有过渡曲线改经 `CoreMotionToken` 取，下列时长 / 曲线随之变化：
+
+| 位置 | 之前 | 现在 |
+|---|---|---|
+| `.pressableRow` / `.pressableCard` 按下 | `.easeOut(duration: 0.15)` | `CoreMotionToken.press`（`.snappy`，0.16 s） |
+| `.borderless()` 按下变色 | `.easeInOut`（默认时长） | `CoreMotionToken.press` |
+| `SegmentedControl` 切换 | `.easeInOut(duration: 0.18)` | `CoreMotionToken.selection`（`.snappy`，0.22 s） |
+| `UnderlinedTabBar` 把选中项滚到中间 | `.snappy(duration: 0.2)` | `CoreMotionToken.selection`（`.snappy`，0.22 s） |
+| `CheckBox` / `RadioGroup` 选中切换 | `.easeOut(duration: 0.25)` | `CoreMotionToken.selection` |
+| `FormField` 校验消息 / 说明切换 | `.easeInOut(duration: 0.2)` | `CoreMotionToken.reveal`（`.smooth`，0.25 s） |
+| `.disclosureGroupStyle(.core)` 展开 | `.snappy`（默认时长） | `CoreMotionToken.reveal` |
+| `Carousel` 翻页（自动轮播与点页点） | `withAnimation`（`.default`） | `CoreMotionToken.scroll` |
+| `Toast` 进出 | `.easeInOut(duration: 0.25)` | `CoreMotionToken.reveal`（时长不变，曲线换成 `.smooth`） |
+| `Skeleton` 占位 ↔ 内容、`.spinning(_:)` 出现 / 消失 | `.animation(.default, …)` | `CoreMotionToken.reveal` |
+
+按钮背景、`TelegramGlassButtonModifier`、`AsyncButton`、`UnderlinedTabBar` 选中切换的曲线原本就是
+`CoreMotionToken` 对应档位的值，不变。
+
+**Reduce Motion 开启时的新行为**（静息外观不变；只影响开启了「减弱动态效果」的用户）：
+
+| 位置 | 之前（RM 开） | 现在（RM 开） |
+|---|---|---|
+| `.solidButton` / `.lightButton` / `.circularGlass` / `TelegramGlassButtonModifier` / Toast 操作按钮 按下 | 缩到 0.94 | 不缩放，按下透明度 0.7（与样式自带的 0.9 / 0.92 取较小值，不叠乘） |
+| `Toast` 进出 / 退场 | 滑入滑出、退场位移 60pt、HUD 缩放 0.92 | 原地淡入淡出；滑动松手后停在松手位置淡出；HUD 不缩放 |
+| `SegmentedControl` 滑块、`UnderlinedTabBar` 下划线 | 滑到新位置 | 原地淡变，不途经中间 |
+| `.disclosureGroupStyle(.core)` chevron | 旋转补间 | 直接到位 |
+| `.spinning(_:presentation: .topBar)` 顶条 | 循环扫动 | 静止居中 |
+| `Carousel` 点页点、`UnderlinedTabBar` 滚到选中项 | 滚动补间 | 直接到位 |
+| 上面所有淡变类动画 | 各自的曲线 | 同时长 `easeInOut` |
+
 ## `0.11.0`（2026-09-22）——Issue #399：浮层与层级（Toast / `floatingGlass` / `.surface`）
 
 **视觉变更（无签名破坏）。** 公开符号的签名一个都没变；以下是默认外观的变化：

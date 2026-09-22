@@ -76,7 +76,8 @@ ScrollView {
 
 - 遮罩背景：`.regularMaterial`（系统材质，随外观自动适配，不新增 colorset）
 - Loading 视觉：直接复用 `ProgressIndicator(text:)`——**不**重新包装系统 `ProgressView`
-- 出现 / 消失过渡：`.transition(.opacity)` + `.animation(.default, value: isActive)`
+- 出现 / 消失过渡：`.transition(.opacity)` + `.coreAnimation(.reveal, value: isActive)`（#407 前是 `.animation(.default, …)`）
+- `.topBar` 顶条：循环扫动（周期 1.1 s）；Reduce Motion 下不建 `TimelineView`，顶条静止居中（#407）
 
 ## FR-3a 例外范围说明
 

@@ -12,7 +12,7 @@ public struct BoingTransition: Transition {
         self.strength = strength
     }
 
-    /// 系统那道 Reduce Motion 闸：**必须是 `true`**。理由与判据见 `FlipTransition.properties`。
+    /// 声明本转场含运动（`hasMotion` 取 `true`）。理由见 `FlipTransition.properties`。
     public nonisolated static var properties: TransitionProperties { .init(hasMotion: true) }
 
     public func body(content: Content, phase: TransitionPhase) -> some View {

@@ -26,6 +26,7 @@ OhMyDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 | `CoreElevation` | HIG 的分层原则——层级优先靠 material（毛玻璃）与 separator 表达，阴影只用于真正悬浮的内容（popover / 菜单） |
 | `SurfaceColors` / `ContentColors` / `BorderColors` / `FillColors` | 直接改指系统语义色 API（`systemGroupedBackground` 族、`label` 族、`separator` 族、`systemFill` 族），随系统外观与对比度设置自动更新 —— ⚠️ **本行已失真**（PR #262 第 3 轮终审 I-1）：`FillColors` 现含三个**非系统色**的派生 / 定值 token —— `skeletonBase` / `skeletonHighlight`（#162）与 `specularHighlight`（#262）。 |
 | `InteractionColors.accent` 及衍生族 | 改指 `Color.inkPrimary`（墨色），衍生态用 `Color.mix(with: .surfaceBase)` / `.opacity()` 对 `accent` 本身调制，见下节 |
+| `CoreMotionToken` | 以 SwiftUI `.snappy` / `.smooth` 弹簧族为基础；Reduce Motion 按 HIG「以淡变替代位移」处理，见下节「动效」 |
 | `StatusColors` / `secondaryAccent` / `neutralAccent` | **显式定案：不改指系统色**——Apple HIG 没有"5 态状态色板"或"第二强调色"的系统概念，继续由 `ColorGrade`（第 1 层资源调色板）供色 |
 
 ## 各 token 家族的取值理由
@@ -229,6 +230,47 @@ role 的底色是明暗镜像的 `ColorGrade` 色阶，前景仍走它、不吃 
 - **`selectionBackgroundEmphasis` 改指实心 `accent`**（此前借道 `accentDisabled`）——"强调选中"与"禁用"是两种不同语义，借道禁用色的淡出效果会造成语义倒挂。
 
 **显式定案：`secondaryAccent` / `neutralAccent` 两族保留品牌色阶，不随 accent 动态化。** Apple HIG 没有"第二强调色"或独立的中性强调色系统概念——只有单一的 `AccentColor`。`secondaryAccent` 服务于 `ButtonRoleStyleRole.secondary`（次要按钮角色），是 OhMyDesign 自有的一套品牌色阶，语义上独立于宿主 App 的强调色：即使宿主把 `AccentColor` 换成任意颜色，"次要按钮"仍应保持库自身统一的视觉身份。`neutralAccent` 同理保留 `ColorGrade.grey` 一系而非改指系统灰，是为了避免库内出现两套灰阶互不对应。`light-blue-5` / `grey-5` 等 colorset 本身已带 light/dark 双值，明暗自适应链路与系统色等价，只是取值来自 OhMyDesign 自己的调色板。
+
+### 动效（`CoreMotionToken`，#407）
+
+核心库所有过渡动画只经 `CoreMotionToken` 取（判据 `CoreMotionTokenDisciplineGuard`，SwiftSyntax 逐调用点：
+`withAnimation` / `withTransaction` / `Transaction(animation:)` / `.transaction { }` / `animation(_:value:)` /
+`.animation =` 赋值 / `Animation` 类型的存储值都必须引用 `CoreMotionToken`；曲线字面量只许出现在
+`Tokens/CoreMotionToken.swift`；位移 / 缩放 / 旋转调用点逐点登记门控理由。已知未覆盖的形态写在该判据的文档注释里）。
+
+| token | 曲线 | 时长 | 用途 | 取值理由 |
+|---|---|---|---|---|
+| `press` | `.snappy` | 0.16 s | 按压缩放 / 变暗、按钮内 label ↔ 进度 | 迁移前 4 处按压里 3 处已是 `.snappy(duration: 0.16)`；直接操作的反馈要在手指抬起前落定 |
+| `selection` | `.snappy` | 0.22 s | 分段滑块、下划线标签（含滚到选中项）、勾选 / 单选 | `UnderlinedTabBar` 的现值；比 `press` 慢一档，让「选中项换了」可被跟读 |
+| `reveal` | `.smooth` | 0.25 s | Toast 进出、表单消息、折叠组、加载遮罩 | 与 Toast 退场计时同源（`ToastDefaults` 的移除计时直接取 `CoreMotionToken.reveal.duration`）；出现 / 消失不该回弹 |
+| `scroll` | `.smooth` | 0.35 s | 页级位移：走马灯翻页 | 整页位移行程长，比 `selection` 慢一档；Reduce Motion 下不补间 |
+
+有意不提供 `.bouncy` 档：过冲与墨色 accent 的安静观感冲突，需要时下游直接用 SwiftUI 的曲线。
+
+**Reduce Motion 纪律。** 入口是 `EnvironmentValues.coreMotionPresentation`（复用 `MotionPresentation`：RM 开 ⇒
+`.resting`，否则 `.animated`；只看 RM、不看能耗）。预览与测试用 `\.coreMotionPresentationOverride` 注入固定值，
+`nil`（默认）⇒ 跟随系统。`CoreMotionToken.animation(for:)` 在 `.resting` 下把 `press` /
+`selection` / `reveal` 退为同时长 `easeInOut`（只用于淡变），把 `scroll` 退为 `nil`（直接到位）。位移 / 缩放 /
+旋转本身必须由调用点去掉——**框架不代劳**（#407 实测，见下）：
+
+| 组件 | RM 关 | RM 开 |
+|---|---|---|
+| 按钮背景 / Telegram 玻璃按钮 / `.pressableCard` | 按下缩到 0.94（`.lightButton` / `.circularGlass` / Toast 操作按钮另带 0.9 按下透明度） | 不缩放，按下透明度取 0.7（与样式自带的按下透明度取较小值，不叠乘） |
+| `Toast` | 从贴边一侧滑入滑出；HUD 缩放 0.92 进出 | 原地淡入淡出；滑动松手后停在松手位置淡出；HUD 不缩放 |
+| `SegmentedControl` 滑块、`UnderlinedTabBar` 下划线 | 滑到新位置 | 旧位置淡出、新位置淡入，不途经中间 |
+| `CoreDisclosureGroupStyle` chevron | 旋转 90° | 直接到位 |
+| `.spinning(presentation: .topBar)` | 顶条循环扫动 | 静止居中 |
+| `Skeleton` 扫光 | 循环扫光 | 不扫光（原有） |
+| `Carousel` | 自动轮播、点页点翻页有滚动 | 不自动轮播（原有）、点页点直接到位 |
+
+**框架不替我们降级（FR-1 实测，Xcode 26.4）。** iOS 26.4 模拟器打开系统「减弱动态效果」（屏上同时核对
+`\.accessibilityReduceMotion` 与 `UIAccessibility.isReduceMotionEnabled` 均为 `true`）后录屏逐帧量色块：
+`properties.hasMotion == true` 的自定义 `Transition`、系统 `.move(edge:)` / `.scale`、`withAnimation` 与隐式
+`.animation(_:value:)` 两种驱动下都**照常位移 / 缩放**，`Transition.body` 照常收到 `.willAppear` /
+`.didDisappear`；`symbolEffect(.bounce)` 照常弹、`.contentTransition(.symbolEffect(.replace))` 照常描画、
+`.contentTransition(.numericText())` 照常纵向滚动。macOS 26 上用 `_accessibilityReduceMotion` 注入同样不替换
+（未改本机系统设置）。⇒ SDK 文档对 `hasMotion` 的「会被替换成 opacity」在这些路径上不成立；Effects 各转场文档
+里「两道闸、框架那道在前」的说法已按此更正。
 
 ### 状态色（`StatusColors`）
 

@@ -12,7 +12,7 @@ public struct FlickerTransition: Transition {
     /// 默认明暗往复次数。
     public nonisolated static let defaultCycles: Int = 3
 
-    /// 显式退出框架的 opacity 替换，让本文件那道手写闸成为唯一保护。
+    /// 声明本转场无运动；Reduce Motion 由本文件那道手写闸处理。
     public nonisolated static let properties = TransitionProperties(hasMotion: false)
 
     public init(cycles: Int = FlickerTransition.defaultCycles) {

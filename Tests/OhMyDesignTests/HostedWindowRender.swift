@@ -66,6 +66,17 @@ final class HostedWindow {
         #endif
     }
 
+    #if canImport(AppKit) && !canImport(UIKit)
+    func sendMouse(_ type: NSEvent.EventType, at point: CGPoint) {
+        let location = CGPoint(x: point.x, y: self.root.bounds.height - point.y)
+        guard let event = NSEvent.mouseEvent(
+            with: type, location: location, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: self.window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1
+        ) else { return }
+        self.window.sendEvent(event)
+    }
+    #endif
+
     func first<T: HostedPlatformView>(_ type: T.Type) -> T? {
         Self.first(type, in: self.root)
     }

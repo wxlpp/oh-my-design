@@ -98,30 +98,30 @@ struct PressableButtonStyleTests {
 
     @Test("卡片：按下按 pressedScale 缩放，不变暗")
     func cardFeedbackScales() {
-        let pressed = PressFeedback.card(isPressed: true, isEnabled: true, reduceMotion: false)
+        let pressed = PressFeedback.card(isPressed: true, isEnabled: true, presentation: .animated)
         #expect(pressed.scale == CoreButtonMetrics.pressedScale)
         #expect(pressed.opacity == 1)
         #expect(pressed.fill == nil)
 
-        let idle = PressFeedback.card(isPressed: false, isEnabled: true, reduceMotion: false)
+        let idle = PressFeedback.card(isPressed: false, isEnabled: true, presentation: .animated)
         #expect(idle == PressFeedback.idle)
     }
 
     @Test("卡片：reduce motion 下只变暗不缩放")
     func cardFeedbackReduceMotion() {
-        let pressed = PressFeedback.card(isPressed: true, isEnabled: true, reduceMotion: true)
+        let pressed = PressFeedback.card(isPressed: true, isEnabled: true, presentation: .resting)
         #expect(pressed.scale == 1)
         #expect(pressed.opacity < 1)
 
-        let idle = PressFeedback.card(isPressed: false, isEnabled: true, reduceMotion: true)
+        let idle = PressFeedback.card(isPressed: false, isEnabled: true, presentation: .resting)
         #expect(idle == PressFeedback.idle)
     }
 
     @Test("禁用：两者都不给按压反馈，并整体变淡")
     func disabledFeedback() {
         let row = PressFeedback.row(isPressed: true, isEnabled: false)
-        let card = PressFeedback.card(isPressed: true, isEnabled: false, reduceMotion: false)
-        let cardReduced = PressFeedback.card(isPressed: true, isEnabled: false, reduceMotion: true)
+        let card = PressFeedback.card(isPressed: true, isEnabled: false, presentation: .animated)
+        let cardReduced = PressFeedback.card(isPressed: true, isEnabled: false, presentation: .resting)
         for feedback in [row, card, cardReduced] {
             #expect(feedback.fill == nil)
             #expect(feedback.scale == 1)
@@ -224,22 +224,22 @@ struct PressableButtonStyleTests {
 
     @Test("卡片按下：label 真的被缩小")
     func cardPressedRendersScaled() throws {
-        let idle = alphaStats(try #require(rgba(self.cardHost(PressableCardBody(label: self.cardLabel, isPressed: false, reduceMotionOverride: false)))))
-        let pressed = alphaStats(try #require(rgba(self.cardHost(PressableCardBody(label: self.cardLabel, isPressed: true, reduceMotionOverride: false)))))
+        let idle = alphaStats(try #require(rgba(self.cardHost(PressableCardBody(label: self.cardLabel, isPressed: false)))))
+        let pressed = alphaStats(try #require(rgba(self.cardHost(PressableCardBody(label: self.cardLabel, isPressed: true)))))
         #expect(idle.covered == 1600, "未按下应覆盖 40×40，实测 \(idle.covered)")
         #expect(pressed.covered < 1500, "按下应按 0.94 缩小（约 1414 像素），实测 \(pressed.covered)")
     }
 
     @Test("卡片按下 + 减弱动态效果：不缩放，只变暗")
     func cardPressedReduceMotionRendersDimmed() throws {
-        let pressed = alphaStats(try #require(rgba(self.cardHost(PressableCardBody(label: self.cardLabel, isPressed: true, reduceMotionOverride: true)))))
+        let pressed = alphaStats(try #require(rgba(self.cardHost(PressableCardBody(label: self.cardLabel, isPressed: true).environment(\.coreMotionPresentationOverride, .resting)))))
         #expect(pressed.covered == 1600, "减弱动态效果下不应缩放，实测覆盖 \(pressed.covered)")
         #expect(abs(pressed.meanAlpha - 255 * PressFeedback.reducedMotionPressedOpacity) < 3, "应按 0.7 变暗，实测平均 α=\(pressed.meanAlpha)")
     }
 
     @Test("卡片禁用：按下也不缩放，整体变淡")
     func cardDisabledRendersFaded() throws {
-        let body = PressableCardBody(label: self.cardLabel, isPressed: true, reduceMotionOverride: false)
+        let body = PressableCardBody(label: self.cardLabel, isPressed: true)
             .environment(\.isEnabled, false)
         let stats = alphaStats(try #require(rgba(self.cardHost(body))))
         #expect(stats.covered == 1600, "禁用时不应缩放，实测覆盖 \(stats.covered)")

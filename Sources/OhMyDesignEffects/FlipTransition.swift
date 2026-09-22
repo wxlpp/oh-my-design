@@ -15,7 +15,7 @@ public struct FlipTransition: Transition {
         self.axis = axis
     }
 
-    /// 系统那道 Reduce Motion 闸的开关。**必须是 `true`。**
+    /// 声明本转场含运动（`hasMotion` 取 `true`）；Reduce Motion 降级由层 3 的三元门控负责，框架不替换。
     public nonisolated static var properties: TransitionProperties { .init(hasMotion: true) }
 
     public func body(content: Content, phase: TransitionPhase) -> some View {
