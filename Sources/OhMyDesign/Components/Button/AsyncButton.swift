@@ -58,7 +58,7 @@ public struct AsyncButton<Label: View>: View {
                 }
             }
             .accessibilityElement(children: .combine)
-            .animation(.snappy(duration: 0.16), value: self.isRunning)
+            .coreAnimation(.press, value: self.isRunning)
         }
         .allowsHitTesting(!self.isRunning)
         .modifier(LoadingAccessibilityModifier(isLoading: self.isRunning))

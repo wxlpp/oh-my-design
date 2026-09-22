@@ -38,7 +38,7 @@ private struct CheckBoxBody: View {
         .opacity(appearance.controlOpacity)
         .frame(minHeight: CoreControlMetrics.height(for: .regular))
         .contentShape(Rectangle())
-        .animation(.easeOut(duration: 0.25), value: self.configuration.isOn)
+        .coreAnimation(.selection, value: self.configuration.isOn)
         .onTapGesture {
             self.configuration.isOn.toggle()
         }

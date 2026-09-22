@@ -12,7 +12,7 @@ public struct SnapshotTransition: Transition {
     /// 默认快门白场强度。
     public nonisolated static let defaultIntensity: Double = 0.7
 
-    /// 显式退出框架在 Reduce Motion 下的 opacity 替换（协议默认值是 `true`）。
+    /// 声明本转场无运动（协议默认值是 `true`）。
     public nonisolated static let properties = TransitionProperties(hasMotion: false)
 
     public init(intensity: Double = SnapshotTransition.defaultIntensity) {

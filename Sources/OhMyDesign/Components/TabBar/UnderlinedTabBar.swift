@@ -32,9 +32,10 @@ public struct UnderlinedTabBar<Item: Hashable, Trailing: View>: View {
                             UnderlinedTabItem(
                                 title: self.title(item),
                                 isSelected: self.selection == item,
+                                slot: AnyHashable(item),
                                 namespace: self.indicatorNamespace
                             ) {
-                                withAnimation(.snappy(duration: 0.22)) {
+                                withAnimation(CoreMotion.selection.animation(for: self.motionPresentation)) {
                                     self.selection = item
                                 }
                             }
@@ -47,7 +48,7 @@ public struct UnderlinedTabBar<Item: Hashable, Trailing: View>: View {
                     proxy.scrollTo(self.selection, anchor: .center)
                 }
                 .onChange(of: self.selection) { _, new in
-                    withAnimation(.snappy(duration: 0.2)) {
+                    withAnimation(CoreMotion.scroll.animation(for: self.motionPresentation)) {
                         proxy.scrollTo(new, anchor: .center)
                     }
                 }
@@ -67,6 +68,7 @@ public struct UnderlinedTabBar<Item: Hashable, Trailing: View>: View {
 
     @Binding private var selection: Item
     @Namespace private var indicatorNamespace
+    @Environment(\.coreMotionPresentation) private var motionPresentation
 
     private let items: [Item]
     private let title: (Item) -> String
@@ -94,10 +96,12 @@ public extension UnderlinedTabBar where Trailing == EmptyView {
 private struct UnderlinedTabItem: View {
     let title: String
     let isSelected: Bool
+    let slot: AnyHashable
     let namespace: Namespace.ID
     let action: () -> Void
 
     @Environment(\.coreAccent) private var resolvedAccent
+    @Environment(\.coreMotionPresentation) private var motionPresentation
 
     var body: some View {
         Button(action: self.action) {
@@ -117,7 +121,10 @@ private struct UnderlinedTabItem: View {
                         Capsule()
                             .fill(self.resolvedAccent)
                             .frame(height: CoreBorderWidth.thick)
-                            .matchedGeometryEffect(id: "underline", in: self.namespace)
+                            .matchedGeometryEffect(
+                                id: self.motionPresentation.slidingIndicatorID("underline", slot: self.slot),
+                                in: self.namespace
+                            )
                     }
                 }
                 .frame(maxWidth: .infinity)

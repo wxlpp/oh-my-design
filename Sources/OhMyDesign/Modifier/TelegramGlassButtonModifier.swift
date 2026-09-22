@@ -11,6 +11,8 @@ public struct TelegramGlassButtonModifier<S: InsettableShape>: ViewModifier {
     /// 是否施加按压缩放与动画 / Whether to apply press scale + animation。
     public let pressFeedback: Bool
 
+    @Environment(\.coreMotionPresentation) private var motionPresentation
+
     public init(
         shape: S,
         isPressed: Bool,
@@ -24,7 +26,12 @@ public struct TelegramGlassButtonModifier<S: InsettableShape>: ViewModifier {
     }
 
     public func body(content: Content) -> some View {
-        content
+        let feedback = PressFeedback.chrome(
+            isPressed: self.pressFeedback && self.isPressed,
+            pressedOpacity: nil,
+            presentation: self.motionPresentation
+        )
+        return content
             .background(
                 self.shape
                     .inset(by: CoreButtonMetrics.glassInset)
@@ -37,8 +44,9 @@ public struct TelegramGlassButtonModifier<S: InsettableShape>: ViewModifier {
                     lineWidth: CoreBorderWidth.hairline
                 )
             )
-            .scaleEffect(self.pressFeedback && self.isPressed ? CoreButtonMetrics.pressedScale : 1)
-            .animation(self.pressFeedback ? Animation.snappy(duration: 0.16) : nil, value: self.isPressed)
+            .scaleEffect(feedback.scale)
+            .opacity(feedback.opacity)
+            .animation(self.pressFeedback ? CoreMotion.press.animation(for: self.motionPresentation) : nil, value: self.isPressed)
     }
 }
 

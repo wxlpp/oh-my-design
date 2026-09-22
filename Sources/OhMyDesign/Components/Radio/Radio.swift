@@ -77,7 +77,7 @@ public struct RadioGroup<SelectionValue: Hashable & Sendable>: View {
         .opacity(appearance.controlOpacity)
         .frame(minHeight: CoreControlMetrics.height(for: .regular))
         .contentShape(Rectangle())
-        .animation(.easeOut(duration: 0.25), value: selected)
+        .coreAnimation(.selection, value: selected)
         .onTapGesture {
             self.selection = option.value
         }

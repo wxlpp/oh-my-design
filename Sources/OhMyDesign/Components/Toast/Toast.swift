@@ -109,13 +109,15 @@ public nonisolated enum ToastDefaults {
 
     static let defaultSeconds: TimeInterval = 3
 
-    static let dismissAnimationDuration: TimeInterval = 0.25
+    static let dismissAnimationDuration: TimeInterval = CoreMotion.reveal.duration
 
     static let swipeDismissThreshold: CGFloat = CoreSpacing.xxl
 
     static let reverseDragDamping: CGFloat = 0.5
 
     static let dismissSlideDistance: CGFloat = 60
+
+    static let hudDismissScale: CGFloat = 0.92
 }
 
 // MARK: - ToastPauseReason
@@ -345,6 +347,8 @@ struct ToastOverlay: View {
     let edge: VerticalEdge
     let presentation: ToastPresentation
 
+    @Environment(\.coreMotionPresentation) private var motionPresentation
+
     var body: some View {
         Group {
             if let current = self.host.queue.first {
@@ -372,8 +376,8 @@ struct ToastOverlay: View {
                 Color.clear.frame(height: 0)
             }
         }
-        .animation(.easeInOut(duration: ToastDefaults.dismissAnimationDuration), value: self.host.queue.first?.id)
-        .animation(.easeInOut(duration: ToastDefaults.dismissAnimationDuration), value: self.host.isDismissing)
+        .animation(CoreMotion.reveal.animation(for: self.motionPresentation), value: self.host.queue.first?.id)
+        .animation(CoreMotion.reveal.animation(for: self.motionPresentation), value: self.host.isDismissing)
     }
 
     private var horizontalPadding: CGFloat {
@@ -385,15 +389,34 @@ struct ToastOverlay: View {
     }
 
     private var transition: AnyTransition {
-        if self.presentation == .centeredHUD {
-            return .scale(scale: 0.92).combined(with: .opacity)
+        switch Self.transitionKind(presentation: self.presentation, edge: self.edge, motion: self.motionPresentation) {
+        case .scale:
+            .scale(scale: ToastDefaults.hudDismissScale).combined(with: .opacity)
+        case .slide(let move):
+            .asymmetric(
+                insertion: .move(edge: move).combined(with: .opacity),
+                removal: .move(edge: move).combined(with: .opacity)
+            )
+        case .fade:
+            .opacity
         }
-        let move: Edge = self.edge == .top ? .top : .bottom
-        return .asymmetric(
-            insertion: .move(edge: move).combined(with: .opacity),
-            removal: .move(edge: move).combined(with: .opacity)
-        )
     }
+
+    static func transitionKind(
+        presentation: ToastPresentation,
+        edge: VerticalEdge,
+        motion: MotionPresentation
+    ) -> ToastTransitionKind {
+        guard motion == .animated else { return .fade }
+        if presentation == .centeredHUD { return .scale }
+        return .slide(edge == .top ? .top : .bottom)
+    }
+}
+
+enum ToastTransitionKind: Equatable {
+    case slide(Edge)
+    case scale
+    case fade
 }
 
 // MARK: - ToastView
@@ -458,6 +481,7 @@ struct ToastView: View {
     var onPause: (ToastPauseReason, Bool) -> Void = { _, _ in }
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.coreMotionPresentation) private var motionPresentation
     @State private var dragOffset: CGFloat = .zero
     @GestureState private var isPressing = false
     @GestureState private var isDragging = false
@@ -469,7 +493,11 @@ struct ToastView: View {
                 presentation: self.presentation, edge: self.edge, isSingleRow: self.isSingleRow
             ))
             .offset(y: self.verticalOffset)
-            .scaleEffect(self.presentation == .centeredHUD && self.isDismissing ? 0.92 : 1)
+            .scaleEffect(Self.dismissScale(
+                presentation: self.presentation,
+                isDismissing: self.isDismissing,
+                motion: self.motionPresentation
+            ))
             .opacity(self.isDismissing ? 0 : 1)
             .contentShape(Rectangle())
             .onTapGesture { self.onDismiss() }
@@ -584,7 +612,21 @@ struct ToastView: View {
         if self.presentation == .centeredHUD {
             return .zero
         }
-        return self.isDismissing ? self.dismissOffset : self.dragOffset
+        return self.isDismissing
+            ? Self.dismissOffset(edge: self.edge, motion: self.motionPresentation)
+            : self.dragOffset
+    }
+
+    static func dismissScale(presentation: ToastPresentation, isDismissing: Bool, motion: MotionPresentation) -> CGFloat {
+        presentation == .centeredHUD && isDismissing && motion == .animated ? ToastDefaults.hudDismissScale : 1
+    }
+
+    static func dismissOffset(edge: VerticalEdge, motion: MotionPresentation) -> CGFloat {
+        guard motion == .animated else { return .zero }
+        switch edge {
+        case .top: return -ToastDefaults.dismissSlideDistance
+        case .bottom: return ToastDefaults.dismissSlideDistance
+        }
     }
 
     // MARK: visuals
@@ -652,12 +694,6 @@ struct ToastView: View {
         }
     }
 
-    private var dismissOffset: CGFloat {
-        switch self.edge {
-        case .top: -ToastDefaults.dismissSlideDistance
-        case .bottom: ToastDefaults.dismissSlideDistance
-        }
-    }
 }
 
 // MARK: - ToastActionButtonStyle

@@ -52,19 +52,30 @@ struct PressFeedback: Equatable {
     static let idle = PressFeedback(fill: nil, scale: 1, opacity: 1)
     static let disabledOpacity: Double = 0.4
     static let reducedMotionPressedOpacity: Double = 0.7
-    static let animation: Animation = .easeOut(duration: 0.15)
 
     static func row(isPressed: Bool, isEnabled: Bool) -> PressFeedback {
         guard isEnabled else { return PressFeedback(fill: nil, scale: 1, opacity: Self.disabledOpacity) }
         return isPressed ? PressFeedback(fill: Color.pressedBackground, scale: 1, opacity: 1) : Self.idle
     }
 
-    static func card(isPressed: Bool, isEnabled: Bool, reduceMotion: Bool) -> PressFeedback {
+    static func card(isPressed: Bool, isEnabled: Bool, presentation: MotionPresentation) -> PressFeedback {
         guard isEnabled else { return PressFeedback(fill: nil, scale: 1, opacity: Self.disabledOpacity) }
         guard isPressed else { return Self.idle }
-        return reduceMotion
-            ? PressFeedback(fill: nil, scale: 1, opacity: Self.reducedMotionPressedOpacity)
-            : PressFeedback(fill: nil, scale: CoreButtonMetrics.pressedScale, opacity: 1)
+        return Self.pressed(pressedOpacity: 1, presentation: presentation)
+    }
+
+    static func chrome(isPressed: Bool, pressedOpacity: Double?, presentation: MotionPresentation) -> PressFeedback {
+        guard isPressed else { return Self.idle }
+        return Self.pressed(pressedOpacity: pressedOpacity ?? 1, presentation: presentation)
+    }
+
+    private static func pressed(pressedOpacity: Double, presentation: MotionPresentation) -> PressFeedback {
+        switch presentation {
+        case .animated:
+            PressFeedback(fill: nil, scale: CoreButtonMetrics.pressedScale, opacity: pressedOpacity)
+        case .resting, .hidden:
+            PressFeedback(fill: nil, scale: 1, opacity: min(pressedOpacity, Self.reducedMotionPressedOpacity))
+        }
     }
 }
 
@@ -75,6 +86,7 @@ struct PressableRowBody<Label: View>: View {
     let isPressed: Bool
 
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.coreMotionPresentation) private var motionPresentation
 
     var body: some View {
         let feedback = PressFeedback.row(isPressed: self.isPressed, isEnabled: self.isEnabled)
@@ -86,28 +98,27 @@ struct PressableRowBody<Label: View>: View {
                 }
             }
             .opacity(feedback.opacity)
-            .animation(PressFeedback.animation, value: feedback)
+            .animation(CoreMotion.press.animation(for: self.motionPresentation), value: feedback)
     }
 }
 
 struct PressableCardBody<Label: View>: View {
     let label: Label
     let isPressed: Bool
-    var reduceMotionOverride: Bool?
 
     @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.coreMotionPresentation) private var motionPresentation
 
     var body: some View {
         let feedback = PressFeedback.card(
             isPressed: self.isPressed,
             isEnabled: self.isEnabled,
-            reduceMotion: self.reduceMotionOverride ?? self.reduceMotion
+            presentation: self.motionPresentation
         )
         self.label
             .scaleEffect(feedback.scale)
             .opacity(feedback.opacity)
-            .animation(PressFeedback.animation, value: feedback)
+            .animation(CoreMotion.press.animation(for: self.motionPresentation), value: feedback)
     }
 }
 

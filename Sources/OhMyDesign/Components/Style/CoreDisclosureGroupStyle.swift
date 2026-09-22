@@ -6,16 +6,48 @@ private struct DisclosureChevron: View {
     let isExpanded: Bool
 
     @Environment(\.layoutDirection) private var layoutDirection
+    @Environment(\.coreMotionPresentation) private var motionPresentation
 
     var body: some View {
         Image(systemName: "chevron.forward")
             .foregroundStyle(.tint)
             .rotationEffect(.degrees(self.rotation))
+            .animation(CoreMotion.reveal.transformAnimation(for: self.motionPresentation), value: self.isExpanded)
     }
 
     private var rotation: Double {
         guard self.isExpanded else { return 0 }
         return self.layoutDirection == .rightToLeft ? -90 : 90
+    }
+}
+
+// MARK: - DisclosureHeader
+
+private struct DisclosureHeader<Label: View>: View {
+    @Binding var isExpanded: Bool
+    @ViewBuilder let label: Label
+
+    @Environment(\.coreMotionPresentation) private var motionPresentation
+
+    var body: some View {
+        Button {
+            withAnimation(CoreMotion.reveal.animation(for: self.motionPresentation)) {
+                self.isExpanded.toggle()
+            }
+        } label: {
+            HStack {
+                self.label
+                Spacer()
+                DisclosureChevron(isExpanded: self.isExpanded)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(
+            self.isExpanded
+                ? Text("Expanded", bundle: .module)
+                : Text("Collapsed", bundle: .module)
+        )
     }
 }
 
@@ -27,24 +59,9 @@ public struct CoreDisclosureGroupStyle: DisclosureGroupStyle {
 
     public func makeBody(configuration: Configuration) -> some View {
         VStack(alignment: .leading, spacing: CoreSpacing.sm) {
-            Button {
-                withAnimation(.snappy) {
-                    configuration.isExpanded.toggle()
-                }
-            } label: {
-                HStack {
-                    configuration.label
-                    Spacer()
-                    DisclosureChevron(isExpanded: configuration.isExpanded)
-                }
-                .contentShape(Rectangle())
+            DisclosureHeader(isExpanded: configuration.$isExpanded) {
+                configuration.label
             }
-            .buttonStyle(.plain)
-            .accessibilityValue(
-                configuration.isExpanded
-                    ? Text("Expanded", bundle: .module)
-                    : Text("Collapsed", bundle: .module)
-            )
 
             if configuration.isExpanded {
                 configuration.content

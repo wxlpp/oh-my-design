@@ -92,12 +92,13 @@ public struct SegmentedControl<Item: Hashable>: View {
 
     @Binding private var selection: Item
     @Environment(\.segmentedControlStyle) private var style
+    @Environment(\.coreMotionPresentation) private var motionPresentation
 
     private let items: [Item]
     private let title: (Item) -> String
 
     private func select(_ item: Item) {
-        withAnimation(.easeInOut(duration: 0.18)) {
+        withAnimation(CoreMotion.selection.animation(for: self.motionPresentation)) {
             self.selection = item
         }
     }
@@ -113,6 +114,7 @@ private struct SwiftUISegmentedControl: View {
     @Environment(\.coreAccent) private var resolvedAccent
     @Environment(\.coreAccentOn) private var resolvedOn
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.coreMotionPresentation) private var motionPresentation
     @Namespace private var namespace
 
     var body: some View {
@@ -143,7 +145,13 @@ private struct SwiftUISegmentedControl: View {
                 .background {
                     if segment.isSelected {
                         self.selectedThumb
-                            .matchedGeometryEffect(id: "SegmentedControl.thumb", in: self.namespace)
+                            .matchedGeometryEffect(
+                                id: self.motionPresentation.slidingIndicatorID(
+                                    "SegmentedControl.thumb",
+                                    slot: AnyHashable(segment.index)
+                                ),
+                                in: self.namespace
+                            )
                     }
                 }
         }
