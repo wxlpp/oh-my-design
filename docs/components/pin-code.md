@@ -39,9 +39,19 @@ TextField("", text: $value)
 隐藏 `TextField` 带 `.fixedSize()`、居中叠在格子行下面，宽度只有当前值的文本宽，于是正好落在
 中间两格之间的空隙里（那里没有格子背景遮挡）。`.opacity(0.01)` 压不到零：浅色下空隙处仍差约 3 个色阶
 （模拟器截图 242 → 239），在均匀底色上能看见一串淡淡的数字。
-⇒ 隐藏输入框的文字与光标取透明色（`.foregroundStyle(Color.clear)` + `.tint(Color.clear)`）；
-opacity、焦点、`oneTimeCode` / `numberPad`、无障碍隐藏都不变，键盘、粘贴与 OTP 自动填充走的
-仍是同一个输入框（`PinCodeHiddenFieldTests`：两端托管窗口里藏掉输入框前后逐像素相同）。
+⇒ 隐藏输入框的文字与光标取透明色（`.foregroundStyle(Color.clear)` + `.tint(Color.clear)`），并用
+`.clipShape(Rectangle().size(.zero))` 在几何上裁掉它——编辑态的系统选区高亮不跟 `tint` 走（macOS 深色下全选时
+仍差 2 个色阶），只有裁切能把它也去掉。opacity 仍是 0.01（UIKit 下 alpha < 0.01 的视图不参与命中与响应链），
+焦点、`oneTimeCode` / `numberPad`、无障碍隐藏都不变。
+
+证据与射程：
+- `PinCodeHiddenFieldTests`：未获焦、获焦光标在末尾、获焦全选三种状态下，藏掉输入框前后逐像素相同（两端，light / dark）；
+  macOS 进程内获焦编辑：末尾键入 `3a4` → `1234`、部分选区替换 `1234` 选中 `23` 输入 `9` → `194`、全选输入 `56` → `56`。
+- iOS 进程内的 `insertText` 不回写 SwiftUI 绑定（`PlatformTextFieldCoordinator` 只认真实用户编辑），所以 iOS 的键入 / 退格 /
+  全选替换 / 粘贴走预览宿主 + AXe：改动前后同一序列得到同一取值与同一逐格无障碍 value（`1234` → `123` → `56` → `987654`），
+  弹出的都是同一个数字键盘（键盘区截图逐像素相同，无 QuickType 栏、无听写键）。
+- **未验证**：短信验证码的 QuickType 自动填充建议（模拟器收不到短信，改动前后都不出现建议栏）；听写（数字键盘没有听写键，
+  两版都无法触发）；真实 VoiceOver 朗读（只核对了 AXe 读到的 label / value / hint，改动前后逐项相同）。
 
 ## 预览 / Preview
 

@@ -41,3 +41,15 @@
 ## 文档
 
 `docs/components/{pin-code,tag-input,radio,search-field,form-field}.md`、`docs/BREAKING-CHANGES.md`。
+
+## 评审第 1 轮
+
+- PinCode 输入行为：macOS 进程内获焦编辑（末尾键入 / 部分选区替换 / 全选替换）写回绑定；iOS 进程内 `insertText`
+  不回写绑定，改走预览宿主 + AXe，改动前后同一序列（键入 `3a4`、退格、⌘A 后键入 `56`、⌘A 后粘贴 `987654`）
+  得到相同取值与逐格无障碍 value；数字键盘截图逐像素相同。
+- 编辑态残影：macOS 深色全选时系统选区高亮仍差 2 个色阶（不跟 `tint`），隐藏输入框改为再加
+  `.clipShape(Rectangle().size(.zero))`；判据覆盖未获焦 / 光标 / 全选三态，两端 light / dark。
+  随之 PinCode 的像素对照基准改为旧实现的格子行（旧隐藏输入框即使为空值也留 ±2 的像素）。
+- 未验证：短信 OTP 的 QuickType 建议（模拟器收不到短信）、听写（数字键盘无听写键）、真实 VoiceOver 朗读。
+- SearchField：显式 `.frame(height: 60)` 时，改动前 iOS 原生框被撑到 60pt，现在保持 44pt 居中；外层 frame
+  无法恢复原生框的高度与命中区（BREAKING-CHANGES 写明）。

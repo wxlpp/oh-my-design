@@ -29,12 +29,14 @@
 | `RadioGroup` invalid 且选中 | 圆环与实心点都取 `statusDangerForeground` | 只有圆环取 danger，实心点保持 `contentPrimary` |
 | `TagInput` invalid | 只在输入框下面画一条 80pt 起的红线 | 整个字段底部一条横跨全宽的红色基线 |
 | `PinCode` invalid 且获焦的那一格 | 2pt 红边 | 2pt 红边 + 格外 4pt `statusDangerForeground` 30% 光晕（不占布局） |
-| `PinCode` 有值时（浅色最明显） | 中间两格的空隙里透出淡淡的数字 | 不再透出（隐藏输入框的文字 / 光标取透明色） |
+| `PinCode` 有值时（浅色最明显） | 中间两格的空隙里透出淡淡的数字 | 不再透出，获焦编辑与选区高亮时也不透出（隐藏输入框的文字 / 光标取透明色，并在几何上裁掉） |
 | `SearchField` 放进不限高的容器（iOS） | 被纵向拉伸到容器高度 | 取固有高度 44pt；macOS 本来就不拉伸，布局不变 |
+| `SearchField` 由调用方显式给高度，如 `.frame(height: 60)`（iOS） | 原生搜索框（绘制带与命中区）被撑到 60pt | 外层框仍是 60pt，原生搜索框保持 44pt、垂直居中；44pt 之外的上下各 8pt 是空白，点按不聚焦。macOS 前后都是原生固有高度 |
 
-- **迁移**：一般不需要。依赖 `SearchField` 被拉高去填满空间的布局（少见）改为在外层显式
-  `.frame(maxHeight: .infinity)` 包一个容器；之前为规避拉伸加的 `.fixedSize(horizontal: false, vertical: true)`
-  可以删掉（留着也无害）。想让禁用的 CheckBox / Radio 保持不变淡的旧观感，没有开关——这是有意对齐系统控件的行为。
+- **迁移**：一般不需要；之前为规避拉伸加的 `.fixedSize(horizontal: false, vertical: true)` 可以删掉（留着也无害）。
+  ⚠️ **原生搜索框的高度没有恢复手段**：外层再包 `.frame(height:)` / `.frame(maxHeight: .infinity)` 只会放大外面那层
+  框，原生搜索框的绘制带与命中区都停在 44pt，不会跟着变高。依赖旧的「给多高就画多高」的调用点（如用
+  `.frame(height: 60)` 画一条加高搜索条）需要自行包一个 `UISearchTextField` / `.searchable`，本库不提供开关。想让禁用的 CheckBox / Radio 保持不变淡的旧观感，没有开关——这是有意对齐系统控件的行为。
 
 ## 未发布（相对 `v0.10.0`）——Issue #398：Banner 圆角与 neutral 不透明底色、Timeline 浅色 warning 圆点
 

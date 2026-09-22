@@ -68,6 +68,7 @@ public struct PinCode: View {
             #endif
             .fixedSize()
             .opacity(0.01)
+            .clipShape(Rectangle().size(.zero))
             .accessibilityHidden(true)
             .onChange(of: self.value) { oldValue, newValue in
                 self.processInput(newValue, previousValue: oldValue)

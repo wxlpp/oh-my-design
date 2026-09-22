@@ -117,8 +117,8 @@ enum FieldControlSample: CaseIterable, CustomStringConvertible {
 
     var legacy: AnyView {
         switch self {
-        case .pinCode: AnyView(LegacyPinCode(value: "", length: 6, isSecure: false))
-        case .pinCodeSecure: AnyView(LegacyPinCode(value: "", length: 4, isSecure: true))
+        case .pinCode: AnyView(LegacyPinCode(value: "", length: 6, isSecure: false, hiddenField: .omitted))
+        case .pinCodeSecure: AnyView(LegacyPinCode(value: "", length: 4, isSecure: true, hiddenField: .omitted))
         case .tagInput: AnyView(LegacyTagInput(tags: ["design", "ios"]))
         case .checkBoxOff: AnyView(Toggle("Accept", isOn: .constant(false)).toggleStyle(LegacyCheckBoxToggleStyle()))
         case .checkBoxOn: AnyView(Toggle("Accept", isOn: .constant(true)).toggleStyle(LegacyCheckBoxToggleStyle()))
@@ -343,6 +343,19 @@ struct FieldControlFollowUpTests {
         }
     }
 
+    @Test("PinCode 有值时与旧实现的格子行在光栅化噪声内一致：隐藏输入框不再出像素（light / dark，两条腿）")
+    func pinCodeReferenceOmitsOnlyTheHiddenField() {
+        for scheme in ControlRender.schemes {
+            let current = ControlRender.pixels(PinCode(value: .constant("12"), length: 6), scheme: scheme)
+            expectBitmapsEquivalent(
+                current,
+                ControlRender.pixels(LegacyPinCode(value: "12", length: 6, isSecure: false, hiddenField: .omitted), scheme: scheme),
+                maxChannelDelta: 1,
+                "\(scheme)"
+            )
+        }
+    }
+
     @Test("禁用不透明度与外观解析同源：只有 disabled 降低")
     func disabledOpacityFollowsAppearance() {
         #expect(FieldAppearance.disabled.controlOpacity == FieldAppearance.disabledControlOpacity)
@@ -422,23 +435,22 @@ struct SearchFieldWrapperStrokeTests {
 
 // MARK: - 旧实现原样拷贝（92d224b）/ Legacy copies
 
+private enum LegacyHiddenField {
+    case included
+    case omitted
+}
+
 private struct LegacyPinCode: View {
     let value: String
     let length: Int
     let isSecure: Bool
+    var hiddenField: LegacyHiddenField = .included
 
     var body: some View {
         ZStack {
-            TextField("", text: .constant(self.value))
-                .textFieldStyle(.plain)
-                .autocorrectionDisabled(true)
-                #if os(iOS)
-                .textContentType(.oneTimeCode)
-                .keyboardType(.numberPad)
-                #endif
-                .fixedSize()
-                .opacity(0.01)
-                .accessibilityHidden(true)
+            if self.hiddenField == .included {
+                self.legacyHiddenField
+            }
             HStack(spacing: CoreSpacing.sm) {
                 ForEach(0..<self.length, id: \.self) { index in
                     LegacyPinCodeCell(value: self.value, index: index, isSecure: self.isSecure)
@@ -446,6 +458,19 @@ private struct LegacyPinCode: View {
             }
             .contentShape(Rectangle())
         }
+    }
+
+    private var legacyHiddenField: some View {
+        TextField("", text: .constant(self.value))
+            .textFieldStyle(.plain)
+            .autocorrectionDisabled(true)
+            #if os(iOS)
+            .textContentType(.oneTimeCode)
+            .keyboardType(.numberPad)
+            #endif
+            .fixedSize()
+            .opacity(0.01)
+            .accessibilityHidden(true)
     }
 }
 

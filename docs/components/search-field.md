@@ -42,6 +42,8 @@ SearchField(text: $query, placeholder: "Filter issues") { submitted in
   `VStack`）也**不会被纵向拉伸**，调用方不需要再加 `fixedSize`。⚠️ 这一条只对 iOS 有实际作用：
   `UISearchTextField` 的绘制带随 frame 撑满，没有它就会被拉高；macOS `NSSearchField` 本身取
   固有高度（24pt），改动前后布局相同（`SearchFieldIntrinsicHeightTests`，两端托管窗口实测）。
+  调用方显式给更高的框（如 `.frame(height: 60)`）时，原生搜索框同样保持 44pt、垂直居中于该框，框内多出的
+  空白不属于命中区；外层 frame 无法把原生搜索框撑高（`SearchFieldIntrinsicHeightTests`）。
   包装层用 `contentShape` + tap 转 `becomeFirstResponder()` 把命中区上下缘也接上。
 - **横向撑满**：`frame(maxWidth: .infinity)`。
 

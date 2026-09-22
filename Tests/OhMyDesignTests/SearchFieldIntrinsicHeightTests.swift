@@ -64,6 +64,23 @@ struct SearchFieldIntrinsicHeightTests {
         expectBitmapsEqual(now.pixels.bytes, old.pixels.bytes, "\(scheme)")
     }
 
+    @Test("调用方显式给高度（frame(height: 60)）时：原生框保持固有高度、居中于 60pt 的框内，不再被撑到 60pt（light）")
+    func explicitHeightKeepsNativeIntrinsic() throws {
+        let now = SearchFieldLayoutProbe(SearchField(text: .constant("release")).frame(height: 60), scheme: .light)
+        let old = SearchFieldLayoutProbe(PreFixSearchField(text: .constant("release")).frame(height: 60), scheme: .light)
+        let reference = SearchFieldLayoutProbe(SearchField(text: .constant("release")), scheme: .light)
+        let nowFrame = try #require(now.nativeFrame), oldFrame = try #require(old.nativeFrame)
+        let intrinsic = try #require(reference.nativeFrame).height
+        #expect(now.height == 60 && old.height == 60, "外层框高度应由调用方决定：现 \(now.height) / 旧 \(old.height)")
+        #expect(nowFrame.height == intrinsic, "原生框高度 \(nowFrame.height)，固有高度 \(intrinsic)")
+        #expect(abs(nowFrame.midY - oldFrame.midY) <= 0.5, "原生框没有居中于调用方的框：\(nowFrame) vs \(oldFrame)")
+        #if os(iOS)
+        #expect(oldFrame.height == 60, "改动前原生框应被撑到 60pt，实测 \(oldFrame.height)")
+        #else
+        #expect(oldFrame.height == intrinsic, "macOS 改动前原生框本就不拉伸，实测 \(oldFrame.height)")
+        #endif
+    }
+
     #if os(iOS)
     @Test("改动前实现在同一容器里确实被拉伸（本套判据在 iOS 上的前提）")
     func preFixStretches() {
