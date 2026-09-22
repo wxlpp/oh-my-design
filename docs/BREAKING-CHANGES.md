@@ -19,6 +19,41 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.10.0`）——Issue #378：Badge / Tag / Avatar 尺寸体系 + `AvatarSize`
+
+**破坏性变更（布局 + 函数引用）。**
+
+1. **`Avatar` 改为固定直径（布局破坏，编译期无信号）**。此前 `Avatar` 是 `.resizable()` 的位图，
+   尺寸完全由外部 `.frame` 决定；现在它按 `size: AvatarSize` 渲染固定边长——缺省 `.automatic`
+   随环境 `\.controlSize` 取 `CoreControlMetrics.avatarDiameter(for:)`（mini 20 / small 24 /
+   regular 32 / large 40 / extraLarge 48），外部 `.frame` **不再拉伸**它，只决定摆放位置。
+   迁移：写过 `.frame(width: d, height: d)` 来定头像尺寸的调用点改为 `size: .fixed(d)`：
+
+   ```swift
+   // 旧
+   Avatar(name: "Alice").frame(width: 100, height: 100).clipShape(Circle())
+   // 新
+   Avatar(name: "Alice", size: .fixed(100)).clipShape(Circle())
+   ```
+
+   不带 `.frame` 的调用点：旧版按 `.resizable()` + `.aspectRatio(contentMode: .fill)` 占满父布局提议的空间，
+   新版在 `.regular` 档为 32pt；需要保持 48pt 的请写 `.fixed(48)` 或 `.controlSize(.extraLarge)`。
+2. **`Avatar.init(name:)` → `Avatar.init(name:size:)`**（`size` 带默认值 `.automatic`）：
+   已应用的调用点 `Avatar(name:)` 源码零改动；**未应用的函数引用** `Avatar.init(name:)` 不再存在，
+   改为闭包 `{ Avatar(name: $0) }`。
+3. **`Badge` / `Tag` 跟随 `\.controlSize`（视觉变化，非 API 破坏）**：`.regular`（缺省）档取值与旧版一致；
+   但处在 `.controlSize(.small)` 等非缺省环境里的 Badge / Tag 会随之缩放。要保持旧外观，在它们上面
+   显式加 `.controlSize(.regular)`。
+4. **可删除 `Tag` 变矮（视觉变化）**：关闭钮外围的可见 `CoreSpacing.xxs` 内边距移除、关闭钮不再撑高行，
+   `removable: true` 的 Tag 在各档都与普通 Tag 等高（regular 档因此比旧版矮）；点击热区大小不变。
+5. **`AvatarGroup` 非 regular 档的几何变化（视觉变化）**：交叠量改为直径的 1/4（mini -6→-5、
+   extraLarge -10→-12，其余不变）；`+N` / 计数徽标文字随档缩放（regular 仍为 `.caption`）。
+
+新增公开符号：`AvatarSize`（`.automatic` / `.fixed(CGFloat)`）；`CoreControlMetrics.compactFontToken(for:)` /
+`compactHorizontalPadding(for:)` / `compactVerticalPadding(for:)` / `compactIconSize(for:)` /
+`compactMinHeight(for:)` / `compactCornerRadius(for:)` /
+`avatarDiameter(for:)` / `avatarInitialFontSize(forDiameter:)`。
+
 ## 未发布（相对 `v0.10.0`）——Issue #375：`StatusLevel` 新增 `.neutral`
 
 **源码破坏性变更。** `public enum StatusLevel` 新增 `case neutral`（中性提示，取内容 / 填充语义色，

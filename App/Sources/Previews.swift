@@ -66,8 +66,10 @@ import OhMyDesign
 
 #Preview("Avatar") {
     HStack(spacing: CoreSpacing.md) {
-        Avatar(name: "Evan")
-        Avatar(name: "OhMyDesign")
+        Avatar(name: "Evan").controlSize(.small).clipShape(Circle())
+        Avatar(name: "OhMyDesign").clipShape(Circle())
+        Avatar(name: "Ada").controlSize(.extraLarge).clipShape(Circle())
+        Avatar(name: "Linus", size: .fixed(64)).clipShape(Circle())
     }
     .padding()
 }

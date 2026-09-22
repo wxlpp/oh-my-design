@@ -120,6 +120,9 @@ extension ComponentMeta {
         ComponentMeta(id: "avatar", name: "Avatar", description: "头像组件，按名称首字母生成", category: .layout) {
             AvatarPreview()
         },
+        ComponentMeta(id: "size-system", name: "Size System", description: "同一 controlSize 下 Avatar / 文本 / Badge / Tag 同排对齐，五档对照", category: .layout) {
+            SizeSystemPreview()
+        },
         ComponentMeta(id: "list-row", name: "ListRow", description: "3-槽位泛型列表行：leading / label / trailing", category: .layout) {
             ListRowPreview()
         },
@@ -422,25 +425,71 @@ private struct SearchFieldPreview: View {
     var body: some View { SearchField(text: self.$text) }
 }
 
+private let sizeLadder: [(String, ControlSize)] = [
+    ("mini", .mini), ("small", .small), ("regular", .regular), ("large", .large), ("extraLarge", .extraLarge),
+]
+
+private struct SizeLadderRow<Content: View>: View {
+    let label: String
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        HStack(spacing: CoreSpacing.md) {
+            Text(verbatim: self.label)
+                .coreFont(.caption)
+                .foregroundStyle(Color.contentSecondary)
+                .frame(width: 72, alignment: .leading)
+            self.content()
+        }
+    }
+}
+
 private struct BadgePreview: View {
     var body: some View {
-        HStack(spacing: CoreSpacing.sm) {
-            Badge("Info", variant: .info)
-            Badge("Success", variant: .success)
-            Badge("Warning", variant: .warning)
-            Badge("Danger", variant: .danger)
-            Badge("Neutral")
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            HStack(spacing: CoreSpacing.sm) {
+                Badge("Info", variant: .info)
+                Badge("Success", variant: .success)
+                Badge("Warning", variant: .warning)
+                Badge("Danger", variant: .danger)
+                Badge("Neutral")
+            }
+            ForEach(sizeLadder, id: \.0) { label, size in
+                SizeLadderRow(label: label) {
+                    Badge("Beta", variant: .info)
+                    Badge("Draft", variant: .warning, outlined: true)
+                }
+                .controlSize(size)
+            }
         }
     }
 }
 
 private struct TagPreview: View {
+    @State private var removedCount = 0
+
     var body: some View {
-        HStack(spacing: CoreSpacing.sm) {
-            Tag("bug", color: .red)
-            Tag("enhancement", color: .blue)
-            Tag("good first issue", color: .purple)
-            Tag("doc", color: .cyan, removable: true, onRemove: {})
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            HStack(spacing: CoreSpacing.md) {
+                Tag("removable", color: .blue, removable: true, onRemove: { self.removedCount += 1 })
+                Text(verbatim: "Removed: \(self.removedCount)")
+                    .coreFont(.caption)
+                    .foregroundStyle(Color.contentSecondary)
+                    .accessibilityIdentifier("tag-removed-count")
+            }
+            HStack(spacing: CoreSpacing.sm) {
+                Tag("bug", color: .red)
+                Tag("enhancement", color: .blue)
+                Tag("good first issue", color: .purple)
+                Tag("doc", color: .cyan, removable: true, onRemove: {})
+            }
+            ForEach(sizeLadder, id: \.0) { label, size in
+                SizeLadderRow(label: label) {
+                    Tag("bug", color: .red)
+                    Tag("doc", color: .cyan, removable: true, onRemove: {})
+                }
+                .controlSize(size)
+            }
         }
     }
 }
@@ -461,11 +510,43 @@ private struct BannerPreview: View {
     }
 }
 
+private struct SizeSystemPreview: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            ForEach(sizeLadder, id: \.0) { label, size in
+                SizeLadderRow(label: label) {
+                    Avatar(name: "Evan").clipShape(Circle())
+                    Text(verbatim: "Evan")
+                        .coreFont(CoreControlMetrics.compactFontToken(for: size))
+                        .foregroundStyle(Color.contentPrimary)
+                    Badge("Pro", variant: .success)
+                    Tag("design", color: .blue, removable: true, onRemove: {})
+                }
+                .controlSize(size)
+            }
+        }
+    }
+}
+
 private struct AvatarPreview: View {
     var body: some View {
-        HStack(spacing: CoreSpacing.md) {
-            Avatar(name: "Evan")
-            Avatar(name: "OhMyDesign")
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            ForEach(sizeLadder, id: \.0) { label, size in
+                SizeLadderRow(label: label) {
+                    Avatar(name: "Evan").clipShape(Circle())
+                    Avatar(name: "OhMyDesign").clipShape(Circle())
+                    AvatarGroup {
+                        Avatar(name: "Ada")
+                        Avatar(name: "Linus")
+                        Avatar(name: "Grace")
+                        Avatar(name: "Alan")
+                    }
+                }
+                .controlSize(size)
+            }
+            SizeLadderRow(label: ".fixed(64)") {
+                Avatar(name: "Evan", size: .fixed(64)).clipShape(Circle())
+            }
         }
     }
 }
