@@ -28,6 +28,7 @@ public struct Tag<Label: View>: View {
     }
 
     @Environment(\.controlSize) private var controlSize
+    @Environment(\.tagSelectionChrome) private var selectionChrome
 
     public var body: some View {
         let iconSize = CoreControlMetrics.compactIconSize(for: self.controlSize)
@@ -43,10 +44,19 @@ public struct Tag<Label: View>: View {
             .padding(.horizontal, CoreControlMetrics.compactHorizontalPadding(for: self.controlSize))
             .padding(.vertical, CoreControlMetrics.compactVerticalPadding(for: self.controlSize))
             .frame(minHeight: CoreControlMetrics.compactMinHeight(for: self.controlSize))
-            .background(
-                CoreShape.rounded(CoreControlMetrics.compactCornerRadius(for: self.controlSize))
-                    .fill(self.color.opacity(Self.backgroundOpacity))
-            )
+            .background(self.chrome)
+    }
+
+    @ViewBuilder
+    private var chrome: some View {
+        let shape = CoreShape.rounded(CoreControlMetrics.compactCornerRadius(for: self.controlSize))
+        if let selectionChrome = self.selectionChrome {
+            shape
+                .fill(selectionChrome.fill)
+                .overlay(shape.strokeBorder(selectionChrome.stroke, lineWidth: CoreBorderWidth.thin))
+        } else {
+            shape.fill(self.color.opacity(Self.backgroundOpacity))
+        }
     }
 
     private func removeButton(iconSize: CGFloat) -> some View {
@@ -77,6 +87,17 @@ public struct Tag<Label: View>: View {
     private let removable: Bool
     private let onRemove: (() -> Void)?
     private let label: Label
+}
+
+// MARK: - 选中外观 / Selection chrome
+
+struct TagSelectionChrome {
+    let fill: Color
+    let stroke: Color
+}
+
+extension EnvironmentValues {
+    @Entry var tagSelectionChrome: TagSelectionChrome? = nil
 }
 
 // MARK: - String convenience init

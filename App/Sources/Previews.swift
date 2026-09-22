@@ -604,6 +604,23 @@ enum PreviewSnapshotFixtures {
     .background(Color.surfaceCanvas)
 }
 
+#Preview("TagGroup") {
+    struct Item: Identifiable, Hashable { let id: String }
+    let languages = ["Swift", "Kotlin", "Rust", "TypeScript", "Go"].map(Item.init(id:))
+    return VStack(alignment: .leading, spacing: CoreSpacing.md) {
+        TagGroup(languages, selection: .constant(["Swift", "Rust"]), disabled: ["Go"], color: .contentPrimary) {
+            Text($0.id)
+        }
+        TagGroup(languages, selection: .constant(["Kotlin"]), selectionMode: .single, color: .contentPrimary) {
+            Text($0.id)
+        }
+        .coreAccent(.blue)
+    }
+    .padding()
+    .frame(width: 320)
+    .background(Color.surfaceCanvas)
+}
+
 #Preview("FormField") {
     VStack(alignment: .leading, spacing: CoreSpacing.xl) {
         FormField("Full name", description: "Shown on your public profile.") {

@@ -597,6 +597,14 @@
 
 - **`Tag`** *<Label: View>: View* — 控件层的分类标签。
 
+### `Components/TagGroup/TagGroup.swift`
+
+- **`TagGroup`** *<Data: RandomAccessCollection, ID: Hashable, Label: View>: View* — 基于 `Tag` + `FlowLayout` 的可选标签组（filter chips）。
+- *enum* **`TagGroupSelectionMode`** — `TagGroup` 的选择模式。
+  - `.none` — 纯展示：标签不是按钮，不可聚焦；绑定里已选的项照样画出选中态。
+  - `.single` — 单选：点未选项把数据内已选集合替换为该项，点已选项取消（允许空选）。
+  - `.multiple` — 多选：点击逐项切换。
+
 ### `Components/TagInput/TagInput.swift`
 
 - **`TagInput`** *: View* — `Binding<[String]>` 驱动的标签输入框：已有标签以 chip 形式展示，末尾内联一个 文本输入框，回车或逗号提交新标签，点击 chip 上的删除按钮移除标签。
@@ -1017,9 +1025,9 @@
 | elevation | 4 | 4 |
 | controlsize | 5 | 5 |
 | colors | 120 | 120 |
-| components | 88 | 88 |
-| enums | 43 | 43 |
-| enumcases | 148 | 148 |
+| components | 89 | 89 |
+| enums | 44 | 44 |
+| enumcases | 151 | 151 |
 | protocols | 6 | 6 |
 | viewext | 45 | 45 |
 | styleext | 15 | 15 |

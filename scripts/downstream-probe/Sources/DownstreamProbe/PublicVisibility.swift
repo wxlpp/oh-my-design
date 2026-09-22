@@ -730,3 +730,20 @@ func consumeCharts() -> some View {
         }
     }
 }
+
+// MARK: - TagGroup（Issue #380）
+
+private struct ProbeTagItem: Identifiable, Hashable {
+    let id: String
+}
+
+@MainActor
+func consumeTagGroup(selection: Binding<Set<String>>) -> some View {
+    VStack {
+        TagGroup([ProbeTagItem(id: "a")], selection: selection, color: .contentPrimary) { Text($0.id) }
+        TagGroup(
+            ["x", "y"], id: \.self, selection: selection,
+            selectionMode: TagGroupSelectionMode.single, disabled: ["y"], color: .contentPrimary
+        ) { Text($0) }
+    }
+}
