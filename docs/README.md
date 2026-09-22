@@ -1,6 +1,6 @@
 # OhMyDesign 组件库 / Component Library
 
-iOS 26+ / macOS 26+ SwiftUI 设计系统，含 33 个 Apple HIG 对齐组件（其中 `ProgressBar` 自 `0.6.0` 起弃用）+ 3 个系统控件 `.core` style + 1 个加载遮罩 modifier（`View.spinning(_:text:)`）。
+iOS 26+ / macOS 26+ SwiftUI 设计系统，含 33 个 Apple HIG 对齐组件（其中 `ProgressBar` 自 `0.6.0` 起弃用）+ 3 个系统控件 `.core` style + 1 个加载遮罩 modifier（`View.spinning(_:text:)`）。另有锚定徽标 modifier [`View.anchoredBadge(_:placement:hostShape:)`](components/anchored-badge.md)（无 public 类型，不进下方索引表）。
 
 自 `#245` 起本包有**三个 product**：主 target `OhMyDesign`（下面的组件索引）、
 表达性视觉层 `OhMyDesignEffects`、图表层 `OhMyDesignCharts`。
