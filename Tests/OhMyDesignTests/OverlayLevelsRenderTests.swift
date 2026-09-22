@@ -244,12 +244,16 @@ struct FloatingGlassChromeTests {
         }
     }
 
-    @Test("横幅外壳只延伸进它贴的那条边的安全区；胶囊 / HUD 不延伸")
+    @Test("横幅外壳只延伸进它贴的那条边的安全区，且玻璃高光边推出屏幕外（左右 + 贴边那侧）；胶囊 / HUD 都不动")
     func bleedFollowsAnchoredEdge() {
         #expect(FloatingGlassChrome.edgeBanner(.top).bleed == .top)
         #expect(FloatingGlassChrome.edgeBanner(.bottom).bleed == .bottom)
         #expect(FloatingGlassChrome.floating.bleed.isEmpty)
         #expect(FloatingGlassChrome.hud.bleed.isEmpty)
+        #expect(FloatingGlassChrome.edgeBanner(.top).overscan == [.top, .leading, .trailing])
+        #expect(FloatingGlassChrome.edgeBanner(.bottom).overscan == [.bottom, .leading, .trailing])
+        #expect(FloatingGlassChrome.floating.overscan.isEmpty)
+        #expect(FloatingGlassChrome.hud.overscan.isEmpty)
     }
 
     @Test("Toast 三形态各取各的外壳：胶囊 .floating、横幅 .edgeBanner(edge)、HUD .hud")

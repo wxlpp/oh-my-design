@@ -27,7 +27,7 @@
 |---|---|---|
 | `Toast` danger 图标 | `exclamationmark.octagon` | **`exclamationmark.circle`**（与 `Banner` 的 circle 族成组，Toast 保持描线） |
 | `Toast` 在 AX 字号（AX1+） | 图标单独占一列，文字列变窄，长单词会从中间折断 | 图标内联到标题文字开头，文字列拿到整条宽度；常规字号外观不变 |
-| `.toastHost(presentation: .fullWidthBanner)` 外壳 | 四周 hairline，止于安全区 | **无 hairline**，底色与玻璃延伸进所贴那条边的安全区（顶部即状态栏） |
+| `.toastHost(presentation: .fullWidthBanner)` 外壳 | 四周 hairline，止于安全区 | **无 hairline**，底色与玻璃延伸进所贴那条边的安全区（顶部即状态栏），左右与贴边那侧的玻璃高光边推出屏幕 |
 | `.toastHost(presentation: .centeredHUD)` 外壳 | 64% 背景色 + 玻璃，叠在文字上透字 | 底色改为不透明 `surfaceRaised`，保留玻璃边缘与 hairline |
 | `.surface(.content)` / `Card()` 嵌套到 elevated 层 | `borderMuted` 描边 | **无描边**（与 `.grouped` 合流）；raised / base 层与 `.card` 别名不变 |
 

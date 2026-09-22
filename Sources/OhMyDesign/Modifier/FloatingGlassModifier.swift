@@ -16,13 +16,24 @@ nonisolated struct FloatingGlassChrome: Equatable, Sendable {
     let border: Border
     let backing: Backing
     let bleed: Edge.Set
+    let overscan: Edge.Set
+
+    init(border: Border, backing: Backing, bleed: Edge.Set, overscan: Edge.Set = []) {
+        self.border = border
+        self.backing = backing
+        self.bleed = bleed
+        self.overscan = overscan
+    }
 
     static let floating = FloatingGlassChrome(border: .hairline, backing: .translucent, bleed: [])
 
     static let hud = FloatingGlassChrome(border: .hairline, backing: .opaque, bleed: [])
 
     static func edgeBanner(_ edge: VerticalEdge) -> FloatingGlassChrome {
-        FloatingGlassChrome(border: .none, backing: .translucent, bleed: edge == .top ? .top : .bottom)
+        let anchored: Edge.Set = edge == .top ? .top : .bottom
+        return FloatingGlassChrome(
+            border: .none, backing: .translucent, bleed: anchored, overscan: anchored.union(.horizontal)
+        )
     }
 
     @MainActor
@@ -65,6 +76,7 @@ public struct FloatingGlassModifier<S: InsettableShape>: ViewModifier {
             .background(
                 self.chrome.backingView(in: self.shape)
                     .glassEffect(glass, in: self.shape)
+                    .padding(self.chrome.overscan, -CoreSpacing.xs)
                     .ignoresSafeArea(edges: self.chrome.bleed)
             )
             .overlay {
