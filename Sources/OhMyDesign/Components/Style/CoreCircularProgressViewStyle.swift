@@ -56,21 +56,21 @@ private struct CoreCircularProgressRing: View {
     @Environment(\.controlSize) private var controlSize
 
     var body: some View {
-        let lineWidth = CoreSpacing.xs
+        let diameter = CoreControlMetrics.height(for: self.controlSize)
+        let lineWidth = max(CoreBorderWidth.thick, diameter * Self.lineWidthRatio)
         ZStack {
             Circle()
-                .stroke(Color.surfaceCanvasInset, lineWidth: lineWidth)
+                .stroke(Color.secondaryFill, lineWidth: lineWidth)
             Circle()
                 .trim(from: 0, to: self.fraction)
                 .stroke(.tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
         }
         .padding(lineWidth / 2)
-        .frame(
-            width: CoreControlMetrics.height(for: self.controlSize),
-            height: CoreControlMetrics.height(for: self.controlSize)
-        )
+        .frame(width: diameter, height: diameter)
     }
+
+    private static let lineWidthRatio: CGFloat = 0.1
 }
 
 // MARK: - ProgressViewStyle extension

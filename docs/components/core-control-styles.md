@@ -59,6 +59,6 @@ DisclosureGroup("Details", isExpanded: $isExpanded) {
 
 - 强调色全部经 `.tint`（`ShapeStyle.tint`）取值，不写死 `Color.accent`（FR-12 / ADR-3 硬约束）——外层 `.tint(_:)` 能真的改变填充条 / 圆弧 / icon / chevron 的颜色
 - `CoreProgressViewStyle` 轨道底色：`Color.surfaceCanvasInset`；圆角：`CoreShape.rounded(CoreRadius.small)`；间距：`CoreSpacing.xs`
-- `CoreCircularProgressViewStyle` 轨道底色：`Color.surfaceCanvasInset`；线宽：`CoreSpacing.xs`（与 `.core` 填充条同粗），圆头端点；外径：`CoreControlMetrics.height(for: controlSize)`
+- `CoreCircularProgressViewStyle` 轨道底色：`Color.secondaryFill`（systemFill 族，明暗两档都与画布有对比；不用 `.core` 的 `surfaceCanvasInset`，后者在暗色纯黑画布上几乎不可见）；线宽：外径的 1/10、下限 `CoreBorderWidth.thick`（regular 4.4pt），随尺寸等比；圆头端点；外径：`CoreControlMetrics.height(for: controlSize)`
 - `CoreLabelStyle` 图标 ↔ 标题间距：`CoreSpacing.sm`
 - `CoreDisclosureGroupStyle` 展开内容缩进：`CoreSpacing.md`；标题行 ↔ 展开内容纵向间距：`CoreSpacing.sm`（标题与 chevron 间是弹性 `Spacer()`，非定距）；展开内容不套 `.surface(.content)`（贴近系统观感，不消费 surface 层）
