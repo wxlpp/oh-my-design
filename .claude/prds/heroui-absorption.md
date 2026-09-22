@@ -136,10 +136,17 @@ Banner 无状态：`onDismiss` 只回调，由调用方移除。动作与关闭�
 `AvatarGroup` 与之共享同一张表、不改写传入子视图（子视图经环境 controlSize 自然对齐）。
 今天 `Avatar` 可被外部 `.frame` 任意拉伸，改为默认固定直径属于布局破坏，登记并给出 `.fixed` 迁移（如 100pt 用法）。
 
-**FR-8 `anchoredBadge`**：`View.anchoredBadge(_ content: AnchoredBadgeContent, placement: …)`，
-content 至少含 `.dot` / `.count(Int, max: Int = 99)` / `.text(LocalizedStringKey)`（B 类文案，按公约第 4 节用 `LocalizedStringKey`）；取色 `statusDangerEmphasis`
-+ `contentOnEmphasis`（与系统角标一致，不跟随 accent）；count 为 0 时不显示；计数并入宿主可访问值。
-名字避开 SwiftUI `.badge`。
+**FR-8 `anchoredBadge`**：`View.anchoredBadge(_ content: AnchoredBadgeContent, placement: …, hostShape: …)`，
+content 至少含 `.dot` / `.count(Int, max: Int = 99)` / `.text(LocalizedStringKey)`（B 类文案，按公约第 4 节）；
+count ≤ 0 不显示。名字避开 SwiftUI `.badge`。
+- 取色：新增第 3 层语义 token `badgeFill`，经第 2 层桥接指向系统红（`UIColor.systemRed` / `NSColor.systemRed`），
+  前景 `contentOnEmphasis`——与 iOS 系统角标一致，不跟随 accent、不用 Primer 色阶。
+- 几何：纵向中心落在宿主角上；横向只伸进宿主半个徽标高度，宽度增长全部朝外（UITabBar 角标行为）。
+  `hostShape: AnchoredBadgeHostShape`（`.rectangle` 缺省 / `.circle`）：`.circle` 时徽标中心落在圆周 45° 点，
+  并默认带一圈 `surfaceCanvas` 分隔环。徽标不改变宿主布局尺寸；滚动容器 / 列表内需调用方预留越界空间（文档写明）。
+- 无障碍：徽标本身对 VoiceOver 隐藏；宿主未设 `accessibilityValue` 时把徽标文本设为宿主的 value。
+  SwiftUI 无法读取宿主已有 value，因此不宣称自动合并——公开 `AnchoredBadgeContent.accessibilityText`，
+  宿主自带 value 时由调用方拼接。chrome 文案（如「New」）用 `LocalizedStringResource`。
 
 **FR-9 `TagGroup`**（依赖 FR-7）：基于 `Tag` + `FlowLayout`；`selectionMode` 枚举（none / single / multiple）；
 `Binding<Set<ID>>` 选择；禁用集合。不变量：
