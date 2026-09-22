@@ -19,6 +19,47 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.10.0`）——Issue #376：Banner 补齐 title / actions / dismiss
+
+**破坏性变更（自定义 style 行为 + 无障碍结构）；编译期无信号。**
+
+1. **`BannerStyleConfiguration` 新增 `title: Text?`、`actions: AnyView?`、`dismiss: (() -> Void)?`**。
+   该类型没有公开 init，新增字段不破坏编译；`label` 仍是正文槽、语义不变。但**自定义 `BannerStyle`
+   若不渲染这三个字段，经新便利 init `Banner(level:title:message:actions:onDismiss:)` 传入的标题、
+   动作与关闭钮会被静默丢弃**。迁移：在 `makeBody` 里按需渲染它们，并让动作与关闭钮保持为独立按钮：
+
+   ```swift
+   struct MyBannerStyle: BannerStyle {
+       func makeBody(configuration: Configuration) -> some View {
+           VStack(alignment: .leading) {
+               HStack(alignment: .top) {
+                   VStack(alignment: .leading) {
+                       configuration.title?.font(.headline)
+                       configuration.label
+                   }
+                   .accessibilityElement(children: .combine)
+                   Spacer()
+                   if let dismiss = configuration.dismiss {
+                       Button(action: dismiss) { Image(systemName: "xmark") }
+                           .accessibilityLabel("Dismiss")
+                   }
+               }
+               configuration.actions
+           }
+       }
+   }
+   ```
+
+2. **内建 style 不再把整条 Banner 合并为单一无障碍元素**。此前 `PlainBannerStyle` /
+   `BorderedBannerStyle` 对整条施加 `.accessibilityElement(children: .combine)`，图标对 VoiceOver 隐藏。
+   现在：图标 + 标题 + 正文合并为一个元素，并且**图标读出状态**（Info / Success / Warning / Error /
+   Neutral，与 `Timeline` 同一组键）；动作按钮与关闭钮是各自独立的可聚焦节点，经 `accessibilitySortPriority`
+   排在正文之后（内容 → 动作 → 关闭）。
+   只有正文的旧调用点**视觉布局不变**（尺寸与像素有回归测试对照旧实现）；变化只在无障碍：
+   VoiceOver 读法由「正文」变为「状态、正文」；在 `label` 槽里放了按钮的
+   调用点，该按钮仍被合并进内容元素——请改用 `actions` 槽让它成为独立节点。UI 测试若按旧的合并
+   label 查找 Banner，需要同步。
+
 ## 未发布（相对 `v0.10.0`）——Issue #378：Badge / Tag / Avatar 尺寸体系 + `AvatarSize`
 
 **破坏性变更（布局 + 函数引用）。**

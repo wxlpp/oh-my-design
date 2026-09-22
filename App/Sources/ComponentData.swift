@@ -109,7 +109,7 @@ extension ComponentMeta {
         ComponentMeta(id: "tag", name: "Tag", description: "调用方自定义颜色的分类标签，支持 removable", category: .indicator) {
             TagPreview()
         },
-        ComponentMeta(id: "banner", name: "Banner", description: "通知横幅，支持 info / success / warning / danger 四级", category: .indicator) {
+        ComponentMeta(id: "banner", name: "Banner", description: "通知横幅，五级语义，可带标题 / 动作 / 关闭", category: .indicator) {
             BannerPreview()
         },
         ComponentMeta(id: "progress-indicator", name: "ProgressIndicator", description: "通用圆形加载指示器，可选文案渲染于 spinner 下方", category: .indicator) {
@@ -507,17 +507,45 @@ private struct TagPreview: View {
 }
 
 private struct BannerPreview: View {
+    @State private var dismissed: Set<String> = []
+
     var body: some View {
-        VStack(spacing: CoreSpacing.sm) {
-            Banner(level: .info) { Text("Info message") }
-            Banner(level: .success) { Text("Success message") }
-            Banner(level: .warning) { Text("Warning message") }
-            Banner(level: .danger) { Text("Danger message") }
-            Banner(level: .neutral) { Text("Neutral message") }
-            Banner(level: .info) { Text("Info bordered") }
-                .bannerStyle(BorderedBannerStyle())
-            Banner(level: .neutral) { Text("Neutral bordered") }
-                .bannerStyle(BorderedBannerStyle())
+        ScrollView {
+            VStack(spacing: CoreSpacing.sm) {
+                Banner(level: .info) { Text("Info message") }
+                Banner(level: .success) { Text("Success message") }
+                Banner(level: .warning) { Text("Warning message") }
+                Banner(level: .danger) { Text("Danger message") }
+                Banner(level: .neutral) { Text("Neutral message") }
+                self.fullBanner(id: "plain-info", level: .info, style: PlainBannerStyle())
+                self.fullBanner(id: "plain-neutral", level: .neutral, style: PlainBannerStyle())
+                self.fullBanner(id: "bordered-danger", level: .danger, style: BorderedBannerStyle())
+                self.fullBanner(id: "bordered-neutral", level: .neutral, style: BorderedBannerStyle())
+                Banner(level: .info) { Text("Info bordered") }
+                    .bannerStyle(BorderedBannerStyle())
+                if !self.dismissed.isEmpty {
+                    Button("Restore dismissed banners") { self.dismissed.removeAll() }
+                        .buttonStyle(.borderless(role: .primary))
+                }
+            }
+            .padding(.vertical, CoreSpacing.lg)
+        }
+    }
+
+    @ViewBuilder
+    private func fullBanner(id: String, level: StatusLevel, style: some BannerStyle) -> some View {
+        if !self.dismissed.contains(id) {
+            Banner(level: level, title: "Update available", message: "Restart the app to finish installing version 2.4.") {
+                Button("Restart now") {}
+                    .buttonStyle(.solid(role: level == .danger ? .danger : .primary))
+                    .controlSize(.small)
+                Button("Later") {}
+                    .buttonStyle(.borderless(role: .primary))
+                    .controlSize(.small)
+            } onDismiss: {
+                self.dismissed.insert(id)
+            }
+            .bannerStyle(style)
         }
     }
 }

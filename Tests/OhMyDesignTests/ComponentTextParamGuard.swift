@@ -105,8 +105,8 @@ struct ComponentTextParamGuard {
                 "只扫到 \(scan.bareTextKeys.count) 个裸文本参数 —— 扫描器失效，这不是『零违规』")
         #expect(scan.localizedTextKeys.count > 5,
                 "只扫到 \(scan.localizedTextKeys.count) 个 LSK/LSR 参数 —— 扫描器失效")
-        #expect(registryTextParams == 29,
-                "OhMyDesign 侧 textParams 实测 29 条（`#373` 新增 FormField 的 label / description 后由 27 变为 29），实际 \(registryTextParams) —— 若为预期变化请同步改这个数字")
+        #expect(registryTextParams == 31,
+                "OhMyDesign 侧 textParams 实测 31 条（`#373` 新增 FormField 的 label / description 后由 27 变为 29；`#376` Banner 便利 init 的 title / message 两条 by-type 使 29 变为 31），实际 \(registryTextParams) —— 若为预期变化请同步改这个数字")
         #expect(result.covered.count == 24,
                 "覆盖数实测 24（`#373` 新增 FormField 的 label / description 后由 22 变为 24），实际 \(result.covered.count)：\(result.covered.keys.sorted())")
         #expect(abs(result.covered.count - registryTextParams) * 2 <= registryTextParams,
@@ -146,9 +146,9 @@ struct ComponentTextParamGuard {
                 需要人来决定是扩 FR-4 定义域还是移交
                 """)
 
-        #expect(result.localizedByType.count == 19,
+        #expect(result.localizedByType.count == 21,
                 """
-                LSK/LSR 由类型判定的键实测 19 条（`#373` 新增 FormField 的 label / description 后由 17 变为 19），实际 \(result.localizedByType.count)：\(result.localizedByType)。\
+                LSK/LSR 由类型判定的键实测 21 条（`#373` 新增 FormField 的 label / description 后由 17 变为 19；`#376` Banner 便利 init 的 title / message 使 19 变为 21），实际 \(result.localizedByType.count)：\(result.localizedByType)。\
                 变化意味着有参数在 LSK/LSR 与裸串之间换了类型 —— 要人过目，不能静默
                 """)
         #expect(result.carrying.count == 7,
@@ -266,8 +266,8 @@ struct ComponentTextParamGuard {
                 }
             }
         }
-        #expect(byTypeCount == 6,
-                "by-type 条目实测 6 条（Descriptions.header / SpinningModifier.text + 四个图表的 title），实际 \(byTypeCount)")
+        #expect(byTypeCount == 8,
+                "by-type 条目实测 8 条（Descriptions.header / SpinningModifier.text + 四个图表的 title + Banner.title / Banner.message），实际 \(byTypeCount)")
         #expect(localizedBCount == 0)
         let bcCount = entries.filter { $0.repo == "ohmydesign" }
             .flatMap(\.textParams).count - byTypeCount

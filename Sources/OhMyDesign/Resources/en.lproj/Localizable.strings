@@ -5,6 +5,7 @@
 "%@, required" = "%@, required";
 "Alert" = "Alert";
 "Collapsed" = "Collapsed";
+"Dismiss" = "Dismiss";
 "Error" = "Error";
 "Expanded" = "Expanded";
 "Info" = "Info";

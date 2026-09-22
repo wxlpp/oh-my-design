@@ -12,14 +12,16 @@ struct BannerPalette {
 // MARK: - Banner
 
 /// 页内信息表面，按状态语义配描边或填充；浮层反馈请改用 `ToastHost`。
+///
+/// Banner 无状态：`onDismiss` 只回调，由调用方把它从视图树中移除。
 public struct Banner<Label: View>: View {
-    /// 创建 Banner。
+    /// 创建只有正文的 Banner。
     ///
     /// - Parameters:
     ///   - level: 语义等级，决定图标与配色（见 `StatusLevel`）。
-    ///   - label: banner 主体文本视图，通常为 `Text`。
+    ///   - label: banner 正文视图，通常为 `Text`。
     public init(level: StatusLevel, @ViewBuilder label: () -> Label) {
-        self.configuration = .init(label: .init(label()), level: level)
+        self.configuration = .init(label: .init(label()), level: level, title: nil, actions: nil, dismiss: nil)
     }
 
     public var body: some View {
@@ -29,6 +31,33 @@ public struct Banner<Label: View>: View {
     @Environment(\.bannerStyle) var style
 
     let configuration: BannerStyleConfiguration
+}
+
+public extension Banner where Label == Text {
+    /// 创建带标题、正文、动作与关闭钮的 Banner。
+    ///
+    /// - Parameters:
+    ///   - level: 语义等级，决定图标与配色（见 `StatusLevel`）。
+    ///   - title: 可选标题，以 headline 字重显示在正文之上。
+    ///   - message: 正文文案。
+    ///   - actions: 动作按钮，横排放不下时自动竖排；样式由调用方决定。
+    ///   - onDismiss: 关闭回调；非 `nil` 时显示关闭钮，由调用方移除 Banner。
+    init<Actions: View>(
+        level: StatusLevel,
+        title: LocalizedStringKey? = nil,
+        message: LocalizedStringKey,
+        @ViewBuilder actions: () -> Actions = { EmptyView() },
+        onDismiss: (() -> Void)? = nil
+    ) {
+        let actionsView = actions()
+        self.configuration = .init(
+            label: .init(Text(message)),
+            level: level,
+            title: title.map { Text($0) },
+            actions: actionsView is EmptyView ? nil : AnyView(actionsView),
+            dismiss: onDismiss
+        )
+    }
 }
 
 // MARK: - BannerStyle
@@ -46,12 +75,20 @@ public protocol BannerStyle {
 
 // MARK: - BannerStyleConfiguration
 
-/// 传给 `BannerStyle.makeBody` 的上下文，提供 banner 的语义等级与 label 视图。
+/// 传给 `BannerStyle.makeBody` 的上下文：语义等级、正文与可选的标题 / 动作 / 关闭回调。
 public struct BannerStyleConfiguration {
     public typealias Label = AnyView
 
+    /// 正文视图。
     public let label: Label
+    /// 语义等级。
     public let level: StatusLevel
+    /// 可选标题。
+    public let title: Text?
+    /// 可选动作行；自定义 style 应把它渲染为独立可聚焦的按钮。
+    public let actions: AnyView?
+    /// 可选关闭回调；非 `nil` 时 style 应渲染关闭钮。
+    public let dismiss: (() -> Void)?
 }
 
 // MARK: - Banner shared helpers
@@ -71,6 +108,10 @@ func bannerIcon(for level: StatusLevel) -> Image {
     }
 }
 
+func bannerIconAccessibilityKey(for level: StatusLevel) -> String {
+    Timeline.accessibilityLabelKey(for: level)
+}
+
 func bannerPalette(for level: StatusLevel) -> BannerPalette {
     switch level {
     case .info:
@@ -86,25 +127,129 @@ func bannerPalette(for level: StatusLevel) -> BannerPalette {
     }
 }
 
-@ViewBuilder
-private func bannerBody(configuration: BannerStyleConfiguration, bordered: Bool) -> some View {
-    let palette = bannerPalette(for: configuration.level)
-    HStack(spacing: CoreSpacing.sm) {
-        bannerIcon(for: configuration.level)
-            .foregroundStyle(palette.icon)
-            .accessibilityHidden(true)
-        configuration.label
+enum BannerMetrics {
+    static let minimumHitTarget: CGFloat = 44
+    static let baseDismissFootprint: CGFloat = 20
+    static let contentSortPriority: Double = 3
+    static let actionsSortPriority: Double = 2
+    static let dismissSortPriority: Double = 1
+
+    static func dismissHitTarget(footprint: CGFloat) -> CGFloat {
+        max(self.minimumHitTarget, footprint)
     }
-    .accessibilityElement(children: .combine)
-    .coreFont(.callout)
-    .foregroundStyle(palette.foreground)
-    .padding(CoreSpacing.md)
-    .background {
-        if bordered {
-            Rectangle().fill(palette.background).bordered(style: palette.border)
-        } else {
-            Rectangle().fill(palette.background)
+
+    static func dismissGlyphInset(footprint: CGFloat) -> CGFloat {
+        (self.dismissHitTarget(footprint: footprint) - footprint) / 2
+    }
+}
+
+struct BannerDismissButton: View {
+    let color: Color
+    let action: () -> Void
+
+    @ScaledMetric(relativeTo: .body) private var footprint = BannerMetrics.baseDismissFootprint
+
+    var body: some View {
+        let side = BannerMetrics.dismissHitTarget(footprint: self.footprint)
+        Button(action: self.action) {
+            Image(systemName: "xmark")
+                .font(.body.weight(.medium))
+                .imageScale(.small)
+                .foregroundStyle(self.color)
+                .frame(width: side, height: side)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("Dismiss", bundle: .module))
+    }
+}
+
+private struct BannerBody: View {
+    let configuration: BannerStyleConfiguration
+    let bordered: Bool
+
+    @ScaledMetric(relativeTo: .body) private var dismissFootprint = BannerMetrics.baseDismissFootprint
+
+    var body: some View {
+        let palette = bannerPalette(for: self.configuration.level)
+        self.content(palette: palette)
+            .coreFont(.callout)
+            .foregroundStyle(palette.foreground)
+            .padding(CoreSpacing.md)
+            .background {
+                if self.bordered {
+                    Rectangle().fill(palette.background).bordered(style: palette.border)
+                } else {
+                    Rectangle().fill(palette.background)
+                }
+            }
+    }
+
+    private var usesExtendedSlots: Bool {
+        self.configuration.title != nil || self.configuration.actions != nil || self.configuration.dismiss != nil
+    }
+
+    private func icon(palette: BannerPalette) -> some View {
+        bannerIcon(for: self.configuration.level)
+            .foregroundStyle(palette.icon)
+            .accessibilityLabel(Text(LocalizedStringKey(bannerIconAccessibilityKey(for: self.configuration.level)), bundle: .module))
+    }
+
+    @ViewBuilder
+    private func content(palette: BannerPalette) -> some View {
+        if self.usesExtendedSlots {
+            self.extendedContent(palette: palette)
+        } else {
+            HStack(spacing: CoreSpacing.sm) {
+                self.icon(palette: palette)
+                self.configuration.label
+            }
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private func extendedContent(palette: BannerPalette) -> some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            HStack(alignment: .firstTextBaseline, spacing: CoreSpacing.sm) {
+                self.icon(palette: palette)
+                VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
+                    if let title = self.configuration.title {
+                        title.coreFont(.headline)
+                        self.configuration.label
+                            .foregroundStyle(Color.contentPrimary)
+                    } else {
+                        self.configuration.label
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.trailing, self.configuration.dismiss == nil ? 0 : self.dismissFootprint + CoreSpacing.sm)
+            .accessibilityElement(children: .combine)
+            .accessibilitySortPriority(BannerMetrics.contentSortPriority)
+            if let actions = self.configuration.actions {
+                HStack(alignment: .top, spacing: CoreSpacing.sm) {
+                    bannerIcon(for: self.configuration.level)
+                        .hidden()
+                        .frame(height: 0)
+                        .accessibilityHidden(true)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: CoreSpacing.sm) { actions }
+                        VStack(alignment: .leading, spacing: CoreSpacing.sm) { actions }
+                    }
+                }
+                .accessibilityElement(children: .contain)
+                .accessibilitySortPriority(BannerMetrics.actionsSortPriority)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .topTrailing) {
+            if let dismiss = self.configuration.dismiss {
+                BannerDismissButton(color: .contentSecondary, action: dismiss)
+                    .padding(-BannerMetrics.dismissGlyphInset(footprint: self.dismissFootprint))
+                    .accessibilitySortPriority(BannerMetrics.dismissSortPriority)
+            }
+        }
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -115,7 +260,7 @@ public struct PlainBannerStyle: BannerStyle {
     public init() {}
 
     public func makeBody(configuration: Configuration) -> some View {
-        bannerBody(configuration: configuration, bordered: false)
+        BannerBody(configuration: configuration, bordered: false)
     }
 }
 
@@ -126,7 +271,7 @@ public struct BorderedBannerStyle: BannerStyle {
     public init() {}
 
     public func makeBody(configuration: Configuration) -> some View {
-        bannerBody(configuration: configuration, bordered: true)
+        BannerBody(configuration: configuration, bordered: true)
     }
 }
 
@@ -161,5 +306,11 @@ public extension View {
         Banner(level: .neutral) {
             Text("Comments on this document are visible to all members.")
         }
+        Banner(level: .warning, title: "Storage almost full", message: "Free up space to keep syncing your documents.") {
+            Button("Manage storage") {}
+                .buttonStyle(.light(role: .warning))
+                .controlSize(.small)
+        } onDismiss: {}
+        .bannerStyle(BorderedBannerStyle())
     }
 }

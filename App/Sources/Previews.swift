@@ -32,6 +32,11 @@ import OhMyDesign
         Banner(level: .warning) { Text("Warning message") }
         Banner(level: .danger) { Text("Danger message") }
         Banner(level: .neutral) { Text("Neutral message") }
+        Banner(level: .info, title: "Update available", message: "Restart the app to finish installing version 2.4.") {
+            Button("Restart now") {}
+                .buttonStyle(.solid(role: .primary))
+                .controlSize(.small)
+        } onDismiss: {}
     }
     .padding()
 }
