@@ -348,6 +348,51 @@ struct ToastHostTests {
         #expect(host.queue.isEmpty)
     }
 
+    @Test("performAction：动作内 dismissAll 后以同一 ID 重新 show，新 toast 不被关闭")
+    func actionReshowingSameIdIsNotDismissed() {
+        let (host, clock) = self.makeHost()
+        let id = UUID()
+        let hostRef = host
+        let item = ToastItem(id: id, title: "Deleted", action: ToastAction("Undo") {
+            hostRef.dismissAll()
+            hostRef.show(ToastItem(id: id, title: "Restored", duration: .seconds(2)))
+        })
+        host.show(item)
+        host.performAction(of: id)
+        #expect(host.queue.map(\.title) == ["Restored"])
+        #expect(host.isDismissing == false, "同 ID 的新一轮展示不得被旧动作的收尾关闭")
+        clock.advance(by: 2)
+        #expect(host.isDismissing == true, "新 toast 按自己的时长关闭")
+    }
+
+    @Test("performAction：动作内换一个 ID 重新 show，新 toast 不被关闭")
+    func actionShowingDifferentIdIsNotDismissed() {
+        let (host, _) = self.makeHost()
+        let hostRef = host
+        let item = ToastItem(title: "Deleted", action: ToastAction("Undo") {
+            hostRef.dismissAll()
+            hostRef.show("Restored")
+        })
+        host.show(item)
+        host.performAction(of: item.id)
+        #expect(host.queue.map(\.title) == ["Restored"])
+        #expect(host.isDismissing == false)
+    }
+
+    @Test("performAction：动作只追加新项时，当前项照常关闭")
+    func actionAppendingKeepsDismissingCurrent() {
+        let (host, clock) = self.makeHost()
+        let hostRef = host
+        let item = ToastItem(title: "Deleted", action: ToastAction("Undo") {
+            hostRef.show("Restored")
+        })
+        host.show(item)
+        host.performAction(of: item.id)
+        #expect(host.isDismissing == true)
+        clock.advance(by: self.exit)
+        #expect(host.queue.map(\.title) == ["Restored"])
+    }
+
     @Test("performAction：非当前项 / 无动作 / 退场中 均不执行")
     func performActionGuards() {
         let (host, _) = self.makeHost()
@@ -369,6 +414,11 @@ struct ToastHostTests {
 
 // MARK: - SystemToastClock
 
+@MainActor
+final class ToastDeadlineRecorder {
+    var deadline: ContinuousClock.Instant?
+}
+
 @Suite("SystemToastClock")
 @MainActor
 struct SystemToastClockTests {
@@ -387,5 +437,27 @@ struct SystemToastClockTests {
         }
         #expect(fired.events == ["kept"])
         #expect(clock.now > 0)
+    }
+
+    @Test("真实时钟：截止时刻在 schedule 时确定，Task 延迟启动不拉长时长")
+    func deadlineIsFixedAtScheduleTime() async {
+        let recorded = ToastDeadlineRecorder()
+        let clock = SystemToastClock(sleeper: { deadline in recorded.deadline = deadline })
+        let before = ContinuousClock.now
+        await withCheckedContinuation { continuation in
+            _ = clock.schedule(after: 0.3) { continuation.resume() }
+            Self.blockMainThread(for: 0.2)
+        }
+        guard let deadline = recorded.deadline else {
+            Issue.record("sleeper 没被调用 —— 截止时刻无从核对")
+            return
+        }
+        let offset = deadline - before
+        #expect(offset >= .seconds(0.3), "截止时刻早于排程时刻 + 时长：\(offset)")
+        #expect(offset < .seconds(0.45), "截止时刻随 Task 启动推迟了（主线程占用 0.2s）：\(offset)")
+    }
+
+    private static func blockMainThread(for seconds: TimeInterval) {
+        usleep(useconds_t(seconds * 1_000_000))
     }
 }

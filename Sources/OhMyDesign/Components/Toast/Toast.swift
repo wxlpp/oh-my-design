@@ -147,6 +147,7 @@ public final class ToastHost {
     @ObservationIgnored private var remaining: TimeInterval?
     @ObservationIgnored private var displayStartedAt: TimeInterval = 0
     @ObservationIgnored private var pauseReasons: Set<ToastPauseReason> = []
+    @ObservationIgnored private var generation: UInt64 = 0
 
     /// 创建一个新的 ToastHost。每个 scene 应持有独立实例；不要共享。
     public init() {
@@ -211,7 +212,9 @@ public final class ToastHost {
     func performAction(of id: ToastItem.ID) {
         guard let current = self.queue.first, current.id == id, !self.isDismissing,
               let action = current.action else { return }
+        let generation = self.generation
         action.perform()
+        guard self.generation == generation, self.queue.first?.id == id else { return }
         self.dismiss(id)
     }
 
@@ -239,6 +242,7 @@ public final class ToastHost {
     // MARK: State machine
 
     private func startDisplay(_ item: ToastItem) {
+        self.generation &+= 1
         self.displayTimer?.cancel()
         self.displayTimer = nil
         self.pauseReasons = []
@@ -497,12 +501,14 @@ struct ToastView: View {
                     .coreFont(.callout)
                     .fontWeight(self.item.description == nil ? .regular : .semibold)
                     .foregroundStyle(Color.contentPrimary)
-                    .lineLimit(1)
+                    .lineLimit(Self.lineLimits(for: self.dynamicTypeSize).title)
+                    .fixedSize(horizontal: false, vertical: self.isAccessibilityLayout)
                 if let description = self.item.description {
                     Text(description)
                         .coreFont(.footnote)
                         .foregroundStyle(Color.contentSecondary)
-                        .lineLimit(2)
+                        .lineLimit(Self.lineLimits(for: self.dynamicTypeSize).description)
+                        .fixedSize(horizontal: false, vertical: self.isAccessibilityLayout)
                 }
             }
             .multilineTextAlignment(.leading)
@@ -521,9 +527,14 @@ struct ToastView: View {
                 .lineLimit(self.isAccessibilityLayout ? nil : 1)
                 .fixedSize(horizontal: !self.isAccessibilityLayout, vertical: true)
         }
-        .buttonStyle(.light(role: .primary))
+        .buttonStyle(ToastActionButtonStyle())
         .controlSize(.small)
+        .padding(-ToastActionButtonStyle.hitOutset)
         .layoutPriority(1)
+    }
+
+    static func lineLimits(for size: DynamicTypeSize) -> (title: Int?, description: Int?) {
+        size.isAccessibilitySize ? (nil, nil) : (1, 2)
     }
 
     private var verticalOffset: CGFloat {
@@ -603,6 +614,37 @@ struct ToastView: View {
         case .top: -ToastDefaults.dismissSlideDistance
         case .bottom: ToastDefaults.dismissSlideDistance
         }
+    }
+}
+
+// MARK: - ToastActionButtonStyle
+
+struct ToastActionButtonStyle: ButtonStyle {
+    static let minimumHitSide: CGFloat = 44
+    static let hitOutset = EdgeInsets(
+        top: CoreSpacing.md, leading: CoreSpacing.md, bottom: CoreSpacing.md, trailing: CoreSpacing.md
+    )
+
+    @Environment(\.coreAccent) private var coreAccent
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.controlSize) private var controlSize
+
+    func makeBody(configuration: Configuration) -> some View {
+        let isPressed = configuration.isPressed
+        configuration.label
+            .buttonChrome(shape: Capsule(style: .continuous), controlSize: self.controlSize)
+            .foregroundStyle(ButtonRoleStyleRole.primary.resolvedColor(
+                accent: self.coreAccent, isEnabled: self.isEnabled, isPressed: isPressed
+            ))
+            .buttonBackground(
+                shape: Capsule(style: .continuous),
+                fill: Color.surfaceInteractive,
+                border: Color.borderSubtle,
+                isPressed: isPressed
+            )
+            .opacity(isPressed ? 0.9 : 1)
+            .padding(Self.hitOutset)
+            .contentShape(Rectangle())
     }
 }
 

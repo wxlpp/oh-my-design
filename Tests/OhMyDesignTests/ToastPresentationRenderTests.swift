@@ -365,4 +365,78 @@ struct ToastPresentationRenderTests {
         #expect(Double(squeezed.pixels) < Double(full.pixels) * 0.95,
                 "挤压后墨量 \(squeezed.pixels) 未明显少于完整墨量 \(full.pixels) —— 墨量判据分辨不出截断")
     }
+    // MARK: action hit area
+
+    private func renderedSize(_ view: some View, dynamicTypeSize: DynamicTypeSize = .large) -> CGSize? {
+        let renderer = ImageRenderer(content: view.dynamicTypeSize(dynamicTypeSize))
+        renderer.scale = 1
+        #if canImport(UIKit)
+        return renderer.uiImage?.size
+        #else
+        return renderer.nsImage?.size
+        #endif
+    }
+
+    @Test("动作按钮命中区 ≥ 44×44，且不改变按钮在布局中的占位", arguments: ["Undo", "OK"])
+    func actionHitAreaIsAtLeast44WithoutGrowingLayout(label: String) {
+        let hit = self.renderedSize(
+            Button {} label: { Text(label).fontWeight(.semibold) }
+                .buttonStyle(ToastActionButtonStyle())
+                .controlSize(.small)
+        )
+        let footprint = self.renderedSize(
+            Button {} label: { Text(label).fontWeight(.semibold) }
+                .buttonStyle(ToastActionButtonStyle())
+                .controlSize(.small)
+                .padding(-ToastActionButtonStyle.hitOutset)
+        )
+        let light = self.renderedSize(
+            Button {} label: { Text(label).fontWeight(.semibold) }
+                .buttonStyle(.light(role: .primary))
+                .controlSize(.small)
+        )
+        guard let hit, let footprint, let light else {
+            Issue.record("渲染失败 —— 不得当作通过")
+            return
+        }
+        #expect(hit.width >= ToastActionButtonStyle.minimumHitSide && hit.height >= ToastActionButtonStyle.minimumHitSide,
+                "命中区 \(hit) 小于 44×44")
+        #expect(footprint == light, "布局占位 \(footprint) ≠ 紧凑外观 \(light) —— 命中区扩展撑大了 toast")
+    }
+
+    // MARK: accessibility-size line limits
+
+    @Test("行数：常规字号标题 1 行、说明 2 行；AX1+ 均不限")
+    func lineLimitsFollowDynamicType() {
+        #expect(ToastView.lineLimits(for: .large) == (1, 2))
+        #expect(ToastView.lineLimits(for: .xxxLarge) == (1, 2))
+        #expect(ToastView.lineLimits(for: .accessibility1) == (nil, nil))
+        #expect(ToastView.lineLimits(for: .accessibility5) == (nil, nil))
+    }
+
+    private func toastHeight(description: String, dynamicTypeSize: DynamicTypeSize) -> CGFloat? {
+        let host = ToastHost()
+        host.show(ToastItem(title: "Archived", description: description, level: .neutral))
+        return self.renderedSize(
+            ToastOverlay(host: host, edge: .top, presentation: .floatingCapsule)
+                .frame(width: Self.containerWidth),
+            dynamicTypeSize: dynamicTypeSize
+        )?.height
+    }
+
+    @Test("说明在常规字号封顶 2 行，在 AX1+ 随内容增高")
+    func descriptionGrowsOnlyAtAccessibilitySizes() {
+        let short = String(repeating: "A longer description that keeps going. ", count: 3)
+        let long = String(repeating: "A much longer description that keeps going. ", count: 6)
+        let regularShort = self.toastHeight(description: short, dynamicTypeSize: .large)
+        let regularLong = self.toastHeight(description: long, dynamicTypeSize: .large)
+        let axShort = self.toastHeight(description: short, dynamicTypeSize: .accessibility1)
+        let axLong = self.toastHeight(description: long, dynamicTypeSize: .accessibility1)
+        guard let regularShort, let regularLong, let axShort, let axLong else {
+            Issue.record("渲染失败 —— 不得当作通过")
+            return
+        }
+        #expect(regularLong == regularShort, "常规字号下两段都超过 2 行，应同样封顶：短 \(regularShort) / 长 \(regularLong)")
+        #expect(axLong > axShort, "AX1 下说明应完整显示：短 \(axShort) / 长 \(axLong)")
+    }
 }

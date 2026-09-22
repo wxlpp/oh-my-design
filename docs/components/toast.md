@@ -39,7 +39,8 @@ public nonisolated enum ToastDuration: Sendable, Equatable {
 }
 ```
 
-- `title` 单行、`description` 最多两行；文案均为调用方传入的 B 类 `String`。
+- 常规字号下 `title` 单行、`description` 最多两行；辅助功能字号（AX1+）下两者都不限行数。
+  文案均为调用方传入的 B 类 `String`。
 - `ToastItem` / `ToastAction` 是 `nonisolated` + `Sendable`：可在后台构造，
   再 `await MainActor.run { host.show(item) }`；动作闭包始终在主 actor 上执行。
 - `.seconds` 的非正值（含 NaN）按缺省 3 秒处理；`.seconds(.infinity)` 等同 `.persistent`。
@@ -82,17 +83,21 @@ StatusLevel: info / success / warning / danger / neutral。
 ### 交互与计时 / Interaction & timing
 
 - 点整条 toast 关闭；点动作按钮 = 先在主 actor 上执行动作，再关闭（不会同时触发整条点击）。
+  若动作内部已 `dismissAll()` 并重新 `show`（即使复用同一个 `id`），新展示的 toast 不会被这次收尾关闭。
 - 按住或拖拽 toast 时暂停计时，松手（含手势被系统取消）后按**剩余**时长恢复；
   计时从该条开始显示时起算，排队期间不计时。
-- 显示计时与退场动画等待是两个独立的计时器，`dismissAll()` 同时取消两者。
+- 显示计时与退场动画等待是两个独立的计时器，`dismissAll()` 同时取消两者；截止时刻在排程时确定，
+  主线程繁忙导致计时任务晚启动不会拉长显示时长。
 
 ### 无障碍 / Accessibility
 
 - 无动作：整条是一个按钮元素（标题 + 说明合并朗读，提示「Tap to dismiss」，激活即关闭）。
 - 有动作：整条不再是单一按钮——「标题 + 说明」是一个可激活关闭的按钮元素，动作是另一个独立按钮，
   二者可分别聚焦（AXe 实测为两个 `Button` 节点）。
-- AX 字号下动作按钮换到消息下方一行、允许折行，不截断；常规字号下动作按钮保持完整单行，
+- AX 字号下动作按钮换到消息下方一行、允许折行，标题与说明完整显示；常规字号下动作按钮保持完整单行，
   由标题让出宽度（标题单行截断）。
+- 动作按钮外观是紧凑的 small 胶囊，但命中区向四周各扩 `CoreSpacing.md`（≥ 44×44pt），
+  再以等量负内边距抵消，不撑高 toast。
 
 ## 使用示例 / Usage
 
@@ -130,7 +135,7 @@ struct DetailView: View {
 ## 视觉 Token
 
 - 容器：`.floatingGlass(in: Capsule(style: .continuous), isInteractive: false)`——iOS 26 液态玻璃浮起外壳，不消费 `.surface(.card)`（Phase 3A 迁移，见 `ToastView`）
-- 字号：标题 `callout`（有说明时 semibold），说明 `footnote` + `contentSecondary`；动作按钮 `.light(role: .primary)` + `.controlSize(.small)`、semibold；图标与标题首行基线对齐，字号上限 `xxxLarge`
+- 字号：标题 `callout`（有说明时 semibold），说明 `footnote` + `contentSecondary`；动作按钮外观同 `.light(role: .primary)` + `.controlSize(.small)`、semibold（内部样式另加命中区外扩）；图标与标题首行基线对齐，字号上限 `xxxLarge`
 - 内边距：`CoreSpacing.md`
 - Icon / 前景色：按 `StatusLevel` 走 status color token（`statusAccentForeground` / `statusSuccessForeground` / `statusAttentionForeground` / `statusDangerForeground`）；
   `neutral` 图标 `bell`、图标色 `contentSecondary`（正文各档统一为 `contentPrimary`）

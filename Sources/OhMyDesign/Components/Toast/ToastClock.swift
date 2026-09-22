@@ -15,6 +15,13 @@ protocol ToastClock: AnyObject {
 
 final class SystemToastClock: ToastClock {
     private let origin = ContinuousClock.now
+    private let sleeper: @MainActor (ContinuousClock.Instant) async -> Void
+
+    init(sleeper: @escaping @MainActor (ContinuousClock.Instant) async -> Void = { deadline in
+        try? await Task.sleep(until: deadline, clock: .continuous)
+    }) {
+        self.sleeper = sleeper
+    }
 
     var now: TimeInterval {
         let elapsed = ContinuousClock.now - self.origin
@@ -22,8 +29,10 @@ final class SystemToastClock: ToastClock {
     }
 
     func schedule(after delay: TimeInterval, _ fire: @escaping @MainActor () -> Void) -> any ToastTimer {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(max(0, delay)))
+        let sleeper = self.sleeper
         let task = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(max(0, delay)))
+            await sleeper(deadline)
             guard !Task.isCancelled else { return }
             fire()
         }
