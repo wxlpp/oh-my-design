@@ -47,7 +47,7 @@ public extension TagGroup where Data.Element: Identifiable, ID == Data.Element.I
 
 ## Hit area
 
-Internal `Shape` `TagGroupHitShape`: path = rect expanded vertically to ≥ 44pt tall, used as
+Internal `Shape` `TagGroupHitShape`: path = rect expanded on both axes to ≥ 44pt, used as
 `contentShape` on each button. Layout size stays the Tag's (no row growth). Known limit: with the
 default 4pt row spacing, adjacent rows' expanded hit areas overlap; the later row wins there.
 

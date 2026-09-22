@@ -39,6 +39,9 @@ TagGroup(items, selection: $selection, color: .contentPrimary) { Text($0.name) }
 
 ## 选择语义
 
+- **`data` 内的 ID 必须唯一。** 重复 ID 会让 `ForEach` 的身份与选择语义都不确定；DEBUG 构建检测到重复时
+  经 `OSLog`（subsystem `OhMyDesign`，category `TagGroup`）输出一条警告，不中断运行。
+
 - **基数只计当前 `data` 里的 ID。** 绑定里不在数据中的 ID（例如翻页后不可见的已选项）原样保留，
   组件永不增删它们。
 - `single`：点未选项 = 把「数据内已选集合」替换为该项；点已选项 = 取消，允许空选。
@@ -55,14 +58,15 @@ TagGroup(items, selection: $selection, color: .contentPrimary) { Text($0.name) }
   两者都从**环境 `coreAccent`** 派生（公式在 `Colors/InteractionColors.swift`），
   `.coreAccent(_:)` 换色即跟随；默认墨色 accent 下是淡灰底 + 墨色描边。
 - 标签内容色由 `color` 决定，选中不改变文字颜色。
+- 选中外观只作用于标签自身的底与描边，不向调用方的 label 子树传递——label 里嵌套的独立 `Tag` 保持自己的外观。
 - 按下 0.7 不透明度。
 
 ## 无障碍与触控
 
 - `single` / `multiple` 下每个标签是按钮，带 `.isButton`，已选时加 `.isSelected`（VoiceOver 读「已选」），
   可被键盘聚焦（Full Keyboard Access / 硬件键盘）。
-- 命中区：每个标签的点击形状纵向外扩到至少 44pt 高，视觉与布局尺寸仍是 `Tag` 本身（不撑高行）。
-  ⚠️ 默认 4pt 行距下，相邻两行的外扩命中区会重叠，重叠处由后一行响应；需要严格分离时加大 `spacing`。
+- 命中区：每个标签的点击形状在宽、高两轴都外扩到至少 44pt，视觉与布局尺寸仍是 `Tag` 本身（不撑高行、不挤开邻居）。
+  ⚠️ 默认 4pt 间距下，相邻标签（同行左右、上下两行）的外扩命中区会重叠，重叠处由排在后面的标签响应；需要严格分离时加大 `spacing`。
 
 ## 使用示例 / Usage
 

@@ -1,3 +1,4 @@
+import OSLog
 import SwiftUI
 
 // MARK: - TagGroupSelectionMode
@@ -19,6 +20,7 @@ public nonisolated enum TagGroupSelectionMode: Hashable, Sendable, CaseIterable 
 /// 选中态的底色与描边从环境 `coreAccent` 派生；标签内容色由 `color` 决定，不随选中变化。
 /// 选择只计当前 `data` 里存在的 ID：绑定里不在数据中的 ID 原样保留，组件永不增删它们。
 /// 切换 `selectionMode` 不改写绑定；外部写入的多个数据内 ID 照样渲染，下一次点选才归一。
+/// `data` 内的 ID 必须唯一；DEBUG 构建检测到重复时输出一条运行期警告。
 public struct TagGroup<Data: RandomAccessCollection, ID: Hashable, Label: View>: View {
     // MARK: - Init
 
@@ -26,7 +28,7 @@ public struct TagGroup<Data: RandomAccessCollection, ID: Hashable, Label: View>:
     ///
     /// - Parameters:
     ///   - data: 标签数据源。
-    ///   - id: 从元素取稳定 ID 的 key path。
+    ///   - id: 从元素取稳定 ID 的 key path；ID 在 `data` 内必须唯一。
     ///   - selection: 已选 ID 集合的双向绑定。
     ///   - selectionMode: 选择模式，默认 `.multiple`。
     ///   - disabled: 禁用的 ID 集合；禁用项不可切换，但已选时仍显示选中态。
@@ -57,6 +59,9 @@ public struct TagGroup<Data: RandomAccessCollection, ID: Hashable, Label: View>:
     @Environment(\.coreAccent) private var resolvedAccent
 
     public var body: some View {
+        #if DEBUG
+        let _ = TagGroupSelection.warnOnDuplicateIDs(self.data.map { $0[keyPath: self.id] })
+        #endif
         FlowLayout(spacing: self.spacing) {
             ForEach(self.data, id: self.id) { element in
                 self.item(element)
@@ -173,6 +178,23 @@ enum TagGroupSelection {
         }
     }
 
+    static func duplicateIDs<ID: Hashable>(_ ids: [ID]) -> Set<ID> {
+        var seen: Set<ID> = []
+        var duplicates: Set<ID> = []
+        for id in ids where !seen.insert(id).inserted {
+            duplicates.insert(id)
+        }
+        return duplicates
+    }
+
+    static func warnOnDuplicateIDs<ID: Hashable>(_ ids: [ID]) {
+        let duplicates = Self.duplicateIDs(ids)
+        guard !duplicates.isEmpty else { return }
+        Self.logger.warning("TagGroup: IDs must be unique within data; duplicated: \(String(describing: duplicates), privacy: .public)")
+    }
+
+    private static let logger = Logger(subsystem: "OhMyDesign", category: "TagGroup")
+
     static func traits(selected: Bool, mode: TagGroupSelectionMode) -> AccessibilityTraits {
         let selectedTrait: AccessibilityTraits = selected ? .isSelected : []
         switch mode {
@@ -187,11 +209,12 @@ enum TagGroupSelection {
 // MARK: - 命中区 / Hit area
 
 struct TagGroupHitShape: Shape {
-    static let minimumHeight: CGFloat = 44
+    static let minimumSide: CGFloat = 44
 
     nonisolated func path(in rect: CGRect) -> Path {
-        let outset = max(0, (Self.minimumHeight - rect.height) / 2)
-        return Path(rect.insetBy(dx: 0, dy: -outset))
+        let dx = max(0, (Self.minimumSide - rect.width) / 2)
+        let dy = max(0, (Self.minimumSide - rect.height) / 2)
+        return Path(rect.insetBy(dx: -dx, dy: -dy))
     }
 }
 

@@ -71,6 +71,12 @@ struct TagGroupSelectionTests {
         #expect(result.intersection(Self.data).count == 1)
     }
 
+    @Test("重复 ID 检测：只报出现多于一次的 ID")
+    func duplicateIDsAreDetected() {
+        #expect(TagGroupSelection.duplicateIDs(["a", "b", "a", "c", "b"]) == ["a", "b"])
+        #expect(TagGroupSelection.duplicateIDs(["a", "b", "c"]).isEmpty)
+    }
+
     @Test("无障碍 trait：可选模式是按钮，已选带 .isSelected；.none 不是按钮")
     func accessibilityTraitsFollowModeAndSelection() {
         #expect(TagGroupSelection.traits(selected: true, mode: .single) == [.isButton, .isSelected])
@@ -116,6 +122,18 @@ struct TagGroupViewTests {
             return true
         }
         return drawn ? bytes : nil
+    }
+
+    /// 按钮树与参照 `Tag` 树是两棵不同的视图树：全量并行跑时实测抗锯齿边缘偶有 Δ=1 的量化差
+    /// （≤ 9 / 13608 字节，约 0.07%），单跑不复现。容差只放这一档：Δ ≤ 1 且差异字节 ≤ 0.2%；
+    /// 换色、换字重、漏描边都是 Δ ≫ 1 或大面积差异，仍会判红。
+    private func expectMatchesReference(
+        _ a: [UInt8]?, _ b: [UInt8]?, _ comment: String,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) {
+        expectBitmapsEquivalent(
+            a, b, maxChannelDelta: 1, maxDifferingFraction: 0.002, comment, sourceLocation: sourceLocation
+        )
     }
 
     private func group(
@@ -185,7 +203,7 @@ struct TagGroupViewTests {
             )
             .fixedSize()
         for scheme in [ColorScheme.light, .dark] {
-            expectBitmapsEqual(
+            self.expectMatchesReference(
                 self.pixels(self.group(selection: ["Swift"]).coreAccent(accent), scheme: scheme),
                 self.pixels(reference, scheme: scheme),
                 "\(scheme)：选中态没有走 InteractionColors 的 accent 派生函数"
@@ -227,6 +245,46 @@ struct TagGroupViewTests {
         }
     }
 
+    @Test("真实文字：未选按钮与普通 Tag 逐像素一致（明暗两档）")
+    func unselectedTextMatchesPlainTag() {
+        for scheme in [ColorScheme.light, .dark] {
+            self.expectMatchesReference(
+                self.pixels(
+                    TagGroup([Item(id: "Swift")], selection: .constant([]), color: .red) { Text($0.id) }.fixedSize(),
+                    scheme: scheme
+                ),
+                self.pixels(Tag("Swift", color: .red).fixedSize(), scheme: scheme),
+                "\(scheme)：未选按钮与普通 Tag 不一致"
+            )
+        }
+    }
+
+    @Test("真实文字：选中按钮与 Tag + accent 派生外观逐像素一致（明暗两档）")
+    func selectedTextMatchesDerivedReference() {
+        let accent = Color.blue
+        let reference = Tag("Swift", color: .red)
+            .environment(
+                \.tagSelectionChrome,
+                TagSelectionChrome(
+                    fill: .accentSubtleBackground(from: accent),
+                    stroke: .accentSelectedBorder(from: accent)
+                )
+            )
+            .fixedSize()
+        for scheme in [ColorScheme.light, .dark] {
+            self.expectMatchesReference(
+                self.pixels(
+                    TagGroup([Item(id: "Swift")], selection: .constant(["Swift"]), color: .red) { Text($0.id) }
+                        .fixedSize()
+                        .coreAccent(accent),
+                    scheme: scheme
+                ),
+                self.pixels(reference, scheme: scheme),
+                "\(scheme)：选中按钮与派生参照不一致"
+            )
+        }
+    }
+
     @Test("命中区外扩不撑高布局：TagGroup 与同宽 FlowLayout + Tag 等高")
     func hitAreaDoesNotInflateLayout() throws {
         for size in Self.ladder {
@@ -250,21 +308,79 @@ struct TagGroupViewTests {
 @Suite("TagGroup 命中区")
 @MainActor
 struct TagGroupHitShapeTests {
-    @Test("矮于 44pt 的标签：命中形状纵向外扩到 44pt，横向与中心不变")
-    func shortTagsExpandToMinimum() {
-        for height in [CGFloat(18), 21, 24, 28, 32] {
-            let rect = CGRect(x: 0, y: 0, width: 60, height: height)
+    @Test("小于 44pt 的标签：命中形状两轴都外扩到 44pt，中心不变")
+    func smallTagsExpandOnBothAxes() {
+        for side in [CGFloat(18), 20, 24, 32] {
+            let rect = CGRect(x: 0, y: 0, width: side, height: side + 2)
             let hit = TagGroupHitShape().path(in: rect).boundingRect
-            #expect(hit.height >= 44, "\(height)pt 标签命中高 \(hit.height)")
-            #expect(hit.width == rect.width)
-            #expect(hit.midY == rect.midY)
+            #expect(hit.width >= 44 && hit.height >= 44, "\(rect.size) 标签命中框 \(hit.size)")
+            #expect(hit.midX == rect.midX && hit.midY == rect.midY)
         }
+        let wide = CGRect(x: 0, y: 0, width: 60, height: 20)
+        let wideHit = TagGroupHitShape().path(in: wide).boundingRect
+        #expect(wideHit.width == 60 && wideHit.height == 44)
     }
 
     @Test("已达 44pt 的标签：命中形状即自身")
-    func tallTagsKeepTheirBounds() {
+    func largeTagsKeepTheirBounds() {
         let rect = CGRect(x: 0, y: 0, width: 60, height: 50)
         #expect(TagGroupHitShape().path(in: rect).boundingRect == rect)
+    }
+
+    @Test("窄短标签（单字符，mini / regular）：命中框 ≥ 44×44，布局尺寸与 Tag 相同")
+    func narrowTagsGetFullTarget() throws {
+        for size in [ControlSize.mini, .regular] {
+            let tagRenderer = ImageRenderer(content: Tag("A", color: .red).fixedSize().controlSize(size))
+            tagRenderer.scale = 1
+            let tag = try #require(tagRenderer.cgImage)
+            let groupRenderer = ImageRenderer(
+                content: TagGroup([Item(id: "A")], selection: .constant([]), color: .red) { Text($0.id) }
+                    .fixedSize().controlSize(size)
+            )
+            groupRenderer.scale = 1
+            let group = try #require(groupRenderer.cgImage)
+            #expect(tag.width < 44 && tag.height < 44, "\(size)：样本不够窄短，判据无效：\(tag.width)×\(tag.height)")
+            #expect(group.width == tag.width && group.height == tag.height,
+                    "\(size)：TagGroup 布局 \(group.width)×\(group.height) ≠ Tag \(tag.width)×\(tag.height)")
+            let hit = TagGroupHitShape()
+                .path(in: CGRect(x: 0, y: 0, width: tag.width, height: tag.height)).boundingRect
+            #expect(hit.width >= 44 && hit.height >= 44, "\(size)：命中框 \(hit.size)")
+        }
+    }
+}
+
+// MARK: - 选中外观隔离 / Chrome isolation
+
+@MainActor
+private final class ChromeSink {
+    var seen: [Bool] = []
+}
+
+private struct ChromeProbe: View {
+    @Environment(\.tagSelectionChrome) private var chrome
+    let sink: ChromeSink
+
+    var body: some View {
+        self.sink.seen.append(self.chrome != nil)
+        return Color.clear.frame(width: 8, height: 8)
+    }
+}
+
+@Suite("TagGroup 选中外观不漏进 label")
+@MainActor
+struct TagGroupChromeIsolationTests {
+    @Test("选中标签的 label 子树读不到 tagSelectionChrome（嵌套的独立 Tag 保持自身外观）")
+    func chromeStopsAtLabelBoundary() throws {
+        let sink = ChromeSink()
+        let renderer = ImageRenderer(
+            content: TagGroup([Item(id: "Swift")], selection: .constant(["Swift"]), color: .red) { _ in
+                ChromeProbe(sink: sink)
+            }
+            .fixedSize()
+        )
+        _ = try #require(renderer.cgImage)
+        #expect(!sink.seen.isEmpty, "探针没有被求值，判据无效")
+        #expect(!sink.seen.contains(true), "选中外观漏进了调用方 label：\(sink.seen)")
     }
 }
 

@@ -33,6 +33,7 @@ public struct Tag<Label: View>: View {
     public var body: some View {
         let iconSize = CoreControlMetrics.compactIconSize(for: self.controlSize)
         return self.label
+            .environment(\.tagSelectionChrome, nil)
             .coreFont(CoreControlMetrics.compactFontToken(for: self.controlSize))
             .foregroundStyle(self.color)
             .padding(.trailing, self.removable ? CoreSpacing.xs + iconSize : 0)
