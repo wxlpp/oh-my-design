@@ -52,8 +52,7 @@
 ScrollView(.horizontal) {
     HStack(spacing: CoreSpacing.lg) {
         ForEach(friends) { friend in
-            Avatar(name: friend.name)
-                .frame(width: 48, height: 48)
+            Avatar(name: friend.name, size: .fixed(48))
                 .clipShape(Circle())
                 .anchoredBadge(.count(friend.unread), hostShape: .circle)
         }
@@ -84,8 +83,7 @@ modifier 结构体是 internal（`SurfaceModifier` 范式），公开表面只�
 ## 使用示例 / Usage
 
 ```swift
-Avatar(name: "Evan")
-    .frame(width: 48, height: 48)
+Avatar(name: "Evan", size: .fixed(48))
     .clipShape(Circle())
     .anchoredBadge(.dot, hostShape: .circle)
 
