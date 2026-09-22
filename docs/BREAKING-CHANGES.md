@@ -53,8 +53,10 @@
 2. **内建 style 不再把整条 Banner 合并为单一无障碍元素**。此前 `PlainBannerStyle` /
    `BorderedBannerStyle` 对整条施加 `.accessibilityElement(children: .combine)`，图标对 VoiceOver 隐藏。
    现在：图标 + 标题 + 正文合并为一个元素，并且**图标读出状态**（Info / Success / Warning / Error /
-   Neutral，与 `Timeline` 同一组键）；动作按钮与关闭钮是各自独立的可聚焦节点，排在正文之后。
-   影响：只有正文的旧调用点，VoiceOver 读法由「正文」变为「状态、正文」；在 `label` 槽里放了按钮的
+   Neutral，与 `Timeline` 同一组键）；动作按钮与关闭钮是各自独立的可聚焦节点，经 `accessibilitySortPriority`
+   排在正文之后（内容 → 动作 → 关闭）。
+   只有正文的旧调用点**视觉布局不变**（尺寸与像素有回归测试对照旧实现）；变化只在无障碍：
+   VoiceOver 读法由「正文」变为「状态、正文」；在 `label` 槽里放了按钮的
    调用点，该按钮仍被合并进内容元素——请改用 `actions` 槽让它成为独立节点。UI 测试若按旧的合并
    label 查找 Banner，需要同步。
 

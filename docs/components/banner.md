@@ -33,7 +33,11 @@ Banner **无状态**：`onDismiss` 只回调，由调用方把 Banner 从视图�
 ### 无障碍
 
 - 图标 + 标题 + 正文合并为一个元素，读作「状态（Info / Success / Warning / Error / Neutral）、标题、正文」。
-- 动作按钮与关闭钮（标签「Dismiss」）是独立的可聚焦、可激活节点，读序在正文之后：动作 → 关闭。
+- 动作按钮与关闭钮（标签「Dismiss」）是独立的可聚焦、可激活节点。读序由 `accessibilitySortPriority`
+  指定为 内容 → 动作 → 关闭（关闭钮几何上在右上角，不靠几何顺序）。AXe 的 `describe-ui` 不反映 sort priority，
+  不能用来核对读序；读序需在真机 / 模拟器的 VoiceOver 下人工确认。
+- 只用正文（未传 title / actions / onDismiss）时，布局与加入这些槽之前完全一致：banner 按内容宽度收缩、
+  图标与正文居中对齐；加了任一新槽才切换为撑满宽度、首行基线对齐的布局。
 
 ## 预览 / Preview
 

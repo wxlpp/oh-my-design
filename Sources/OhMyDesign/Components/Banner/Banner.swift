@@ -130,6 +130,9 @@ func bannerPalette(for level: StatusLevel) -> BannerPalette {
 enum BannerMetrics {
     static let minimumHitTarget: CGFloat = 44
     static let baseDismissFootprint: CGFloat = 20
+    static let contentSortPriority: Double = 3
+    static let actionsSortPriority: Double = 2
+    static let dismissSortPriority: Double = 1
 
     static func dismissHitTarget(footprint: CGFloat) -> CGFloat {
         max(self.minimumHitTarget, footprint)
@@ -138,16 +141,6 @@ enum BannerMetrics {
     static func dismissGlyphInset(footprint: CGFloat) -> CGFloat {
         (self.dismissHitTarget(footprint: footprint) - footprint) / 2
     }
-}
-
-extension HorizontalAlignment {
-    private enum BannerTextLeading: AlignmentID {
-        static func defaultValue(in context: ViewDimensions) -> CGFloat {
-            context[.leading]
-        }
-    }
-
-    static let bannerTextLeading = HorizontalAlignment(BannerTextLeading.self)
 }
 
 struct BannerDismissButton: View {
@@ -179,11 +172,46 @@ private struct BannerBody: View {
 
     var body: some View {
         let palette = bannerPalette(for: self.configuration.level)
-        VStack(alignment: .bannerTextLeading, spacing: CoreSpacing.md) {
+        self.content(palette: palette)
+            .coreFont(.callout)
+            .foregroundStyle(palette.foreground)
+            .padding(CoreSpacing.md)
+            .background {
+                if self.bordered {
+                    Rectangle().fill(palette.background).bordered(style: palette.border)
+                } else {
+                    Rectangle().fill(palette.background)
+                }
+            }
+    }
+
+    private var usesExtendedSlots: Bool {
+        self.configuration.title != nil || self.configuration.actions != nil || self.configuration.dismiss != nil
+    }
+
+    private func icon(palette: BannerPalette) -> some View {
+        bannerIcon(for: self.configuration.level)
+            .foregroundStyle(palette.icon)
+            .accessibilityLabel(Text(LocalizedStringKey(bannerIconAccessibilityKey(for: self.configuration.level)), bundle: .module))
+    }
+
+    @ViewBuilder
+    private func content(palette: BannerPalette) -> some View {
+        if self.usesExtendedSlots {
+            self.extendedContent(palette: palette)
+        } else {
+            HStack(spacing: CoreSpacing.sm) {
+                self.icon(palette: palette)
+                self.configuration.label
+            }
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private func extendedContent(palette: BannerPalette) -> some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
             HStack(alignment: .firstTextBaseline, spacing: CoreSpacing.sm) {
-                bannerIcon(for: self.configuration.level)
-                    .foregroundStyle(palette.icon)
-                    .accessibilityLabel(Text(LocalizedStringKey(bannerIconAccessibilityKey(for: self.configuration.level)), bundle: .module))
+                self.icon(palette: palette)
                 VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
                     if let title = self.configuration.title {
                         title.coreFont(.headline)
@@ -193,16 +221,24 @@ private struct BannerBody: View {
                         self.configuration.label
                     }
                 }
-                .alignmentGuide(.bannerTextLeading) { $0[.leading] }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.trailing, self.configuration.dismiss == nil ? 0 : self.dismissFootprint + CoreSpacing.sm)
             .accessibilityElement(children: .combine)
+            .accessibilitySortPriority(BannerMetrics.contentSortPriority)
             if let actions = self.configuration.actions {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: CoreSpacing.sm) { actions }
-                    VStack(alignment: .leading, spacing: CoreSpacing.sm) { actions }
+                HStack(alignment: .top, spacing: CoreSpacing.sm) {
+                    bannerIcon(for: self.configuration.level)
+                        .hidden()
+                        .frame(height: 0)
+                        .accessibilityHidden(true)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: CoreSpacing.sm) { actions }
+                        VStack(alignment: .leading, spacing: CoreSpacing.sm) { actions }
+                    }
                 }
+                .accessibilityElement(children: .contain)
+                .accessibilitySortPriority(BannerMetrics.actionsSortPriority)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -210,19 +246,10 @@ private struct BannerBody: View {
             if let dismiss = self.configuration.dismiss {
                 BannerDismissButton(color: .contentSecondary, action: dismiss)
                     .padding(-BannerMetrics.dismissGlyphInset(footprint: self.dismissFootprint))
+                    .accessibilitySortPriority(BannerMetrics.dismissSortPriority)
             }
         }
         .accessibilityElement(children: .contain)
-        .coreFont(.callout)
-        .foregroundStyle(palette.foreground)
-        .padding(CoreSpacing.md)
-        .background {
-            if self.bordered {
-                Rectangle().fill(palette.background).bordered(style: palette.border)
-            } else {
-                Rectangle().fill(palette.background)
-            }
-        }
     }
 }
 
