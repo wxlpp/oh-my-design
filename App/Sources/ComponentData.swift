@@ -67,6 +67,9 @@ extension ComponentMeta {
             FloatButtonPreview()
         },
 
+        ComponentMeta(id: "pressable-button-styles", name: "Pressable Button Styles", description: "按压反馈 ButtonStyle：.pressableRow 铺按下底色 / .pressableCard 按下缩放，只装饰 label", category: .button) {
+            PressableButtonStylesPreview()
+        },
         // Form
         ComponentMeta(id: "label-icon", name: "Form Icons", description: "表单图标：LabelIcon / ChevronRightIcon / DangerIcon", category: .form) {
             FormIconsPreview()
@@ -165,6 +168,9 @@ extension ComponentMeta {
         // Form（Phase 2 .core style）
         ComponentMeta(id: "core-progressview", name: ".core ProgressView", description: "系统 ProgressView 的 .core style，填充走 .tint", category: .form) {
             CoreProgressViewPreview()
+        },
+        ComponentMeta(id: "core-circular-progressview", name: ".coreCircular ProgressView", description: "系统 ProgressView 的环形 .coreCircular style，圆弧走 .tint，nil 进度回退系统 spinner", category: .form) {
+            CoreCircularProgressViewPreview()
         },
         ComponentMeta(id: "core-label", name: ".core Label", description: "系统 Label 的 .core style，icon 走 .tint", category: .form) {
             CoreLabelPreview()
@@ -750,6 +756,58 @@ private struct InsetGroupedSectionPreview: View {
             }
         }
         .tint(.green)
+    }
+}
+
+private struct CoreCircularProgressViewPreview: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+            HStack(spacing: CoreSpacing.xl) {
+                ForEach([0.0, 0.25, 0.6, 1.0], id: \.self) { value in
+                    ProgressView(value: value, label: { EmptyView() }, currentValueLabel: { Text(value, format: .percent) })
+                        .progressViewStyle(.coreCircular)
+                }
+            }
+            HStack(spacing: CoreSpacing.xl) {
+                ProgressView(value: 0.6).progressViewStyle(.coreCircular).controlSize(.small)
+                ProgressView(value: 0.6).progressViewStyle(.coreCircular).tint(.red)
+                ProgressView(value: 0.6).progressViewStyle(.coreCircular).controlSize(.large)
+                ProgressView().progressViewStyle(.coreCircular)
+            }
+        }
+    }
+}
+
+private struct PressableButtonStylesPreview: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+            InsetGroupedSection(header: ".pressableRow", footer: "第二行为禁用态。") {
+                Button {} label: {
+                    SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: "Wi-Fi") {
+                        Text("HomeNetwork").foregroundStyle(Color.contentSecondary)
+                        SettingsRowChevron()
+                    }
+                }
+                .buttonStyle(.pressableRow)
+                Button {} label: {
+                    SettingsRow(icon: .init(systemName: "lock.fill", background: .gray), title: "Passcode") {
+                        SettingsRowChevron()
+                    }
+                }
+                .buttonStyle(.pressableRow)
+                .disabled(true)
+            }
+            Text(".pressableCard").coreFont(.footnote).foregroundStyle(Color.contentSecondary)
+            Button {} label: {
+                Card {
+                    VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                        Text("Weekly report").coreFont(.headline)
+                        Text("Tap to open the detail").foregroundStyle(Color.contentSecondary)
+                    }
+                }
+            }
+            .buttonStyle(.pressableCard)
+        }
     }
 }
 

@@ -73,8 +73,10 @@ struct ComponentRegistryGuard {
     static let knownStyleAnnotationRows: [String: Set<String>] = [
         "Button": ["SolidButtonStyle", "LightButtonStyle", "CoreBorderlessButtonStyle"],
         "FloatButton": ["ExtendedFloatButtonStyle", "CircularGlassButtonStyle"],
+        "Pressable Button Styles": ["PressableRowButtonStyle", "PressableCardButtonStyle"],
         ".core Control Styles": [
-            "CoreProgressViewStyle", "CoreLabelStyle", "CoreDisclosureGroupStyle", "CoreLabeledContentStyle",
+            "CoreProgressViewStyle", "CoreCircularProgressViewStyle", "CoreLabelStyle", "CoreDisclosureGroupStyle",
+            "CoreLabeledContentStyle",
         ],
     ]
 
