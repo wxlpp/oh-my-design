@@ -168,11 +168,11 @@ public struct Timeline: View {
     // MARK: - Pure logic (unit-testable via `@testable import`)
 
     @MainActor
-    static func nodeColor(for status: StatusLevel) -> Color {
+    static func nodeColor(for status: StatusLevel, in colorScheme: ColorScheme) -> Color {
         switch status {
         case .info: .statusAccentEmphasis
         case .success: .statusSuccessEmphasis
-        case .warning: .statusAttentionEmphasis
+        case .warning: colorScheme == .light ? .statusAttentionForeground : .statusAttentionEmphasis
         case .danger: .statusDangerEmphasis
         case .neutral: .contentSecondary
         }
@@ -198,6 +198,8 @@ public struct Timeline: View {
 struct TimelineNodeView: View {
     let item: TimelineItem
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         self.nodeContent
             .frame(width: Timeline.nodeColumnWidth, height: Timeline.nodeColumnWidth)
@@ -209,7 +211,7 @@ struct TimelineNodeView: View {
             node
         } else {
             Circle()
-                .fill(Timeline.nodeColor(for: self.item.status))
+                .fill(Timeline.nodeColor(for: self.item.status, in: self.colorScheme))
                 .frame(width: Timeline.nodeDiameter, height: Timeline.nodeDiameter)
                 .accessibilityLabel(
                     Text(LocalizedStringKey(Timeline.accessibilityLabelKey(for: self.item.status)), bundle: .module)

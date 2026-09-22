@@ -73,4 +73,9 @@ public extension Color {
     static let statusDoneMuted: Color = Color("status-done-muted", bundle: .module)
     /// 完成淡背景。
     static let statusDoneSubtle: Color = Color("status-done-subtle", bundle: .module)
+
+    // MARK: Neutral (gray)
+
+    /// 中性淡背景：不透明的系统灰（`systemGray5`），叠在任何底色上视觉重量都不变。
+    static var statusNeutralSubtle: Color { .systemGray5 }
 }

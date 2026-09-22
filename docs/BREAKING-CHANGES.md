@@ -19,6 +19,20 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.10.0`）——Issue #398：Banner 圆角与 neutral 不透明底色、Timeline 浅色 warning 圆点
+
+**视觉变更（无签名破坏）。** 新增公开 token：`Color.systemGray5`（第 2 层）、`Color.statusNeutralSubtle`（第 3 层）。
+
+| 外观 | 之前 | 现在 |
+|---|---|---|
+| `Banner` 容器（`PlainBannerStyle` / `BorderedBannerStyle`） | 直角矩形 | `CoreRadius.medium`（10pt）连续圆角；Bordered 描边沿同一圆角形状内描。内容布局与尺寸不变；形状这一项只改变四角像素（该对照在 neutral 底色变更之后测得，底色变更见下一行） |
+| `Banner` `.neutral` 背景 | `tertiaryFill`（半透明，随背后底色变深浅） | `statusNeutralSubtle` → `systemGray5`（不透明；iOS 浅 `#E5E5EA` / 深 `#2C2C2E`，macOS 取 `unemphasizedSelectedContentBackgroundColor`——外观近似而非语义等价，增强对比度与 vibrancy 下的表现未经验证） |
+| `Timeline` 浅色 `warning` 默认圆点 | `statusAttentionEmphasis`（`#D1A72D`，对分组背景约 2.0:1） | `statusAttentionForeground`（`#9A6700`，对分组背景 4.36:1）；暗色不变 |
+
+- **迁移（保留旧观感）**：想要直角或旧的半透明 neutral 底色，写一个自定义 `BannerStyle`（`makeBody` 里用
+  `Rectangle()` 背景、neutral 取 `Color.tertiaryFill`），经 `.bannerStyle(_:)` 注入。
+- 截图 / 快照基线比对 Banner 的下游需要重录；Timeline 只有浅色 warning 圆点变化。
+
 ## 未发布（相对 `v0.10.0`）——Issue #382：surface 有效层级 + `coreSheetPresentation(background:)`
 
 **行为变更（无签名破坏）。** `.surface(_:)` 现在按环境里的有效层级取背景（规则见
