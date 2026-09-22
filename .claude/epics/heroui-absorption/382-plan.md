@@ -40,3 +40,11 @@
 - 登记表：`.surface` / `coreSheetPresentation` 均无 public 类型（AD-2 ⇒ 不登记）。
 - digest：`viewext` +1。
 - 预览宿主：Card 组件页加嵌套样例 + sheet 演示。
+
+## Review round 1 修订
+
+- `coreSheetPresentation(background: CoreSheetBackground = .system)`：不设圆角（交给系统、与屏幕同心），
+  `.system` 保留 Liquid Glass、`.raised` 不透明 `surfaceRaised`；新增 `public enum CoreSheetBackground`。
+  `CoreRadius.xLarge` 因此仍零消费（PRD 已修订）。
+- `Card` 自身有效层级为 elevated 时不出投影。
+- 普通 `.sheet` / `.popover` 继承宿主层级：实测成立，登记为已知限制，`coreSheetPresentation` 为推荐边界。

@@ -773,7 +773,7 @@ private struct ToastDemoButton: View {
 // MARK: - Phase 2 Container Previews
 
 private struct CardPreview: View {
-    @State private var isSheetPresented = false
+    @State private var sheetDemo: CardSheetDemo?
 
     var body: some View {
         VStack(spacing: CoreSpacing.md) {
@@ -791,36 +791,65 @@ private struct CardPreview: View {
             Card {
                 VStack(alignment: .leading, spacing: CoreSpacing.sm) {
                     Text("外层 Card：raised").coreFont(.headline)
-                    Card(elevation: .none) {
-                        Text("内层 Card：elevated（surfaceElevated）").coreFont(.subheadline)
+                    Card {
+                        Text("内层 Card：elevated，无投影").coreFont(.subheadline)
                     }
-                    Card(kind: .grouped, elevation: .none) {
+                    Card(kind: .grouped) {
                         Text("内层 grouped：elevated").coreFont(.subheadline)
+                    }
+                    Button("系统 sheet（无预设，挂在外层 Card 内）") {
+                        self.sheetDemo = .plain
+                    }
+                    .buttonStyle(.solid(role: .secondary))
+                    .sheet(item: self.$sheetDemo) { demo in
+                        CardSheetContent(demo: demo)
+                            .cardSheetPreset(demo)
+                            .presentationDetents([.medium, .large])
                     }
                 }
             }
-            Button("打开 coreSheetPresentation") {
-                self.isSheetPresented = true
+            HStack(spacing: CoreSpacing.sm) {
+                Button("预设 .system") { self.sheetDemo = .system }
+                    .buttonStyle(.solid(role: .primary))
+                Button("预设 .raised") { self.sheetDemo = .raised }
+                    .buttonStyle(.solid(role: .primary))
             }
-            .buttonStyle(.solid(role: .primary))
         }
-        .sheet(isPresented: self.$isSheetPresented) {
-            CardSheetContent()
-                .coreSheetPresentation()
-                .presentationDetents([.medium])
+    }
+}
+
+private enum CardSheetDemo: String, Identifiable {
+    case plain
+    case system
+    case raised
+
+    var id: String { self.rawValue }
+}
+
+private extension View {
+    @ViewBuilder
+    func cardSheetPreset(_ demo: CardSheetDemo) -> some View {
+        switch demo {
+        case .plain: self
+        case .system: self.coreSheetPresentation(background: .system)
+        case .raised: self.coreSheetPresentation(background: .raised)
         }
     }
 }
 
 private struct CardSheetContent: View {
+    let demo: CardSheetDemo
+
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.md) {
-            Text("Sheet 内容").coreFont(.headline)
-            Text("背景 surfaceRaised，内容层级为 raised。")
+            Text("Sheet：\(self.demo.rawValue)").coreFont(.headline)
+            Text(self.demo == .plain
+                ? "无预设：层级从宿主继承（挂在外层 Card 内）。"
+                : "coreSheetPresentation：内容层级为 raised。")
                 .coreFont(.subheadline)
                 .foregroundStyle(Color.contentSecondary)
             Card {
-                Text("Sheet 内的 Card：elevated").coreFont(.subheadline)
+                Text("Sheet 内的 Card").coreFont(.subheadline)
             }
         }
         .padding(CoreSpacing.lg)

@@ -33,27 +33,40 @@ macOS 没有分层背景 API：`surfaceCard`（`secondarySystemGroupedBackground
 - 有描边的角色（`content` / `card`）嵌套时靠描边区分；
 - **`grouped` 嵌套 `grouped` 在 macOS 上没有任何视觉区分**（无描边、背景同色）——已知限制，不做平台分支补救。
 
-## `View.coreSheetPresentation()`
+### 已知限制：普通 `.sheet` / `.popover` 继承宿主层级
 
-施加在 sheet 的**内容**上，一次打包本库的 sheet 观感：
+SwiftUI 的环境值会传进弹层内容，本库也无法拦截任意 `.sheet` / `.popover`。实测（iOS 26.4）：挂在
+`.surface(.content)` 内部的普通 `.sheet` / `.popover`，内容读到的是宿主层级——嵌在两层 content 里时读到
+`elevated`，于是 sheet 里的顶层 `Card` 直接取 `surfaceElevated`、不出投影（判据
+`PresentedSheetLevelTests`；预览宿主 Card 页「系统 sheet」按钮可目视复现）。
+
+- **推荐边界**：在 sheet 内容上施加 `coreSheetPresentation(background:)`，它显式把内容层级设为 `raised`。
+- 不想用预设时，在 sheet 内容最外层加 `.surface(.canvas)` 也能把层级重置为 `base`（代价：多铺一层
+  `surfaceCanvas` 背景）。
+- 挂在 surface **外侧**的 `.overlay` / `.background` 读的是父层级，挂在内侧的读本层；兄弟视图互不影响。
+
+## `View.coreSheetPresentation(background:)`
+
+施加在 sheet 的**内容**上，与 iOS 26 系统 sheet 对齐：
 
 | 设置 | 取值 |
 |---|---|
-| `presentationCornerRadius` | `CoreRadius.xLarge`（22pt） |
+| 圆角 | **不设**——交给系统，保持浮动 sheet 与屏幕圆角同心 |
 | `presentationDragIndicator` | `.visible` |
-| `presentationBackground` | `Color.surfaceRaised` |
-| 内容有效层级 | `raised`（sheet 背景已是 raised，里面的 `Card` 因而取 `surfaceElevated`） |
+| `background: CoreSheetBackground` | `.system`（缺省）：保留系统 Liquid Glass 背景；`.raised`：不透明 `Color.surfaceRaised` |
+| 内容有效层级 | 两种背景下都是 `raised`（里面的 `Card` 因而取 `surfaceElevated`、不出投影） |
 
 ```swift
 .sheet(isPresented: self.$isPresented) {
     SheetContent()
-        .coreSheetPresentation()
+        .coreSheetPresentation()                    // 系统 Liquid Glass
+        // .coreSheetPresentation(background: .raised) // 不透明 surfaceRaised
 }
 ```
 
-sheet 本体仍是系统原生 sheet；本 modifier 只设置外观与层级，不改 detent / 交互。
+sheet 本体仍是系统原生 sheet；本 modifier 只设置指示条、背景与层级，不改 detent / 交互。
 
 ## 登记
 
-`.surface(_:)` 与 `coreSheetPresentation()` 都只经 `public extension View` 暴露、没有 public 类型，
-按公约 AD-2 不进 `docs/component-registry.json`。
+`.surface(_:)` 与 `coreSheetPresentation(background:)` 都只经 `public extension View` 暴露、没有 public
+View / ViewModifier 类型，按公约 AD-2 不进 `docs/component-registry.json`；`CoreSheetBackground` 是入参辅助枚举。

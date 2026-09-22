@@ -275,7 +275,7 @@ private struct ToastSnapshotHarness: View {
             Text("居中 + 紧凑内边距").coreFont(.subheadline)
         }
         Card {
-            Card(elevation: .none) {
+            Card {
                 Text("嵌套 Card：elevated").coreFont(.subheadline)
             }
         }
