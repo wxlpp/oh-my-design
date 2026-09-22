@@ -427,6 +427,19 @@
 - **`ChevronRightIcon`** *: View* — 列表行 trailing 的「可进入下一级」指示符，用 `chevron.forward` 以在 RTL 下自动镜像。
 - **`DangerIcon`** *: View* — 列表行 trailing 位置的危险 / 错误状态指示符（实心感叹号圆形）。
 
+### `Components/FormField/FieldValidation.swift`
+
+- *enum* **`FieldValidation`** — 字段的校验态，经环境值下发给 `FormField` 与接入校验的控件。
+  - `.valid` — 校验通过（或尚未校验）。
+  - `.invalid` — 校验未通过，关联值是展示给用户、也会被播报的错误原因。
+- *enum* **`FieldRequirement`** — 字段是否必填，经环境值下发给 `FormField`。
+  - `.optional` — 选填（默认）。
+  - `.required` — 必填：label 旁显示星号，可访问 label 追加必填说明。
+
+### `Components/FormField/FormField.swift`
+
+- **`FormField`** *<Content: View>: View* — 表单字段容器：label（必填时带星号）+ 输入控件 + 可选 description + 错误行。
+
 ### `Components/InsetGroupedSection/InsetGroupedSection.swift`
 
 - **`InsetGroupedSection`** *<Content: View>: View* — iOS `.insetGrouped` 分组容器的视觉复刻——只复刻观感，不复刻 `List` 的数据 / 滚动 / 编辑能力。
@@ -890,12 +903,15 @@
 
 # Modifier / Transition 入口点
 
-共 40 个（按 `Host.member` 去重，含参重载算一条）。
+共 43 个（按 `Host.member` 去重，含参重载算一条）。
 
 | target | 入口 | 说明 |
 |---|---|---|
 | `OhMyDesign` | `.coreAccent` on `View` | 为子树设置强调色，`accentHover` / `accentPressed` / `accentDisabled` / `accentSubtleBackground` 四个派生态自动跟随。 |
 | `OhMyDesign` | `.bannerStyle` on `View` | 为子树中的所有 `Banner` 设置外观。 |
+| `OhMyDesign` | `.fieldValidation` on `View` | 为这棵子树设定字段校验态，推荐施加在 `FormField` 上。 |
+| `OhMyDesign` | `.fieldRequirement` on `View` | 为这棵子树设定字段必填性，推荐施加在 `FormField` 上。 |
+| `OhMyDesign` | `.fieldAccessibilityHint` on `View` | 把所在 `FormField` 的错误原因与 description 挂成本视图的无障碍 hint。 |
 | `OhMyDesign` | `.ratingStyle` on `View` | 为子树中的所有 `Rating` / `RatingDisplay` 设置外观。 |
 | `OhMyDesign` | `.segmentedControlStyle` on `View` | 为子树中的所有 `SegmentedControl` 设置外观（对齐 `View.bannerStyle(_:)`）。 |
 | `OhMyDesign` | `.skeletonShimmer` on `View` | 骨架屏 shimmer 扫光叠加。 |
@@ -974,11 +990,11 @@
 | elevation | 4 | 4 |
 | controlsize | 5 | 5 |
 | colors | 120 | 120 |
-| components | 84 | 84 |
-| enums | 38 | 38 |
-| enumcases | 138 | 138 |
+| components | 85 | 85 |
+| enums | 40 | 40 |
+| enumcases | 142 | 142 |
 | protocols | 6 | 6 |
-| viewext | 40 | 40 |
+| viewext | 43 | 43 |
 | styleext | 12 | 12 |
 | others | 27 | 27 |
 

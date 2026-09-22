@@ -1,6 +1,8 @@
 /* Component internal UI strings (source language = en). */
 "%@ complete" = "%@ complete";
 "%@ of %@" = "%@ of %@";
+"%@, %@" = "%@, %@";
+"%@, required" = "%@, required";
 "Alert" = "Alert";
 "Collapsed" = "Collapsed";
 "Error" = "Error";

@@ -32,6 +32,7 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 33 个 Apple HIG 对齐组件（�
 | PinCode | [<img src="snapshots/OhMyDesignPreview_Previews.swift_PinCode.png" width="200">](components/pin-code.md) | [pin-code.md](components/pin-code.md) |
 | RadioGroup / RadioOption | [<img src="snapshots/OhMyDesignPreview_Previews.swift_Radio_Group.png" width="200">](components/radio.md) | [radio.md](components/radio.md) |
 | TagInput | [<img src="snapshots/OhMyDesignPreview_Previews.swift_TagInput.png" width="200">](components/tag-input.md) | [tag-input.md](components/tag-input.md) |
+| FormField | _快照待 `scripts/run-snapshots.sh` 生成；预览宿主画廊 id `form-field`_ | [form-field.md](components/form-field.md) |
 | ~~Typography~~ | _未实现，parity 已由 `.coreFont(_:)` + 原生 `Text` modifier 达成_ | [typography.md](components/typography.md)（墓碑 + 迁移指引） |
 
 ### Indicator 指示器

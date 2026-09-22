@@ -74,3 +74,12 @@ public struct FormField<Content: View>: View {
 
 - `components[]`：`FormField`，按公约第 1 节判定（见登记表 notes）；textParams `label` / `description` 均 B。
 - modifier 与枚举属主 target 扩展入口 / 辅助类型，按 AD-2 不进登记表。
+
+## 实测结论（实现期补记）
+
+- `accessibilityLabeledPair`：SDK 26.4 可编译（iOS 14+ / macOS 11+）。进程内单测拿不到 SwiftUI 无障碍树
+  （无 AT 客户端时 `_UIHostingView` 不暴露子元素，macOS `NSHostingView` 同样只有根 AXGroup），
+  故改用 AXe 读 iOS 26.4 模拟器上的预览宿主：TextField 节点 `help` = 错误原因 + description（顺序正确），
+  label 元素为 `Email, required`；但 TextField 节点 `AXLabel` 为 null——labeledPair 未把 label 并入输入节点。
+  PRD 契约保留（labeledPair 照挂），该限制登记进 `docs/components/form-field.md`，是否追加补救交派单方裁定。
+- 登记：步骤 2 枚举落出口 1（需扩展点），与 PRD 无扩展点冲突 ⇒ 暂记 `pendingStep2`（承接 #373），交派单方裁定。

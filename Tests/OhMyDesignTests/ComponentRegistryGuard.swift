@@ -54,9 +54,9 @@ struct ComponentRegistryGuard {
 
     // MARK: - 缓办台账：步骤 2 枚举未完成的条目（PR #297 终审 I-2）
 
-    static let pendingStep2FollowUpIssue: String? = nil
+    static let pendingStep2FollowUpIssue: String? = "#373"
 
-    static let knownPendingStep2Enumeration: Set<String> = []
+    static let knownPendingStep2Enumeration: Set<String> = ["FormField"]
 
     static func pendingStep2Components(in entries: [Entry]) -> Set<String> {
         Set(entries.filter { $0.decidedBy == "pendingStep2" }.map(\.component))
@@ -313,8 +313,8 @@ struct ComponentRegistryGuard {
         #expect(Set(entries.map(\.component)).count == entries.count,
                 "登记表存在重名 component 条目——差集判据会把重名静默吞掉")
 
-        #expect(entries.filter { $0.repo == "ohmydesign" }.count == 55,
-                "OhMyDesign 侧条目数不是 55（移除 Sidebar 六条与 BottomInputBar 一条后由 62 变为 55）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
+        #expect(entries.filter { $0.repo == "ohmydesign" }.count == 56,
+                "OhMyDesign 侧条目数不是 56（`#373` 新增 FormField 后由 55 变为 56）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
         #expect(entries.filter { $0.repo == "storyui" }.count == 25,
                 "StoryUI 侧条目数不是 25——CI 无法跨仓核对源码，这条固定计数断言是 #43 落地前唯一挡「静默删条目」的机器判据，不得放宽为 print")
 
