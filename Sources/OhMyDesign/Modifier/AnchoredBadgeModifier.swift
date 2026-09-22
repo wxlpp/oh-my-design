@@ -224,8 +224,7 @@ public extension View {
 
 #Preview("anchoredBadge") {
     HStack(spacing: CoreSpacing.xxl) {
-        Avatar(name: "Evan")
-            .frame(width: CoreSpacing.xxxxl, height: CoreSpacing.xxxxl)
+        Avatar(name: "Evan", size: .fixed(CoreSpacing.xxxxl))
             .clipShape(Circle())
             .anchoredBadge(.count(120), hostShape: .circle)
         Image(systemName: "bell.fill")

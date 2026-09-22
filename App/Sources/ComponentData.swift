@@ -705,8 +705,7 @@ private struct AnchoredBadgePreview: View {
     }
 
     private func avatar(_ name: String, side: CGFloat) -> some View {
-        Avatar(name: name)
-            .frame(width: side, height: side)
+        Avatar(name: name, size: .fixed(side))
             .clipShape(Circle())
     }
 }
