@@ -123,14 +123,36 @@ struct ToastOverlayLevelsTests {
 
     #if os(iOS)
     private final class LayoutBox {
-        var layouts: [Text.LayoutKey.AnchoredLayout] = []
+        var lines: [(minX: CGFloat, minY: CGFloat, width: CGFloat)] = []
     }
 
-    private func widestLine(_ view: some View, size: DynamicTypeSize) -> CGFloat? {
-        let box = LayoutBox()
-        let probed = view.onPreferenceChange(Text.LayoutKey.self) { value in
-            MainActor.assumeIsolated { box.layouts = value }
+    private struct LayoutProbe: View {
+        let box: LayoutBox
+        let layouts: [Text.LayoutKey.AnchoredLayout]
+
+        var body: some View {
+            GeometryReader { proxy in
+                Color.clear.onAppear {
+                    self.box.lines = self.layouts.flatMap { anchored in
+                        let origin = proxy[anchored.origin]
+                        return anchored.layout.map { line in
+                            let bounds = line.typographicBounds.rect
+                            return (origin.x + bounds.minX, origin.y + bounds.minY, bounds.width)
+                        }
+                    }
+                }
+            }
         }
+    }
+
+    private func lines(_ view: some View, size: DynamicTypeSize) -> [(minX: CGFloat, minY: CGFloat, width: CGFloat)] {
+        let box = LayoutBox()
+        let probed = view
+            .fixedSize(horizontal: false, vertical: true)
+            .overlayPreferenceValue(Text.LayoutKey.self) { layouts in
+                LayoutProbe(box: box, layouts: layouts)
+            }
+            .frame(maxHeight: .infinity, alignment: .top)
         let host = UIHostingController(rootView: probed.dynamicTypeSize(size))
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: Self.screenWidth, height: 1600))
         window.rootViewController = host
@@ -141,15 +163,15 @@ struct ToastOverlayLevelsTests {
             window.isHidden = true
             window.rootViewController = nil
         }
-        let widths = box.layouts.flatMap { anchored in anchored.layout.map { $0.typographicBounds.width } }
-        return widths.max()
+        return box.lines
     }
 
     private func wordWidth(_ word: String, weight: Font.Weight, size: DynamicTypeSize) -> CGFloat? {
-        self.widestLine(
-            Text(word).coreFont(.callout).fontWeight(weight).fixedSize(),
-            size: size
-        )
+        self.lines(Text(word).coreFont(.callout).fontWeight(weight).fixedSize(), size: size).map(\.width).max()
+    }
+
+    private func titleTop(_ item: ToastItem, _ presentation: ToastPresentation, size: DynamicTypeSize) -> CGFloat? {
+        self.lines(self.newToast(item, presentation), size: size).map(\.minY).min()
     }
 
     @Test(
@@ -163,7 +185,7 @@ struct ToastOverlayLevelsTests {
             return
         }
         for presentation in ToastPresentation.allCases {
-            guard let widest = self.widestLine(self.newToast(item, presentation), size: size) else {
+            guard let widest = self.lines(self.newToast(item, presentation), size: size).map(\.width).max() else {
                 Issue.record("\(presentation) @ \(size)：量不到文字行宽")
                 continue
             }
@@ -174,14 +196,48 @@ struct ToastOverlayLevelsTests {
 
     @Test("非退化前置：改动前的胶囊在 AX5 下确实把单词从中间折断")
     func legacyCapsuleBreaksWordAtAX5() {
-        let item = Self.items[1]
         let word = self.wordWidth("Conversation", weight: .semibold, size: .accessibility5)
-        let widest = self.widestLine(self.legacyToast(item, .floatingCapsule), size: .accessibility5)
+        let widest = self.lines(self.legacyToast(Self.items[1], .floatingCapsule), size: .accessibility5).map(\.width).max()
         guard let word, let widest else {
             Issue.record("量测失效 —— 不得当作通过")
             return
         }
         #expect(widest < word - 0.5, "改动前最宽行 \(widest) 已 ≥ 单词宽 \(word) —— 本判据在 AX5 下分辨不出折断")
+    }
+
+    @Test("AX 字号下图标独占标题上方一行：标题起点与首词长短无关，且低于图标")
+    func accessibilityIconSitsAboveTitle() {
+        let short = ToastItem(title: "Hi there", level: .danger)
+        let long = ToastItem(title: "Synchronisation interrupted", level: .danger)
+        for presentation in ToastPresentation.allCases {
+            let shortLines = self.lines(self.newToast(short, presentation), size: .accessibility5)
+            let longLines = self.lines(self.newToast(long, presentation), size: .accessibility5)
+            guard let shortFirst = shortLines.min(by: { $0.minY < $1.minY }),
+                  let longFirst = longLines.min(by: { $0.minY < $1.minY }) else {
+                Issue.record("\(presentation)：量不到标题行")
+                continue
+            }
+            // HUD 宽度随内容收缩、整体居中，横向起点本就随标题长短变；只比纵向。
+            let sameX = presentation == .centeredHUD || abs(shortFirst.minX - longFirst.minX) < 0.5
+            #expect(sameX && abs(shortFirst.minY - longFirst.minY) < 0.5,
+                    "\(presentation)：短标题起点 \(shortFirst) ≠ 长标题起点 \(longFirst) —— 图标位置随首词长短变")
+            #expect(shortFirst.minY > CoreSpacing.md + 20,
+                    "\(presentation)：标题首行顶 \(shortFirst.minY) 贴着内边距 —— 图标没有独占上方一行")
+            #expect(abs(shortFirst.minX - CoreSpacing.lg - CoreSpacing.md) < 2 || presentation == .centeredHUD,
+                    "\(presentation)：标题左缘 \(shortFirst.minX) 不在内容左缘 —— 图标仍占着一列")
+        }
+    }
+
+    @Test("AX 字号下图标封顶：AX5 与封顶档（accessibility1）的标题起点相同")
+    func accessibilityIconIsCapped() {
+        let item = ToastItem(title: "Hi there", level: .danger)
+        let cap = self.titleTop(item, .floatingCapsule, size: ToastView.accessibilityIconCap)
+        let ax5 = self.titleTop(item, .floatingCapsule, size: .accessibility5)
+        guard let cap, let ax5 else {
+            Issue.record("量测失效 —— 不得当作通过")
+            return
+        }
+        #expect(abs(ax5 - cap) < 0.5, "AX5 标题起点 \(ax5) ≠ 封顶档 \(cap) —— 图标没封顶")
     }
     #endif
 }
@@ -246,6 +302,7 @@ struct FloatingGlassChromeTests {
         }
     }
 
+    /// 只核配置：`.ignoresSafeArea` 这一步没有像素判据（`ImageRenderer` 不稳定地画玻璃底色、托管窗口截图为空），靠本条 + 状态栏截图兜。
     @Test("横幅外壳只延伸进它贴的那条边的安全区，且玻璃高光边推出屏幕外（左右 + 贴边那侧）；胶囊 / HUD 都不动")
     func bleedFollowsAnchoredEdge() {
         #expect(FloatingGlassChrome.edgeBanner(.top).bleed == .top)
@@ -341,7 +398,7 @@ struct FloatingGlassChromeTests {
 
 // MARK: - FR-B4：elevated 层 content 描边
 
-@Suite("Issue #399：只有 elevated 的 content 去掉描边")
+@Suite("Issue #399：elevated 层 content / card 的描边（iOS 去掉，macOS 保留）")
 @MainActor
 struct SurfaceElevatedBorderRenderTests {
     private static let kinds: [SurfaceKind] = [
@@ -385,14 +442,14 @@ struct SurfaceElevatedBorderRenderTests {
         }
     }
 
-    @Test("嵌进 content：只有 content 变了，其余角色与改动前逐像素相同")
+    @Test("嵌进 content：iOS 上只有 content / card 变了，macOS 上全部角色与改动前相同")
     func onlyElevatedContentChanges() {
         for scheme in [ColorScheme.light, .dark] {
             for kind in Self.kinds {
                 let now = OverlayRender.frame(self.nested(kind, legacy: false), scheme: scheme)
                 let before = OverlayRender.frame(self.nested(kind, legacy: true), scheme: scheme)
-                if kind == .content {
-                    expectBitmapsDiffer(now?.bytes, before?.bytes, "\(scheme)：elevated content 的描边没变")
+                if SurfaceKind.elevatedDropsContentBorder, kind == .content || kind == .card {
+                    expectBitmapsDiffer(now?.bytes, before?.bytes, "\(scheme) \(kind)：elevated 层的描边没变")
                 } else {
                     expectBitmapsEquivalent(now?.bytes, before?.bytes, maxChannelDelta: 1, "\(scheme) \(kind)：嵌套外观变了")
                 }
@@ -400,15 +457,18 @@ struct SurfaceElevatedBorderRenderTests {
         }
     }
 
-    @Test("elevated content 与 elevated grouped 逐像素相同（合流）")
+    @Test("iOS：elevated content / card 与 elevated grouped 逐像素相同（合流）；macOS：仍可区分")
     func elevatedContentMatchesGrouped() {
         for scheme in [ColorScheme.light, .dark] {
-            expectBitmapsEquivalent(
-                OverlayRender.frame(self.nested(.content, legacy: false), scheme: scheme)?.bytes,
-                OverlayRender.frame(self.nested(.grouped, legacy: false), scheme: scheme)?.bytes,
-                maxChannelDelta: 1,
-                "\(scheme)：elevated content 与 grouped 仍可区分"
-            )
+            let grouped = OverlayRender.frame(self.nested(.grouped, legacy: false), scheme: scheme)?.bytes
+            for kind in [SurfaceKind.content, .card] {
+                let now = OverlayRender.frame(self.nested(kind, legacy: false), scheme: scheme)?.bytes
+                if SurfaceKind.elevatedDropsContentBorder {
+                    expectBitmapsEquivalent(now, grouped, maxChannelDelta: 1, "\(scheme) \(kind)：elevated 层与 grouped 仍可区分")
+                } else {
+                    expectBitmapsDiffer(now, grouped, "\(scheme) \(kind)：macOS 上 elevated 层失去了描边这唯一的嵌套线索")
+                }
+            }
         }
     }
 }

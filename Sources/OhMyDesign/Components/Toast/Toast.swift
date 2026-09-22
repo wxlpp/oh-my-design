@@ -515,41 +515,50 @@ struct ToastView: View {
         }
     }
 
+    @ViewBuilder
     private var message: some View {
-        HStack(alignment: .firstTextBaseline, spacing: CoreSpacing.sm) {
-            if !self.isAccessibilityLayout {
+        if self.isAccessibilityLayout {
+            VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                self.icon
+                    .foregroundStyle(self.iconColor)
+                    .dynamicTypeSize(...Self.accessibilityIconCap)
+                    .accessibilityHidden(true)
+                self.texts
+            }
+            .frame(maxWidth: self.presentation == .centeredHUD ? nil : .infinity, alignment: .leading)
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: CoreSpacing.sm) {
                 self.icon
                     .foregroundStyle(self.iconColor)
                     .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
                     .accessibilityHidden(true)
-            }
-            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
-                self.title
-                    .coreFont(.callout)
-                    .fontWeight(self.item.description == nil ? .regular : .semibold)
-                    .foregroundStyle(Color.contentPrimary)
-                    .lineLimit(Self.lineLimits(for: self.dynamicTypeSize).title)
-                    .fixedSize(horizontal: false, vertical: self.isAccessibilityLayout)
-                if let description = self.item.description {
-                    Text(description)
-                        .coreFont(.footnote)
-                        .foregroundStyle(Color.contentSecondary)
-                        .lineLimit(Self.lineLimits(for: self.dynamicTypeSize).description)
-                        .fixedSize(horizontal: false, vertical: self.isAccessibilityLayout)
+                self.texts
+                if self.presentation != .centeredHUD {
+                    Spacer(minLength: CoreSpacing.none)
                 }
-            }
-            .multilineTextAlignment(.leading)
-            if self.presentation != .centeredHUD {
-                Spacer(minLength: CoreSpacing.none)
             }
         }
     }
 
-    private var title: Text {
-        guard self.isAccessibilityLayout else { return Text(self.item.title) }
-        let icon = Text(self.icon).foregroundStyle(self.iconColor)
-        return Text("\(icon) \(Text(self.item.title))", bundle: .module)
-            .accessibilityLabel(Text(self.item.title))
+    static let accessibilityIconCap = DynamicTypeSize.accessibility1
+
+    private var texts: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
+            Text(self.item.title)
+                .coreFont(.callout)
+                .fontWeight(self.item.description == nil ? .regular : .semibold)
+                .foregroundStyle(Color.contentPrimary)
+                .lineLimit(Self.lineLimits(for: self.dynamicTypeSize).title)
+                .fixedSize(horizontal: false, vertical: self.isAccessibilityLayout)
+            if let description = self.item.description {
+                Text(description)
+                    .coreFont(.footnote)
+                    .foregroundStyle(Color.contentSecondary)
+                    .lineLimit(Self.lineLimits(for: self.dynamicTypeSize).description)
+                    .fixedSize(horizontal: false, vertical: self.isAccessibilityLayout)
+            }
+        }
+        .multilineTextAlignment(.leading)
     }
 
     private func actionButton(_ action: ToastAction) -> some View {
