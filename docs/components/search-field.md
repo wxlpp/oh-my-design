@@ -38,11 +38,25 @@ SearchField(text: $query, placeholder: "Filter issues") { submitted in
 仍由库指定的只有两项：
 
 - **命中区高度**：`CoreControlMetrics.height(for: .regular)` = 44pt，由外层包装层承担。
-  ⚠️ 原生控件**不随 frame 撑满**——iOS 实测 `intrinsicContentSize.height = 28`，
-  在 28 / 36 / 44 三档 frame 下绘制带恒为同一高度且垂直居中；macOS `NSSearchField(.large)`
-  同形。⇒ 视觉是控件自然高、命中区是 44pt，包装层用 `contentShape` + tap 转
-  `becomeFirstResponder()` 把上下缘也接上。
+  ⚠️ 两端尺寸行为不同：iOS 26.4 实测 `UISearchTextField` 的绘制带**随 frame 撑满**
+  （44pt 下即 44pt 高；放进不限高的容器会被纵向拉伸，需要调用方给定高度或 `fixedSize`）；
+  macOS `NSSearchField` 取固有高度（实测 24pt）。包装层用 `contentShape` + tap 转
+  `becomeFirstResponder()` 把命中区上下缘也接上。
 - **横向撑满**：`frame(maxWidth: .infinity)`。
+
+## 校验态与禁用 / Validation and disabled
+
+- 读 `.fieldValidation(_:)`（见 `form-field.md`）：invalid 时在原生搜索框外沿叠一圈
+  `CoreBorderWidth.thin` 的 `Color.statusDangerForeground` 胶囊描边（叠在 representable 自身
+  bounds 上，贴合绘制带，不改布局、不拦截点击）；disabled 优先于 invalid，禁用时不画。
+- 无障碍：放在 `FormField` 里时，原生搜索框的 label 为字段 label（必填时追加「, required」），
+  错误原因与 description 为 hint（AXe 实测读在原生 `TextField` 节点上）。
+- iOS 回车键为「搜索」（`returnKeyType = .search`）。
+- **`.disabled(true)`**：分析报告曾从源码推断「`isEnabled` 未透传给原生控件」。运行期实测
+  **复现不出**：SwiftUI 对 representable 承载的 `UIControl` / `NSControl` 自动同步 `isEnabled`
+  （`SearchFieldNativeStateTests`：默认 `true`、`.disabled(true)` 为 `false`、运行期切换双向跟随，
+  iOS Simulator 与 macOS 两端一致；模拟器里对禁用的搜索框点按后输入，值不变）。因此**未加**
+  手动透传代码，测试留作回归判据。禁用外观由系统提供：iOS 背景退为灰底，取值文字颜色不变。
 
 ⚠️ **`#222` 的 a11y 行为改由系统提供**：清除按钮及其可访问名现在来自平台，
 库不再自带 `clearLabel(for:)`，`Localizable.strings` 里的 `"Clear %@"` 已移除。

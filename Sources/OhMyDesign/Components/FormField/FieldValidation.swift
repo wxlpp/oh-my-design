@@ -61,7 +61,17 @@ public extension View {
     ///
     /// - Returns: 挂好无障碍 label 与 hint 的视图。
     func fieldAccessibility() -> some View {
-        self.modifier(FieldAccessibilityModifier())
+        self.modifier(FieldAccessibilityModifier(label: .fieldLabel(fallback: nil)))
+    }
+}
+
+extension View {
+    func fieldAccessibility(fallbackLabel: Text) -> some View {
+        self.modifier(FieldAccessibilityModifier(label: .fieldLabel(fallback: fallbackLabel)))
+    }
+
+    func fieldAccessibilityHint() -> some View {
+        self.modifier(FieldAccessibilityModifier(label: .keepOwn))
     }
 }
 
@@ -92,14 +102,30 @@ enum FieldAccessibilityHint {
     }
 }
 
+enum FieldAccessibilityLabel {
+    case fieldLabel(fallback: Text?)
+    case keepOwn
+
+    func resolved(fieldLabel: Text?, requirement: FieldRequirement) -> Text? {
+        switch self {
+        case .fieldLabel(let fallback):
+            fieldLabel.map { FormFieldAccessibility.label($0, requirement: requirement) } ?? fallback
+        case .keepOwn:
+            nil
+        }
+    }
+}
+
 private struct FieldAccessibilityModifier: ViewModifier {
+    let label: FieldAccessibilityLabel
+
     @Environment(\.fieldValidation) private var validation
     @Environment(\.fieldRequirement) private var requirement
     @Environment(\.fieldDescription) private var description
     @Environment(\.fieldLabel) private var fieldLabel
 
     func body(content: Content) -> some View {
-        let label = self.fieldLabel.map { FormFieldAccessibility.label($0, requirement: self.requirement) }
+        let label = self.label.resolved(fieldLabel: self.fieldLabel, requirement: self.requirement)
         let hint = FieldAccessibilityHint.text(validation: self.validation, description: self.description)
         content
             .accessibilityLabel(label ?? Text(verbatim: String()), isEnabled: label != nil)
@@ -131,6 +157,10 @@ enum FieldAppearance: Equatable {
 
     var messageColor: Color {
         self == .disabled ? Color.contentDisabled : Color.statusDangerForeground
+    }
+
+    func indicatorColor(normal: Color) -> Color {
+        self == .invalid ? Color.statusDangerForeground : normal
     }
 
     var requiredMarkColor: Color {

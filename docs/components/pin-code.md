@@ -79,6 +79,9 @@ PinCode(value: $code, length: 6)
 - 焦点格边框：`.tint`（`TintShapeStyle`，响应环境 `.tint(_:)`，未显式设置时解析为宿主
   SwiftUI 的默认 tint），`CoreBorderWidth.thick`
 - 非焦点格边框：`Color.borderMuted`，`CoreBorderWidth.thin`
+- 校验态（`.fieldValidation(_:)`，见 `form-field.md`）：invalid 时**每一格**边框取
+  `Color.statusDangerForeground`（压过焦点色）；当前格仍保留 `CoreBorderWidth.thick` 作位置提示。
+  disabled 优先于 invalid——禁用时与禁用 + valid 外观一致。
 - 禁用态文字：`Color.contentDisabled`；正常态：`Color.contentPrimary`
 - 圆角：`CoreRadius.medium`
 - 格间距：`CoreSpacing.sm`
@@ -88,7 +91,9 @@ PinCode(value: $code, length: 6)
 ## Accessibility
 
 - 每格是独立的 accessibility element：
-  - label：Phase 0 预登记键 `"Verification code"`
+  - label：放在 `FormField` 里时为字段 label（必填时追加「, required」）；不在 `FormField` 里时为
+    Phase 0 预登记键 `"Verification code"`
+  - hint：错误原因（invalid 时）+ `FormField` 的 description，**逐格**都挂（每一格都是真实输入节点）
   - value：位置键 `"%@ of %@"`，经
     `String(localized: "\(index.formatted()) of \(count.formatted())", bundle: .module)`
     组装（`PinCode.positionText(index:count:)`），`index` 为 1-based，如「3 of 6」

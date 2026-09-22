@@ -10,23 +10,36 @@ public struct CheckBoxToggleStyle: ToggleStyle {
     public init() {}
 
     public func makeBody(configuration: Configuration) -> some View {
+        CheckBoxBody(configuration: configuration)
+    }
+}
+
+private struct CheckBoxBody: View {
+    let configuration: ToggleStyleConfiguration
+
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.fieldValidation) private var validation
+
+    var body: some View {
+        let appearance = FieldAppearance.resolve(isEnabled: self.isEnabled, validation: self.validation, isFocused: false)
         HStack(alignment: .top, spacing: CoreSpacing.sm) {
-            if configuration.isOn {
+            if self.configuration.isOn {
                 Image(systemName: "checkmark.square.fill")
                     .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
-                    .foregroundStyle(Color.contentPrimary)
+                    .foregroundStyle(appearance.indicatorColor(normal: Color.contentPrimary))
             } else {
                 Image(systemName: "square")
                     .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
-                    .foregroundStyle(Color.contentSecondary)
+                    .foregroundStyle(appearance.indicatorColor(normal: Color.contentSecondary))
             }
-            configuration.label
+            self.configuration.label
+                .fieldAccessibilityHint()
         }
         .frame(minHeight: CoreControlMetrics.height(for: .regular))
         .contentShape(Rectangle())
-        .animation(.easeOut(duration: 0.25), value: configuration.isOn)
+        .animation(.easeOut(duration: 0.25), value: self.configuration.isOn)
         .onTapGesture {
-            configuration.isOn.toggle()
+            self.configuration.isOn.toggle()
         }
     }
 }

@@ -105,7 +105,7 @@ struct QuotedEvidenceGuard {
         ("docs/spikes/248-metal-packaging.md", "Tests/OhMyDesignTests/ColorAssetGuardTests.swift", "rawXcassetsAvailable"),
         // ---- 台账 JSON ----
         ("docs/bool-exemptions.json", "Sources/OhMyDesign/Modifier/FloatingGlassModifier.swift", "let glass = self.isInteractive ? Glass.regular.interactive() : Glass.regular"),
-        ("docs/a11y-exemptions.json", "Sources/OhMyDesign/Components/TagInput/TagInput.swift", ".accessibilityLabel(Text(self.placeholder))"),
+        ("docs/a11y-exemptions.json", "Sources/OhMyDesign/Components/TagInput/TagInput.swift", ".fieldAccessibility(fallbackLabel: Text(self.placeholder))"),
     ]
 
     /// 跨仓引用（`#337` 如实登记，**不追进他仓、不加假核**）：doc 侧引用对面仓

@@ -23,6 +23,8 @@ public struct RadioOption<SelectionValue: Hashable & Sendable>: Identifiable, Se
 /// `Binding<SelectionValue>` 驱动的互斥选择组，与 `CheckBoxToggleStyle` 同套 token、方框换圆点。
 public struct RadioGroup<SelectionValue: Hashable & Sendable>: View {
     @Binding private var selection: SelectionValue
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.fieldValidation) private var validation
     private let options: [RadioOption<SelectionValue>]
     private let axis: Axis
     private let spacing: CGFloat
@@ -65,10 +67,11 @@ public struct RadioGroup<SelectionValue: Hashable & Sendable>: View {
     @ViewBuilder
     private func row(for option: RadioOption<SelectionValue>) -> some View {
         let selected = Self.isSelected(option, in: self.selection)
+        let appearance = FieldAppearance.resolve(isEnabled: self.isEnabled, validation: self.validation, isFocused: false)
         HStack(alignment: .top, spacing: CoreSpacing.sm) {
             Image(systemName: selected ? "circle.inset.filled" : "circle")
                 .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
-                .foregroundStyle(selected ? Color.contentPrimary : Color.contentSecondary)
+                .foregroundStyle(appearance.indicatorColor(normal: selected ? Color.contentPrimary : Color.contentSecondary))
                 .accessibilityHidden(true)
             Text(option.title)
         }
@@ -80,6 +83,7 @@ public struct RadioGroup<SelectionValue: Hashable & Sendable>: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+        .fieldAccessibilityHint()
     }
 
     static func isSelected(_ option: RadioOption<SelectionValue>, in selection: SelectionValue) -> Bool {
