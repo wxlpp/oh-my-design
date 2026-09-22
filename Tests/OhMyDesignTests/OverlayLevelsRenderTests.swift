@@ -232,6 +232,8 @@ struct FloatingGlassChromeTests {
                         .inset(by: CoreButtonMetrics.glassInset)
                         .fill(.background.opacity(0.64))
                         .glassEffect(Glass.regular, in: Rectangle())
+                        .padding([.top, .leading, .trailing], -CoreSpacing.xs)
+                        .ignoresSafeArea(edges: .top)
                 ).padding(8).background(Self.canvas),
                 scheme: scheme
             )
