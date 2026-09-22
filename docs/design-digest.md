@@ -63,7 +63,7 @@
    / `.spinning`。
    ⚠️ **`ProgressBar` 已弃用**（全仓唯一一个 `@available(*, deprecated)` 的公开符号），
    改用 `ProgressView(value:).progressViewStyle(.core)`——就是上一条说的 `.core` 通路。**不要用 `Banner` 做浮层，也不要用 `ToastItem` 做常驻信息。**
-8. **Liquid Glass 只出现在 5 处**：`BottomInputBar`、`Carousel`、`SegmentedControl`、
+8. **Liquid Glass 只出现在 4 处**：`Carousel`、`SegmentedControl`、
    `.floatingGlass`、`TelegramGlassButtonModifier`。⚠️ 两个悬浮按钮样式**走的不是同一条**：
    `.circularGlass` 经 `TelegramGlassButtonModifier`，`.extendedFloat` 经 `.floatingGlass`。
    别处不要描述玻璃材质。
@@ -363,11 +363,6 @@
 - *protocol* **`BannerStyle`** — `Banner` 视觉外观的扩展点，形态对齐 Apple `ButtonStyle` / `ToggleStyle`。
 - *struct* **`BannerStyleConfiguration`** — 传给 `BannerStyle.makeBody` 的上下文，提供 banner 的语义等级与 label 视图。
 
-### `Components/BottomInputBar/BottomInputBar.swift`
-
-- **`BottomInputBar`** *: View* — 浮层输入条。
-- *enum* **`BottomInputBarDefaults`** — 组件源码提供的兜底文案。
-
 ### `Components/Button/AsyncButton.swift`
 
 - **`AsyncButton`** *<Label: View>: View* — 把 async 闭包封装成按钮的视图组件。
@@ -492,19 +487,6 @@
 - **`SettingsRow`** *<Accessory: View>: View* — iOS 设置页 / 偏好面板的行：可着色图标方块 + 标题 + 可选副标题 + 尾部 accessory。
 - *enum* **`SettingsRowMetrics`** — `SettingsRow` 与 `InsetGroupedSection` 共享的布局常量，分隔线的 leading inset 由它推导。
 - *struct* **`SettingsRowIcon`** — iOS 设置行左侧的圆角色块 + 白色 SF Symbol。
-
-### `Components/Sidebar/Sidebar.swift`
-
-- **`SidebarSection`** *<Content: View>: View* — 带标题的侧栏分组容器。
-- **`SidebarNavigationRow`** *<Leading: View>: View* — 带选中态的主导航行。
-- **`SidebarUtilityRow`** *: View* — 次级工具行，可选尾部装饰。
-- **`SidebarDocumentRow`** *: View* — 带尾部 detail 文本的文档行。
-- **`SidebarTagRow`** *: View* — 以 `#` 字形开头的标签行。
-- **`SidebarStatusFooter`** *: View* — 状态点 + 标题/详情文本的页脚。
-- *enum* **`SidebarUtilityRowPresentation`** — `SidebarUtilityRow` 的**呈现形态**。
-  - `.iconLeading` — 默认：leading 字形 + 标题（现状形态）。
-  - `.textOnly` — 纯文字行：**不渲染 leading 字形、也不占位**。 ⚠️ 本形态下 `systemImage` **静默不生效**——传了不是错误，只是无效。
-- *enum* **`SidebarTextStyle`** — 侧栏内容的语义文字色别名。
 
 ### `Components/Skeleton/Skeleton.swift`
 
@@ -873,16 +855,14 @@
 
 # Modifier / Transition 入口点
 
-共 41 个（按 `Host.member` 去重，含参重载算一条）。
+共 39 个（按 `Host.member` 去重，含参重载算一条）。
 
 | target | 入口 | 说明 |
 |---|---|---|
 | `OhMyDesign` | `.coreAccent` on `View` | 为子树设置强调色，`accentHover` / `accentPressed` / `accentDisabled` / `accentSubtleBackground` 四个派生态自动跟随。 |
 | `OhMyDesign` | `.bannerStyle` on `View` | 为子树中的所有 `Banner` 设置外观。 |
-| `OhMyDesign` | `.bottomInputBar` on `View` | ⚠️ 源码无文档注释 |
 | `OhMyDesign` | `.ratingStyle` on `View` | 为子树中的所有 `Rating` / `RatingDisplay` 设置外观。 |
 | `OhMyDesign` | `.segmentedControlStyle` on `View` | 为子树中的所有 `SegmentedControl` 设置外观（对齐 `View.bannerStyle(_:)`）。 |
-| `OhMyDesign` | `.sidebarSelectedBackground` on `View` | `isSelected` 为 true 时施加侧栏选中态背景。 |
 | `OhMyDesign` | `.skeletonShimmer` on `View` | 骨架屏 shimmer 扫光叠加。 |
 | `OhMyDesign` | `.toastHost` on `View` | 在当前 view 子树挂载一个 scene-scoped `ToastHost`，并在 `edge` 方向以 `safeAreaInset` 渲染当前队列的首条 toast。 |
 | `OhMyDesign` | `.bordered` on `View` | 叠加一圈描边 / Add a border.  - Parameters: - style: 描边样式，任意 `ShapeStyle`（含 `Color` 与渐变）。 |
@@ -958,11 +938,11 @@
 | elevation | 4 | 4 |
 | controlsize | 5 | 5 |
 | colors | 118 | 118 |
-| components | 91 | 91 |
-| enums | 35 | 35 |
-| enumcases | 128 | 128 |
+| components | 84 | 84 |
+| enums | 34 | 34 |
+| enumcases | 126 | 126 |
 | protocols | 6 | 6 |
-| viewext | 41 | 41 |
+| viewext | 39 | 39 |
 | styleext | 12 | 12 |
-| others | 29 | 29 |
+| others | 27 | 27 |
 

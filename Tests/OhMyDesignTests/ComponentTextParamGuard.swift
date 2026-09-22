@@ -11,13 +11,6 @@ struct ComponentTextParamGuard {
         "SegmentedControlStyleConfiguration.Segment": "SegmentedControl",
     ]
 
-    static let knownUnregisteredSymbolParams: Set<String> = [
-        "SidebarDocumentRow.init#systemImage",
-        "SidebarNavigationRow.init#systemImage",
-        "SidebarUtilityRow.init#systemImage",
-        "SidebarUtilityRow.init#trailingSystemImage",
-    ]
-
     static let knownUnmappedOwnerParams: Set<String> = [
         "Color.init#text",
         "SettingsRowIcon.init#systemName",
@@ -25,7 +18,6 @@ struct ComponentTextParamGuard {
 
     static let knownFunctionSideBareText: Set<String> = [
         "ToastHost.show#message",
-        "View.bottomInputBar#placeholder",
         "View.spray#symbol",
     ]
 
@@ -113,31 +105,14 @@ struct ComponentTextParamGuard {
                 "只扫到 \(scan.bareTextKeys.count) 个裸文本参数 —— 扫描器失效，这不是『零违规』")
         #expect(scan.localizedTextKeys.count > 5,
                 "只扫到 \(scan.localizedTextKeys.count) 个 LSK/LSR 参数 —— 扫描器失效")
-        #expect(registryTextParams == 36,
-                "OhMyDesign 侧 textParams 实测 36 条（#270 扩扫描根后新增 TypewriterText.text 与四个图表的 title，由 31 变为 36），实际 \(registryTextParams) —— 若为预期变化请同步改这个数字")
-        #expect(result.covered.count == 31,
-                "覆盖数实测 31（#270 新增 TypewriterText.init#text，由 30 变为 31），实际 \(result.covered.count)：\(result.covered.keys.sorted())")
+        #expect(registryTextParams == 27,
+                "OhMyDesign 侧 textParams 实测 27 条（移除 Sidebar 六条行组件与 BottomInputBar 后由 36 变为 27），实际 \(registryTextParams) —— 若为预期变化请同步改这个数字")
+        #expect(result.covered.count == 22,
+                "覆盖数实测 22（移除 Sidebar 六条行组件与 BottomInputBar 后由 31 变为 22），实际 \(result.covered.count)：\(result.covered.keys.sorted())")
         #expect(abs(result.covered.count - registryTextParams) * 2 <= registryTextParams,
                 "扫到的覆盖数 \(result.covered.count) 与登记表 \(registryTextParams) 条不在同一量级 —— 两侧口径可能已经脱节")
 
-        withKnownIssue(
-            """
-            FR-4 已知缺口：四条 Sidebar row 的 systemImage / trailingSystemImage 是 SF Symbol 标识符，\
-            与 LabelIcon.systemName 同类，但 #38 只在 LabelIcon 的 notes 里写了裁决、Sidebar 侧没写。\
-            处置：补 notes（见 40 的缺陷报告），不是改判据、不是塞进 textParams。\
-            ⚠️ 承接 **wxlpp/oh-my-story#51** —— 原写作「回 #38 补」，但 **#38 已 CLOSED**，\
-            指向已关闭的 issue 等于移交蒸发（#51 正是为此新开的，其标题即「原『#38 本位』，但 #38 已关闭」）。
-            """
-        ) {
-            #expect(result.violations.isEmpty, "这些裸文本参数没有分类条目：\n\(result.diagnostics.joined(separator: "\n"))")
-        }
-
-        #expect(Set(result.violations) == Self.knownUnregisteredSymbolParams,
-                """
-                FR-4 违规集合变了：实际 \(result.violations)，已知 \(Self.knownUnregisteredSymbolParams.sorted())。\
-                变大 ⇒ 新增了未登记的裸文本参数（上面的 withKnownIssue 会把它静默吞掉，靠本条抓）；\
-                变小 ⇒ 已补登记（承接 wxlpp/oh-my-story#51），同步删除 knownUnregisteredSymbolParams 与上面的 withKnownIssue 块
-                """)
+        #expect(result.violations.isEmpty, "这些裸文本参数没有分类条目：\n\(result.diagnostics.joined(separator: "\n"))")
 
         #expect(result.ghostRegistryParams.isEmpty,
                 "登记表里这些 textParams 在源码里找不到对应参数（改名？改类型？删了？）：\(result.ghostRegistryParams)")
@@ -176,9 +151,9 @@ struct ComponentTextParamGuard {
                 LSK/LSR 由类型判定的键实测 17 条（`#270` 扩扫描根后由 11 变为 17），实际 \(result.localizedByType.count)：\(result.localizedByType)。\
                 变化意味着有参数在 LSK/LSR 与裸串之间换了类型 —— 要人过目，不能静默
                 """)
-        #expect(result.carrying.count == 10,
+        #expect(result.carrying.count == 7,
                 """
-                text-carrying 键实测 10 条（`#270` 扩扫描根后新增 CharSphere.init#characters，由 9 变为 10），\
+                text-carrying 键实测 7 条（移除 BottomInputBar 后由 10 变为 7），\
                 实际 \(result.carrying.count)：\(result.carrying)。\
                 本桶（Binding<String> / 回调等）不进主判据，但它是**文案经此进入组件**的通道，\
                 静默增长等于 FR-4 的定义域在无人过目的情况下缩小

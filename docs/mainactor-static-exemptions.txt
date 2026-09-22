@@ -20,19 +20,8 @@
 #   **不在射程内**——代价逐字登记在脚本头注释《范围定案与代价》一节，先读那节再改这里。
 
 # --- OhMyDesign ---
-# 初始化表达式是第 3 层语义色（`Color.contentPrimary` 等 `public extension Color` 上的
-# **计算** static var，不适用 SE-0434 的 `static let` 隐式 nonisolated）⇒ 标 `nonisolated`
-# 会 `error: main actor-isolated default value in a nonisolated context`（#290 实测）。
-# 要解开得先让整个色彩层 nonisolated，那是另一件事。
-OhMyDesign:SidebarTextStyle.primary
-OhMyDesign:SidebarTextStyle.secondary
-OhMyDesign:SidebarTextStyle.tertiary
-
-# 走 `String(localized:bundle: .module)`，而 `Bundle.module` 访问器由 SwiftPM 生成在本
-# target 内、随 `defaultIsolation` 成为 MainActor 隔离（#290 实测）。
-OhMyDesign:BottomInputBarDefaults.placeholder
-
-# 同根：函数体取 `Color("shadow-…", bundle: .module)`，`Bundle.module` 同上。
+# 函数体取 `Color("shadow-…", bundle: .module)`，而 `Bundle.module` 访问器由 SwiftPM
+# 生成在本 target 内、随 `defaultIsolation` 成为 MainActor 隔离（#290 实测）。
 # ⚠️ 这条理由只说了一半。给它加 `nonisolated` 的**完整**编译错误是 5 种（8 行，本轮实测）：
 #   · `error: call to main actor-isolated initializer 'init(color:radius:x:y:)'
 #     in a synchronous nonisolated context` —— **头一条**，出现 4 次（4 个 case 各一次）。

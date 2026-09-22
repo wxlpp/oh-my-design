@@ -56,25 +56,25 @@ Button {} label: {
 
 ## 定位边界说明 / Placement Guidance
 
-FloatButton（本样式 + `.overlay`）与 `BottomInputBar` 的 `.safeAreaBar` 定位方式服务不同
-场景，二者不能互换：
+FloatButton（本样式 + `.overlay`）与 `.safeAreaBar` 承载的底部输入条定位方式服务不同
+场景，二者不能互换（本库不提供输入条组件，下表右列指宿主自建的 `.safeAreaBar` 输入条）：
 
-| 维度 | Extended FAB（本样式 + `.overlay`） | `.safeAreaBar` / `BottomInputBar` |
+| 维度 | Extended FAB（本样式 + `.overlay`） | `.safeAreaBar` 输入条 |
 |---|---|---|
 | 典型场景 | 页面内单一主要动作（"新建" "生成" 一类一次性操作） | 常驻输入场景（聊天输入框一类），需要持续可见 |
 | 键盘适配 | 无——不参与安全区协商，键盘弹出时可能被遮挡 | 有——`.safeAreaBar(edge: .bottom)` 自动让内容 ScrollView 让出空间，并带 iOS 26 scroll edge effect |
 | 是否随内容滚动 | 不随内容滚动（`overlay` 固定在容器坐标系） | 同样固定在底部，但设计目标是与输入焦点绑定 |
-| 动作数量 | 单一主要动作 | 可聚合多个动作（菜单按钮、建议 chips、发送/停止按钮，见 `BottomInputBar`） |
-| 典型定位 | `.overlay(alignment: .bottomTrailing)` | `.safeAreaBar(edge: .bottom)`（通过 `.bottomInputBar(...)` modifier） |
+| 动作数量 | 单一主要动作 | 可聚合多个动作（菜单按钮、建议 chips、发送/停止按钮） |
+| 典型定位 | `.overlay(alignment: .bottomTrailing)` | `.safeAreaBar(edge: .bottom)` |
 
 **决策规则**：
 
 - 页面内**单一**主要动作、不需要跟随键盘、不需要与滚动内容分离出安全区 → 用
   `ExtendedFloatButtonStyle` + `.overlay(alignment: .bottomTrailing)`。
 - 需要键盘适配、常驻输入、或要聚合多个动作（菜单/建议/发送）→ 用
-  `.safeAreaBar` / `BottomInputBar`（详见 [`bottom-input-bar.md`](./bottom-input-bar.md)）。
+  `.safeAreaBar(edge: .bottom)` 承载的输入条。
 
-两者可以共存：`BottomInputBar` 占据底部安全区时，Extended FAB 通常改用
+两者可以共存：输入条占据底部安全区时，Extended FAB 通常改用
 `.bottomTrailing` 之外的位置（如页面中段的 `.overlay`），避免与输入条的命中区重叠。
 
 ## 预览 / Preview

@@ -106,7 +106,7 @@ struct ComponentJudgeMutationTests {
         #expect(judgeNativeProtocolPurity(entries: entries, scan: copied).violations.isEmpty)
         #expect(Set(judgeTextParamCoverage(
             entries: entries, scan: copied, ownerAliases: ComponentTextParamGuard.ownerAliases
-        ).violations) == ComponentTextParamGuard.knownUnregisteredSymbolParams)
+        ).violations).isEmpty)
     }
 
     @Test("端到端 J-2 变异：把 BannerStyle 协议声明改名 ⇒ Banner 判缺扩展点")
@@ -196,8 +196,7 @@ struct ComponentJudgeMutationTests {
         let red = judgeTextParamCoverage(
             entries: entries, scan: scan, ownerAliases: ComponentTextParamGuard.ownerAliases
         )
-        #expect(Set(red.violations) ==
-                ComponentTextParamGuard.knownUnregisteredSymbolParams.union(["Avatar.init#caption"]),
+        #expect(Set(red.violations) == ["Avatar.init#caption"],
                 "新增未登记的裸 String 参数必须判红，且违规集合精确")
 
         let patched = entries.map { entry -> ComponentRegistryGuard.Entry in
@@ -213,8 +212,8 @@ struct ComponentJudgeMutationTests {
         let green = judgeTextParamCoverage(
             entries: patched, scan: scan, ownerAliases: ComponentTextParamGuard.ownerAliases
         )
-        #expect(Set(green.violations) == ComponentTextParamGuard.knownUnregisteredSymbolParams,
-                "补登记后新增的那条应消失，已知的四条不受影响 —— AC 原文的『补登记 → 判据变绿』")
+        #expect(green.violations.isEmpty,
+                "补登记后新增的那条应消失 —— AC 原文的『补登记 → 判据变绿』")
     }
 
     @Test("端到端 FR-4 反向变异：把已登记参数改名 ⇒ 登记表条目变成幽灵")

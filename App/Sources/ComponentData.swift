@@ -77,9 +77,6 @@ extension ComponentMeta {
         ComponentMeta(id: "search-field", name: "SearchField", description: "搜索输入框 — magnifyingglass + clear button + focus ring", category: .form) {
             SearchFieldPreview()
         },
-        ComponentMeta(id: "bottom-input-bar", name: "BottomInputBar", description: "底部输入栏 modifier，带自动补全 + 提交逻辑", category: .form) {
-            BottomInputBarPreview()
-        },
         ComponentMeta(id: "rating", name: "Rating", description: "Binding<Double> 驱动的星级评分控件，step 参数控制步进粒度", category: .form) {
             RatingPreview()
         },
@@ -168,9 +165,6 @@ extension ComponentMeta {
         },
 
         // Navigation
-        ComponentMeta(id: "sidebar", name: "Sidebar", description: "侧栏导航组件组：section / navigation / utility / document / tag row", category: .navigation) {
-            SidebarPreview()
-        },
         ComponentMeta(id: "underlined-tab-bar", name: "UnderlinedTabBar", description: "下划线式 TabBar，token 化配色 + 选中态指示器", category: .navigation) {
             UnderlinedTabBarPreview()
         },
@@ -430,56 +424,6 @@ private struct SearchFieldPreview: View {
     var body: some View { SearchField(text: self.$text) }
 }
 
-/// BottomInputBar 的可交互演示宿主。
-///
-/// ⚠️ **#221 之前这里是一句占位文本**（「通过 `.bottomInputBar` modifier 使用，
-/// 非独立 View」），使 BottomInputBar 成为本库**唯一在 demo 里看不到的组件**。
-///
-/// ⚠️ **演示走 modifier 而不是直接构造 struct**——这是有意的，理由是
-/// **suggestions 只存在于 modifier 面**：`BottomInputBarModifier` 才渲染
-/// `BottomInputBarSuggestionsView`，`BottomInputBar.body` 只有 `mainRow`。
-/// 直接构造 struct 时 `isShowingSuggestions` 只影响魔杖按钮的 a11y traits，
-/// **视觉上不会有任何建议条出现或消失**。任务书要求 demo「非空 suggestions +
-/// 能看到显隐」，只有 modifier 面兑现得了。
-struct BottomInputBarPreview: View {
-    @State private var submitted: [String] = []
-    @State private var isRunning = false
-
-    private static let suggestions = ["续写下一段", "换个风格", "润色文字", "生成对话"]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: CoreSpacing.sm) {
-            if self.submitted.isEmpty {
-                Text("点输入框左侧的魔杖按钮可展开 / 收起建议条；输入并提交后内容会列在这里。")
-                    .font(CoreTypography.Token.footnote.font)
-                    .foregroundStyle(Color.contentMuted)
-            } else {
-                ForEach(Array(self.submitted.enumerated()), id: \.offset) { _, line in
-                    Text(line).font(CoreTypography.Token.footnote.font)
-                }
-            }
-
-            Toggle("模拟运行中（发送按钮变停止）", isOn: self.$isRunning)
-                .font(CoreTypography.Token.footnote.font)
-
-            Spacer(minLength: CoreSpacing.xl)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding()
-        .bottomInputBar(
-            suggestions: Self.suggestions,
-            placeholder: "说点什么",
-            autoShowSuggestions: true,
-            isRunning: self.isRunning,
-            onStop: { self.isRunning = false },
-            onSubmit: { text in
-                guard text.isEmpty == false else { return }
-                self.submitted.append(text)
-            }
-        )
-    }
-}
-
 private struct BadgePreview: View {
     var body: some View {
         HStack(spacing: CoreSpacing.sm) {
@@ -533,36 +477,6 @@ private struct ListRowPreview: View {
                 trailing: { Image(systemName: "chevron.forward").foregroundStyle(Color.contentMuted) }
             )
         }
-    }
-}
-
-private struct SidebarPreview: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: CoreSpacing.md) {
-            SidebarSection(title: "Core", showsChevron: false) {
-                SidebarNavigationRow(systemImage: "calendar", title: "Today", isSelected: true) {}
-                SidebarNavigationRow(systemImage: "tray.full", title: "Inbox", isSelected: false) {}
-            }
-
-            SidebarSection(title: "Library") {
-                SidebarDocumentRow(systemImage: "doc.text", title: "Exam Sprint", detail: "47 days") {}
-                SidebarTagRow(title: "Math") {}
-            }
-
-            SidebarSection(title: "Tools", showsChevron: false) {
-                SidebarUtilityRow(systemImage: "gearshape", title: "Settings") {}
-                SidebarUtilityRow(systemImage: "trash", title: "Trash", trailingSystemImage: "arrow.up.right") {}
-                // `#64` 形态 D2：`.textOnly` 拆掉 leading 槽；候选 2 = 本 case + 既有尾图标参数。
-                // ⚠️ `.textOnly` 下 systemImage 不渲染 ⇒ 约定统一写 ""（见 docs/components/sidebar.md）。
-                // 该约定**不承重**：`SidebarLeadingSlotRenderTests.textOnlyIgnoresSystemImage`
-                // 以位图证明取任何值渲染都相同，写 "" 只是卫生。
-                SidebarUtilityRow(systemImage: "", title: "Archive", presentation: .textOnly) {}
-                SidebarUtilityRow(systemImage: "", title: "Settings", trailingSystemImage: "chevron.forward", presentation: .textOnly) {}
-            }
-
-            SidebarStatusFooter(title: "Synced", detail: "Updated just now")
-        }
-        .background(Color.surfaceSidebar)
     }
 }
 

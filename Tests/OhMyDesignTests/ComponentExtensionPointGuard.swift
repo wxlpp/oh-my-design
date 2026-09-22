@@ -24,8 +24,8 @@ struct ComponentExtensionPointGuard {
         let scan = try ComponentJudgeSources.scan()
         let result = judgeExtensionPoints(entries: entries, scan: scan)
 
-        #expect(result.inspected.count == 17,
-                "J-2 定义域实测 17 条（ActivityHeatmap/AvatarGroup/Banner/BeforeAfterSlider/NetworkGraph/OrbitingLogos/ProgressIndicator/RadarChart/Rating/RatingDisplay/RingChart/SegmentedControl/SidebarUtilityRow/SpinningModifier/Steps/Timeline/Toast），实际 \(result.inspected.count) 条：\(result.inspected)")
+        #expect(result.inspected.count == 16,
+                "J-2 定义域实测 16 条（ActivityHeatmap/AvatarGroup/Banner/BeforeAfterSlider/NetworkGraph/OrbitingLogos/ProgressIndicator/RadarChart/Rating/RatingDisplay/RingChart/SegmentedControl/SpinningModifier/Steps/Timeline/Toast），实际 \(result.inspected.count) 条：\(result.inspected)")
         #expect(!result.satisfied.isEmpty,
                 "没有任何语义组件被判为『扩展点存在』—— 扫描器失效时也会长这样，这不是零违规")
         #expect(result.satisfied["ProgressIndicator"]?.contains("ProgressViewStyle") == true,

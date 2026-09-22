@@ -95,64 +95,6 @@ struct TouchTargetTests {
         #expect(height >= Self.minimumHitTarget, "CheckBoxToggleStyle 实测高度 \(height)pt < 44pt")
     }
 
-    // MARK: - CoreMenuButton（BottomInputBar 内部）
-
-    @Test("CoreMenuButton labeled 档实测命中高度 ≥ 44pt")
-    func coreMenuButtonLabeledMeetsMinimumTouchTarget() {
-        let button = CoreMenuButton(isExpanded: .constant(false), style: .labeled)
-        let height = self.renderedHeight(button, width: nil)
-        #expect(height >= Self.minimumHitTarget, "CoreMenuButton(.labeled) 实测高度 \(height)pt < 44pt")
-    }
-
-    @Test("CoreMenuButton circular 档实测命中高度 ≥ 44pt")
-    func coreMenuButtonCircularMeetsMinimumTouchTarget() {
-        let button = CoreMenuButton(isExpanded: .constant(false), style: .circular)
-        let height = self.renderedHeight(button, width: nil)
-        #expect(height >= Self.minimumHitTarget, "CoreMenuButton(.circular) 实测高度 \(height)pt < 44pt")
-    }
-
-    // MARK: - BottomInputBar（整体，含内部 circularGlass 尾部按钮）
-
-    @Test("BottomInputBar 整体实测高度 ≥ 44pt（内部尾部按钮走 circularGlass .large 档）")
-    func bottomInputBarMeetsMinimumTouchTarget() {
-        let bar = BottomInputBar(
-            isShowingSuggestions: .constant(false),
-            onSubmit: { _ in }
-        )
-        let height = self.renderedHeight(bar, width: 320)
-        #expect(height >= Self.minimumHitTarget, "BottomInputBar 实测高度 \(height)pt < 44pt")
-    }
-
-    // MARK: - Sidebar 四种 row
-
-    @Test("SidebarNavigationRow 实测命中高度 ≥ 44pt")
-    func sidebarNavigationRowMeetsMinimumTouchTarget() {
-        let row = SidebarNavigationRow(systemImage: "house", title: "Home", isSelected: false) {}
-        let height = self.renderedHeight(row)
-        #expect(height >= Self.minimumHitTarget, "SidebarNavigationRow 实测高度 \(height)pt < 44pt")
-    }
-
-    @Test("SidebarUtilityRow 实测命中高度 ≥ 44pt")
-    func sidebarUtilityRowMeetsMinimumTouchTarget() {
-        let row = SidebarUtilityRow(systemImage: "gearshape", title: "Settings") {}
-        let height = self.renderedHeight(row)
-        #expect(height >= Self.minimumHitTarget, "SidebarUtilityRow 实测高度 \(height)pt < 44pt")
-    }
-
-    @Test("SidebarDocumentRow 实测命中高度 ≥ 44pt")
-    func sidebarDocumentRowMeetsMinimumTouchTarget() {
-        let row = SidebarDocumentRow(systemImage: "doc.text", title: "Design Spec", detail: "3d") {}
-        let height = self.renderedHeight(row)
-        #expect(height >= Self.minimumHitTarget, "SidebarDocumentRow 实测高度 \(height)pt < 44pt")
-    }
-
-    @Test("SidebarTagRow 实测命中高度 ≥ 44pt")
-    func sidebarTagRowMeetsMinimumTouchTarget() {
-        let row = SidebarTagRow(title: "swiftui") {}
-        let height = self.renderedHeight(row)
-        #expect(height >= Self.minimumHitTarget, "SidebarTagRow 实测高度 \(height)pt < 44pt")
-    }
-
     // MARK: - UnderlinedTabBar item
 
     @Test("UnderlinedTabBar 单项实测命中高度 ≥ 44pt（Issue #123 修复：原先无 minHeight）")

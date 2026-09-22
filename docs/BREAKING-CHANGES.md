@@ -19,6 +19,26 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.10.0`）——移除 `Sidebar` 与 `BottomInputBar` 组件
+
+**破坏性变更。** 这两个组件不再属于本库，整体删除（不迁到其他 target）；需要它们的调用方请在
+自己的代码里维护一份。被移除的公开符号：
+
+| 组件 | 移除的公开符号 |
+|---|---|
+| `BottomInputBar` | `struct BottomInputBar`（`init(isShowingSuggestions:placeholder:wandEnabled:sendEnabled:showMenuButton:isRunning:autoFocus:externalFocus:onActivate:onStop:onSubmit:)`）、`enum BottomInputBarDefaults`（`placeholder`）、`View.bottomInputBar(suggestions:placeholder:autoShowSuggestions:wandEnabled:sendEnabled:showMenuButton:isRunning:showShuffleButton:autoFocus:externalFocus:onActivate:onStop:onSubmit:)` |
+| `Sidebar` | `SidebarSection`（`init(title:showsChevron:content:)`）、`SidebarNavigationRow`（`init(title:isSelected:action:leading:)` 与 `init(systemImage:title:isSelected:action:)`）、`SidebarUtilityRow`（`init(systemImage:title:trailingSystemImage:presentation:action:)`）、`enum SidebarUtilityRowPresentation`（`.iconLeading` / `.textOnly`）、`SidebarDocumentRow`（`init(systemImage:title:detail:action:)`）、`SidebarTagRow`（`init(title:action:)`）、`SidebarStatusFooter`（`init(title:detail:statusColor:)`）、`enum SidebarTextStyle`（`primary` / `secondary` / `tertiary`）、`View.sidebarSelectedBackground(_:)` |
+
+- 随组件一起删除的 internal 实现：`CoreMenuButton` / `CoreMenuButtonStyle`（`BottomInputBar` 的菜单按钮）、
+  `BottomInputBarModifier` / `BottomInputBarSuggestionsView` / `BottomInputBarGlassEffectShape`，
+  以及 `Localizable.strings` 里只被它们使用的 `"iMessage"` / `"Menu"` / `"Send"` / `"Stop"` / `"Suggestions"` 五个键。
+- **保留**（通用 token，不是组件）：`Color.surfaceSidebar` 与 `SurfaceKind.sidebar`（`.surface(.sidebar)`）。
+- `SidebarTextStyle` 的三个成员原是 `.primary` / `.secondary` / `.tertiary` 对
+  `Color.contentPrimary` / `.contentMuted` / `.contentSubtle` 的别名，迁移时直接改用这三个 token。
+- 登记表 / 台账同步：`docs/component-registry.json` 移除 7 条（`BottomInputBar` 与 6 个 `Sidebar*`），
+  `docs/bool-exemptions.json` 移除 15 条豁免，`docs/mainactor-static-exemptions.txt` 移除 4 条
+  （`SidebarTextStyle.*` 与 `BottomInputBarDefaults.placeholder`）。
+
 ## 未发布（相对 `v0.10.0`）——Issue #312：五个组件的布局形态扩展点
 
 **含破坏性变更（与 `v0.9.0` 那 7 处、`0.10.0` 的 `NetworkGraph` 同形）** —— 五个 `init` 各新增一个
@@ -150,7 +170,7 @@
   `Localizable.strings` 的 `"Clear %@"`；`.focusRing` 撤除（系统自绘焦点态）。
 - **Sidebar 选中态扁平化**：去 `floatingGlass` + `borderSelected` 描边 + `coreShadow(.medium)`，
   改为 `accentSubtleBackground` 填充。这是对 `#226`「保持现状」的改判，
-  依据是 `#226` 自己写下的重议条件（见 `docs/components/sidebar.md`）。
+  依据是 `#226` 自己写下的重议条件（原记在 `docs/components/sidebar.md`，该文档已随组件移除，可从 git 历史取回）。
 - **`ListRow` 竖向 padding 12 → 8**（本处调用改 `CoreSpacing.sm`，
   **未动共享的 `CoreControlMetrics.verticalPadding`**）。44pt 触控下限不变
   ⇒ 单行行观感不变，只有多行 / 带副标题的行收紧。

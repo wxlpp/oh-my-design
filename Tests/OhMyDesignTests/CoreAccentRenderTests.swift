@@ -99,20 +99,6 @@ struct CoreAccentRenderTests {
         }
     }
 
-    @Test("Sidebar 选中行跟随 coreAccent")
-    func sidebarSelectionFollowsCoreAccent() throws {
-        for scheme in [ColorScheme.light, .dark] {
-            let differs = try #require(
-                Self.differsUnderCoreAccent({
-                    SidebarNavigationRow(systemImage: "house", title: "Home", isSelected: true) {}
-                        .frame(width: 200)
-                }, scheme: scheme),
-                "\(scheme)：渲染失败"
-            )
-            #expect(differs, "\(scheme)：Sidebar 选中行没跟随 .coreAccent")
-        }
-    }
-
     @Test("Ink 分段样式的选中段跟随 coreAccent；Glass / Plain 两个默认样式不跟随")
     func inkSegmentedFollowsCoreAccent() throws {
         func control() -> some View {

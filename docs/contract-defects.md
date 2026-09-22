@@ -4,6 +4,8 @@
 先例不自洽等），供 `#44`（SC-8 公约回写）逐条裁断。
 
 > ⚠️ **零缺陷也要写「零缺陷」**（41.md AC 原文）——空白与「没撞上」在事后是分不清的。
+>
+> ⚠️ **`Sidebar` 组件组（`SidebarSection` / `SidebarNavigationRow` / `SidebarUtilityRow` / `SidebarDocumentRow` / `SidebarTagRow` / `SidebarStatusFooter`）与 `BottomInputBar` 已从本仓整体移除**（见 `docs/BREAKING-CHANGES.md`）。本文件是只增不删的缺陷簿，涉及它们的条目按原样保留为历史记录；其中的逐字引文不再登记进 `QuotedEvidenceGuard`，源码可从 git 历史取回。
 
 ---
 

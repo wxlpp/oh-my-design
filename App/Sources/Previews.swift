@@ -83,33 +83,6 @@ import OhMyDesign
     .padding()
 }
 
-#Preview("Sidebar") {
-    VStack(alignment: .leading, spacing: CoreSpacing.md) {
-        SidebarSection(title: "Core", showsChevron: false) {
-            SidebarNavigationRow(systemImage: "calendar", title: "Today", isSelected: true) {}
-            SidebarNavigationRow(systemImage: "tray.full", title: "Inbox", isSelected: false) {}
-        }
-
-        SidebarSection(title: "Library") {
-            SidebarDocumentRow(systemImage: "doc.text", title: "Exam Sprint", detail: "47 days") {}
-            SidebarTagRow(title: "Math") {}
-        }
-
-        SidebarSection(title: "Tools", showsChevron: false) {
-            SidebarUtilityRow(systemImage: "gearshape", title: "Settings") {}
-            SidebarUtilityRow(systemImage: "trash", title: "Trash", trailingSystemImage: "arrow.up.right") {}
-            // `#64` 形态 D2：`.textOnly` 拆掉 leading 槽；候选 2 = 本 case + 既有尾图标参数。
-            // ⚠️ `.textOnly` 下 systemImage 不渲染 ⇒ 约定统一写 ""（见 docs/components/sidebar.md）。
-            SidebarUtilityRow(systemImage: "", title: "Archive", presentation: .textOnly) {}
-            SidebarUtilityRow(systemImage: "", title: "Settings", trailingSystemImage: "chevron.forward", presentation: .textOnly) {}
-        }
-
-        SidebarStatusFooter(title: "Synced", detail: "Updated just now")
-    }
-    .padding()
-    .background(Color.surfaceSidebar)
-}
-
 #Preview("UnderlinedTabBar") {
     UnderlinedTabBar(
         items: ["Tab 1", "Tab 2", "Tab 3"],
@@ -160,12 +133,6 @@ private struct ToastSnapshotHarness: View {
         .background(Color.surfaceCanvas)
         .task { self.toast?.show("Toast snapshot", level: .info) }
     }
-}
-
-#Preview("BottomInputBar") {
-    // 与 ComponentData 的条目共用同一个宿主——两处必须一致，否则 demo 里看到的
-    // 与快照流水线出的图会是两个东西。
-    BottomInputBarPreview()
 }
 
 // MARK: - Three-in-one components

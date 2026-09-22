@@ -4,6 +4,8 @@
 
 > 视觉地基（token 取值理由）在 [`DESIGN-FOUNDATION.md`](DESIGN-FOUNDATION.md)。
 > 两者不同轴：那份管「这个数字为什么是这个数字」，本份管「这个参数为什么是这个形状」。
+>
+> ⚠️ **`Sidebar` 组件组（`SidebarSection` / `SidebarNavigationRow` / `SidebarUtilityRow` / `SidebarDocumentRow` / `SidebarTagRow` / `SidebarStatusFooter`）与 `BottomInputBar` 已从本仓整体移除**（见 `docs/BREAKING-CHANGES.md`）。下文以它们为例的判例、反例与计数是当时的判定记录，源码与登记条目均已不在树内；规则本身不因此改变。
 
 ## 1. 判定法：语义组件 vs 规定性组件
 
@@ -1432,7 +1434,6 @@ public——只是都不是 `View`/`ViewModifier`。
 | README 行 | 无限定时按字面 | 登记表实际 |
 |---|---|---|
 | `Skeleton（SkeletonLine / SkeletonRect / SkeletonCircle）` | 1 条聚合条目 | **4 条** |
-| `Sidebar` | 1 条聚合条目 `Sidebar` | **6 条**，且**没有**叫 `Sidebar` 的条目 |
 | `LabelIcon / ChevronRightIcon / DangerIcon` | 1 条 | 3 条 |
 | `SectionHeader / SectionFooter` | 1 条 | 2 条 |
 

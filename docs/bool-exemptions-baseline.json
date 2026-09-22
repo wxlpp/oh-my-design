@@ -1,10 +1,10 @@
 {
-  "maxEntries": 35,
-  "sourceSites": 40,
+  "maxEntries": 20,
+  "sourceSites": 24,
   "perTarget": {
     "OhMyDesign": {
-      "exemptions": 35,
-      "sourceSites": 40
+      "exemptions": 20,
+      "sourceSites": 24
     },
     "OhMyDesignEffects": {
       "exemptions": 0,
