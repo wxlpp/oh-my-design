@@ -150,3 +150,27 @@ x 起点，写进 `docs/components/tag-input.md` 与报告。做不到平滑就�
 （带 `CODE_SIGNING_ALLOWED=NO -IDEPackageEnablePrebuilts=NO`，读 `.xcresult` 顶层计数）；
 预览宿主构建；截图 light / dark（TagInput 增删含删中间项、TagGroup 选中切换、五档尺寸）。
 每条新判据给出变异结果（先确认变异真的落盘，再跑判据）。
+
+## 实现后的偏离（与上面计划不同的三处）
+
+1. **`Tag` 一字未动**（计划第 3 节作废）。计划里「两个 chrome 子树之间没有可插值的量，选中切换只能突变」
+   **实测为假**：把 `chrome` 改回 `if let` 两分支后，`TagMotionInFlightTests.tagGroupSelectionInterpolatesWithoutGeometryChange`
+   在 `.animated` 与 `.resting` 下**照样**拍到中间帧（SwiftUI 对分支切换做交叉淡变）⇒ 改写的理由不成立。
+   ⇒ 撤回改写，`LegacyChromeTag`（为逐像素对照写的旧实现拷贝）连同 `FieldValidationControlsTests`
+   里那一处引用一起删掉——参照与被测同源时那种「相等」是同义反复。
+2. **静态外观判据换了形态**。既然 `Tag` 没动，逐像素对照的对象改成「同一棵树、三种呈现裁决」：
+   `TagStaticAppearanceTests` 钉住五档 `controlSize` × 选中与否 × light / dark 下
+   `.animated` / `.resting` / `.hidden` 的静息位图相同。TagInput 与旧实现的逐像素对照由既有的
+   `FieldValidationControlsAppearanceTests.validMatchesLegacyPixels(.tagInput)`（对照 `LegacyTagInput`，
+   下标身份、无转场、无动画）承担，TagGroup 由既有的 `unselectedTextMatchesPlainTag` /
+   `selectedTextMatchesDerivedReference` 承担。
+   ⚠️ 容差不是 `expectBitmapsEqual`：实测同一份输入在同一进程里连渲多张时，**前几张**与稳定输出差
+   1 个 LSB（`mini` 档 TagInput 197120 B 帧上 4 / 19 字节），而 `render3` 与另两种裁决的图逐字节相同
+   ⇒ 噪声来自渲染次序。取 Δ ≤ 1、差异 ≤ 0.2%（`TagGroupTests` 同款），是实测噪声的 20 倍。
+3. **转场做成具体 `Transition` 类型**（计划写的是 `AnyTransition`）。`AnyTransition` 没有可内省的量，
+   truth table 无处落脚；`CollectionItemTransition` 把缩放 / 透明度抠成两个纯函数，逐相位可判。
+   代价：它是核心库第一个自有 `Transition`，顶到了 `#292` 的 `TransitionPropertiesGuard`
+   ——该判据原先只在 `Tests/OhMyDesignEffectsTests/` 里找运行时 `hasMotion` 断言，而本类型是 internal、
+   那个 target 看不见它。⇒ 把该判据的 `runtimeExpectationRoots` 扩成两个测试根（严格超集，
+   原有 `>= 12` 的下界照旧成立），并按它的要求做三件事：登记 `roster`、写运行时断言、
+   在 `docs/DESIGN-FOUNDATION.md` 裁定 `hasMotion` 取值与内层门控的先后关系。

@@ -20,6 +20,29 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.11.0`）——Issue #409：TagGroup / TagInput 增删与选中动画
+
+**行为变更（无签名破坏）。** 公开符号的签名一个都没变；`Tag` 一字未动。
+
+| 位置 | 之前 | 现在 |
+|---|---|---|
+| `TagInput` 的 chip 身份 | `ForEach(Array(tags.enumerated()), id: \.offset)` —— 删中间项时其后每一项都换身份 | 「标签值 + 该值的出现序号」—— 删中间项时存活 chip 身份不变 |
+| `TagInput` chip 增删 | 无动画，瞬间增删 | 缩放 0.86 + 淡变进出，存活标签连续重排（`CoreMotionToken.reveal`，0.25 s `.smooth`） |
+| `TagGroup` 标签增删 | 无动画 | 同上 |
+| `TagGroup` 选中态切换 | 无动画，底色 / 描边瞬变 | 0.22 s 交叉淡变（`CoreMotionToken.selection`） |
+
+**Reduce Motion 开启时**：两处增删的驱动曲线为 `nil` ⇒ 直接出现 / 消失，`FlowLayout` 不做补间重排，
+转场只剩淡变（缩放在每一相恒为 1）。`TagGroup` 的**选中态切换照常淡变**——只有颜色插值、包围盒不变，
+不属于要降级的位移 / 缩放类动效。
+
+**下游可能受影响的两处**（都不是编译期破坏）：
+
+- 重复标签（`allowDuplicates: true`）下删掉某个重复值的**前一个**出现时，该值的后续出现序号下降 ⇒
+  它们在 `ForEach` 看来换了身份，会各播一次移除 + 插入转场。`allowDuplicates: false`（默认）下标签唯一，
+  身份完全稳定。
+- `TagGroup` 的 `data` 在下游被频繁整体替换（例如每次搜索都换一批标签）时，现在会播增删动画；
+  不想要动画的调用点可注入 `.environment(\.coreMotionPresentationOverride, .hidden)`。
+
 ## 未发布（相对 `v0.11.0`）——Issue #407：动效 token 与 Reduce Motion 纪律
 
 **行为变更（无签名破坏）。** 公开符号的签名一个都没变；新增 `CoreMotionToken`、`EnvironmentValues.coreMotionPresentation`、
