@@ -105,10 +105,10 @@ struct ComponentTextParamGuard {
                 "只扫到 \(scan.bareTextKeys.count) 个裸文本参数 —— 扫描器失效，这不是『零违规』")
         #expect(scan.localizedTextKeys.count > 5,
                 "只扫到 \(scan.localizedTextKeys.count) 个 LSK/LSR 参数 —— 扫描器失效")
-        #expect(registryTextParams == 27,
-                "OhMyDesign 侧 textParams 实测 27 条（移除 Sidebar 六条行组件与 BottomInputBar 后由 36 变为 27），实际 \(registryTextParams) —— 若为预期变化请同步改这个数字")
-        #expect(result.covered.count == 22,
-                "覆盖数实测 22（移除 Sidebar 六条行组件与 BottomInputBar 后由 31 变为 22），实际 \(result.covered.count)：\(result.covered.keys.sorted())")
+        #expect(registryTextParams == 29,
+                "OhMyDesign 侧 textParams 实测 29 条（`#373` 新增 FormField 的 label / description 后由 27 变为 29），实际 \(registryTextParams) —— 若为预期变化请同步改这个数字")
+        #expect(result.covered.count == 24,
+                "覆盖数实测 24（`#373` 新增 FormField 的 label / description 后由 22 变为 24），实际 \(result.covered.count)：\(result.covered.keys.sorted())")
         #expect(abs(result.covered.count - registryTextParams) * 2 <= registryTextParams,
                 "扫到的覆盖数 \(result.covered.count) 与登记表 \(registryTextParams) 条不在同一量级 —— 两侧口径可能已经脱节")
 
@@ -146,9 +146,9 @@ struct ComponentTextParamGuard {
                 需要人来决定是扩 FR-4 定义域还是移交
                 """)
 
-        #expect(result.localizedByType.count == 17,
+        #expect(result.localizedByType.count == 19,
                 """
-                LSK/LSR 由类型判定的键实测 17 条（`#270` 扩扫描根后由 11 变为 17），实际 \(result.localizedByType.count)：\(result.localizedByType)。\
+                LSK/LSR 由类型判定的键实测 19 条（`#373` 新增 FormField 的 label / description 后由 17 变为 19），实际 \(result.localizedByType.count)：\(result.localizedByType)。\
                 变化意味着有参数在 LSK/LSR 与裸串之间换了类型 —— 要人过目，不能静默
                 """)
         #expect(result.carrying.count == 7,

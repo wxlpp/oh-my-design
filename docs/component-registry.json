@@ -371,6 +371,28 @@
       "notes": "专注模式容器：紧凑宽度下隐藏状态栏/工具栏，仅留退出按钮。步骤 1 无。步骤 2/3：这是一个行为容器（分工归属见 spec §4.1），不是外观容器——『隐藏 chrome + 退出入口』本身就是它存在的唯一理由，没有『换一种长相但功能不变』的空间 ⇒ 步骤 3 规定性。exitButtonAccessibilityLabel 是固定 a11y chrome（内部静态函数，非公开参数），不进 textParams。"
     },
     {
+      "component": "FormField",
+      "repo": "ohmydesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [
+        {
+          "name": "label",
+          "category": "B"
+        },
+        {
+          "name": "description",
+          "category": "B"
+        }
+      ],
+      "notes": "`#373`（PRD FR-1）新增的表单字段容器：label（必填星号）+ 真实输入控件 + description / 错误行共用的一个槽位，校验态 / 必填性经 `.fieldValidation(_:)` / `.fieldRequirement(_:)` 环境值注入。祖父条款、弃用条款均不命中（无已发布的自有样式协议，未弃用）。**步骤 1：视为无。** 最接近的原生协议是 `LabeledContentStyle`，其 `Configuration` 只有 `label` / `content` 两槽，description 无处安放，且 style 在 `makeBody` 里拿不到要经环境值下传给真实输入节点的 description ⇒ 写不出「改写且不丢功能」的声明，进步骤 2。**步骤 2 → 步骤 4（`tiebreaker`）**：考虑过的候选有三个——Ant Design `Form.Item` 的 `layout=\"horizontal\"`（Fluent 2 `Field` 横向同形）、Apple HIG macOS 表单 / SwiftUI `.formStyle(.columns)` 的标签列、Material Design 3 Text fields 的浮动标签。浮动标签排除：它是对文本框本体的换皮（label 画进输入框边框内），而本库有意不给系统 `TextField` 换皮（无公开外观定制入口，「换皮不重造」）。剩下两个共享同一布局骨架（label 前置列 + 控件列），按皮肤变体条款只算 1 个非皮肤候选，达不到「≥2」⇒ 举得犹豫 ⇒ 落步骤 4，默认规定性、不登记扩展点。`FormFieldLayout`（`.stacked` / `.inline`）作为已发布的形态参数保留（公开 API 已存在，删除属破坏性变更），但它不是按判定法出口 1 开出的样式扩展点；辅助功能大字号下 `.inline` 回退 `.stacked`，相邻 `.inline` 字段的 label 列宽由 `View.formFieldLabelColumn()` 统一。textParams：`label` / `description` 均为 `LocalizedStringKey` + `StringProtocol` 双重载的界面文案 ⇒ B 类（与 `SettingsRow` 同形）。"
+    },
+    {
       "component": "FullScreenButton",
       "repo": "ohmydesign",
       "kind": "prescriptive",

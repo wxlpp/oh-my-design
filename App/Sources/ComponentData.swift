@@ -92,6 +92,9 @@ extension ComponentMeta {
         ComponentMeta(id: "tag-input", name: "TagInput", description: "标签输入框：Tag chip + 内联 TextField，回车/逗号提交", category: .form) {
             TagInputPreview()
         },
+        ComponentMeta(id: "form-field", name: "FormField", description: "字段容器：label + 必填星号 + description + 错误行；.fieldValidation / .fieldRequirement 环境值", category: .form) {
+            FormFieldPreview()
+        },
 
         // Indicator
         ComponentMeta(id: "badge", name: "Badge", description: "5 状态等级指示器：info / success / warning / danger / neutral", category: .indicator) {
@@ -940,6 +943,99 @@ private struct TagInputPreview: View {
         // 范围内）。画廊演示改用更有辨识度的 .blue，让暗色变体清晰可读；调用方仍可自由
         // 传入任意颜色，含中性色。
         TagInput(tags: self.$tags, placeholder: "Add tag", tagColor: .blue)
+    }
+}
+
+private struct FormFieldPreview: View {
+    @State private var name = ""
+    @State private var email = "jane@"
+    @State private var team = "Design"
+    @State private var city = ""
+    @State private var postalCode = "950"
+    @State private var host = "example"
+    @State private var port = "80800"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+            FormField("Full name", description: "Shown on your public profile.") {
+                TextField("Jane Appleseed", text: self.$name)
+                    .textFieldStyle(.roundedBorder)
+                    .fieldAccessibility()
+            }
+            .fieldRequirement(.required)
+
+            FormField("Email", description: "We never share your address.") {
+                TextField("you@example.com", text: self.$email)
+                    .textFieldStyle(.roundedBorder)
+                    .fieldAccessibility()
+            }
+            .fieldRequirement(.required)
+            .fieldValidation(self.emailValidation)
+
+            FormField("Password") {
+                SecureField("Password", text: .constant("abc"))
+                    .textFieldStyle(.roundedBorder)
+                    .fieldAccessibility()
+            }
+            .fieldValidation(.invalid("Use at least 12 characters, including a number and a symbol, and avoid words that appear in your name or email address."))
+
+            FormField("Team", description: "Managed by your administrator.") {
+                TextField("Team", text: self.$team)
+                    .textFieldStyle(.roundedBorder)
+                    .foregroundStyle(Color.contentDisabled)
+                    .fieldAccessibility()
+            }
+            .fieldValidation(.invalid("Disabled wins over invalid."))
+            .disabled(true)
+
+            Text(verbatim: "Inline layout")
+                .coreFont(.headline)
+                .foregroundStyle(Color.contentSecondary)
+
+            VStack(alignment: .leading, spacing: CoreSpacing.md) {
+                FormField("City", description: "Used for shipping estimates.", layout: .inline) {
+                    TextField("Cupertino", text: self.$city)
+                        .textFieldStyle(.roundedBorder)
+                        .fieldAccessibility()
+                }
+
+                FormField("Postal code", layout: .inline) {
+                    TextField("95014", text: self.$postalCode)
+                        .textFieldStyle(.roundedBorder)
+                        .fieldAccessibility()
+                }
+                .fieldRequirement(.required)
+                .fieldValidation(self.postalCode.count == 5 ? .valid : .invalid("Enter a 5-digit postal code."))
+            }
+            .formFieldLabelColumn()
+
+            InsetGroupedSection(header: "Server", dividerInset: .textAligned) {
+                FormField("Host", layout: .inline) {
+                    TextField("example.com", text: self.$host)
+                        .textFieldStyle(.plain)
+                        .fieldAccessibility()
+                }
+                .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
+                .padding(.vertical, CoreSpacing.sm)
+
+                FormField("Port", layout: .inline) {
+                    TextField("443", text: self.$port)
+                        .textFieldStyle(.plain)
+                        .fieldAccessibility()
+                }
+                .fieldValidation(self.port.count <= 5 && (Int(self.port) ?? 0) <= 65535 ? .valid : .invalid("Port must be 65535 or lower."))
+                .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
+                .padding(.vertical, CoreSpacing.sm)
+            }
+            .formFieldLabelColumn()
+        }
+    }
+
+    private var emailValidation: FieldValidation {
+        let parts = self.email.split(separator: "@", omittingEmptySubsequences: false)
+        return parts.count == 2 && parts[1].contains(".")
+            ? .valid
+            : .invalid("Enter a valid email address.")
     }
 }
 
