@@ -6,6 +6,7 @@ struct ComponentTextParamGuard {
     static let ownerAliases: [String: String] = [
         "ToastItem": "Toast",
         "ToastHost": "Toast",
+        "ToastAction": "Toast",
         "RadioOption": "RadioGroup",
         "StepItem": "Steps",
         "SegmentedControlStyleConfiguration.Segment": "SegmentedControl",
@@ -17,7 +18,8 @@ struct ComponentTextParamGuard {
     ]
 
     static let knownFunctionSideBareText: Set<String> = [
-        "ToastHost.show#message",
+        "ToastHost.show#description",
+        "ToastHost.show#title",
         "View.spray#symbol",
     ]
 
@@ -105,10 +107,10 @@ struct ComponentTextParamGuard {
                 "只扫到 \(scan.bareTextKeys.count) 个裸文本参数 —— 扫描器失效，这不是『零违规』")
         #expect(scan.localizedTextKeys.count > 5,
                 "只扫到 \(scan.localizedTextKeys.count) 个 LSK/LSR 参数 —— 扫描器失效")
-        #expect(registryTextParams == 27,
-                "OhMyDesign 侧 textParams 实测 27 条（移除 Sidebar 六条行组件与 BottomInputBar 后由 36 变为 27），实际 \(registryTextParams) —— 若为预期变化请同步改这个数字")
-        #expect(result.covered.count == 22,
-                "覆盖数实测 22（移除 Sidebar 六条行组件与 BottomInputBar 后由 31 变为 22），实际 \(result.covered.count)：\(result.covered.keys.sorted())")
+        #expect(registryTextParams == 33,
+                "OhMyDesign 侧 textParams 实测 33 条（`#373` 新增 FormField 的 label / description 后由 27 变为 29；`#376` Banner 便利 init 的 title / message 两条 by-type 使 29 变为 31；`#377` 把 Toast 的 message 改名 title 并新增 description / label 使 31 变为 33），实际 \(registryTextParams) —— 若为预期变化请同步改这个数字")
+        #expect(result.covered.count == 26,
+                "覆盖数实测 26（`#373` 新增 FormField 的 label / description 后由 22 变为 24；`#377` 的 ToastItem title / description、ToastAction label 取代 ToastItem.init#message 使 24 变为 26），实际 \(result.covered.count)：\(result.covered.keys.sorted())")
         #expect(abs(result.covered.count - registryTextParams) * 2 <= registryTextParams,
                 "扫到的覆盖数 \(result.covered.count) 与登记表 \(registryTextParams) 条不在同一量级 —— 两侧口径可能已经脱节")
 
@@ -146,9 +148,9 @@ struct ComponentTextParamGuard {
                 需要人来决定是扩 FR-4 定义域还是移交
                 """)
 
-        #expect(result.localizedByType.count == 17,
+        #expect(result.localizedByType.count == 21,
                 """
-                LSK/LSR 由类型判定的键实测 17 条（`#270` 扩扫描根后由 11 变为 17），实际 \(result.localizedByType.count)：\(result.localizedByType)。\
+                LSK/LSR 由类型判定的键实测 21 条（`#373` 新增 FormField 的 label / description 后由 17 变为 19；`#376` Banner 便利 init 的 title / message 使 19 变为 21），实际 \(result.localizedByType.count)：\(result.localizedByType)。\
                 变化意味着有参数在 LSK/LSR 与裸串之间换了类型 —— 要人过目，不能静默
                 """)
         #expect(result.carrying.count == 7,
@@ -266,8 +268,8 @@ struct ComponentTextParamGuard {
                 }
             }
         }
-        #expect(byTypeCount == 6,
-                "by-type 条目实测 6 条（Descriptions.header / SpinningModifier.text + 四个图表的 title），实际 \(byTypeCount)")
+        #expect(byTypeCount == 8,
+                "by-type 条目实测 8 条（Descriptions.header / SpinningModifier.text + 四个图表的 title + Banner.title / Banner.message），实际 \(byTypeCount)")
         #expect(localizedBCount == 0)
         let bcCount = entries.filter { $0.repo == "ohmydesign" }
             .flatMap(\.textParams).count - byTypeCount

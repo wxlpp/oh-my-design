@@ -188,7 +188,8 @@ struct ComponentJudgeMutationTests {
         defer { try? FileManager.default.removeItem(at: root) }
         try self.applyMutation(
             root: root, relativePath: "Components/Avatar/Avatar.swift",
-            find: "public init(name: String) {", replace: "public init(name: String, caption: String) {"
+            find: "public init(name: String, size: AvatarSize = .automatic) {",
+            replace: "public init(name: String, size: AvatarSize = .automatic, caption: String) {"
         )
         let entries = try ComponentRegistryGuard.loadRegistry()
         let scan = try scanComponentJudgeInputs(roots: self.copiedRoots(in: root))
@@ -222,7 +223,8 @@ struct ComponentJudgeMutationTests {
         defer { try? FileManager.default.removeItem(at: root) }
         try self.applyMutation(
             root: root, relativePath: "Components/Avatar/Avatar.swift",
-            find: "public init(name: String) {", replace: "public init(displayName: String) {"
+            find: "public init(name: String, size: AvatarSize = .automatic) {",
+            replace: "public init(displayName: String, size: AvatarSize = .automatic) {"
         )
         let entries = try ComponentRegistryGuard.loadRegistry()
         let result = judgeTextParamCoverage(

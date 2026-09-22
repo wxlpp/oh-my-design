@@ -104,4 +104,8 @@ extension Color {
     static func accentSubtleBackground(from base: Color) -> Color {
         base.opacity(0.08)
     }
+
+    static func accentSelectedBorder(from base: Color) -> Color {
+        base
+    }
 }

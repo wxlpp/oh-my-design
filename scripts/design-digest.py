@@ -24,8 +24,20 @@ FLOORS = {
     # components +1（InkSegmentedControlStyle）、viewext +1（View.coreAccent）、
     # styleext +3（SegmentedControlStyle 的 .glass / .plain / .ink 三个静态入口）。
     # #312：enums +5（五个 …Layout 配置枚举）、enumcases +18（4 + 4 + 4 + 3 + 3）。
-    "colors": 118, "components": 84, "enums": 34, "enumcases": 126,
-    "protocols": 6, "viewext": 39, "styleext": 12, "others": 27,
+    # #375：enumcases +1（StatusLevel.neutral）。
+    # #378：enums +1（AvatarSize）、enumcases +2（.automatic / .fixed）。
+    # #379：colors +2（systemRed / badgeFill）、enums +3（AnchoredBadgeContent / AnchoredBadgePlacement /
+    # AnchoredBadgeHostShape）、enumcases +9（3 + 4 + 2）、viewext +1（View.anchoredBadge）。
+    # #373：components +1（FormField）、enums +3（FieldValidation / FieldRequirement / FormFieldLayout）、
+    # enumcases +6（2 + 2 + 2）、viewext +4（fieldValidation / fieldRequirement / fieldAccessibility / formFieldLabelColumn）。
+    # #381：components +3（CoreCircularProgressViewStyle / PressableRowButtonStyle /
+    # PressableCardButtonStyle）、styleext +3（.coreCircular / .pressableRow / .pressableCard）。
+    # #377：enums +1（ToastDuration）、enumcases +2（.seconds / .persistent）、others +1（ToastAction）。
+    # #382：viewext +1（View.coreSheetPresentation）。
+    # #382：enums +1（CoreSheetBackground）、enumcases +2（.system / .raised）、viewext +1（View.coreSheetPresentation）。
+    # #380：components +1（TagGroup）、enums +1（TagGroupSelectionMode）、enumcases +3（none / single / multiple）。
+    "colors": 120, "components": 89, "enums": 44, "enumcases": 151,
+    "protocols": 6, "viewext": 45, "styleext": 15, "others": 28,
 }
 
 # 组件判定：conformance 列表里出现这些名字之一，或以 Style 结尾。
@@ -245,7 +257,9 @@ def control_metrics(root):
     src = read(os.path.join(root, "Sources/OhMyDesign/Tokens/CoreControlMetrics.swift"))
     order = ["mini", "small", "regular", "large", "extraLarge"]
     table = {}
-    for func in ["height", "horizontalPadding", "verticalPadding", "fontToken", "iconSize"]:
+    for func in ["height", "horizontalPadding", "verticalPadding", "fontToken", "iconSize",
+                 "compactHorizontalPadding", "compactVerticalPadding", "compactFontToken",
+                 "compactIconSize", "compactMinHeight", "compactCornerRadius", "avatarDiameter"]:
         segment = src.split(f"public static func {func}(")[1].split("\n    }")[0]
         for size, value in re.findall(r"case\s+\.(\w+):\s*(?:return\s+)?([\w.]+)", segment):
             if size in order:
@@ -475,6 +489,17 @@ def main():
         add(
             f"| `.{size}` | {row.get('height','—')} | {row.get('horizontalPadding','—')} "
             f"| {row.get('verticalPadding','—')} | {row.get('fontToken','—')} | {row.get('iconSize','—')} |"
+        )
+    add("")
+    add("紧凑 chip（`Badge` / `Tag`）与头像（`Avatar` / `AvatarGroup`）：\n")
+    add("| ControlSize | compact h-padding | compact v-padding | compact font | compact icon "
+        "| compact min height（iOS 表；macOS 另一张，见源码） | compact radius | avatar diameter |")
+    add("|---|---|---|---|---|---|---|---|")
+    for size, row in metrics:
+        add(
+            f"| `.{size}` | {row.get('compactHorizontalPadding','—')} | {row.get('compactVerticalPadding','—')} "
+            f"| {row.get('compactFontToken','—')} | {row.get('compactIconSize','—')} "
+            f"| {row.get('compactMinHeight','—')} | {row.get('compactCornerRadius','—')} | {row.get('avatarDiameter','—')} |"
         )
     add("")
 

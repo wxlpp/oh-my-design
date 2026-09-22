@@ -31,6 +31,12 @@ import OhMyDesign
         Banner(level: .success) { Text("Success message") }
         Banner(level: .warning) { Text("Warning message") }
         Banner(level: .danger) { Text("Danger message") }
+        Banner(level: .neutral) { Text("Neutral message") }
+        Banner(level: .info, title: "Update available", message: "Restart the app to finish installing version 2.4.") {
+            Button("Restart now") {}
+                .buttonStyle(.solid(role: .primary))
+                .controlSize(.small)
+        } onDismiss: {}
     }
     .padding()
 }
@@ -65,8 +71,10 @@ import OhMyDesign
 
 #Preview("Avatar") {
     HStack(spacing: CoreSpacing.md) {
-        Avatar(name: "Evan")
-        Avatar(name: "OhMyDesign")
+        Avatar(name: "Evan").controlSize(.small).clipShape(Circle())
+        Avatar(name: "OhMyDesign").clipShape(Circle())
+        Avatar(name: "Ada").controlSize(.extraLarge).clipShape(Circle())
+        Avatar(name: "Linus", size: .fixed(64)).clipShape(Circle())
     }
     .padding()
 }
@@ -109,6 +117,17 @@ import OhMyDesign
         .toastHost(edge: .top, presentation: .centeredHUD)
 }
 
+#Preview("Toast · title + description + action") {
+    ToastSnapshotHarness(rich: ToastItem(
+        title: "Conversation archived",
+        description: "It moves back to the inbox if you undo within a few seconds.",
+        level: .neutral,
+        duration: .persistent,
+        action: ToastAction("Undo") {}
+    ))
+    .toastHost(edge: .top)
+}
+
 #Preview("Toast · fullWidthBanner bottom") {
     ToastSnapshotHarness()
         .toastHost(edge: .bottom, presentation: .fullWidthBanner)
@@ -117,6 +136,7 @@ import OhMyDesign
 /// Toast snapshot demo：按钮点击触发 toast 显示，初始状态展示场景脚手架。
 private struct ToastSnapshotHarness: View {
     @Environment(\.toastHost) private var toast
+    var rich: ToastItem?
 
     var body: some View {
         VStack(spacing: CoreSpacing.md) {
@@ -127,11 +147,18 @@ private struct ToastSnapshotHarness: View {
             Button("Success") { self.toast?.show("Success: demo", level: .success) }
             Button("Warning") { self.toast?.show("Warning: demo", level: .warning) }
             Button("Danger") { self.toast?.show("Danger: demo", level: .danger) }
+            Button("Neutral") { self.toast?.show("Neutral: demo", level: .neutral) }
         }
         .padding(CoreSpacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.surfaceCanvas)
-        .task { self.toast?.show("Toast snapshot", level: .info) }
+        .task {
+            if let rich = self.rich {
+                self.toast?.show(rich)
+            } else {
+                self.toast?.show("Toast snapshot", level: .info)
+            }
+        }
     }
 }
 
@@ -247,6 +274,11 @@ private struct ToastSnapshotHarness: View {
         Card(padding: CoreSpacing.md, alignment: .center) {
             Text("居中 + 紧凑内边距").coreFont(.subheadline)
         }
+        Card {
+            Card {
+                Text("嵌套 Card：elevated").coreFont(.subheadline)
+            }
+        }
     }
     .padding()
     .background(Color.surfaceCanvas)
@@ -318,6 +350,7 @@ private struct ToastSnapshotHarness: View {
         ProgressView(value: 0.6, label: { Text("Downloading") }, currentValueLabel: { Text("60%") })
             .progressViewStyle(.core)
             .tint(.red)
+        ProgressView(value: 0.6).progressViewStyle(.coreCircular).tint(.red)
         Label("Sync", systemImage: "arrow.triangle.2.circlepath").labelStyle(.core).tint(.blue)
         DisclosureGroup("Details", isExpanded: .constant(true)) {
             Text("Additional information goes here.").foregroundStyle(Color.contentSecondary)
@@ -571,11 +604,85 @@ enum PreviewSnapshotFixtures {
     .background(Color.surfaceCanvas)
 }
 
+#Preview("TagGroup") {
+    struct Item: Identifiable, Hashable { let id: String }
+    let languages = ["Swift", "Kotlin", "Rust", "TypeScript", "Go"].map(Item.init(id:))
+    return VStack(alignment: .leading, spacing: CoreSpacing.md) {
+        TagGroup(languages, selection: .constant(["Swift", "Rust"]), disabled: ["Go"], color: .contentPrimary) {
+            Text($0.id)
+        }
+        TagGroup(languages, selection: .constant(["Kotlin"]), selectionMode: .single, color: .contentPrimary) {
+            Text($0.id)
+        }
+        .coreAccent(.blue)
+    }
+    .padding()
+    .frame(width: 320)
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("FormField") {
+    VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+        FormField("Full name", description: "Shown on your public profile.") {
+            TextField("Jane Appleseed", text: .constant(""))
+                .textFieldStyle(.roundedBorder)
+                .fieldAccessibility()
+        }
+        .fieldRequirement(.required)
+
+        FormField("Email") {
+            TextField("you@example.com", text: .constant("jane@"))
+                .textFieldStyle(.roundedBorder)
+                .fieldAccessibility()
+        }
+        .fieldRequirement(.required)
+        .fieldValidation(.invalid("Enter a valid email address."))
+
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            FormField("City", layout: .inline) {
+                TextField("Cupertino", text: .constant(""))
+                    .textFieldStyle(.roundedBorder)
+                    .fieldAccessibility()
+            }
+            FormField("Postal code", layout: .inline) {
+                TextField("95014", text: .constant("950"))
+                    .textFieldStyle(.roundedBorder)
+                    .fieldAccessibility()
+            }
+            .fieldRequirement(.required)
+            .fieldValidation(.invalid("Enter a 5-digit postal code."))
+        }
+        .formFieldLabelColumn()
+    }
+    .padding()
+    .frame(width: 360)
+    .background(Color.surfaceCanvas)
+}
+
 #Preview("Descriptions") {
     Descriptions(header: "Order") {
         LabeledContent("Status") { Text("Active") }
         LabeledContent("Total") { Text("$42.00") }
         LabeledContent("Placed") { Text("2026-07-20") }
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("Pressable Button Styles") {
+    VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+        InsetGroupedSection(header: ".pressableRow") {
+            Button {} label: {
+                SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: "Wi-Fi") {
+                    SettingsRowChevron()
+                }
+            }
+            .buttonStyle(.pressableRow)
+        }
+        Button {} label: {
+            Card { Text("Weekly report") }
+        }
+        .buttonStyle(.pressableCard)
     }
     .padding()
     .background(Color.surfaceCanvas)
@@ -646,6 +753,26 @@ private struct CarouselPreviewsPreviewGallery: View {
                 .padding(.horizontal, CoreSpacing.xs)
         }
     }
+}
+
+#Preview("AnchoredBadge") {
+    VStack(alignment: .leading, spacing: CoreSpacing.xxl) {
+        HStack(spacing: CoreSpacing.xl) {
+            Avatar(name: "Evan", size: .fixed(CoreSpacing.xxxxl)).clipShape(Circle())
+                .anchoredBadge(.dot, hostShape: .circle)
+            Avatar(name: "Aurora", size: .fixed(CoreSpacing.xxxxl)).clipShape(Circle())
+                .anchoredBadge(.count(120, max: 99), hostShape: .circle)
+            Avatar(name: "OhMyDesign", size: .fixed(CoreSpacing.huge)).clipShape(Circle())
+                .anchoredBadge(.text("NEW"), hostShape: .circle)
+        }
+        HStack(spacing: CoreSpacing.xxl) {
+            Image(systemName: "bell.fill").font(.title).anchoredBadge(.dot)
+            Image(systemName: "envelope.fill").font(.title).anchoredBadge(.count(7))
+            Image(systemName: "gift.fill").font(.title).anchoredBadge(.text("NEW"), placement: .topLeading)
+        }
+    }
+    .padding(CoreSpacing.xl)
+    .background(Color.surfaceCanvas)
 }
 
 #Preview("Spinning") {

@@ -72,6 +72,16 @@ RadioGroup(
 
 > **不响应 `.tint`**：与本仓库 Phase 2 的 `.core` style 系统控件（`ProgressView`/`Label`/`DisclosureGroup`，见 `docs/components/core-control-styles.md`）不同，`RadioGroup` 的选中态颜色**固定用 `Color.contentPrimary`**，不经 `TintShapeStyle`——调用方 `.tint(_:)` 对它不生效。这是与 `CheckBoxToggleStyle` 视觉配对的显式取舍（两者都不引入强调色语义），而非疏漏；需要强调色响应的场景应换用系统 `Picker`/`Toggle` + `.tint`。
 
+## 校验态 / Field validation
+
+`RadioGroup` 与 `CheckBoxToggleStyle` 都读 `.fieldValidation(_:)`（见 `form-field.md`）：
+
+- invalid 时圆点 / 方框图标取 `Color.statusDangerForeground`（选中与未选中都换）；标题文字不变。
+- disabled 优先于 invalid：禁用时与禁用 + valid 外观一致。
+- 无障碍：错误原因与 `FormField` 的 description 作为 hint 挂在**每个可切换节点**上
+  （Radio 的每一行、CheckBox 的 `Toggle`）；label 保留选项 / Toggle 自身的文字，
+  不替换成字段 label——否则同组的每个选项都会读成同一个字段名。
+
 ## 取舍：为何不用 `.pickerStyle(.radioGroup)`
 
 SwiftUI 在 macOS 上原生提供 `Picker` + `.pickerStyle(.radioGroup)`，是 Apple 官方更推荐的 radio 实现路径。但该 style **仅 macOS 可用**，iOS/iPadOS 没有对应渲染，且其视觉（系统原生单选圆钮）与本仓库已有的 `CheckBoxToggleStyle`（手写方框 + SF Symbol）语汇不一致。

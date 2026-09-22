@@ -1,12 +1,17 @@
 /* Component internal UI strings (source language = en). */
 "%@ complete" = "%@ complete";
 "%@ of %@" = "%@ of %@";
+"%@, %@" = "%@, %@";
+"%@, required" = "%@, required";
 "Alert" = "Alert";
 "Collapsed" = "Collapsed";
+"Dismiss" = "Dismiss";
 "Error" = "Error";
 "Expanded" = "Expanded";
 "Info" = "Info";
 "Loading" = "Loading";
+"Neutral" = "Neutral";
+"New" = "New";
 "Progress" = "Progress";
 "Rating" = "Rating";
 "Remove tag" = "Remove tag";

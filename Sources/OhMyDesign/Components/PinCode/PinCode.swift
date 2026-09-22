@@ -12,6 +12,7 @@ public struct PinCode: View {
     @FocusState private var isFocused: Bool
     @Environment(\.controlSize) private var controlSize
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.fieldValidation) private var validation
 
     /// - Parameters:
     ///   - value: 当前验证码文本，驱动方通过 `Binding<String>` 双向绑定；组件内部会
@@ -86,6 +87,7 @@ public struct PinCode: View {
             && self.isEnabled
             && index == Self.focusedIndex(valueCount: self.value.count, length: self.length)
         let shape = CoreShape.rounded(CoreRadius.medium)
+        let appearance = FieldAppearance.resolve(isEnabled: self.isEnabled, validation: self.validation, isFocused: isCurrent)
 
         Text(Self.displayText(for: character, isSecure: self.isSecure))
             .coreFont(.title2)
@@ -96,17 +98,25 @@ public struct PinCode: View {
             }
             .overlay {
                 shape.strokeBorder(
-                    isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.borderMuted),
+                    Self.cellBorderStyle(for: appearance),
                     lineWidth: isCurrent ? CoreBorderWidth.thick : CoreBorderWidth.thin
                 )
             }
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Text("Verification code", bundle: .module))
+            .fieldAccessibility(fallbackLabel: Text("Verification code", bundle: .module))
             .accessibilityValue(Text(verbatim: Self.accessibilityValueText(index: index + 1, count: self.length, character: character, isSecure: self.isSecure)))
             .accessibilityAddTraits(isCurrent ? .isSelected : [])
             .accessibilityAction {
                 self.isFocused = true
             }
+    }
+
+    static func cellBorderStyle(for appearance: FieldAppearance) -> AnyShapeStyle {
+        switch appearance {
+        case .invalid: AnyShapeStyle(Color.statusDangerForeground)
+        case .focused: AnyShapeStyle(.tint)
+        case .normal, .disabled: AnyShapeStyle(Color.borderMuted)
+        }
     }
 
     // MARK: - Processing entry (unit-testable via `@testable import`)

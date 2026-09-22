@@ -1,6 +1,6 @@
 # OhMyDesign 组件库 / Component Library
 
-iOS 26+ / macOS 26+ SwiftUI 设计系统，含 33 个 Apple HIG 对齐组件（其中 `ProgressBar` 自 `0.6.0` 起弃用）+ 3 个系统控件 `.core` style + 1 个加载遮罩 modifier（`View.spinning(_:text:)`）。
+iOS 26+ / macOS 26+ SwiftUI 设计系统，含 33 个 Apple HIG 对齐组件（其中 `ProgressBar` 自 `0.6.0` 起弃用）+ 4 个系统控件 `.core` style（ProgressView `.core` / `.coreCircular` / Label / DisclosureGroup；`LabeledContent` 的 `.core` 随 [Descriptions](components/descriptions.md) 列出）+ 2 个按压反馈 ButtonStyle + 1 个加载遮罩 modifier（`View.spinning(_:text:)`）。另有锚定徽标 modifier [`View.anchoredBadge(_:placement:hostShape:)`](components/anchored-badge.md)（无独立的 public View 组件类型——只有 `AnchoredBadgeContent` 等入参枚举——不进下方索引表）。
 
 自 `#245` 起本包有**三个 product**：主 target `OhMyDesign`（下面的组件索引）、
 表达性视觉层 `OhMyDesignEffects`、图表层 `OhMyDesignCharts`。
@@ -18,6 +18,7 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 33 个 Apple HIG 对齐组件（�
 |---|---|---|
 | Button | [<img src="snapshots/OhMyDesignPreview_Previews.swift_Button.png" width="200">](components/button.md) | [button.md](components/button.md) |
 | FloatButton（ExtendedFloatButtonStyle / CircularGlassButtonStyle） | [<img src="snapshots/OhMyDesignPreview_Previews.swift_Float_Button.png" width="200">](components/float-button.md) | [float-button.md](components/float-button.md) |
+| Pressable Button Styles（PressableRowButtonStyle / PressableCardButtonStyle） | [<img src="snapshots/OhMyDesignPreview_Previews.swift_Pressable_Button_Styles.png" width="200">](components/pressable-button-styles.md) | [pressable-button-styles.md](components/pressable-button-styles.md) |
 
 ### Form 表单
 
@@ -26,12 +27,14 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 33 个 Apple HIG 对齐组件（�
 | SegmentedControl | [<img src="snapshots/OhMyDesignPreview_Previews.swift_SegmentedControl.png" width="200">](components/segmented-control.md) | [segmented-control.md](components/segmented-control.md) |
 | SearchField | [<img src="snapshots/OhMyDesignPreview_Previews.swift_SearchField.png" width="200">](components/search-field.md) | [search-field.md](components/search-field.md) |
 | LabelIcon / ChevronRightIcon / DangerIcon | [<img src="snapshots/OhMyDesignPreview_Previews.swift_Form_Icons.png" width="200">](components/form-icons.md) | [form-icons.md](components/form-icons.md) |
-| `.core` Control Styles（ProgressView / Label / DisclosureGroup）| [<img src="snapshots/OhMyDesignPreview_Previews.swift_Core_Control_Styles.png" width="200">](components/core-control-styles.md) | [core-control-styles.md](components/core-control-styles.md) |
+| `.core` Control Styles（ProgressView `.core` / `.coreCircular` / Label / DisclosureGroup）| [<img src="snapshots/OhMyDesignPreview_Previews.swift_Core_Control_Styles.png" width="200">](components/core-control-styles.md) | [core-control-styles.md](components/core-control-styles.md) |
 | Rating | [<img src="snapshots/OhMyDesignPreview_Previews.swift_Rating.png" width="200">](components/rating.md) | [rating.md](components/rating.md) |
 | RatingDisplay | [<img src="snapshots/OhMyDesignPreview_Previews.swift_RatingDisplay.png" width="200">](components/rating-display.md) | [rating-display.md](components/rating-display.md) |
 | PinCode | [<img src="snapshots/OhMyDesignPreview_Previews.swift_PinCode.png" width="200">](components/pin-code.md) | [pin-code.md](components/pin-code.md) |
 | RadioGroup / RadioOption | [<img src="snapshots/OhMyDesignPreview_Previews.swift_Radio_Group.png" width="200">](components/radio.md) | [radio.md](components/radio.md) |
 | TagInput | [<img src="snapshots/OhMyDesignPreview_Previews.swift_TagInput.png" width="200">](components/tag-input.md) | [tag-input.md](components/tag-input.md) |
+| FormField | [<img src="snapshots/OhMyDesignPreview_Previews.swift_FormField.png" width="200">](components/form-field.md) | [form-field.md](components/form-field.md) |
+| TagGroup | [<img src="snapshots/OhMyDesignPreview_Previews.swift_TagGroup.png" width="200">](components/tag-group.md) | [tag-group.md](components/tag-group.md) |
 | ~~Typography~~ | _未实现，parity 已由 `.coreFont(_:)` + 原生 `Text` modifier 达成_ | [typography.md](components/typography.md)（墓碑 + 迁移指引） |
 
 ### Indicator 指示器

@@ -47,7 +47,14 @@ public struct TagInput: View {
                 .foregroundStyle(Color.contentPrimary)
                 .frame(minWidth: Self.minimumInputWidth)
                 .frame(minHeight: CoreControlMetrics.height(for: .regular))
-                .accessibilityLabel(Text(self.placeholder))
+                .overlay(alignment: .bottom) {
+                    if FieldAppearance.resolve(isEnabled: self.isEnabled, validation: self.validation, isFocused: false) == .invalid {
+                        Rectangle()
+                            .fill(Color.statusDangerForeground)
+                            .frame(height: CoreBorderWidth.thin)
+                    }
+                }
+                .fieldAccessibility(fallbackLabel: Text(self.placeholder))
                 .onSubmit {
                     self.commitDraft()
                 }
@@ -126,6 +133,8 @@ public struct TagInput: View {
     private let onCommit: ((String) -> Void)?
 
     @State private var draft: String = ""
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.fieldValidation) private var validation
 }
 
 // MARK: - Preview

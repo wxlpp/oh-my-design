@@ -1,14 +1,18 @@
-# CoreProgressViewStyle / CoreLabelStyle / CoreDisclosureGroupStyle
+# CoreProgressViewStyle / CoreCircularProgressViewStyle / CoreLabelStyle / CoreDisclosureGroupStyle
 
 系统控件的 OhMyDesign 换皮 / OhMyDesign skins for system controls.
 
 ## API
 
-三者都不重新实现控件本身——只重绘 / 重排各协议 `makeBody(configuration:)` 交出的内容，展开态、进度值等状态仍由系统控件自身持有。均无参数 `init()`，经各自协议的 `static var core` 使用。
+四者都不重新实现控件本身——只重绘 / 重排各协议 `makeBody(configuration:)` 交出的内容，展开态、进度值等状态仍由系统控件自身持有。均无参数 `init()`，经各自协议的 `static var core` 使用。
 
 ### CoreProgressViewStyle
 
 `.progressViewStyle(.core)`。确定态（`fractionCompleted != nil`）渲染水平轨道 + 填充条；不确定态退回系统环形 spinner（显式 `.progressViewStyle(.circular)`，避免递归回本 style）。
+
+### CoreCircularProgressViewStyle
+
+`.progressViewStyle(.coreCircular)`。确定态渲染一圈轨道 + 从 12 点方向顺时针增长的圆弧，进度越界时钳到 0…1；环的外径随 `\.controlSize` 取 `CoreControlMetrics.height(for:)`（regular 44pt）。`label` 在环上方、`currentValueLabel` 在环下方（不进无障碍树，读数由 `accessibilityValue` 的百分比给出）。不确定态与 `.core` 相同，退回系统环形 spinner；spinner 放在与圆环同外径的方框里居中，确定态 / 不确定态切换时占位不跳（spinner 本身的尺寸仍是系统的）。
 
 ### CoreLabelStyle
 
@@ -36,6 +40,10 @@ ProgressView(value: 0.6, label: { Text("Downloading") }, currentValueLabel: { Te
     .progressViewStyle(.core)
     .tint(.red) // 填充条随之变红，不恒取 Color.accent
 
+ProgressView(value: 0.6)
+    .progressViewStyle(.coreCircular)
+    .tint(.red) // 圆弧随之变红
+
 Label("Sync", systemImage: "arrow.triangle.2.circlepath")
     .labelStyle(.core)
     .tint(.red) // icon 随之变红
@@ -49,7 +57,8 @@ DisclosureGroup("Details", isExpanded: $isExpanded) {
 
 ## 视觉 Token
 
-- 强调色全部经 `.tint`（`ShapeStyle.tint`）取值，不写死 `Color.accent`（FR-12 / ADR-3 硬约束）——外层 `.tint(_:)` 能真的改变填充条 / icon / chevron 的颜色
+- 强调色全部经 `.tint`（`ShapeStyle.tint`）取值，不写死 `Color.accent`（FR-12 / ADR-3 硬约束）——外层 `.tint(_:)` 能真的改变填充条 / 圆弧 / icon / chevron 的颜色
 - `CoreProgressViewStyle` 轨道底色：`Color.surfaceCanvasInset`；圆角：`CoreShape.rounded(CoreRadius.small)`；间距：`CoreSpacing.xs`
+- `CoreCircularProgressViewStyle` 轨道底色：`Color.secondaryFill`（systemFill 族，明暗两档都与画布有对比；不用 `.core` 的 `surfaceCanvasInset`，后者在暗色纯黑画布上几乎不可见）；线宽：外径的 1/10、下限 `CoreBorderWidth.thick`（regular 4.4pt），随尺寸等比；圆头端点；外径：`CoreControlMetrics.height(for: controlSize)`
 - `CoreLabelStyle` 图标 ↔ 标题间距：`CoreSpacing.sm`
 - `CoreDisclosureGroupStyle` 展开内容缩进：`CoreSpacing.md`；标题行 ↔ 展开内容纵向间距：`CoreSpacing.sm`（标题与 chevron 间是弹性 `Spacer()`，非定距）；展开内容不套 `.surface(.content)`（贴近系统观感，不消费 surface 层）

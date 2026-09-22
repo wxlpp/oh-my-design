@@ -19,6 +19,160 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.10.0`）——Issue #382：surface 有效层级 + `coreSheetPresentation(background:)`
+
+**行为变更（无签名破坏）。** `.surface(_:)` 现在按环境里的有效层级取背景（规则见
+`docs/components/surface.md`）：
+
+| 调用形态 | 之前 | 现在 |
+|---|---|---|
+| `content` / `grouped` / `card` 嵌套在另一个 `content` / `grouped` / `card`（含 `Card`、`InsetGroupedSection`）里 | `surfaceCard` | **`surfaceElevated`**（`tertiarySystemGroupedBackground`） |
+| 顶层或 `.surface(.canvas)` / `.surface(.canvasSubtle)` 之下的 `content` / `grouped` / `card` | `surfaceCard` | 不变——⚠️ **前提是它不在一个挂在 surface 内部的普通 `.sheet` / `.popover` 里**：弹层内容继承宿主层级（实测），这时 sheet 里「看起来是顶层」的卡片也会取 `surfaceElevated` |
+| `panel` / `sidebar` / `control` / `floating` / `canvas` / `canvasSubtle` | 各自现值 | 不变 |
+| `Card` 自身有效层级为 elevated（上面第一行的情形，含 `coreSheetPresentation` 内容里的 `Card`） | 按 `elevation` 出投影（默认 `.small`） | **不出投影**，显式传 `.medium` / `.large` 也不出 |
+
+- **迁移（逐项保留旧观感）**：想让某个嵌套处保持旧的 `surfaceCard` 外观，不要再用 `.surface`，改写成与旧
+  `.surface(.content)` 逐项相同的手写链——背景、1pt 描边、圆角、裁切都一致，且不写层级：
+
+  ```swift
+  let shape = CoreShape.rounded(CoreRadius.medium)
+  content
+      .background(shape.fill(Color.surfaceCard))
+      .overlay(shape.strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)) // `.grouped` 删掉这一行
+      .clipShape(shape)
+  ```
+
+  嵌套的 `Card` 同理：`content.padding(CoreSpacing.lg).frame(maxWidth: .infinity, alignment: .leading)` +
+  上面三行 + `.coreShadow(.small)`（即旧 `Card` 的全部修饰链）。
+- 两个**不等价**的捷径及其代价：
+  - 内层外包 `.surface(.canvas)`：层级确实重置、内层回到 `surfaceCard`，但 canvas 角色会在内层**外接矩形**上
+    铺一层 `surfaceCanvas`（无圆角）——内层卡片的四个圆角处露出画布色（浅色 `#F2F2F7` 落在白色外层卡片上、
+    深色为黑），它与内层之间若有 padding 则露出一整圈。
+  - 内层改用 `.background(Color.surfaceCard)`：底色对了，但**丢掉描边、圆角与裁切**（直角、无描边）。
+- macOS 上 `surfaceCard` 与 `surfaceElevated` 同值，背景像素不变；投影收起在 macOS 同样生效。
+- 新增（纯新增）：`View.coreSheetPresentation(background:)` 与 `enum CoreSheetBackground`（`.system` / `.raised`）。
+
+## 未发布（相对 `v0.10.0`）——Issue #377：Toast 标题 / 说明 / 动作、`ToastDuration`、计时状态机
+
+**破坏性变更（源码）。** 新旧签名映射：
+
+| 旧 | 新 |
+|---|---|
+| `ToastItem.message: String` | `ToastItem.title: String` |
+| `ToastItem(id:message:level:duration:)` | `ToastItem(id:title:description:level:duration:action:)` |
+| `ToastItem.duration: TimeInterval` | `ToastItem.duration: ToastDuration` |
+| `ToastHost.show(_ message:level:duration:)`，`duration: TimeInterval` | `ToastHost.show(_ title:description:level:duration:)`，`duration: ToastDuration` |
+| `ToastDefaults.duration: TimeInterval`（`3`） | `ToastDefaults.duration: ToastDuration`（`.seconds(3)`） |
+
+迁移：
+
+```swift
+// 旧
+host.show("Saved", level: .success, duration: 5)
+let item = ToastItem(message: "Saved", duration: 2)
+print(item.message)
+// 新
+host.show("Saved", level: .success, duration: .seconds(5))
+let item = ToastItem(title: "Saved", duration: .seconds(2))
+print(item.title)
+```
+
+- 位置实参调用 `show("…")` / `show("…", level:)` 不受影响；只有 `message:` 标签、读 `.message`、
+  传 `TimeInterval` 时长与把 `ToastDefaults.duration` 当 `TimeInterval` 用的调用点需要改。
+- 行为变化：旧版 `duration <= 0` 会立即关闭；新版 `.seconds` 的非正值（含 NaN）按缺省 3 秒处理，
+  `.seconds(.infinity)` 等同新增的 `.persistent`。
+- 新增（非破坏）：`ToastItem.description`、`ToastAction`、`ToastDuration.persistent`、`ToastHost.dismissAll()`；
+  按住 / 拖拽暂停计时。
+
+## 未发布（相对 `v0.10.0`）——Issue #376：Banner 补齐 title / actions / dismiss
+
+**破坏性变更（自定义 style 行为 + 无障碍结构）；编译期无信号。**
+
+1. **`BannerStyleConfiguration` 新增 `title: Text?`、`actions: AnyView?`、`dismiss: (() -> Void)?`**。
+   该类型没有公开 init，新增字段不破坏编译；`label` 仍是正文槽、语义不变。但**自定义 `BannerStyle`
+   若不渲染这三个字段，经新便利 init `Banner(level:title:message:actions:onDismiss:)` 传入的标题、
+   动作与关闭钮会被静默丢弃**。迁移：在 `makeBody` 里按需渲染它们，并让动作与关闭钮保持为独立按钮：
+
+   ```swift
+   struct MyBannerStyle: BannerStyle {
+       func makeBody(configuration: Configuration) -> some View {
+           VStack(alignment: .leading) {
+               HStack(alignment: .top) {
+                   VStack(alignment: .leading) {
+                       configuration.title?.font(.headline)
+                       configuration.label
+                   }
+                   .accessibilityElement(children: .combine)
+                   Spacer()
+                   if let dismiss = configuration.dismiss {
+                       Button(action: dismiss) { Image(systemName: "xmark") }
+                           .accessibilityLabel("Dismiss")
+                   }
+               }
+               configuration.actions
+           }
+       }
+   }
+   ```
+
+2. **内建 style 不再把整条 Banner 合并为单一无障碍元素**。此前 `PlainBannerStyle` /
+   `BorderedBannerStyle` 对整条施加 `.accessibilityElement(children: .combine)`，图标对 VoiceOver 隐藏。
+   现在：图标 + 标题 + 正文合并为一个元素，并且**图标读出状态**（Info / Success / Warning / Error /
+   Neutral，与 `Timeline` 同一组键）；动作按钮与关闭钮是各自独立的可聚焦节点，经 `accessibilitySortPriority`
+   排在正文之后（内容 → 动作 → 关闭）。
+   只有正文的旧调用点**视觉布局不变**（尺寸与像素有回归测试对照旧实现）；变化只在无障碍：
+   VoiceOver 读法由「正文」变为「状态、正文」；在 `label` 槽里放了按钮的
+   调用点，该按钮仍被合并进内容元素——请改用 `actions` 槽让它成为独立节点。UI 测试若按旧的合并
+   label 查找 Banner，需要同步。
+
+## 未发布（相对 `v0.10.0`）——Issue #378：Badge / Tag / Avatar 尺寸体系 + `AvatarSize`
+
+**破坏性变更（布局 + 函数引用）。**
+
+1. **`Avatar` 改为固定直径（布局破坏，编译期无信号）**。此前 `Avatar` 是 `.resizable()` 的位图，
+   尺寸完全由外部 `.frame` 决定；现在它按 `size: AvatarSize` 渲染固定边长——缺省 `.automatic`
+   随环境 `\.controlSize` 取 `CoreControlMetrics.avatarDiameter(for:)`（mini 20 / small 24 /
+   regular 32 / large 40 / extraLarge 48），外部 `.frame` **不再拉伸**它，只决定摆放位置。
+   迁移：写过 `.frame(width: d, height: d)` 来定头像尺寸的调用点改为 `size: .fixed(d)`：
+
+   ```swift
+   // 旧
+   Avatar(name: "Alice").frame(width: 100, height: 100).clipShape(Circle())
+   // 新
+   Avatar(name: "Alice", size: .fixed(100)).clipShape(Circle())
+   ```
+
+   不带 `.frame` 的调用点：旧版按 `.resizable()` + `.aspectRatio(contentMode: .fill)` 占满父布局提议的空间，
+   新版在 `.regular` 档为 32pt；需要保持 48pt 的请写 `.fixed(48)` 或 `.controlSize(.extraLarge)`。
+2. **`Avatar.init(name:)` → `Avatar.init(name:size:)`**（`size` 带默认值 `.automatic`）：
+   已应用的调用点 `Avatar(name:)` 源码零改动；**未应用的函数引用** `Avatar.init(name:)` 不再存在，
+   改为闭包 `{ Avatar(name: $0) }`。
+3. **`Badge` / `Tag` 跟随 `\.controlSize`（视觉变化，非 API 破坏）**：`.regular`（缺省）档取值与旧版一致；
+   但处在 `.controlSize(.small)` 等非缺省环境里的 Badge / Tag 会随之缩放。要保持旧外观，在它们上面
+   显式加 `.controlSize(.regular)`。
+4. **可删除 `Tag` 变矮（视觉变化）**：关闭钮外围的可见 `CoreSpacing.xxs` 内边距移除、关闭钮不再撑高行，
+   `removable: true` 的 Tag 在各档都与普通 Tag 等高（regular 档因此比旧版矮）；点击热区大小不变。
+5. **`AvatarGroup` 非 regular 档的几何变化（视觉变化）**：交叠量改为直径的 1/4（mini -6→-5、
+   extraLarge -10→-12，其余不变）；`+N` / 计数徽标文字随档缩放（regular 仍为 `.caption`）。
+
+新增公开符号：`AvatarSize`（`.automatic` / `.fixed(CGFloat)`）；`CoreControlMetrics.compactFontToken(for:)` /
+`compactHorizontalPadding(for:)` / `compactVerticalPadding(for:)` / `compactIconSize(for:)` /
+`compactMinHeight(for:)` / `compactCornerRadius(for:)` /
+`avatarDiameter(for:)` / `avatarInitialFontSize(forDiameter:)`。
+
+## 未发布（相对 `v0.10.0`）——Issue #375：`StatusLevel` 新增 `.neutral`
+
+**源码破坏性变更。** `public enum StatusLevel` 新增 `case neutral`（中性提示，取内容 / 填充语义色，
+不取状态色）。本包以源码形式分发、不开 library evolution，下游对 `StatusLevel` 写的 **exhaustive `switch`**
+（逐个列出 `.info` / `.success` / `.warning` / `.danger`、不带 `default`）会在升级后编译失败：
+`switch must be exhaustive`。
+
+- 迁移：在该 `switch` 里补一个 `case .neutral:` 分支（推荐，按中性语义给出取值）；或加 `default:`。
+- 只构造 / 比较 `StatusLevel` 值、或把它传给 `Banner` / `ToastHost.show` / `TimelineItem` 的调用点**不受影响**。
+- 本库内的三处消费者已同步，neutral 一律「图标 / 节点 `contentSecondary`、正文 `contentPrimary`」：
+  `Banner`（背景 `tertiaryFill`、描边 `borderDefault`，图标 `bell.fill`）、`Toast`（图标 `bell`）、`Timeline`
+  （圆点 `contentSecondary`，VoiceOver 文案键 `"Neutral"`，已登记进 `en.lproj/Localizable.strings`）。
+
 ## 未发布（相对 `v0.10.0`）——移除 `Sidebar` 与 `BottomInputBar` 组件
 
 **破坏性变更。** 这两个组件不再属于本库，整体删除（不迁到其他 target）；需要它们的调用方请在

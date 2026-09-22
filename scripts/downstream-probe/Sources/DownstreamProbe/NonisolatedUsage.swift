@@ -8,8 +8,14 @@ import SwiftUI
 // 这个用法）。若其中任何一个变回 MainActor 隔离，本文件会编译失败。
 
 nonisolated func constructToastItem() -> String {
-    let item = ToastItem(message: "hi", level: .info)
-    return item.message
+    let item = ToastItem(
+        title: "hi",
+        description: "details",
+        level: .info,
+        duration: .persistent,
+        action: ToastAction("Undo") {}
+    )
+    return item.title
 }
 
 nonisolated func readBorderWidth() -> CGFloat {
@@ -63,7 +69,7 @@ nonisolated func useTypographyToken() -> CoreTypography.Token {
 // 在本 target 内，`defaultIsolation` 下它随之成为 MainActor 隔离，故整条
 // CoreElevation 家族无法 nonisolated。详见 updates/92/ci-decision.md。
 
-nonisolated func useToastDefaults() -> TimeInterval {
+nonisolated func useToastDefaults() -> ToastDuration {
     ToastDefaults.duration
 }
 

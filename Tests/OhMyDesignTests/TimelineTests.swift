@@ -29,6 +29,7 @@ struct TimelineTests {
             (StatusLevel.info, "Info"),
             (StatusLevel.success, "Success"),
             (StatusLevel.warning, "Warning"),
+            (StatusLevel.neutral, "Neutral"),
         ]
     )
     func accessibilityLabelKeyMapsDirectly(_ pair: (StatusLevel, String)) {
@@ -40,6 +41,18 @@ struct TimelineTests {
     func accessibilityLabelKeyDangerMapsToError() {
         #expect(Timeline.accessibilityLabelKey(for: .danger) == "Error")
         #expect(Timeline.accessibilityLabelKey(for: .danger) != "Danger")
+    }
+
+    @Test("nodeColor：neutral 取 contentSecondary，不取资源色")
+    func nodeColorNeutralUsesContentToken() {
+        let color = Timeline.nodeColor(for: .neutral)
+        #expect(color == Color.contentSecondary)
+        #expect(assetName(of: color) == nil)
+        for scheme in [ColorScheme.light, .dark] {
+            var env = EnvironmentValues()
+            env.colorScheme = scheme
+            #expect(color.resolve(in: env).opacity > 0)
+        }
     }
 
     // MARK: - TimelineItem：默认圆点节点 init
@@ -242,7 +255,7 @@ struct TimelineTests {
         #expect(Timeline.groupedStatusKey(for: customNodeItem) == nil,
                 "自定义节点项不补状态播报，否则会覆盖调用方自己的语义")
 
-        for status in [StatusLevel.info, .success, .warning, .danger] {
+        for status in [StatusLevel.info, .success, .warning, .danger, .neutral] {
             let item = TimelineItem(status: status) { Text(verbatim: "x") }
             #expect(Timeline.groupedStatusKey(for: item) == Timeline.accessibilityLabelKey(for: status))
         }
