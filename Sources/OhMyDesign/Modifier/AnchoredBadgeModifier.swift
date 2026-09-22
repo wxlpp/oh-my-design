@@ -19,10 +19,19 @@ public nonisolated enum AnchoredBadgeContent: Equatable {
         }
     }
 
-    var countText: String? {
-        guard case .count(let value, let limit) = self else { return nil }
+    static func countText(value: Int, max limit: Int) -> String {
         let cap = Swift.max(limit, 1)
         return value > cap ? "\(cap)+" : "\(value)"
+    }
+
+    var countText: String? {
+        guard case .count(let value, let limit) = self else { return nil }
+        return Self.countText(value: value, max: limit)
+    }
+
+    var countValue: Int? {
+        guard case .count(let value, _) = self else { return nil }
+        return value
     }
 
     /// 徽标对辅助技术的朗读文本；不显示时为 `nil`。
@@ -86,16 +95,40 @@ public nonisolated enum AnchoredBadgeHostShape: Sendable, Equatable, CaseIterabl
     }
 }
 
+// MARK: - 计数滚动与出现 / 消失 / Count roll and appearance
+
+nonisolated struct AnchoredBadgeCountRoll: Equatable, Sendable {
+    let previous: Int
+    let value: Int
+}
+
+nonisolated enum AnchoredBadgeTransitionKind: Equatable, Sendable {
+    case scale
+    case fade
+}
+
+struct AnchoredBadgeScaleModifier: ViewModifier {
+    let scale: CGFloat
+
+    func body(content: Content) -> some View {
+        content.scaleEffect(self.scale)
+    }
+}
+
 // MARK: - AnchoredBadgeModifier
 
 struct AnchoredBadgeModifier: ViewModifier {
     static let fill: Color = .badgeFill
     static let foreground: Color = .contentOnEmphasis
     static let ring: Color = .surfaceCanvas
+    static let appearanceScale: CGFloat = 0.6
 
     let content: AnchoredBadgeContent
     let placement: AnchoredBadgePlacement
     let hostShape: AnchoredBadgeHostShape
+
+    @Environment(\.coreMotionPresentation) private var motionPresentation
+    @State private var roll: AnchoredBadgeCountRoll?
 
     @ScaledMetric(relativeTo: .caption) private var dotSize: CGFloat = 10
     @ScaledMetric(relativeTo: .caption) private var labelHeight: CGFloat = 20
@@ -119,40 +152,76 @@ struct AnchoredBadgeModifier: ViewModifier {
         return CGPoint(x: x, y: y)
     }
 
+    nonisolated static func nextRoll(
+        _ current: AnchoredBadgeCountRoll?,
+        value: Int?,
+        isVisible: Bool
+    ) -> AnchoredBadgeCountRoll? {
+        guard let value, isVisible else { return nil }
+        guard let current else { return AnchoredBadgeCountRoll(previous: value, value: value) }
+        return AnchoredBadgeCountRoll(previous: current.value, value: value)
+    }
+
+    nonisolated static func appearanceKind(motion: MotionPresentation) -> AnchoredBadgeTransitionKind {
+        motion == .animated ? .scale : .fade
+    }
+
     func body(content: Content) -> some View {
         let accessibilityText = self.content.accessibilityText
         return content
             .accessibilityValue(accessibilityText ?? Text(verbatim: String()), isEnabled: accessibilityText != nil)
-            .overlay {
+            .overlay { self.badgeLayer }
+            .onChange(of: self.content, initial: true) { _, content in
+                self.roll = Self.nextRoll(self.roll, value: content.countValue, isVisible: content.isVisible)
+            }
+    }
+
+    @ViewBuilder
+    private var badgeLayer: some View {
+        GeometryReader { proxy in
+            let host = proxy.size
+            let placement = self.placement
+            let hostShape = self.hostShape
+            ZStack(alignment: .topLeading) {
+                Color.clear
                 if self.content.isVisible {
-                    GeometryReader { proxy in
-                        let host = proxy.size
-                        let placement = self.placement
-                        let hostShape = self.hostShape
-                        ZStack(alignment: .topLeading) {
-                            Color.clear
-                            self.badge
-                                .alignmentGuide(.leading) { dimensions in
-                                    -Self.badgeOrigin(
-                                        hostSize: host,
-                                        badgeSize: CGSize(width: dimensions.width, height: dimensions.height),
-                                        placement: placement,
-                                        hostShape: hostShape
-                                    ).x
-                                }
-                                .alignmentGuide(.top) { dimensions in
-                                    -Self.badgeOrigin(
-                                        hostSize: host,
-                                        badgeSize: CGSize(width: dimensions.width, height: dimensions.height),
-                                        placement: placement,
-                                        hostShape: hostShape
-                                    ).y
-                                }
+                    self.badge
+                        .transition(self.appearanceTransition)
+                        .alignmentGuide(.leading) { dimensions in
+                            -Self.badgeOrigin(
+                                hostSize: host,
+                                badgeSize: CGSize(width: dimensions.width, height: dimensions.height),
+                                placement: placement,
+                                hostShape: hostShape
+                            ).x
                         }
-                    }
-                    .accessibilityHidden(true)
+                        .alignmentGuide(.top) { dimensions in
+                            -Self.badgeOrigin(
+                                hostSize: host,
+                                badgeSize: CGSize(width: dimensions.width, height: dimensions.height),
+                                placement: placement,
+                                hostShape: hostShape
+                            ).y
+                        }
                 }
             }
+        }
+        .accessibilityHidden(true)
+        .coreAnimation(.reveal, value: self.content.isVisible)
+        .coreAnimation(.reveal, value: self.roll)
+    }
+
+    private var appearanceTransition: AnyTransition {
+        switch Self.appearanceKind(motion: self.motionPresentation) {
+        case .scale:
+            .modifier(
+                active: AnchoredBadgeScaleModifier(scale: Self.appearanceScale),
+                identity: AnchoredBadgeScaleModifier(scale: 1)
+            )
+            .combined(with: .opacity)
+        case .fade:
+            .opacity
+        }
     }
 
     @ViewBuilder
@@ -176,8 +245,10 @@ struct AnchoredBadgeModifier: ViewModifier {
             Circle()
                 .fill(Self.fill)
                 .frame(width: self.dotSize, height: self.dotSize)
-        case .count:
-            self.pill(Text(verbatim: self.content.countText ?? String()))
+        case .count(let value, let limit):
+            let shown = self.roll?.value ?? value
+            self.pill(Text(verbatim: AnchoredBadgeContent.countText(value: shown, max: limit)))
+                .contentTransition(self.motionPresentation.numericRoll(from: self.roll?.previous ?? shown, to: shown))
         case .text(let key):
             self.pill(Text(key))
         }

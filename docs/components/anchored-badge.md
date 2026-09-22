@@ -62,6 +62,21 @@ ScrollView(.horizontal) {
 }
 ```
 
+## 动效（#408）
+
+- **计数变化**：`.contentTransition(.numericText(countsDown:))`，方向按**新旧值**定——增加向上滚、减少向下滚。
+  方向不能靠 `onChange` 现算：`onChange` 比 body 晚一拍，数字变化那一次事务里拿到的还是旧方向。
+  因此 modifier 内部镜像一层「上一次显示的值 + 当前显示值」，由 `onChange` 推进；显示的数字来自这份镜像，
+  所以计数变化会比真实值晚一帧（约 16 ms）落地，朗读文本（`accessibilityValue`）不受影响、立即跟上真实值。
+  徽标不显示时镜像被清空，因此「计数掉到 0 再涨回来」不会闪一帧旧数字。
+- **出现 / 消失**：缩放（`0.6 → 1`）+ 淡变，走 `CoreMotionToken.reveal`。缩放用
+  `.modifier(active:identity:)` 自写而非系统 `.scale` 转场：后者在 identity 相仍留着一层变换，
+  圆形宿主上实测让徽标的亚像素光栅位置偏 0.5pt（逐通道差到 196），自写的版本 identity 相无变换、
+  与改动前逐像素一致。
+- `.dot` 与 `.text` 不加内容过渡：红点没有数字；`.text` 是调用方的 `LocalizedStringKey`，滚动读不出方向。
+- **Reduce Motion**：计数改为 `ContentTransition.identity`（直接替换，不滚动不模糊），出现 / 消失改纯淡变。
+  框架不替调用方降级这两条（`#407` FR-1 逐帧实测），全部由本 modifier 显式分支。
+
 ## 无障碍
 
 - 徽标视图本身 `accessibilityHidden`，本意是不产生额外的焦点元素。

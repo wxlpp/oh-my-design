@@ -19,19 +19,17 @@ private struct CheckBoxBody: View {
 
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.fieldValidation) private var validation
+    @Environment(\.coreMotionPresentation) private var motionPresentation
 
     var body: some View {
         let appearance = FieldAppearance.resolve(isEnabled: self.isEnabled, validation: self.validation, isFocused: false)
         HStack(alignment: .top, spacing: CoreSpacing.sm) {
-            if self.configuration.isOn {
-                Image(systemName: "checkmark.square.fill")
-                    .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
-                    .foregroundStyle(appearance.indicatorColor(normal: Color.contentPrimary))
-            } else {
-                Image(systemName: "square")
-                    .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
-                    .foregroundStyle(appearance.indicatorColor(normal: Color.contentSecondary))
-            }
+            Image(systemName: self.configuration.isOn ? "checkmark.square.fill" : "square")
+                .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
+                .foregroundStyle(appearance.indicatorColor(
+                    normal: self.configuration.isOn ? Color.contentPrimary : Color.contentSecondary
+                ))
+                .contentTransition(self.motionPresentation.symbolReplacement)
             self.configuration.label
                 .fieldAccessibilityHint()
         }

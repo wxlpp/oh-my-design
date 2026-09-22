@@ -9,7 +9,8 @@ import Testing
 ///
 /// 覆盖：`withAnimation` / `withTransaction` / `Transaction(animation:)` / `.transaction { }` /
 /// `animation(_:value:)`（带或不带前导点）/ `x.animation = …` 赋值 / `Animation` 类型或构造的存储值，
-/// 每个调用点必须引用 `CoreMotionToken`（或恰为 `nil`）；位移 / 缩放 / 旋转 / matchedGeometry 调用点逐点登记门控理由。
+/// 每个调用点必须引用 `CoreMotionToken`（或恰为 `nil`）；位移 / 缩放 / 旋转 / matchedGeometry /
+/// `contentTransition` / `symbolEffect` 调用点逐点登记门控理由。
 ///
 /// 不覆盖（已知）：实参里任何位置提到 `CoreMotionToken` 即放行，同一表达式的另一分支若给出系统曲线
 /// （如 `flag ? CoreMotionToken.press.animation : .spring`，`.spring` 不带括号时字面量表也抓不到）照样通过；
@@ -35,8 +36,9 @@ struct CoreMotionTokenDisciplineGuard {
         "Components/Button/styles/PressableButtonStyles.swift": .gated,
         "Components/Button/styles/CoreBorderlessButtonStyle.swift": .fadeOnly,
         "Components/Button/AsyncButton.swift": .fadeOnly,
-        "Components/CheckBox/CheckBox.swift": .fadeOnly,
-        "Components/Radio/Radio.swift": .fadeOnly,
+        "Components/CheckBox/CheckBox.swift": .gated,
+        "Components/Radio/Radio.swift": .gated,
+        "Modifier/AnchoredBadgeModifier.swift": .gated,
         "Components/FormField/FormField.swift": .fadeOnly,
         "Components/Skeleton/Skeleton.swift": .gated,
         "Components/Toast/Toast.swift": .gated,
@@ -52,6 +54,14 @@ struct CoreMotionTokenDisciplineGuard {
     static let transformLedger: [String: String] = [
         "Tokens/CoreMotionToken.swift|scaleEffect(Self.scale(for: self.presentation, phase: phase))":
             "CollectionItemTransition.scale(for:phase:) 在 resting / hidden 下每一相都是 1",
+        "Components/CheckBox/CheckBox.swift|contentTransition(self.motionPresentation.symbolReplacement)":
+            "symbolReplacement 在 resting / hidden 下为 ContentTransition.identity，直接换图不描画",
+        "Components/Radio/Radio.swift|contentTransition(self.motionPresentation.symbolReplacement)":
+            "同 CheckBox：resting / hidden 下为 ContentTransition.identity",
+        "Modifier/AnchoredBadgeModifier.swift|contentTransition(self.motionPresentation.numericRoll(from: self.roll?.previous ?? shown, to: shown))":
+            "numericRoll 在 resting / hidden 下为 ContentTransition.identity，数字直接替换、不纵向滚动",
+        "Modifier/AnchoredBadgeModifier.swift|scaleEffect(self.scale)":
+            "只由 appearanceKind(motion:) == .scale 的转场取用，resting / hidden 走 .opacity；identity 相为 scale 1",
         "Components/Button/styles/PressableButtonStyles.swift|scaleEffect(feedback.scale)":
             "feedback 取自 PressFeedback.card(presentation:)，resting 下 scale = 1",
         "Modifier/ButtonBackgroundModifier.swift|scaleEffect(feedback.scale)":
@@ -335,6 +345,7 @@ nonisolated final class MotionSiteCollector: SyntaxVisitor {
     static let transformCallees: Set<String> = [
         "scaleEffect", "rotationEffect", "rotation3DEffect", "offset",
         "matchedGeometryEffect", "transformEffect", "projectionEffect",
+        "contentTransition", "symbolEffect",
     ]
 
     private let converter: SourceLocationConverter

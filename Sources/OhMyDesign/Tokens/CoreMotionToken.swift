@@ -142,3 +142,15 @@ extension MotionPresentation {
         CollectionItemTransition(presentation: self)
     }
 }
+
+// MARK: - 符号 / 数字的内容过渡 / Symbol & numeric content transitions
+
+extension MotionPresentation {
+    nonisolated var symbolReplacement: ContentTransition {
+        self == .animated ? ContentTransition.symbolEffect(.replace) : ContentTransition.identity
+    }
+
+    nonisolated func numericRoll(from previous: Int, to next: Int) -> ContentTransition {
+        self == .animated ? ContentTransition.numericText(countsDown: next < previous) : ContentTransition.identity
+    }
+}

@@ -44,6 +44,31 @@
   提交路径，外部绑定照样可以写进重复值。
 - `TagGroup` 的 `data` 在下游被频繁整体替换（例如每次搜索都换一批标签）时，现在会播增删动画；
   不想要动画的调用点可注入 `.environment(\.coreMotionPresentationOverride, .hidden)`。
+## 未发布（相对 `v0.11.0`）——Issue #408：原生符号 / 数字动效接入小件
+
+**行为变更（无签名破坏）。** 公开符号的签名一个都没变；静息外观也不变（`anchoredBadge` 的八种内容 ×
+两种宿主外形、CheckBox / RadioGroup 的 enabled / disabled / invalid 外观都与改动前的实现逐像素对照过）。
+变的是「状态切换时怎么动」：
+
+| 位置 | 之前 | 现在 |
+|---|---|---|
+| `anchoredBadge(.count(_))` 计数变化 | 数字直接突变 | `.contentTransition(.numericText(countsDown:))` 纵向滚动，方向按新旧值定（增加向上、减少向下） |
+| `anchoredBadge` 徽标出现 / 消失 | 直接出现 / 消失 | 缩放（0.6 → 1）+ 淡变，走 `CoreMotionToken.reveal` |
+| `CheckBoxToggleStyle` 勾选切换 | 两张 `Image`（`square` / `checkmark.square.fill`）交叉淡变 | 一张 `Image` + `.contentTransition(.symbolEffect(.replace))`，勾以描画方式出现 |
+| `RadioGroup` 选中切换 | 同一张 `Image` 换 `systemName` + 交叉淡变 | 同上，加 `.contentTransition(.symbolEffect(.replace))` |
+
+⚠️ `RadioGroup` 在 **invalid 且选中态发生变化**时符号替换播不出来：invalid + 选中走
+`.symbolRenderingMode(.palette)`（实心点 `contentPrimary` / 圆环 `statusDangerForeground`，`#374` 的取舍），
+与单色分支是两个 `if` 分支、视图身份不同。有意保留该分支——把它并成「始终 `.palette` + 两层同色」时，
+`circle.inset.filled` 实测有 1 LSB 的取值差、`checkmark.square.fill` 的勾会被同色实心层吃掉（逐通道差到 191）。
+
+**Reduce Motion 开启时**（静息外观不变；只影响开启了「减弱动态效果」的用户）：
+
+| 位置 | RM 开的行为 |
+|---|---|
+| 计数变化 | `ContentTransition.identity`：数字直接替换，不滚动、不模糊 |
+| 徽标出现 / 消失 | 纯淡变，不缩放 |
+| CheckBox / RadioGroup 指示符 | `ContentTransition.identity`：直接换图，不描画 |
 
 ## 未发布（相对 `v0.11.0`）——Issue #407：动效 token 与 Reduce Motion 纪律
 
