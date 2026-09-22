@@ -74,7 +74,7 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 
 ⚠️ 本节曾写「重度使用 iOS 26 的 `.glassEffect()`；`LightButtonStyle` 会按 `colorScheme` 分支：暗色用 `glassEffect`，亮色用柔和阴影代替」——**后半句实测为假**（#41 收尾时发现）：`Sources/OhMyDesign/Components/Button/styles/` 下**没有任何按钮样式**直接调用 `.glassEffect`，也**没有任何一个读 `colorScheme`**；`LightButtonStyle.makeBody` 走的是 `buttonChrome` + `buttonBackground(fill: .surfaceInteractive, border: .borderSubtle)` + 链尾 `.opacity`，明暗差异全部来自系统语义色 token 的自动适配，不是代码分支。（该句在 #41 之前的 `95c29cf` 上就已失真，不是 #41 删 `glass` 簇造成的。）
 
-`.glassEffect` 的真实调用面在组件与 modifier 层：`BottomInputBar`、`Carousel`、`SegmentedControl`、`FloatingGlassModifier`、`TelegramGlassButtonModifier`。按钮样式经 `TelegramGlassButtonModifier` 等间接使用。
+`.glassEffect` 的真实调用面在组件与 modifier 层：`Carousel`、`SegmentedControl`、`FloatingGlassModifier`、`TelegramGlassButtonModifier`。按钮样式经 `TelegramGlassButtonModifier` 等间接使用。
 
 ### 组件 style 协议
 
@@ -94,7 +94,7 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 
 ### Modifier 约定
 
-可复用的 `ViewModifier` 放在 `Modifier/` 目录下；以 `View` 扩展形式暴露（如 `.bordered(...)`），而不是要求调用方写 `.modifier(BorderModifier(...))`。跨组件复用的纯辅助扩展放在 `Utils/`（目前仅 `ColorExtension.swift`）；只服务单个组件的辅助扩展与组件同文件（如 `.focusedExternally` 在 `BottomInputBar.swift`）。
+可复用的 `ViewModifier` 放在 `Modifier/` 目录下；以 `View` 扩展形式暴露（如 `.bordered(...)`），而不是要求调用方写 `.modifier(BorderModifier(...))`。跨组件复用的纯辅助扩展放在 `Utils/`（目前仅 `ColorExtension.swift`）；只服务单个组件的辅助扩展与组件同文件（private / fileprivate，与组件放在同一个 `.swift` 文件里）。
 
 ### 资源加载
 

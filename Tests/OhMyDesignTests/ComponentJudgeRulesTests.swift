@@ -544,14 +544,14 @@ struct ComponentJudgeRulesTests {
         #expect(ok.exemptedByRegistryNotes == ["LabelIcon.init#systemName"])
 
         let unauthorized = [
-            makeTestEntry(component: "SidebarUtilityRow", kind: "prescriptive", decidedBy: "step3",
+            makeTestEntry(component: "UtilityRow", kind: "prescriptive", decidedBy: "step3",
                           needsExtensionPoint: false, notes: "单动作工具行，固定结构 ⇒ 步骤 3 规定性。"),
         ]
         let red = judgeTextParamCoverage(
-            entries: unauthorized, scan: self.textScan([("SidebarUtilityRow", "systemImage", .bareText, true)]),
+            entries: unauthorized, scan: self.textScan([("UtilityRow", "systemImage", .bareText, true)]),
             ownerAliases: [:]
         )
-        #expect(red.violations == ["SidebarUtilityRow.init#systemImage"],
+        #expect(red.violations == ["UtilityRow.init#systemImage"],
                 "登记表没点名 ⇒ 判据不得自行认定它『不是文案』—— 这类情形要退回 #38 补登记")
     }
 

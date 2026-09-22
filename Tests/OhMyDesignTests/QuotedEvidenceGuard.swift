@@ -36,15 +36,9 @@ struct QuotedEvidenceGuard {
         ("docs/contract-defects.md", "Sources/OhMyDesign/Components/Form/Form.swift", "Image(systemName: \"exclamationmark.circle.fill\")"),
         ("docs/contract-defects.md", "Sources/OhMyDesign/Components/Form/Form.swift", ".foregroundStyle(Color.statusDangerForeground)"),
         ("docs/contract-defects.md", "Sources/OhMyDesign/Components/Form/Form.swift", ".accessibilityLabel(Text(\"Alert\", bundle: .module))"),
-        ("docs/contract-defects.md", "Sources/OhMyDesign/Components/Sidebar/Sidebar.swift", ".fill(self.statusColor)"),
         ("docs/contract-defects.md", "Sources/OhMyDesign/Modifier/FloatingGlassModifier.swift", "public let shape: S"),
         ("docs/contract-defects.md", "Sources/OhMyDesign/Modifier/FloatingGlassModifier.swift", "in shape: some InsettableShape = Capsule(style: .continuous)"),
         ("docs/contract-defects.md", "Sources/OhMyDesign/Components/Toast/Toast.swift", "RoundedRectangle(cornerRadius: CoreRadius.large, style: .continuous)"),
-        ("docs/contract-defects.md", "Sources/OhMyDesign/Components/Sidebar/Sidebar.swift", "Image(systemName: \"ellipsis\")"),
-        ("docs/contract-defects.md", "Sources/OhMyDesign/Components/Sidebar/Sidebar.swift", "Text(\"#\")"),
-        ("docs/contract-defects.md", "Sources/OhMyDesign/Components/Sidebar/Sidebar.swift", ".coreFont(.title2)"),
-        ("docs/contract-defects.md", "Sources/OhMyDesign/Components/Sidebar/Sidebar.swift", "systemImage: String,"),
-        ("docs/contract-defects.md", "Sources/OhMyDesign/Components/Sidebar/Sidebar.swift", "trailingSystemImage: String? = nil,"),
         ("docs/contract-defects.md", "Sources/OhMyDesign/Components/SettingsRow/SettingsRow.swift", ".font(.footnote.weight(.semibold))"),
         ("docs/contract-defects.md", "Sources/OhMyDesign/Components/SettingsRow/SettingsRow.swift", ".foregroundStyle(Color.contentTertiary)"),
         ("docs/contract-defects.md", "Sources/OhMyDesign/Components/Timeline/Timeline.swift", "@ViewBuilder node: () -> Node,"),
@@ -76,25 +70,18 @@ struct QuotedEvidenceGuard {
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Style/CoreProgressViewStyle.swift", "public func makeBody(configuration: Configuration) -> some View"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Radio/Radio.swift", "与 `CheckBoxToggleStyle` 同套 token、方框换圆点"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Section/SectionFooter.swift", ".foregroundStyle(Color.contentSecondary)"),
-        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Sidebar/Sidebar.swift", "Image(systemName: \"ellipsis\")"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/SettingsRow/SettingsRow.swift", "icon: SettingsRowIcon?"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/SettingsRow/SettingsRow.swift", ".font(.footnote.weight(.semibold))"),
-        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Sidebar/Sidebar.swift", "为 true 时施加侧栏选中态背景。"),
-        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Sidebar/Sidebar.swift", "Text(\"#\")"),
-        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Sidebar/Sidebar.swift", "systemImage: String,"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/StateLabel/StateLabel.swift", "let defaultLabel: String"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Modifier/TelegramGlassButtonModifier.swift", "self.border ?? Color.white.opacity(CoreButtonMetrics.glassBorderOpacity)"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Modifier/TelegramGlassButtonModifier.swift", ".scaleEffect(self.pressFeedback && self.isPressed ? CoreButtonMetrics.pressedScale : 1)"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Timeline/Timeline.swift", "static let nodeColumnWidth: CGFloat = 24"),
         // ---- docs/issues/234-a11y-smoke.md ----
         ("docs/issues/234-a11y-smoke.md", "Sources/OhMyDesign/Components/Section/SectionHeader.swift", ".accessibilityAddTraits(.isHeader)"),
-        ("docs/issues/234-a11y-smoke.md", "Sources/OhMyDesign/Components/BottomInputBar/CoreMenuButton.swift", ".accessibilityAddTraits(.isButton)"),
         ("docs/issues/234-a11y-smoke.md", "Sources/OhMyDesign/Components/Radio/Radio.swift", "[.isButton, .isSelected] : .isButton"),
         ("docs/issues/234-a11y-smoke.md", "Sources/OhMyDesign/Components/Carousel/Carousel.swift", "[.isButton, .isSelected] : .isButton"),
         ("docs/issues/234-a11y-smoke.md", "Sources/OhMyDesign/Components/SegmentedControl/SegmentedControl.swift", ".accessibilityAddTraits(segment.isSelected ? .isSelected : [])"),
         ("docs/issues/234-a11y-smoke.md", "Sources/OhMyDesign/Components/PinCode/PinCode.swift", ".accessibilityAddTraits(isCurrent ? .isSelected : [])"),
-        ("docs/issues/234-a11y-smoke.md", "Sources/OhMyDesign/Components/Sidebar/Sidebar.swift", ".accessibilityAddTraits(self.isSelected ? .isSelected : [])"),
-        ("docs/issues/234-a11y-smoke.md", "Sources/OhMyDesign/Components/BottomInputBar/BottomInputBar.swift", ".accessibilityAddTraits(self.isShowingSuggestions ? .isSelected : [])"),
         ("docs/issues/234-a11y-smoke.md", "App/Sources/ComponentData.swift", "SearchField(text: self.$text)"),
         ("docs/issues/234-a11y-smoke.md", "Sources/OhMyDesign/Components/SearchField/SearchField.swift", "placeholder: String = \"Search\""),
         ("docs/issues/234-a11y-smoke.md", "Sources/OhMyDesign/Components/SearchField/SearchField.swift", "String(localized: \"Search\", bundle: .module)"),
@@ -104,8 +91,6 @@ struct QuotedEvidenceGuard {
         ("docs/component-contract.md", "Sources/OhMyDesign/Components/Timeline/Timeline.swift", "@ViewBuilder node: () -> Node,"),
         ("docs/component-contract.md", "Sources/OhMyDesign/Components/Steps/Steps.swift", "public enum StepsIndicatorStyle"),
         ("docs/component-contract.md", "Sources/OhMyDesign/Components/Timeline/Timeline.swift", "private var nodeContent: some View"),
-        ("docs/component-contract.md", "Sources/OhMyDesign/Components/Sidebar/Sidebar.swift", "systemImage: String,"),
-        ("docs/component-contract.md", "Sources/OhMyDesign/Components/Sidebar/Sidebar.swift", "trailingSystemImage: String? = nil,"),
         ("docs/component-contract.md", "Sources/OhMyDesign/Components/Banner/Banner.swift", "public protocol BannerStyle"),
         ("docs/component-contract.md", "Sources/OhMyDesign/Components/SegmentedControl/SegmentedControl.swift", "public protocol SegmentedControlStyle"),
         ("docs/component-contract.md", "Tests/OhMyDesignTests/ComponentJudgeScanner.swift", "bareTextTypeNames"),
@@ -120,7 +105,6 @@ struct QuotedEvidenceGuard {
         ("docs/spikes/248-metal-packaging.md", "Tests/OhMyDesignTests/ColorAssetGuardTests.swift", "rawXcassetsAvailable"),
         // ---- 台账 JSON ----
         ("docs/bool-exemptions.json", "Sources/OhMyDesign/Modifier/FloatingGlassModifier.swift", "let glass = self.isInteractive ? Glass.regular.interactive() : Glass.regular"),
-        ("docs/bool-exemptions.json", "Sources/OhMyDesign/Components/BottomInputBar/BottomInputBar.swift", "autoFocus: Bool = false"),
         ("docs/a11y-exemptions.json", "Sources/OhMyDesign/Components/TagInput/TagInput.swift", ".accessibilityLabel(Text(self.placeholder))"),
     ]
 
@@ -145,7 +129,7 @@ struct QuotedEvidenceGuard {
 
     @Test("每条被引原文仍逐字存在于源文件")
     func quotesStillExistInSources() throws {
-        #expect(Self.citations.count >= 90,
+        #expect(Self.citations.count >= 74,
                 "登记表只剩 \(Self.citations.count) 条 —— 表被删空就全绿，这不是「零违规」")
         var missing: [String] = []
         for citation in Self.citations {

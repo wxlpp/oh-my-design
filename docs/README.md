@@ -1,6 +1,6 @@
 # OhMyDesign 组件库 / Component Library
 
-iOS 26+ / macOS 26+ SwiftUI 设计系统，含 35 个 Apple HIG 对齐组件（其中 `ProgressBar` 自 `0.6.0` 起弃用）+ 3 个系统控件 `.core` style + 1 个加载遮罩 modifier（`View.spinning(_:text:)`）。
+iOS 26+ / macOS 26+ SwiftUI 设计系统，含 33 个 Apple HIG 对齐组件（其中 `ProgressBar` 自 `0.6.0` 起弃用）+ 3 个系统控件 `.core` style + 1 个加载遮罩 modifier（`View.spinning(_:text:)`）。
 
 自 `#245` 起本包有**三个 product**：主 target `OhMyDesign`（下面的组件索引）、
 表达性视觉层 `OhMyDesignEffects`、图表层 `OhMyDesignCharts`。
@@ -25,7 +25,6 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 35 个 Apple HIG 对齐组件（�
 |---|---|---|
 | SegmentedControl | [<img src="snapshots/OhMyDesignPreview_Previews.swift_SegmentedControl.png" width="200">](components/segmented-control.md) | [segmented-control.md](components/segmented-control.md) |
 | SearchField | [<img src="snapshots/OhMyDesignPreview_Previews.swift_SearchField.png" width="200">](components/search-field.md) | [search-field.md](components/search-field.md) |
-| BottomInputBar | [<img src="snapshots/OhMyDesignPreview_Previews.swift_BottomInputBar.png" width="200">](components/bottom-input-bar.md) | [bottom-input-bar.md](components/bottom-input-bar.md) |
 | LabelIcon / ChevronRightIcon / DangerIcon | [<img src="snapshots/OhMyDesignPreview_Previews.swift_Form_Icons.png" width="200">](components/form-icons.md) | [form-icons.md](components/form-icons.md) |
 | `.core` Control Styles（ProgressView / Label / DisclosureGroup）| [<img src="snapshots/OhMyDesignPreview_Previews.swift_Core_Control_Styles.png" width="200">](components/core-control-styles.md) | [core-control-styles.md](components/core-control-styles.md) |
 | Rating | [<img src="snapshots/OhMyDesignPreview_Previews.swift_Rating.png" width="200">](components/rating.md) | [rating.md](components/rating.md) |
@@ -74,7 +73,6 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 35 个 Apple HIG 对齐组件（�
 
 | 组件 | 预览 | 文档 |
 |---|---|---|
-| Sidebar | [<img src="snapshots/OhMyDesignPreview_Previews.swift_Sidebar.png" width="200">](components/sidebar.md) | [sidebar.md](components/sidebar.md) |
 | UnderlinedTabBar | [<img src="snapshots/OhMyDesignPreview_Previews.swift_UnderlinedTabBar.png" width="200">](components/underlined-tab-bar.md) | [underlined-tab-bar.md](components/underlined-tab-bar.md) |
 
 ### Feedback 反馈

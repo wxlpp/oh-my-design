@@ -8,6 +8,8 @@
 > 引用 oh-my-story 侧文件（如 `43-report.md`）的行号时，基线是 oh-my-story `fbcee17`。
 > （本文件属「时点记录」档，允许写行号；`docs/component-contract.md` 属 living document 档，
 > 一律不写行号，改写「文件名 + 符号名 / 计数」。）
+>
+> ⚠️ **`Sidebar` 组件组（`SidebarSection` / `SidebarNavigationRow` / `SidebarUtilityRow` / `SidebarDocumentRow` / `SidebarTagRow` / `SidebarStatusFooter`）与 `BottomInputBar` 已从本仓整体移除**（见 `docs/BREAKING-CHANGES.md`）。本文件是时点记录，涉及它们的修订条目按原样保留，源码可从 git 历史取回。
 
 本文件是 `docs/component-contract.md` 的**修订台账**（PRD SC-8 的「公约修订回路」留痕物）。
 每条记录回答三件事：**哪个试点组件撞上的 / 撞上公约哪一条 / 公约具体怎么改的（前后文字对照）**。

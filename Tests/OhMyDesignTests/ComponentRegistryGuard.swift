@@ -87,7 +87,7 @@ struct ComponentRegistryGuard {
         "ParticleTransition": "particle",
     ]
 
-    static let knownReadmeContainerPrefixes: [String: String] = ["Sidebar": "Sidebar"]
+    static let knownReadmeContainerPrefixes: [String: String] = [:]
 
     // MARK: - README 行 → 登记条目的聚合映射（`#48` G-3）
 
@@ -97,11 +97,6 @@ struct ComponentRegistryGuard {
     ]
 
     static let readmeRowCoverage: [String: (entries: Set<String>, reason: String)] = [
-        "Sidebar": (
-            ["SidebarSection", "SidebarNavigationRow", "SidebarUtilityRow",
-             "SidebarDocumentRow", "SidebarTagRow", "SidebarStatusFooter"],
-            "Sidebar 行覆盖全部子行；子行不单列索引"
-        ),
         "SettingsRow": (
             ["SettingsRow", "SettingsRowChevron"],
             "SettingsRow 行覆盖它的内部部件 SettingsRowChevron"
@@ -318,8 +313,8 @@ struct ComponentRegistryGuard {
         #expect(Set(entries.map(\.component)).count == entries.count,
                 "登记表存在重名 component 条目——差集判据会把重名静默吞掉")
 
-        #expect(entries.filter { $0.repo == "ohmydesign" }.count == 62,
-                "OhMyDesign 侧条目数不是 62（#270 扩扫描根到三个 target，Effects 11 + Charts 4 共 15 条按判定法补录后由 47 变为 62）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
+        #expect(entries.filter { $0.repo == "ohmydesign" }.count == 55,
+                "OhMyDesign 侧条目数不是 55（移除 Sidebar 六条与 BottomInputBar 一条后由 62 变为 55）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
         #expect(entries.filter { $0.repo == "storyui" }.count == 25,
                 "StoryUI 侧条目数不是 25——CI 无法跨仓核对源码，这条固定计数断言是 #43 落地前唯一挡「静默删条目」的机器判据，不得放宽为 print")
 
@@ -556,7 +551,7 @@ struct ComponentRegistryGuard {
         let unresolvedMessage = """
         README 组件索引里这些候选名，既不在登记表也不在任何已知豁免清单（墓碑 / 排除 / \
         style 注记 / 辅助类型 / 别名 / 容器前缀）里，是本判据存在的理由——正是这类「新增 \
-        README 行但没登记」曾经放过 Toast / BottomInputBar：\n\(unresolved.joined(separator: "\n"))
+        README 行但没登记」曾经放过 Toast：\n\(unresolved.joined(separator: "\n"))
         """
         #expect(unresolved.isEmpty, "\(unresolvedMessage)")
 

@@ -26,29 +26,6 @@ struct DynamicTypeLayoutTests {
                 "ImageRenderer 未按注入档缩放——Task 5 的整套断言不成立")
     }
 
-    @Test("Sidebar 四种 row 的高度随 Dynamic Type 单调不减")
-    func sidebarRowsGrowWithDynamicType() {
-        let row = SidebarNavigationRow(systemImage: "star", title: "Long enough title to wrap at accessibility sizes", isSelected: false) {}
-
-        let small = self.renderedHeight(row, at: .large)
-        let xxxl  = self.renderedHeight(row, at: .xxxLarge)
-        let ax5   = self.renderedHeight(row, at: .accessibility5)
-
-        #expect(small > 0, "渲染失败（uiImage nil）——下面的比较会以 0 假通过")
-        #expect(ax5 > small, "accessibility5 未比 large 高——字号没缩放或被固定高度裁切")
-        #expect(xxxl >= small, "xxxLarge 应 ≥ large")
-        #expect(ax5 >= xxxl, "accessibility5 应 ≥ xxxLarge")
-    }
-
-    @Test("Sidebar 单行钳制 row（Document）在放大档同样撑高不裁切")
-    func sidebarSingleLineRowGrows() {
-        let row = SidebarDocumentRow(systemImage: "doc", title: "Document title", detail: "3 days ago") {}
-        let small = self.renderedHeight(row, at: .large)
-        let ax5   = self.renderedHeight(row, at: .accessibility5)
-        #expect(small > 0, "渲染失败（uiImage nil）")
-        #expect(ax5 > small, "Document row 在 accessibility5 未撑高——单行钳制下字号没缩放或被裁")
-    }
-
     @Test("coreFont 的字号在 iOS 下确实随 Dynamic Type 变化")
     func coreFontActuallyScales() {
         let text = Text("Ag").coreFont(.body)
