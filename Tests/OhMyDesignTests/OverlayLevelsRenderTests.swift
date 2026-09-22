@@ -100,22 +100,65 @@ struct ToastOverlayLevelsTests {
             .background(Color.surfaceCanvas)
     }
 
+    private func regularFrames(
+        level: StatusLevel, template: ToastItem, scheme: ColorScheme, size: DynamicTypeSize
+    ) -> (now: OverlayRender.Frame?, before: OverlayRender.Frame?) {
+        let item = ToastItem(
+            id: template.id, title: template.title, description: template.description,
+            level: level, action: template.action
+        )
+        return (
+            OverlayRender.frame(self.newToast(item, .floatingCapsule), scheme: scheme, dynamicTypeSize: size),
+            OverlayRender.frame(self.legacyToast(item, .floatingCapsule), scheme: scheme, dynamicTypeSize: size)
+        )
+    }
+
+    /// 两条腿都跑：neutral 图标取 `contentSecondary`（系统色，macOS native 腿也解析得出），
+    /// 所以本条覆盖文字、容器与图标几何；info / success / warning 的图标色走 asset catalog，
+    /// 只在编译了 catalog 的腿上由下一条比对。
     @Test(
-        "常规字号下胶囊形态与改动前逐像素相同（danger 以外四档）",
+        "常规字号下胶囊形态与改动前逐像素相同（neutral：文字 + 容器 + 图标）",
         arguments: [DynamicTypeSize.large, .xxxLarge]
     )
     func capsuleRegularSizesMatchLegacy(size: DynamicTypeSize) {
         for scheme in [ColorScheme.light, .dark] {
             for template in Self.items {
-                for level in [StatusLevel.info, .success, .warning, .neutral] {
-                    let item = ToastItem(
-                        id: template.id, title: template.title, description: template.description,
-                        level: level, action: template.action
-                    )
-                    let now = OverlayRender.frame(self.newToast(item, .floatingCapsule), scheme: scheme, dynamicTypeSize: size)
-                    let before = OverlayRender.frame(self.legacyToast(item, .floatingCapsule), scheme: scheme, dynamicTypeSize: size)
+                let (now, before) = self.regularFrames(level: .neutral, template: template, scheme: scheme, size: size)
+                expectBitmapsEquivalent(now?.bytes, before?.bytes, maxChannelDelta: 1,
+                                        "\(scheme) \(size) neutral \(template.title)：常规字号胶囊外观变了")
+            }
+        }
+    }
+
+    private func visiblePixels(of color: Color, in frame: OverlayRender.Frame?, scheme: ColorScheme) -> Int {
+        var env = EnvironmentValues()
+        env.colorScheme = scheme
+        guard let frame, color.resolve(in: env).opacity > 0.99,
+              let srgb = color.resolve(in: env).cgColor.converted(
+                to: CGColorSpace(name: CGColorSpace.sRGB)!, intent: .defaultIntent, options: nil
+              )?.components, srgb.count >= 3 else { return 0 }
+        let target = srgb.prefix(3).map { Int(($0 * 255).rounded()) }
+        var count = 0
+        for i in stride(from: 0, to: frame.bytes.count, by: 4) where frame.bytes[i + 3] > 250 {
+            if (0..<3).allSatisfy({ abs(Int(frame.bytes[i + $0]) - target[$0]) <= 10 }) { count += 1 }
+        }
+        return count
+    }
+
+    @Test(
+        "编译了 catalog 的腿：info / success / warning 的常规字号胶囊与改动前逐像素相同，且图标确实画出来了",
+        .enabled(if: assetCatalogIsCompiled, "SwiftPM native 腿没有 Assets.car，状态色解析为全透明，图标画不出来"),
+        arguments: [DynamicTypeSize.large, .xxxLarge]
+    )
+    func statusIconsMatchLegacyOnCompiledCatalog(size: DynamicTypeSize) {
+        for scheme in [ColorScheme.light, .dark] {
+            for template in Self.items {
+                for level in [StatusLevel.info, .success, .warning] {
+                    let (now, before) = self.regularFrames(level: level, template: template, scheme: scheme, size: size)
+                    let visible = self.visiblePixels(of: ToastView.iconColor(for: level), in: now, scheme: scheme)
+                    #expect(visible > 20, "\(scheme) \(size) \(level)：图标色像素只有 \(visible) 个 —— 图标没画出来，下面的相等是空比较")
                     expectBitmapsEquivalent(now?.bytes, before?.bytes, maxChannelDelta: 1,
-                                            "\(scheme) \(size) \(level) \(item.title)：常规字号胶囊外观变了")
+                                            "\(scheme) \(size) \(level) \(template.title)：常规字号胶囊外观变了")
                 }
             }
         }
@@ -228,16 +271,17 @@ struct ToastOverlayLevelsTests {
         }
     }
 
-    @Test("AX 字号下图标封顶：AX5 与封顶档（accessibility1）的标题起点相同")
+    @Test("AX 字号下图标封顶在 accessibility1：契约值写死，AX5 的标题起点与 accessibility1 相同")
     func accessibilityIconIsCapped() {
+        #expect(ToastView.accessibilityIconCap == .accessibility1)
         let item = ToastItem(title: "Hi there", level: .danger)
-        let cap = self.titleTop(item, .floatingCapsule, size: ToastView.accessibilityIconCap)
+        let cap = self.titleTop(item, .floatingCapsule, size: .accessibility1)
         let ax5 = self.titleTop(item, .floatingCapsule, size: .accessibility5)
         guard let cap, let ax5 else {
             Issue.record("量测失效 —— 不得当作通过")
             return
         }
-        #expect(abs(ax5 - cap) < 0.5, "AX5 标题起点 \(ax5) ≠ 封顶档 \(cap) —— 图标没封顶")
+        #expect(abs(ax5 - cap) < 0.5, "AX5 标题起点 \(ax5) ≠ accessibility1 的 \(cap) —— 图标没封顶在 accessibility1")
     }
     #endif
 }
@@ -379,6 +423,19 @@ struct FloatingGlassChromeTests {
                 self.interior(backing, overText: true, scheme: scheme),
                 self.interior(backing, overText: false, scheme: scheme),
                 "\(scheme)：HUD 底色层透出了底层文字"
+            )
+        }
+    }
+
+    @Test("HUD 底色层就是 surfaceRaised：内部与一块 surfaceRaised 相同")
+    func hudBackingIsSurfaceRaised() {
+        for scheme in [ColorScheme.light, .dark] {
+            let backing = FloatingGlassChrome.hud.backingView(in: Self.hudShape)
+            expectBitmapsEquivalent(
+                self.interior(backing, overText: false, scheme: scheme),
+                self.interior(Color.surfaceRaised, overText: false, scheme: scheme),
+                maxChannelDelta: 1,
+                "\(scheme)：HUD 底色层不是 surfaceRaised"
             )
         }
     }

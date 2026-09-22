@@ -956,7 +956,11 @@ private struct CardPreview: View {
                 VStack(alignment: .leading, spacing: CoreSpacing.sm) {
                     Text("外层 Card：raised").coreFont(.headline)
                     Card {
+                        #if os(macOS)
+                        Text("内层 Card：elevated，无投影，保留描边").coreFont(.subheadline)
+                        #else
                         Text("内层 Card：elevated，无投影、无描边").coreFont(.subheadline)
+                        #endif
                     }
                     Card(kind: .grouped) {
                         Text("内层 grouped：elevated").coreFont(.subheadline)
