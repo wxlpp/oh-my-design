@@ -18,7 +18,7 @@ github: https://github.com/wxlpp/oh-my-design/issues/406
 | #408 原生符号 / 数字动效接入小件 | FR-4 | #407 | AnchoredBadgeModifier、CheckBox、Radio |
 | #409 TagGroup / TagInput 动画 | FR-5 | #407 | TagInput、TagGroup、Tag |
 
-#407 先行；002 与 003 文件不重叠，#407 合入后并行。
+#407 先行；#408 与 #409 文件不重叠，#407 合入后并行。
 
 ## Tasks Created
 - [ ] 407.md - 动效 token + Reduce Motion 纪律 (parallel: false)
