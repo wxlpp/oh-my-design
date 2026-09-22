@@ -101,6 +101,21 @@ extension ComponentMeta {
         ComponentMeta(id: "form-field", name: "FormField", description: "字段容器：label + 必填星号 + description + 错误行；.fieldValidation / .fieldRequirement 环境值", category: .form) {
             FormFieldPreview()
         },
+        ComponentMeta(id: "form-field-controls-valid", name: "FormField · 控件 valid", description: "PinCode / TagInput / SearchField / CheckBox / RadioGroup 放进 FormField：valid", category: .form) {
+            FormFieldControlsPreview(state: .valid)
+        },
+        ComponentMeta(id: "form-field-controls-invalid", name: "FormField · 控件 invalid", description: "五个控件 invalid：描边 / 图标取 statusDangerForeground，错误原因挂到真实输入节点的 hint", category: .form) {
+            FormFieldControlsPreview(state: .invalid)
+        },
+        ComponentMeta(id: "form-field-controls-plain", name: "FormField · 控件不在 FormField 内", description: "五个控件裸放、无校验态：无障碍 label / hint 与接入前一致", category: .form) {
+            FormFieldControlsPlainPreview()
+        },
+        ComponentMeta(id: "form-field-controls-edge", name: "FormField · 控件边界情形", description: "调用方自带 accessibilityLabel、嵌套 FormField 最近一层生效", category: .form) {
+            FormFieldControlsEdgePreview()
+        },
+        ComponentMeta(id: "form-field-controls-disabled", name: "FormField · 控件 disabled + invalid", description: "disabled 压过 invalid：与 disabled + valid 外观一致，错误原因只留在 hint", category: .form) {
+            FormFieldControlsPreview(state: .disabledInvalid)
+        },
 
         // Indicator
         ComponentMeta(id: "badge", name: "Badge", description: "5 状态等级指示器：info / success / warning / danger / neutral", category: .indicator) {
@@ -1328,6 +1343,124 @@ private struct FormFieldPreview: View {
         return parts.count == 2 && parts[1].contains(".")
             ? .valid
             : .invalid("Enter a valid email address.")
+    }
+}
+
+private struct FormFieldControlsPreview: View {
+    enum Mode {
+        case valid
+        case invalid
+        case disabledInvalid
+    }
+
+    let state: Mode
+
+    @State private var code = "12"
+    @State private var tags = ["design", "ios"]
+    @State private var query = "release"
+    @State private var accepted = false
+    @State private var plan = "basic"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            FormField("Verification code", description: "Sent to your phone.") {
+                PinCode(value: self.$code, length: 6)
+            }
+            .fieldRequirement(.required)
+            .fieldValidation(self.validation("The code has expired."))
+
+            FormField("Labels", description: "Press Return or comma to add.") {
+                TagInput(tags: self.$tags, placeholder: "Add tag")
+            }
+            .fieldValidation(self.validation("Add at most 3 labels."))
+
+            FormField("Filter") {
+                SearchField(text: self.$query, placeholder: "Search releases")
+            }
+            .fieldValidation(self.validation("No results match this filter."))
+
+            FormField("Terms") {
+                Toggle("I accept the terms of service", isOn: self.$accepted)
+                    .toggleStyle(CheckBoxToggleStyle())
+            }
+            .fieldRequirement(.required)
+            .fieldValidation(self.validation("Accept the terms to continue."))
+
+            FormField("Plan", description: "You can change it later.") {
+                RadioGroup(
+                    selection: self.$plan,
+                    options: [
+                        RadioOption(value: "basic", title: "Basic"),
+                        RadioOption(value: "pro", title: "Pro"),
+                    ],
+                    axis: .horizontal,
+                    spacing: CoreSpacing.lg
+                )
+            }
+            .fieldValidation(self.validation("Pro is unavailable in your region."))
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .disabled(self.state == .disabledInvalid)
+    }
+
+    private func validation(_ reason: LocalizedStringResource) -> FieldValidation {
+        self.state == .valid ? .valid : .invalid(reason)
+    }
+}
+
+private struct FormFieldControlsPlainPreview: View {
+    @State private var code = "12"
+    @State private var tags = ["design"]
+    @State private var query = "release"
+    @State private var accepted = false
+    @State private var plan = "basic"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            PinCode(value: self.$code, length: 4)
+            TagInput(tags: self.$tags, placeholder: "Add tag")
+            SearchField(text: self.$query, placeholder: "Search releases")
+            Toggle("I accept the terms of service", isOn: self.$accepted)
+                .toggleStyle(CheckBoxToggleStyle())
+            RadioGroup(
+                selection: self.$plan,
+                options: [RadioOption(value: "basic", title: "Basic"), RadioOption(value: "pro", title: "Pro")],
+                axis: .horizontal
+            )
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+private struct FormFieldControlsEdgePreview: View {
+    @State private var code = ""
+    @State private var query = ""
+    @State private var accepted = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            FormField("Filter") {
+                SearchField(text: self.$query, placeholder: "Search releases")
+                    .accessibilityLabel(Text(verbatim: "Caller search label"))
+            }
+            .fieldValidation(.invalid("Filter is invalid."))
+
+            FormField("Terms") {
+                Toggle("I accept the terms of service", isOn: self.$accepted)
+                    .toggleStyle(CheckBoxToggleStyle())
+                    .accessibilityLabel(Text(verbatim: "Caller toggle label"))
+            }
+            .fieldValidation(.invalid("Terms are required."))
+
+            FormField("Outer", description: "Outer description.") {
+                FormField("Inner", description: "Inner description.") {
+                    PinCode(value: self.$code, length: 4)
+                }
+                .fieldValidation(.invalid("Inner is wrong."))
+            }
+            .fieldValidation(.invalid("Outer is wrong."))
+        }
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 

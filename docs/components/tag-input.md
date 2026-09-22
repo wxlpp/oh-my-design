@@ -61,10 +61,15 @@ TagInput(tags: $tags, placeholder: "Add tag") { committed in
 - 输入框文字色：`Color.contentPrimary`
 - 输入框最小宽度：80pt（避免 `FlowLayout` 压缩到不可用宽度）
 - 输入框最小高度：`CoreControlMetrics.height(for: .regular)`
+- 校验态（`.fieldValidation(_:)`，见 `form-field.md`）：invalid 时输入框底部叠一条
+  `CoreBorderWidth.thin` 的 `Color.statusDangerForeground` 描边线（overlay，不改布局）；
+  disabled 优先于 invalid，禁用时不画。组件整体没有外框，所以描边只落在输入框上。
 
 ## 无障碍
 
-- 输入框 `.accessibilityLabel(Text(placeholder))`——`placeholder` 为调用方
-  任意字符串，走 verbatim 渲染，与 `SearchField.placeholder` 处理方式一致。
+- 输入框的无障碍 label：放在 `FormField` 里时为字段 label（必填时追加「, required」），
+  否则为 `Text(placeholder)`——`placeholder` 为调用方任意字符串，走 verbatim 渲染，
+  与 `SearchField.placeholder` 处理方式一致。
+- 错误原因与 `FormField` 的 description 作为 hint 挂在**输入框**上，不挂在 chip 的删除按钮上。
 - chip 删除按钮的无障碍标签完全来自 `Tag` 内建的 `"Remove tag"`（Phase 0 已
   登记），本组件不重复声明。

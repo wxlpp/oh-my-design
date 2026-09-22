@@ -36,7 +36,7 @@ extension View {
 - 两个环境值嵌套时按 SwiftUI 惯例**最近一层生效**，推荐直接施加在 `FormField` 上。
 - `fieldAccessibility()` 读所在 `FormField` 的环境值，在**调用它的那个节点**上同时设置无障碍 label
   （字段 label + 必填说明，如 `Email, required`）与 hint（错误原因在前、description 在后；两者皆无时不挂 hint）。
-  系统控件由调用方加在控件上；本库的自有输入控件在各自的真实输入节点内部调用同一个 modifier。
+  系统控件由调用方加在控件上；本库的自有控件在各自的真实输入节点内部走同一套实现（选择类控件只挂 hint、保留选项自身 label，见下文《接入校验态的自有控件》）。
 - 错误原因是 `LocalizedStringResource`：显示走 `Text(_:)`；播报前把环境 `locale` 写进资源副本再用
   `String(localized:)` 解析，「错误文本是否变化」也按同一解析结果判断。
 - `formFieldLabelColumn()`：施加在一组字段的容器上，让其中所有 `.inline` 字段共用最宽 label 的列宽，控件左缘对齐。
@@ -68,6 +68,27 @@ extension View {
   （`AccessibilityNotification.Announcement`）。
 - 播报归属：嵌套的内层 `FormField` 若继承外层的同一校验源，不再重复播报；内层自己施加了
   `.fieldValidation(_:)` 时视为独立校验源，各自播报。
+
+## 接入校验态的自有控件
+
+`PinCode`、`TagInput`、`SearchField`、`CheckBoxToggleStyle`、`RadioGroup` 自己读 `fieldValidation`，
+放进 `FormField` 即可，**不要**再在它们外面加 `.fieldAccessibility()`（会覆盖控件内部挂好的节点）。
+
+| 控件 | invalid 外观 | 无障碍 hint 挂在 | label |
+|---|---|---|---|
+| `PinCode` | 每格边框 `statusDangerForeground` | 每一格 | 字段 label；不在 `FormField` 内为 `"Verification code"` |
+| `TagInput` | 输入框底部 danger 描边线 | 输入框（不是 chip 删除按钮） | 字段 label；否则 placeholder |
+| `SearchField` | 原生搜索框外沿 danger 胶囊描边 | 原生搜索框 | 字段 label；否则 placeholder |
+| `CheckBoxToggleStyle` | 方框图标 danger | `Toggle` 节点 | 保留 Toggle 自身文字 |
+| `RadioGroup` | 圆点图标 danger | 每个选项 | 保留选项标题 |
+
+- 外观统一走 disabled > invalid：禁用时与禁用 + valid 一致；valid 时与接入前逐像素一致。
+- 播报仍只由 `FormField` 发出，控件不另播报。
+- 调用方在控件外层自带的 `.accessibilityLabel(...)` 不会被字段 label 覆盖（hint 照常挂上）；嵌套 `FormField`
+  时取最近一层的 label、校验态与 description。不在 `FormField` 内、也没有校验态时，五个控件的无障碍 label / hint
+  与接入前一致（AXe 对照记录见 `.claude/epics/heroui-absorption/374-plan.md`）。
+- 预览宿主：`form-field-controls-valid` / `form-field-controls-invalid` / `form-field-controls-disabled`，
+  以及无障碍对照用的 `form-field-controls-plain`（不在 FormField 内）/ `form-field-controls-edge`（自带 label、嵌套）。
 
 ## 使用示例 / Usage
 
