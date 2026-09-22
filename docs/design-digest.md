@@ -439,6 +439,9 @@
 ### `Components/FormField/FormField.swift`
 
 - **`FormField`** *<Content: View>: View* — 表单字段容器：label（必填时带星号）+ 输入控件 + 可选 description + 错误行。
+- *enum* **`FormFieldLayout`** — `FormField` 的排布形态。
+  - `.stacked` — 默认：label 在上，控件、description、错误行依次在下（现状形态）。 业界来源：Apple HIG iOS 表单 / Material Design 3 Text fields 的外置 label。
+  - `.inline` — label 在前一列，控件在后，description 与错误行位于控件下方；辅助功能大字号下回退为 `.stacked`。 业界来源：Ant Design `Form.Item` 的 `layout="horizontal"` / macOS 表单的标签列（`Form` 的 `.formStyle(.columns)`）。
 
 ### `Components/InsetGroupedSection/InsetGroupedSection.swift`
 
@@ -911,7 +914,7 @@
 | `OhMyDesign` | `.bannerStyle` on `View` | 为子树中的所有 `Banner` 设置外观。 |
 | `OhMyDesign` | `.fieldValidation` on `View` | 为这棵子树设定字段校验态，推荐施加在 `FormField` 上。 |
 | `OhMyDesign` | `.fieldRequirement` on `View` | 为这棵子树设定字段必填性，推荐施加在 `FormField` 上。 |
-| `OhMyDesign` | `.fieldAccessibilityHint` on `View` | 把所在 `FormField` 的错误原因与 description 挂成本视图的无障碍 hint。 |
+| `OhMyDesign` | `.fieldAccessibility` on `View` | 把所在 `FormField` 的 label（含必填说明）挂成本视图的无障碍 label，错误原因与 description 挂成无障碍 hint。 |
 | `OhMyDesign` | `.ratingStyle` on `View` | 为子树中的所有 `Rating` / `RatingDisplay` 设置外观。 |
 | `OhMyDesign` | `.segmentedControlStyle` on `View` | 为子树中的所有 `SegmentedControl` 设置外观（对齐 `View.bannerStyle(_:)`）。 |
 | `OhMyDesign` | `.skeletonShimmer` on `View` | 骨架屏 shimmer 扫光叠加。 |
@@ -991,8 +994,8 @@
 | controlsize | 5 | 5 |
 | colors | 120 | 120 |
 | components | 85 | 85 |
-| enums | 40 | 40 |
-| enumcases | 142 | 142 |
+| enums | 41 | 41 |
+| enumcases | 144 | 144 |
 | protocols | 6 | 6 |
 | viewext | 43 | 43 |
 | styleext | 12 | 12 |

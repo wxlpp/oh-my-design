@@ -373,11 +373,13 @@
     {
       "component": "FormField",
       "repo": "ohmydesign",
-      "kind": "prescriptive",
-      "decidedBy": "pendingStep2",
+      "kind": "semantic",
+      "decidedBy": "step2",
       "nativeProtocol": null,
       "customStyleProtocol": null,
-      "needsExtensionPoint": false,
+      "styleSlot": null,
+      "styleEnum": "FormFieldLayout",
+      "needsExtensionPoint": true,
       "textParams": [
         {
           "name": "label",
@@ -388,7 +390,7 @@
           "category": "B"
         }
       ],
-      "notes": "`#373`（PRD FR-1）新增的表单字段容器：label（必填星号）+ 真实输入控件 + 可选 description + 错误行，校验态 / 必填性经 `.fieldValidation(_:)` / `.fieldRequirement(_:)` 环境值注入。祖父条款、弃用条款均不命中（无已发布的自有样式协议，未弃用）。**步骤 1：视为无。** 最接近的原生协议是 `LabeledContentStyle`，但它的 `Configuration` 只有 `label` / `content` 两槽，description 这一槽无处安放——改写成「`LabeledContent` + 自定义 `LabeledContentStyle`」要么把 description 塞进 label / content 失去独立位置，要么挪到组件外另起一个 modifier 注入；而本组件还要把 description 经环境值下传给真实输入节点作无障碍 hint，style 在 `makeBody` 里拿不到它 ⇒ 写不出「改写且不丢功能」的声明，按操作化判据视为无，进步骤 2。**步骤 2：候选枚举（走「至少 3 个具名业界候选」一支，均不含当前的「label 在上、说明与错误在下」纵向堆叠形态）**：候选 1 浮动标签——Material Design 3 Text fields（filled / outlined）把 label 放进输入框内、聚焦或有值时上浮到边框上，label 与控件由并排变重叠 ⇒ **排布**差异；候选 2 水平标签列——Ant Design `Form.Item` 的 `layout=\"horizontal\"`（label 在左列右对齐、控件在右列）⇒ 换轴，**排布**差异；候选 3 macOS 表单的标签列——Apple HIG macOS 表单惯例与 SwiftUI `Form` 的 `.formStyle(.columns)`（右对齐 label 列 + 控件列），同为换轴的**排布**差异。三者都不由本设计系统另一个具名组件承担（候选作用域条款不排除）。按此枚举，步骤 2 答「会」⇒ 出口 1（语义组件、需要扩展点）。**为什么登记为 `pendingStep2` 而不是 `step2`**：出口 1 要求开扩展点（形态 D2 的布局枚举或自有样式协议），这是**不可逆**的公开 API 决定，而 PRD FR-1 的契约里没有任何扩展点；实现 agent 不自行扩大 PRD 范围，上面三个候选的来源也尚未经独立核验。⇒ 按公约「缓办只能站在可逆的一侧」先登记 `prescriptive` / 不给扩展点，落点（补扩展点改判 `step2`，或核验后改判其它出口）交派单方裁定。承接 issue：#373。⚠️ 不得预判重判结论：核验后仍可能落出口 1，届时须开扩展点。textParams：`label` / `description` 均为 `LocalizedStringKey` + `StringProtocol` 双重载的界面文案 ⇒ B 类（与 `SettingsRow` 同形）。"
+      "notes": "`#373`（PRD FR-1）新增的表单字段容器：label（必填星号）+ 真实输入控件 + 可选 description + 错误行，校验态 / 必填性经 `.fieldValidation(_:)` / `.fieldRequirement(_:)` 环境值注入。祖父条款、弃用条款均不命中（无已发布的自有样式协议，未弃用）。**步骤 1：视为无。** 最接近的原生协议是 `LabeledContentStyle`，但它的 `Configuration` 只有 `label` / `content` 两槽，description 这一槽无处安放——改写成「`LabeledContent` + 自定义 `LabeledContentStyle`」要么把 description 塞进 label / content 失去独立位置，要么挪到组件外另起一个 modifier 注入；而本组件还要把 label 与 description 经环境值下传给真实输入节点作无障碍 label / hint，style 在 `makeBody` 里拿不到 description ⇒ 写不出「改写且不丢功能」的声明，按操作化判据视为无，进步骤 2。**步骤 2：会（走「至少 3 个具名业界候选」一支，均不含当前「label 在上、说明与错误在下」的纵向堆叠形态）**：候选 1 浮动标签——Material Design 3 Text fields（filled / outlined）把 label 放进输入框内、聚焦或有值时上浮到边框上，label 与控件由并排变重叠 ⇒ **排布**差异；候选 2 水平标签列——Ant Design `Form.Item` 的 `layout=\"horizontal\"`（label 在左列、控件在右列）⇒ 换轴，**排布**差异；候选 3 macOS 表单的标签列——Apple HIG macOS 表单惯例与 SwiftUI `Form` 的 `.formStyle(.columns)`（右对齐 label 列 + 控件列），同为换轴的**排布**差异。三者都不由本设计系统另一个具名组件承担（候选作用域条款不排除），均非皮肤变体 ⇒ 出口 1：语义组件、需要扩展点。**扩展点：形态 D2 布局枚举 `FormFieldLayout`**（沿用 `#312` 五个 `…Layout` 的先例，经 `init` 的 `layout:` 参数接线，缺省 `.stacked` ⇒ 现有调用方零影响）：`.stacked`（现状）与 `.inline`（候选 2 / 3 的 label 前置列；description 与错误行在控件下方；辅助功能大字号下回退为 `.stacked`）。候选 1 浮动标签需要改写系统 `TextField` 的内部排布，本轮不提供，枚举是封闭集合、后续可按需增 case。历史：实现期曾因 PRD FR-1 未含扩展点而暂记 `pendingStep2`，派单方裁定补扩展点后改判 `step2`。textParams：`label` / `description` 均为 `LocalizedStringKey` + `StringProtocol` 双重载的界面文案 ⇒ B 类（与 `SettingsRow` 同形）。"
     },
     {
       "component": "FullScreenButton",

@@ -83,3 +83,10 @@ public struct FormField<Content: View>: View {
   label 元素为 `Email, required`；但 TextField 节点 `AXLabel` 为 null——labeledPair 未把 label 并入输入节点。
   PRD 契约保留（labeledPair 照挂），该限制登记进 `docs/components/form-field.md`，是否追加补救交派单方裁定。
 - 登记：步骤 2 枚举落出口 1（需扩展点），与 PRD 无扩展点冲突 ⇒ 暂记 `pendingStep2`（承接 #373），交派单方裁定。
+
+## 派单方裁定后的改动（resolve open points）
+
+- `fieldAccessibilityHint()` 改名 `fieldAccessibility()`：同时设输入节点的 label（字段 label + 必填说明）与 hint；AXe 实测 TextField 暴露 `Email, required` + 错误原因。
+- 新增 D2 `FormFieldLayout { stacked, inline }`（init `layout:` 参数，缺省 `.stacked`），登记改判 `semantic` / `step2`，`pendingStep2` 台账复原为空。
+- `FieldValidation.invalid` 关联值改为 `LocalizedStringResource`：显示 `Text(_:)`、播报 `String(localized:)`，不再用下划线 API。
+- `docs/snapshots` 新增 `FormField` 快照；description / 错误行对 VoiceOver 保持可见，文档登记可能的重复朗读。

@@ -580,17 +580,25 @@ enum PreviewSnapshotFixtures {
         FormField("Full name", description: "Shown on your public profile.") {
             TextField("Jane Appleseed", text: .constant(""))
                 .textFieldStyle(.roundedBorder)
-                .fieldAccessibilityHint()
+                .fieldAccessibility()
         }
         .fieldRequirement(.required)
 
         FormField("Email") {
             TextField("you@example.com", text: .constant("jane@"))
                 .textFieldStyle(.roundedBorder)
-                .fieldAccessibilityHint()
+                .fieldAccessibility()
         }
         .fieldRequirement(.required)
-        .fieldValidation(.invalid(Text(verbatim: "Enter a valid email address.")))
+        .fieldValidation(.invalid("Enter a valid email address."))
+
+        FormField("Zip", layout: .inline) {
+            TextField("95014", text: .constant("950"))
+                .textFieldStyle(.roundedBorder)
+                .fieldAccessibility()
+        }
+        .fieldRequirement(.required)
+        .fieldValidation(.invalid("Enter a 5-digit zip code."))
     }
     .padding()
     .frame(width: 360)

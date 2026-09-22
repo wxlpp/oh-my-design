@@ -950,20 +950,22 @@ private struct FormFieldPreview: View {
     @State private var name = ""
     @State private var email = "jane@"
     @State private var team = "Design"
+    @State private var city = ""
+    @State private var zip = "950"
 
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.xl) {
             FormField("Full name", description: "Shown on your public profile.") {
                 TextField("Jane Appleseed", text: self.$name)
                     .textFieldStyle(.roundedBorder)
-                    .fieldAccessibilityHint()
+                    .fieldAccessibility()
             }
             .fieldRequirement(.required)
 
             FormField("Email") {
                 TextField("you@example.com", text: self.$email)
                     .textFieldStyle(.roundedBorder)
-                    .fieldAccessibilityHint()
+                    .fieldAccessibility()
             }
             .fieldRequirement(.required)
             .fieldValidation(self.emailValidation)
@@ -971,10 +973,28 @@ private struct FormFieldPreview: View {
             FormField("Team", description: "Managed by your administrator.") {
                 TextField("Team", text: self.$team)
                     .textFieldStyle(.roundedBorder)
-                    .fieldAccessibilityHint()
+                    .fieldAccessibility()
             }
-            .fieldValidation(.invalid(Text(verbatim: "Disabled wins over invalid.")))
+            .fieldValidation(.invalid("Disabled wins over invalid."))
             .disabled(true)
+
+            Text(verbatim: "Inline layout")
+                .coreFont(.headline)
+                .foregroundStyle(Color.contentSecondary)
+
+            FormField("City", description: "Used for shipping estimates.", layout: .inline) {
+                TextField("Cupertino", text: self.$city)
+                    .textFieldStyle(.roundedBorder)
+                    .fieldAccessibility()
+            }
+
+            FormField("Zip", layout: .inline) {
+                TextField("95014", text: self.$zip)
+                    .textFieldStyle(.roundedBorder)
+                    .fieldAccessibility()
+            }
+            .fieldRequirement(.required)
+            .fieldValidation(self.zip.count == 5 ? .valid : .invalid("Enter a 5-digit zip code."))
         }
     }
 
@@ -982,7 +1002,7 @@ private struct FormFieldPreview: View {
         let parts = self.email.split(separator: "@", omittingEmptySubsequences: false)
         return parts.count == 2 && parts[1].contains(".")
             ? .valid
-            : .invalid(Text(verbatim: "Enter a valid email address."))
+            : .invalid("Enter a valid email address.")
     }
 }
 

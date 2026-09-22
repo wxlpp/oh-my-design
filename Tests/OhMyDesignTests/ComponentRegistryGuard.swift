@@ -54,9 +54,9 @@ struct ComponentRegistryGuard {
 
     // MARK: - 缓办台账：步骤 2 枚举未完成的条目（PR #297 终审 I-2）
 
-    static let pendingStep2FollowUpIssue: String? = "#373"
+    static let pendingStep2FollowUpIssue: String? = nil
 
-    static let knownPendingStep2Enumeration: Set<String> = ["FormField"]
+    static let knownPendingStep2Enumeration: Set<String> = []
 
     static func pendingStep2Components(in entries: [Entry]) -> Set<String> {
         Set(entries.filter { $0.decidedBy == "pendingStep2" }.map(\.component))

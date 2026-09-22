@@ -7,7 +7,7 @@ public nonisolated enum FieldValidation: Equatable, Sendable {
     /// 校验通过（或尚未校验）。
     case valid
     /// 校验未通过，关联值是展示给用户、也会被播报的错误原因。
-    case invalid(Text)
+    case invalid(LocalizedStringResource)
 }
 
 /// 字段是否必填，经环境值下发给 `FormField`。
@@ -29,6 +29,7 @@ public extension EnvironmentValues {
 
 extension EnvironmentValues {
     @Entry var fieldDescription: Text? = nil
+    @Entry var fieldLabel: Text? = nil
 }
 
 // MARK: - View extension
@@ -50,14 +51,14 @@ public extension View {
         self.environment(\.fieldRequirement, requirement)
     }
 
-    /// 把所在 `FormField` 的错误原因与 description 挂成本视图的无障碍 hint。
+    /// 把所在 `FormField` 的 label（含必填说明）挂成本视图的无障碍 label，错误原因与 description 挂成无障碍 hint。
     ///
     /// 施加在真实输入节点上（如 `FormField` 内的系统 `TextField`）；容器本身不挂 hint。
-    /// 没有错误也没有 description 时不挂任何 hint。
+    /// 不在 `FormField` 内时不挂 label；没有错误也没有 description 时不挂 hint。
     ///
-    /// - Returns: 挂好无障碍 hint 的视图。
-    func fieldAccessibilityHint() -> some View {
-        self.modifier(FieldAccessibilityHintModifier())
+    /// - Returns: 挂好无障碍 label 与 hint 的视图。
+    func fieldAccessibility() -> some View {
+        self.modifier(FieldAccessibilityModifier())
     }
 }
 
@@ -67,7 +68,7 @@ enum FieldAccessibilityHint {
     static func parts(validation: FieldValidation, description: Text?) -> [Text] {
         var parts: [Text] = []
         if case .invalid(let reason) = validation {
-            parts.append(reason)
+            parts.append(Text(reason))
         }
         if let description {
             parts.append(description)
@@ -88,13 +89,18 @@ enum FieldAccessibilityHint {
     }
 }
 
-private struct FieldAccessibilityHintModifier: ViewModifier {
+private struct FieldAccessibilityModifier: ViewModifier {
     @Environment(\.fieldValidation) private var validation
+    @Environment(\.fieldRequirement) private var requirement
     @Environment(\.fieldDescription) private var description
+    @Environment(\.fieldLabel) private var fieldLabel
 
     func body(content: Content) -> some View {
+        let label = self.fieldLabel.map { FormFieldAccessibility.label($0, requirement: self.requirement) }
         let hint = FieldAccessibilityHint.text(validation: self.validation, description: self.description)
-        content.accessibilityHint(hint ?? Text(verbatim: String()), isEnabled: hint != nil)
+        content
+            .accessibilityLabel(label ?? Text(verbatim: String()), isEnabled: label != nil)
+            .accessibilityHint(hint ?? Text(verbatim: String()), isEnabled: hint != nil)
     }
 }
 
@@ -134,7 +140,7 @@ enum FieldAppearance: Equatable {
 nonisolated struct FieldValidationAnnouncer: Equatable {
     private(set) var last: FieldValidation?
 
-    mutating func observe(_ validation: FieldValidation) -> Text? {
+    mutating func observe(_ validation: FieldValidation) -> LocalizedStringResource? {
         defer { self.last = validation }
         guard let last = self.last, case .invalid(let reason) = validation else { return nil }
         if case .invalid(let previous) = last, previous == reason { return nil }
@@ -144,15 +150,12 @@ nonisolated struct FieldValidationAnnouncer: Equatable {
 
 struct FieldValidationAnnouncementModifier: ViewModifier {
     @Environment(\.fieldValidation) private var validation
-    @Environment(\.locale) private var locale
     @State private var announcer = FieldValidationAnnouncer()
 
     func body(content: Content) -> some View {
         content.onChange(of: self.validation, initial: true) { _, newValue in
             guard let reason = self.announcer.observe(newValue) else { return }
-            var environment = EnvironmentValues()
-            environment.locale = self.locale
-            AccessibilityNotification.Announcement(reason._resolveText(in: environment)).post()
+            AccessibilityNotification.Announcement(String(localized: reason)).post()
         }
     }
 }

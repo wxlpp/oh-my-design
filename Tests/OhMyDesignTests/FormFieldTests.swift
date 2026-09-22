@@ -9,56 +9,56 @@ struct FieldValidationAnnouncerTests {
     @Test("首次渲染即 invalid 不播报")
     func firstRenderInvalidIsSilent() {
         var announcer = FieldValidationAnnouncer()
-        #expect(announcer.observe(.invalid(Text(verbatim: "Required"))) == nil)
+        #expect(announcer.observe(.invalid("Required")) == nil)
     }
 
     @Test("值未变的重建不播报")
     func unchangedRebuildIsSilent() {
         var announcer = FieldValidationAnnouncer()
         _ = announcer.observe(.valid)
-        #expect(announcer.observe(.invalid(Text(verbatim: "Bad"))) == Text(verbatim: "Bad"))
-        #expect(announcer.observe(.invalid(Text(verbatim: "Bad"))) == nil)
-        #expect(announcer.observe(.invalid(Text(verbatim: "Bad"))) == nil)
+        #expect(announcer.observe(.invalid("Bad")) == LocalizedStringResource("Bad"))
+        #expect(announcer.observe(.invalid("Bad")) == nil)
+        #expect(announcer.observe(.invalid("Bad")) == nil)
     }
 
     @Test("valid → invalid 播报错误原因一次")
     func validToInvalidAnnounces() {
         var announcer = FieldValidationAnnouncer()
         #expect(announcer.observe(.valid) == nil)
-        #expect(announcer.observe(.invalid(Text(verbatim: "Bad"))) == Text(verbatim: "Bad"))
+        #expect(announcer.observe(.invalid("Bad")) == LocalizedStringResource("Bad"))
     }
 
     @Test("invalid 的错误文本变化时播报新文本")
     func reasonChangeAnnounces() {
         var announcer = FieldValidationAnnouncer()
-        _ = announcer.observe(.invalid(Text(verbatim: "A")))
-        #expect(announcer.observe(.invalid(Text(verbatim: "B"))) == Text(verbatim: "B"))
+        _ = announcer.observe(.invalid("A"))
+        #expect(announcer.observe(.invalid("B")) == LocalizedStringResource("B"))
     }
 
     @Test("转回 valid 或 valid 重建都不播报")
     func becomingValidIsSilent() {
         var announcer = FieldValidationAnnouncer()
         _ = announcer.observe(.valid)
-        _ = announcer.observe(.invalid(Text(verbatim: "A")))
+        _ = announcer.observe(.invalid("A"))
         #expect(announcer.observe(.valid) == nil)
         #expect(announcer.observe(.valid) == nil)
-        #expect(announcer.observe(.invalid(Text(verbatim: "A"))) == Text(verbatim: "A"))
+        #expect(announcer.observe(.invalid("A")) == LocalizedStringResource("A"))
     }
 
     @Test("一条完整序列的播报次数")
     func sequenceCount() {
         var announcer = FieldValidationAnnouncer()
         let sequence: [FieldValidation] = [
-            .invalid(Text(verbatim: "A")),
-            .invalid(Text(verbatim: "A")),
+            .invalid("A"),
+            .invalid("A"),
             .valid,
             .valid,
-            .invalid(Text(verbatim: "A")),
-            .invalid(Text(verbatim: "B")),
-            .invalid(Text(verbatim: "B")),
+            .invalid("A"),
+            .invalid("B"),
+            .invalid("B"),
         ]
         let announced = sequence.compactMap { announcer.observe($0) }
-        #expect(announced == [Text(verbatim: "A"), Text(verbatim: "B")])
+        #expect(announced == [LocalizedStringResource("A"), LocalizedStringResource("B")])
     }
 }
 
@@ -66,7 +66,7 @@ struct FieldValidationAnnouncerTests {
 
 @Suite("FormField 外观：disabled > invalid > focused")
 struct FieldAppearanceTests {
-    private let invalid = FieldValidation.invalid(Text(verbatim: "Bad"))
+    private let invalid = FieldValidation.invalid("Bad")
 
     @Test("disabled 压过 invalid 与 focused")
     func disabledWins() {
@@ -104,10 +104,10 @@ struct FormFieldAccessibilityTextTests {
     @Test("hint：错误原因在前、description 在后")
     func hintOrder() {
         let parts = FieldAccessibilityHint.parts(
-            validation: .invalid(Text(verbatim: "E")),
+            validation: .invalid("E"),
             description: Text(verbatim: "D")
         )
-        #expect(parts == [Text(verbatim: "E"), Text(verbatim: "D")])
+        #expect(parts == [Text(LocalizedStringResource("E")), Text(verbatim: "D")])
     }
 
     @Test("hint：无错误无 description 时为 nil，单项时原样")
@@ -115,8 +115,8 @@ struct FormFieldAccessibilityTextTests {
         #expect(FieldAccessibilityHint.text(validation: .valid, description: nil) == nil)
         #expect(FieldAccessibilityHint.text(validation: .valid, description: Text(verbatim: "D")) == Text(verbatim: "D"))
         #expect(
-            FieldAccessibilityHint.text(validation: .invalid(Text(verbatim: "E")), description: nil)
-                == Text(verbatim: "E")
+            FieldAccessibilityHint.text(validation: .invalid("E"), description: nil)
+                == Text(LocalizedStringResource("E"))
         )
     }
 
@@ -125,8 +125,8 @@ struct FormFieldAccessibilityTextTests {
         let label = Text(verbatim: "Email")
         #expect(FormFieldAccessibility.label(label, requirement: .optional) == label)
         #expect(FormFieldAccessibility.label(label, requirement: .required) != label)
-        let resolved = FormFieldAccessibility.label(label, requirement: .required)._resolveText(in: EnvironmentValues())
-        #expect(resolved == "Email, required")
+        let format = NSLocalizedString("%@, required", bundle: Bundle.module, comment: "")
+        #expect(String(format: format, "Email") == "Email, required")
     }
 }
 
@@ -170,12 +170,12 @@ struct FieldEnvironmentTests {
         let probe = Probe()
         self.render(
             Reader(probe: probe)
-                .fieldValidation(.invalid(Text(verbatim: "inner")))
+                .fieldValidation(.invalid("inner"))
                 .fieldRequirement(.required)
                 .fieldValidation(.valid)
                 .fieldRequirement(.optional)
         )
-        #expect(probe.validation == .invalid(Text(verbatim: "inner")))
+        #expect(probe.validation == .invalid("inner"))
         #expect(probe.requirement == .required)
     }
 }
@@ -191,6 +191,13 @@ struct FormFieldLayoutTests {
         return CGFloat(renderer.cgImage?.height ?? 0)
     }
 
+    private func inlineField(_ validation: FieldValidation) -> some View {
+        FormField("Email", description: "We never share it.", layout: .inline) {
+            Text(verbatim: "someone@example.com")
+        }
+        .fieldValidation(validation)
+    }
+
     private func field(_ validation: FieldValidation) -> some View {
         FormField("Email", description: "We never share it.") {
             Text(verbatim: "someone@example.com")
@@ -201,10 +208,27 @@ struct FormFieldLayoutTests {
     @Test("invalid 比 valid 多出错误行；设回 valid 错误行消失")
     func errorRowPresence() {
         let valid = self.height(self.field(.valid))
-        let invalid = self.height(self.field(.invalid(Text(verbatim: "Enter a valid email address."))))
+        let invalid = self.height(self.field(.invalid("Enter a valid email address.")))
         #expect(valid > 0)
         #expect(invalid > valid)
         #expect(self.height(self.field(.valid)) == valid)
+    }
+
+    @Test(".inline 把 label 放进前一列：同样内容比 .stacked 矮，且错误行照样出现")
+    func inlineLayout() {
+        let stacked = self.height(self.field(.valid))
+        let inline = self.height(self.inlineField(.valid))
+        #expect(inline > 0)
+        #expect(inline < stacked)
+        #expect(self.height(self.inlineField(.invalid("Enter a valid email address."))) > inline)
+    }
+
+    @Test(".inline 在辅助功能大字号下回退为 .stacked；.stacked 始终不变")
+    func inlineFallsBackAtAccessibilitySizes() {
+        #expect(FormFieldLayout.inline.resolved(for: .large) == .inline)
+        #expect(FormFieldLayout.inline.resolved(for: .accessibility1) == .stacked)
+        #expect(FormFieldLayout.stacked.resolved(for: .large) == .stacked)
+        #expect(FormFieldLayout.stacked.resolved(for: .accessibility5) == .stacked)
     }
 
     @Test("必填星号不改变行高")
@@ -255,7 +279,7 @@ struct FormFieldDangerBitmapTests {
     func dangerVisibleOnlyWhenInvalid() throws {
         #expect(Color.statusDangerForeground.resolve(in: EnvironmentValues()).opacity > 0.9)
         #expect(try self.dangerPixelCount(.valid) == 0)
-        #expect(try self.dangerPixelCount(.invalid(Text(verbatim: "Enter a valid email address."))) > 50)
+        #expect(try self.dangerPixelCount(.invalid("Enter a valid email address.")) > 50)
     }
 }
 #endif

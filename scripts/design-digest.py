@@ -30,7 +30,9 @@ FLOORS = {
     # AnchoredBadgeHostShape）、enumcases +9（3 + 4 + 2）、viewext +1（View.anchoredBadge）。
     # #373：components +1（FormField）、enums +2（FieldValidation / FieldRequirement）、
     # enumcases +4（2 + 2）、viewext +3（fieldValidation / fieldRequirement / fieldAccessibilityHint）。
-    "colors": 120, "components": 85, "enums": 40, "enumcases": 142,
+    # #373：components +1（FormField）、enums +3（FieldValidation / FieldRequirement / FormFieldLayout）、
+    # enumcases +6（2 + 2 + 2）、viewext +3（fieldValidation / fieldRequirement / fieldAccessibility）。
+    "colors": 120, "components": 85, "enums": 41, "enumcases": 144,
     "protocols": 6, "viewext": 43, "styleext": 12, "others": 27,
 }
 

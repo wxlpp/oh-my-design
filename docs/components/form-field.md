@@ -10,12 +10,14 @@
 |---|---|---|---|
 | label | LocalizedStringKey / StringProtocol | - | 字段标题（字面量在 `Bundle.main` 本地化；运行期字符串 verbatim） |
 | description | LocalizedStringKey? / StringProtocol? | nil | 控件下方的补充说明；同时经环境值下传给真实输入节点作无障碍 hint |
+| layout | FormFieldLayout | .stacked | 排布形态：`.stacked`（label 在上）/ `.inline`（label 在前一列，description 与错误行在控件下方） |
 | content | () -> Content | - | 真实输入控件，通常是一个系统 `TextField` |
 
 ### 校验态与必填性
 
 ```swift
-public enum FieldValidation: Equatable, Sendable { case valid; case invalid(Text) }
+public enum FieldValidation: Equatable, Sendable { case valid; case invalid(LocalizedStringResource) }
+public enum FormFieldLayout: Sendable, Equatable { case stacked; case inline }
 public enum FieldRequirement: Equatable, Sendable { case optional; case required }
 
 extension EnvironmentValues {
@@ -26,14 +28,15 @@ extension EnvironmentValues {
 extension View {
     public func fieldValidation(_ validation: FieldValidation) -> some View
     public func fieldRequirement(_ requirement: FieldRequirement) -> some View
-    public func fieldAccessibilityHint() -> some View
+    public func fieldAccessibility() -> some View
 }
 ```
 
 - 两个环境值嵌套时按 SwiftUI 惯例**最近一层生效**，推荐直接施加在 `FormField` 上。
-- `fieldAccessibilityHint()` 读所在 `FormField` 的错误原因与 description，挂成**调用它的那个节点**的
-  无障碍 hint（错误原因在前、description 在后；两者皆无时不挂 hint）。系统控件由调用方加在控件上；
-  本库的自有输入控件在各自的真实输入节点内部调用同一个 modifier。
+- `fieldAccessibility()` 读所在 `FormField` 的环境值，在**调用它的那个节点**上同时设置无障碍 label
+  （字段 label + 必填说明，如 `Email, required`）与 hint（错误原因在前、description 在后；两者皆无时不挂 hint）。
+  系统控件由调用方加在控件上；本库的自有输入控件在各自的真实输入节点内部调用同一个 modifier。
+- 错误原因是 `LocalizedStringResource`：显示走 `Text(_:)`，播报走 `String(localized:)`。
 
 ## 行为
 
@@ -48,9 +51,11 @@ extension View {
 
 ## 无障碍
 
-- label 与控件用 `accessibilityLabeledPair(role:id:in:)` 配对。⚠️ 已知限制：iOS 26.4 模拟器上用 AXe 读预览宿主的无障碍树，系统 `TextField` 节点的 `AXLabel` 仍为空（label 未被并入输入节点），label 以独立元素出现在输入节点之前；hint 与必填文案均如预期落位。
+- label 与控件另用 `accessibilityLabeledPair(role:id:in:)` 配对（macOS 生效）；iOS 26 实测它不会把 label 关联到系统 `TextField`，所以 label 也由 `fieldAccessibility()` 设到输入节点上。
 - 容器**不挂 hint**——它不知道真实输入节点是哪一个；description 经环境值下传，
-  由 `fieldAccessibilityHint()` 挂到真实输入节点上。
+  由 `fieldAccessibility()` 挂到真实输入节点上。
+- description 与错误行本身对 VoiceOver 保持可见（调用方忘加 `.fieldAccessibility()` 时的兜底），
+  因此加了 modifier 时二者可能被读两次：一次作为输入节点的 hint，一次作为独立文本。
 - 播报：仅在 `valid → invalid`、或 invalid 的错误文本变化时播报一次错误原因；
   首次渲染即 invalid、以及值未变的重建都不播报。播报由 `FormField` 发出
   （`AccessibilityNotification.Announcement`），错误原因按环境 `locale` 解析成字符串。
@@ -63,11 +68,22 @@ extension View {
 FormField("Email", description: "We never share your address.") {
     TextField("you@example.com", text: $email)
         .textFieldStyle(.roundedBorder)
-        .fieldAccessibilityHint()
+        .fieldAccessibility()
 }
 .fieldRequirement(.required)
-.fieldValidation(email.contains("@") ? .valid : .invalid(Text("Enter a valid email address.")))
+.fieldValidation(email.contains("@") ? .valid : .invalid("Enter a valid email address."))
 ```
+
+### `.inline` 排布
+
+```swift
+FormField("Zip", layout: .inline) {
+    TextField("95014", text: $zip).fieldAccessibility()
+}
+```
+
+label 固定自身宽度放在前一列，控件与 description、错误行共用后一列；多个 `.inline` 字段之间的 label 列
+**不自动对齐宽度**。辅助功能大字号（`isAccessibilitySize`）下自动回退为 `.stacked`，避免 label 挤压控件。
 
 ## 视觉 Token
 
