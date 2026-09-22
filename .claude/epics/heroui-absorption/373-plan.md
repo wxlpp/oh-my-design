@@ -90,3 +90,7 @@ public struct FormField<Content: View>: View {
 - 新增 D2 `FormFieldLayout { stacked, inline }`（init `layout:` 参数，缺省 `.stacked`），登记改判 `semantic` / `step2`，`pendingStep2` 台账复原为空。
 - `FieldValidation.invalid` 关联值改为 `LocalizedStringResource`：显示 `Text(_:)`、播报 `String(localized:)`，不再用下划线 API。
 - `docs/snapshots` 新增 `FormField` 快照；description / 错误行对 VoiceOver 保持可见，文档登记可能的重复朗读。
+
+## 最终登记（派单方裁定）
+
+- 排除浮动标签后两个候选同骨架，步骤 2 不达标 ⇒ `prescriptive` / `tiebreaker`；`FormFieldLayout` 作为已发布形态参数保留，不登记为扩展点；J-2 定义域 17 → 16。
