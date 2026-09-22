@@ -398,28 +398,51 @@ struct ToastOverlay: View {
 
 // MARK: - ToastView
 
-private struct ToastContainerDecoration: ViewModifier {
+enum ToastContainerShape: Equatable {
+    case capsule
+    case roundedXLarge
+    case rectangle
+    case roundedLarge
+}
+
+struct ToastContainerDecoration: ViewModifier {
     let presentation: ToastPresentation
+    let edge: VerticalEdge
     let isSingleRow: Bool
+
+    static func shape(for presentation: ToastPresentation, isSingleRow: Bool) -> ToastContainerShape {
+        switch presentation {
+        case .floatingCapsule: isSingleRow ? .capsule : .roundedXLarge
+        case .fullWidthBanner: .rectangle
+        case .centeredHUD: .roundedLarge
+        }
+    }
+
+    static func chrome(for presentation: ToastPresentation, edge: VerticalEdge) -> FloatingGlassChrome {
+        switch presentation {
+        case .floatingCapsule: .floating
+        case .fullWidthBanner: .edgeBanner(edge)
+        case .centeredHUD: .hud
+        }
+    }
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        switch self.presentation {
-        case .floatingCapsule:
-            if self.isSingleRow {
-                content.floatingGlass(in: Capsule(style: .continuous), isInteractive: false)
-            } else {
-                content.floatingGlass(
-                    in: RoundedRectangle(cornerRadius: CoreRadius.xLarge, style: .continuous),
-                    isInteractive: false
-                )
-            }
-        case .fullWidthBanner:
-            content.floatingGlass(in: Rectangle(), isInteractive: false)
-        case .centeredHUD:
+        let chrome = Self.chrome(for: self.presentation, edge: self.edge)
+        switch Self.shape(for: self.presentation, isSingleRow: self.isSingleRow) {
+        case .capsule:
+            content.floatingGlass(in: Capsule(style: .continuous), chrome: chrome)
+        case .roundedXLarge:
+            content.floatingGlass(
+                in: RoundedRectangle(cornerRadius: CoreRadius.xLarge, style: .continuous),
+                chrome: chrome
+            )
+        case .rectangle:
+            content.floatingGlass(in: Rectangle(), chrome: chrome)
+        case .roundedLarge:
             content.floatingGlass(
                 in: RoundedRectangle(cornerRadius: CoreRadius.large, style: .continuous),
-                isInteractive: false
+                chrome: chrome
             )
         }
     }
@@ -442,7 +465,9 @@ struct ToastView: View {
     var body: some View {
         self.content
             .padding(CoreSpacing.md)
-            .modifier(ToastContainerDecoration(presentation: self.presentation, isSingleRow: self.isSingleRow))
+            .modifier(ToastContainerDecoration(
+                presentation: self.presentation, edge: self.edge, isSingleRow: self.isSingleRow
+            ))
             .offset(y: self.verticalOffset)
             .scaleEffect(self.presentation == .centeredHUD && self.isDismissing ? 0.92 : 1)
             .opacity(self.isDismissing ? 0 : 1)
@@ -492,12 +517,14 @@ struct ToastView: View {
 
     private var message: some View {
         HStack(alignment: .firstTextBaseline, spacing: CoreSpacing.sm) {
-            self.icon
-                .foregroundStyle(self.iconColor)
-                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-                .accessibilityHidden(true)
+            if !self.isAccessibilityLayout {
+                self.icon
+                    .foregroundStyle(self.iconColor)
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .accessibilityHidden(true)
+            }
             VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
-                Text(self.item.title)
+                self.title
                     .coreFont(.callout)
                     .fontWeight(self.item.description == nil ? .regular : .semibold)
                     .foregroundStyle(Color.contentPrimary)
@@ -516,6 +543,13 @@ struct ToastView: View {
                 Spacer(minLength: CoreSpacing.none)
             }
         }
+    }
+
+    private var title: Text {
+        guard self.isAccessibilityLayout else { return Text(self.item.title) }
+        let icon = Text(self.icon).foregroundStyle(self.iconColor)
+        return Text("\(icon) \(Text(self.item.title))", bundle: .module)
+            .accessibilityLabel(Text(self.item.title))
     }
 
     private func actionButton(_ action: ToastAction) -> some View {
@@ -559,7 +593,7 @@ struct ToastView: View {
         case .info: Image(systemName: "info.circle")
         case .success: Image(systemName: "checkmark.circle")
         case .warning: Image(systemName: "exclamationmark.triangle")
-        case .danger: Image(systemName: "exclamationmark.octagon")
+        case .danger: Image(systemName: "exclamationmark.circle")
         case .neutral: Image(systemName: "bell")
         }
     }

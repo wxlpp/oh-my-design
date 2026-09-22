@@ -68,6 +68,23 @@ struct ToastPresentationRenderTests {
         return maxX >= minX ? maxX - minX + 1 : nil
     }
 
+    private func overlayInkMinX(_ presentation: ToastPresentation) -> Int? {
+        let host = ToastHost()
+        host.show("Hi", level: .neutral)
+        guard let bytes = self.pixels(
+            ToastOverlay(host: host, edge: .top, presentation: presentation).frame(width: Self.containerWidth)
+        ) else { return nil }
+        let w = Int(Self.containerWidth), h = bytes.count / (w * 4)
+        var minX = w
+        for y in 0..<h {
+            for x in 0..<minX where bytes[(y * w + x) * 4 + 3] > 0 {
+                minX = x
+                break
+            }
+        }
+        return minX < w ? minX : nil
+    }
+
     private func rowInk(_ presentation: ToastPresentation, atFraction f: Double) -> Int? {
         let host = ToastHost()
         host.show("Hi", level: .info)
@@ -162,18 +179,19 @@ struct ToastPresentationRenderTests {
 
     @Test("A5b 承重：容器形状真的不同（banner 是矩形，capsule 有圆角）")
     func containerShapeDiffers() {
-        let bannerTop = self.rowInk(.fullWidthBanner, atFraction: 0.06)
-        let bannerMid = self.rowInk(.fullWidthBanner, atFraction: 0.5)
         let capsuleTop = self.rowInk(.floatingCapsule, atFraction: 0.06)
         let capsuleMid = self.rowInk(.floatingCapsule, atFraction: 0.5)
-        for (name, v) in [("bannerTop", bannerTop), ("bannerMid", bannerMid),
-                          ("capsuleTop", capsuleTop), ("capsuleMid", capsuleMid)] {
+        for (name, v) in [("capsuleTop", capsuleTop), ("capsuleMid", capsuleMid)] {
             #expect(v != nil, "\(name) 量测失败 —— 不得当作通过")
         }
-        #expect(bannerTop == bannerMid,
-                "banner 顶行 \(bannerTop ?? -1) ≠ 中行 \(bannerMid ?? -1) —— 它不是矩形（容器形状分支可能被换掉了）")
         #expect((capsuleTop ?? 0) < (capsuleMid ?? 0),
-                "capsule 顶行 \(capsuleTop ?? -1) 未窄于中行 \(capsuleMid ?? -1) —— 圆角没了。⚠️ 本条同时是上一条的非退化前置：证明「顶行<中行」在本平台确实可区分")
+                "capsule 顶行 \(capsuleTop ?? -1) 未窄于中行 \(capsuleMid ?? -1) —— 圆角没了")
+        // banner 外壳无 hairline，玻璃与 `.background` 底色 `ImageRenderer` 都不画 ⇒ 位图里没有轮廓可量，改核形状选择。
+        for isSingleRow in [true, false] {
+            #expect(ToastContainerDecoration.shape(for: .fullWidthBanner, isSingleRow: isSingleRow) == .rectangle)
+            #expect(ToastContainerDecoration.shape(for: .floatingCapsule, isSingleRow: isSingleRow) != .rectangle)
+            #expect(ToastContainerDecoration.shape(for: .centeredHUD, isSingleRow: isSingleRow) != .rectangle)
+        }
     }
 
     // MARK: A10 / A10b —— edge 在 .centeredHUD 下真的无效
@@ -208,10 +226,13 @@ struct ToastPresentationRenderTests {
             #expect(ink != nil, "\(name) ink 量测失败 —— 不得当作通过")
             #expect((ink ?? 0) > 0, "\(name) ink 为 0 —— 渲染为空图，下面的比较会假通过")
         }
-        #expect(banner == Int(Self.containerWidth),
-                "banner 没有撑满容器：\(banner ?? -1) ≠ \(Int(Self.containerWidth))（背景/描边可能没画到矩形边界）")
-        #expect((banner ?? 0) > (capsule ?? 0),
-                "banner 未比 capsule 宽：banner \(banner ?? -1) / capsule \(capsule ?? -1)")
+        // banner 外壳在位图里不可见（见 A5b），改量内容的左缘：banner 不留外侧水平边距，只剩内容内边距。
+        let bannerMinX = self.overlayInkMinX(.fullWidthBanner)
+        let capsuleMinX = self.overlayInkMinX(.floatingCapsule)
+        #expect((Int(CoreSpacing.md)...Int(CoreSpacing.md) + 2).contains(bannerMinX ?? -1),
+                "banner 内容左缘 \(bannerMinX ?? -1) 不在内容内边距 \(Int(CoreSpacing.md)) 处 —— banner 没贴容器边")
+        #expect(abs((capsuleMinX ?? -99) - Int(CoreSpacing.lg)) <= 1,
+                "capsule 左缘 \(capsuleMinX ?? -1) 不在外侧边距 \(Int(CoreSpacing.lg)) 处 —— 上一条的对照失效")
         #expect((hud ?? Int.max) < (capsule ?? 0),
                 "hud 未比 capsule 窄：hud \(hud ?? -1) / capsule \(capsule ?? -1)")
     }
@@ -288,14 +309,19 @@ struct ToastPresentationRenderTests {
         return maxX >= minX ? (maxX - minX + 1, count) : nil
     }
 
-    private func standaloneActionInk(_ label: String, dynamicTypeSize: DynamicTypeSize) -> (width: Int, pixels: Int)? {
+    private func standaloneActionInk(
+        _ label: String,
+        dynamicTypeSize: DynamicTypeSize,
+        backdrop: Color = .clear
+    ) -> (width: Int, pixels: Int)? {
         self.redInk(
             Button {} label: { Text(label).fontWeight(.semibold) }
                 .buttonStyle(.light(role: .primary))
                 .controlSize(.small)
                 .fixedSize()
                 .coreAccent(Self.probeRed)
-                .padding(CoreSpacing.lg),
+                .padding(CoreSpacing.lg)
+                .background(backdrop),
             dynamicTypeSize: dynamicTypeSize
         )
     }
@@ -326,8 +352,9 @@ struct ToastPresentationRenderTests {
     )
     func actionLabelIsNotTruncated(dynamicTypeSize: DynamicTypeSize) {
         let label = "Undo archive"
-        let reference = self.standaloneActionInk(label, dynamicTypeSize: dynamicTypeSize)
-        guard let reference, reference.pixels > 0 else {
+        let bare = self.standaloneActionInk(label, dynamicTypeSize: dynamicTypeSize)
+        let onRaised = self.standaloneActionInk(label, dynamicTypeSize: dynamicTypeSize, backdrop: .surfaceRaised)
+        guard let bare, let onRaised, bare.pixels > 0, onRaised.pixels > 0 else {
             Issue.record("参照按钮没画出探针色 —— 量测失效，不得当作通过")
             return
         }
@@ -336,6 +363,9 @@ struct ToastPresentationRenderTests {
                 Issue.record("\(presentation) @ \(dynamicTypeSize)：toast 里找不到动作文字")
                 continue
             }
+            // HUD 外壳底色不透明；`ImageRenderer` 画不画玻璃里的底色随运行环境而变，字形抗锯齿边的墨量随之两取一。
+            let reference = presentation == .centeredHUD && abs(ink.pixels - onRaised.pixels) < abs(ink.pixels - bare.pixels)
+                ? onRaised : bare
             let ratio = Double(ink.pixels) / Double(reference.pixels)
             #expect(abs(ratio - 1) <= 0.05,
                     "\(presentation) @ \(dynamicTypeSize)：动作文字墨量 \(ink.pixels) / 完整 \(reference.pixels) —— 字形缺失，被截断")

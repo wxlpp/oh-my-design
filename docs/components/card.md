@@ -46,9 +46,9 @@ Card(kind: .grouped) {
 ## 视觉 Token
 
 - 背景（顶层时）：`.content` 与 `.grouped` 两种 `kind` 同取 `.surface(.content)` / `.surface(.grouped)` 的背景 token，都指向 `surfaceRaised`（`secondarySystemGroupedBackground`）——浮于画布之上，深浅双模式下都与 `Color.surfaceCanvas` 拉开。二者背景**完全相同**，`.grouped` 唯一的区别是不描边（靠填充色对比定界，与 `InsetGroupedSection` 一致，见上方 API 表）
-- 嵌套层级：`.surface(_:)` 按有效层级取背景（规则见 [surface.md](surface.md)）——顶层 `Card` 处在 raised、取 `surfaceCard`；放进 `.surface(.content)` / `.surface(.grouped)` / 另一个 `Card` 里时处在 elevated、取 `surfaceElevated`，再往里封顶不变。`Card` 的背景层级全部来自 `.surface`；它只额外读父层级来收起投影。⚠️ macOS 上 `surfaceCard` 与 `surfaceElevated` 同值：`.content` 嵌套靠描边区分，`.grouped` 嵌套 `.grouped` 无视觉区分（已知限制）
+- 嵌套层级：`.surface(_:)` 按有效层级取背景（规则见 [surface.md](surface.md)）——顶层 `Card` 处在 raised、取 `surfaceCard`；放进 `.surface(.content)` / `.surface(.grouped)` / 另一个 `Card` 里时处在 elevated、取 `surfaceElevated`，再往里封顶不变。`Card` 的背景层级全部来自 `.surface`；它只额外读父层级来收起投影。嵌套到 elevated 的 `.content` 不描边，与 `.grouped` 同观感。⚠️ macOS 上 `surfaceCard` 与 `surfaceElevated` 同值：嵌套的 `Card`（两种 `kind`）在 macOS 上与外层无视觉区分（已知限制）
 - 内边距：默认 `CoreSpacing.lg`
-- 圆角 / 描边：由 `SurfaceModifier` 统一提供，不在 `Card` 自身重复定义；`.content` 有描边，`.grouped` 无描边
+- 圆角 / 描边：由 `SurfaceModifier` 统一提供，不在 `Card` 自身重复定义；`.content` 在顶层有描边、嵌套（elevated）时无描边，`.grouped` 无描边
 - 投影：`elevation`，默认 `.small`。**卡片自身有效层级为 elevated 时（嵌在 raised 容器、另一个 `Card`、或 `coreSheetPresentation` 的内容里）不画投影，显式传 `.medium` / `.large` 也一样**——嵌套卡片的下凹底色（浅色 `surfaceElevated` 比外层暗）与投影的「浮起」信号相反。要在嵌套处保留投影，改用手写 `.background` + `.coreShadow(_:)`
 - 弹层：挂在卡片内部的普通 `.sheet` / `.popover` 会继承卡片层级（已知限制，见 [surface.md](surface.md)）；sheet 内容上用 `coreSheetPresentation(background:)` 作层级边界
 

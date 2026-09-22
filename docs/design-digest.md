@@ -689,7 +689,7 @@
 
 - *enum* **`SurfaceKind`** — 容器表面语义类别 / Container surface semantic kinds.
   - `.canvas` — 页面级画布。
-  - `.content` — 内容表面：卡片、分组容器——**浮于画布之上**（背景取 `surfaceRaised`）。 列表行不用本 kind，`ListRow` 走 `.surface(.canvas)` 贴画布。
+  - `.content` — 内容表面：卡片、分组容器——**浮于画布之上**（背景取 `surfaceRaised`）。 嵌套到 elevated 层时不描边，与 `.grouped` 同观感。 列表行不用本 kind，`ListRow` 走 `.surface(.canvas)` 贴画布。
   - `.control` — 交互控件表面：按钮、输入框、分段控件。
   - `.floating` — 浮于内容之上的表面：toast、浮动工具栏、底部栏。
   - `.grouped` — 分组容器表面：背景 + 圆角、无描边，靠填充色对比定界，背景与 `.content` 同取 `surfaceRaised`。

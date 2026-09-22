@@ -19,6 +19,22 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.10.0`）——Issue #399：浮层与层级（Toast / `floatingGlass` / `.surface`）
+
+**视觉变更（无签名破坏）。** 公开符号的签名一个都没变；以下是默认外观的变化：
+
+| 位置 | 之前 | 现在 |
+|---|---|---|
+| `Toast` danger 图标 | `exclamationmark.octagon` | **`exclamationmark.circle`**（与 `Banner` 的 circle 族成组，Toast 保持描线） |
+| `Toast` 在 AX 字号（AX1+） | 图标单独占一列，文字列变窄，长单词会从中间折断 | 图标内联到标题文字开头，文字列拿到整条宽度；常规字号外观不变 |
+| `.toastHost(presentation: .fullWidthBanner)` 外壳 | 四周 hairline，止于安全区 | **无 hairline**，底色与玻璃延伸进所贴那条边的安全区（顶部即状态栏） |
+| `.toastHost(presentation: .centeredHUD)` 外壳 | 64% 背景色 + 玻璃，叠在文字上透字 | 底色改为不透明 `surfaceRaised`，保留玻璃边缘与 hairline |
+| `.surface(.content)` / `Card()` 嵌套到 elevated 层 | `borderMuted` 描边 | **无描边**（与 `.grouped` 合流）；raised / base 层与 `.card` 别名不变 |
+
+- `.floatingCapsule` 与公开入口 `.floatingGlass(in:isInteractive:)`（含 `FloatButton` 的扩展样式）外观不变。
+- ⚠️ macOS 上 `surfaceCard` 与 `surfaceElevated` 同色：嵌套的 `.surface(.content)` / `Card()` 过去靠描边与外层区分，
+  现在与外层无视觉区分。需要区分时改用 `.surface(.card)`（仍描边）或给内层换底色。
+
 ## 未发布（相对 `v0.10.0`）——Issue #400：输入控件的校验 / 禁用 / 尺寸外观
 
 **视觉与布局变更（无签名破坏，无公开 API 增减）。**

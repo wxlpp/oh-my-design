@@ -13,7 +13,9 @@
 | `content` / `grouped` / `card` | 父层级 + 1，封顶 `elevated` | `raised` → `surfaceCard`，`elevated` → `surfaceElevated` |
 | `panel` / `sidebar` / `control` / `floating` | 沿用父层级 | 各自现值（`surfacePanel` / `surfaceSidebar` / `surfaceInteractive` / `surfaceOverlay`），不随层级变 |
 
-- 只有 `content` / `grouped` / `card` 三个角色的背景随层级变；描边与圆角仍只由角色决定（`grouped` 仍无描边）。
+- 只有 `content` / `grouped` / `card` 三个角色的背景随层级变；圆角只由角色决定。
+- 描边由角色决定，唯一例外是 `content`：`elevated` 层不描边（`.clear`），与 `grouped` 同观感；
+  `raised` / `base` 层仍是 `borderMuted`。`card`（兼容别名）在任何层级都保留 `borderMuted`。
 - ⇒ `.surface(.content)` 里的 `Card` 取 `surfaceElevated`；再往里嵌套仍是 `surfaceElevated`（封顶）。
 - 需要在卡片里重新从画布起算时，用 `.surface(.canvas)` 重置（`ListRow` 就是这样贴画布的）。
 
@@ -30,8 +32,9 @@ macOS 没有分层背景 API：`surfaceCard`（`secondarySystemGroupedBackground
 （`tertiarySystemGroupedBackground`）在 AppKit 下都桥到 `controlBackgroundColor`，取值相同
 （见 `docs/DESIGN-FOUNDATION.md` 的 macOS 取值表）。
 
-- 有描边的角色（`content` / `card`）嵌套时靠描边区分；
-- **`grouped` 嵌套 `grouped` 在 macOS 上没有任何视觉区分**（无描边、背景同色）——已知限制，不做平台分支补救。
+- `card` 嵌套时靠描边区分；
+- **`content` / `grouped` 嵌进 `content` / `grouped` / `card` 时，在 macOS 上没有任何视觉区分**
+  （elevated 层无描边、背景同色）——已知限制，不做平台分支补救。
 
 ### 已知限制：普通 `.sheet` / `.popover` 继承宿主层级
 
