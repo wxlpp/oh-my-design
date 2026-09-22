@@ -45,7 +45,8 @@ Card(kind: .grouped) {
 
 ## 视觉 Token
 
-- 背景：`.content` 与 `.grouped` 两种 `kind` 同取 `.surface(.content)` / `.surface(.grouped)` 的背景 token，都指向 `surfaceRaised`（`secondarySystemGroupedBackground`）——浮于画布之上，深浅双模式下都与 `Color.surfaceCanvas` 拉开。二者背景**完全相同**，`.grouped` 唯一的区别是不描边（靠填充色对比定界，与 `InsetGroupedSection` 一致，见上方 API 表）
+- 背景（顶层时）：`.content` 与 `.grouped` 两种 `kind` 同取 `.surface(.content)` / `.surface(.grouped)` 的背景 token，都指向 `surfaceRaised`（`secondarySystemGroupedBackground`）——浮于画布之上，深浅双模式下都与 `Color.surfaceCanvas` 拉开。二者背景**完全相同**，`.grouped` 唯一的区别是不描边（靠填充色对比定界，与 `InsetGroupedSection` 一致，见上方 API 表）
+- 嵌套层级：`.surface(_:)` 按有效层级取背景（规则见 [surface.md](surface.md)）——顶层 `Card` 处在 raised、取 `surfaceCard`；放进 `.surface(.content)` / `.surface(.grouped)` / 另一个 `Card` 里时处在 elevated、取 `surfaceElevated`，再往里封顶不变。`Card` 本身不写层级逻辑，全部来自 `.surface`。⚠️ macOS 上 `surfaceCard` 与 `surfaceElevated` 同值：`.content` 嵌套靠描边区分，`.grouped` 嵌套 `.grouped` 无视觉区分（已知限制）
 - 内边距：默认 `CoreSpacing.lg`
 - 圆角 / 描边：由 `SurfaceModifier` 统一提供，不在 `Card` 自身重复定义；`.content` 有描边，`.grouped` 无描边
 - 投影：`elevation`，默认 `.small`

@@ -19,6 +19,22 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.10.0`）——Issue #382：surface 有效层级 + `coreSheetPresentation()`
+
+**行为变更（无签名破坏）。** `.surface(_:)` 现在按环境里的有效层级取背景（规则见
+`docs/components/surface.md`）：
+
+| 调用形态 | 之前 | 现在 |
+|---|---|---|
+| `content` / `grouped` / `card` 嵌套在另一个 `content` / `grouped` / `card`（含 `Card`、`InsetGroupedSection`）里 | `surfaceCard` | **`surfaceElevated`**（`tertiarySystemGroupedBackground`） |
+| 顶层或 `.surface(.canvas)` / `.surface(.canvasSubtle)` 之下的 `content` / `grouped` / `card` | `surfaceCard` | 不变 |
+| `panel` / `sidebar` / `control` / `floating` / `canvas` / `canvasSubtle` | 各自现值 | 不变 |
+
+- 迁移：想保持旧观感（内层也取 `surfaceCard`）时，在内层外包一层 `.surface(.canvas)` 重置层级，
+  或直接用 `.background(Color.surfaceCard)` 自绘。
+- macOS 上 `surfaceCard` 与 `surfaceElevated` 同值，像素不变。
+- 新增：`View.coreSheetPresentation()`（纯新增）。
+
 ## 未发布（相对 `v0.10.0`）——Issue #377：Toast 标题 / 说明 / 动作、`ToastDuration`、计时状态机
 
 **破坏性变更（源码）。** 新旧签名映射：

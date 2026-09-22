@@ -773,6 +773,8 @@ private struct ToastDemoButton: View {
 // MARK: - Phase 2 Container Previews
 
 private struct CardPreview: View {
+    @State private var isSheetPresented = false
+
     var body: some View {
         VStack(spacing: CoreSpacing.md) {
             Card {
@@ -786,7 +788,43 @@ private struct CardPreview: View {
             Card(padding: CoreSpacing.md, alignment: .center) {
                 Text("居中 + 紧凑内边距").coreFont(.subheadline)
             }
+            Card {
+                VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                    Text("外层 Card：raised").coreFont(.headline)
+                    Card(elevation: .none) {
+                        Text("内层 Card：elevated（surfaceElevated）").coreFont(.subheadline)
+                    }
+                    Card(kind: .grouped, elevation: .none) {
+                        Text("内层 grouped：elevated").coreFont(.subheadline)
+                    }
+                }
+            }
+            Button("打开 coreSheetPresentation") {
+                self.isSheetPresented = true
+            }
+            .buttonStyle(.solid(role: .primary))
         }
+        .sheet(isPresented: self.$isSheetPresented) {
+            CardSheetContent()
+                .coreSheetPresentation()
+                .presentationDetents([.medium])
+        }
+    }
+}
+
+private struct CardSheetContent: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            Text("Sheet 内容").coreFont(.headline)
+            Text("背景 surfaceRaised，内容层级为 raised。")
+                .coreFont(.subheadline)
+                .foregroundStyle(Color.contentSecondary)
+            Card {
+                Text("Sheet 内的 Card：elevated").coreFont(.subheadline)
+            }
+        }
+        .padding(CoreSpacing.lg)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }
 

@@ -274,6 +274,11 @@ private struct ToastSnapshotHarness: View {
         Card(padding: CoreSpacing.md, alignment: .center) {
             Text("居中 + 紧凑内边距").coreFont(.subheadline)
         }
+        Card {
+            Card(elevation: .none) {
+                Text("嵌套 Card：elevated").coreFont(.subheadline)
+            }
+        }
     }
     .padding()
     .background(Color.surfaceCanvas)

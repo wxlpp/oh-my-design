@@ -104,6 +104,11 @@ OhMyDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
    （**测试名只改了 `macOSCanvasStandsApart` 一条**，另两条的 `@Test` 标题仍是「…不同色」
    ——它们描述的就是身份层，本来没错），**断言一律不动**。
 
+**surface 有效层级（`#382`）在 macOS 上的后果**：`.surface(_:)` 让嵌套的 `content` / `grouped` /
+`card` 取 `surfaceElevated`，而 `surfaceElevated`（`tertiarySystemGroupedBackground`）与 `surfaceCard`
+在 AppKit 下同桥到 `controlBackgroundColor` ⇒ raised 与 elevated 取值相同。有描边的角色嵌套时靠描边区分；
+**`grouped` 嵌套 `grouped` 在 macOS 无视觉区分，登记为已知限制**（规则见 `docs/components/surface.md`）。
+
 ⚠️ **取值这一层的判据一律无条件断言，不做「退化就跳过」的分叉。**
 **理由**：`#120` 描述的退化形态是「塌成**同一** fallback RGBA」——同值但**不透明**，
 任何靠 `opacity > 0` 的探针都判不出来，一分叉就等于给判据装了个恒真的跳过开关。

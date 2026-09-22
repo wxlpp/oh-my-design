@@ -91,6 +91,14 @@ private struct CardPreviewGallery: View {
             Card(kind: .grouped) {
                 Text("无描边（kind: .grouped）——贴近系统分组容器").coreFont(.subheadline)
             }
+            Card {
+                VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                    Text("外层 Card：raised").coreFont(.headline)
+                    Card(elevation: .none) {
+                        Text("内层 Card：elevated").coreFont(.subheadline)
+                    }
+                }
+            }
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
