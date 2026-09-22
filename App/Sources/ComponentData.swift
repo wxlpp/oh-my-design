@@ -95,6 +95,9 @@ extension ComponentMeta {
         ComponentMeta(id: "tag-input", name: "TagInput", description: "标签输入框：Tag chip + 内联 TextField，回车/逗号提交", category: .form) {
             TagInputPreview()
         },
+        ComponentMeta(id: "tag-group", name: "TagGroup", description: "可选标签组：none / single / multiple，禁用集合，选中色跟随 coreAccent", category: .form) {
+            TagGroupPreview()
+        },
         ComponentMeta(id: "form-field", name: "FormField", description: "字段容器：label + 必填星号 + description + 错误行；.fieldValidation / .fieldRequirement 环境值", category: .form) {
             FormFieldPreview()
         },
@@ -511,6 +514,76 @@ private struct TagPreview: View {
                 }
                 .controlSize(size)
             }
+        }
+    }
+}
+
+private struct TagGroupPreviewItem: Identifiable, Hashable {
+    let id: String
+}
+
+private struct TagGroupPreview: View {
+    @State private var single: Set<String> = ["Weekly"]
+    @State private var multiple: Set<String> = ["Swift", "Rust"]
+    @State private var withDisabled: Set<String> = ["Go"]
+    @State private var accented: Set<String> = ["Design"]
+    @State private var sized: Set<String> = ["On"]
+
+    private let ranges = ["Daily", "Weekly", "Monthly", "Yearly"].map(TagGroupPreviewItem.init(id:))
+    private let languages = ["Swift", "Kotlin", "Rust", "TypeScript", "Python"].map(TagGroupPreviewItem.init(id:))
+    private let platforms = ["iOS", "macOS", "Go", "watchOS"].map(TagGroupPreviewItem.init(id:))
+    private let teams = ["Design", "Engineering", "Research"].map(TagGroupPreviewItem.init(id:))
+    private let toggles = ["On", "Off"].map(TagGroupPreviewItem.init(id:))
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            self.row("none") {
+                TagGroup(self.languages, selection: .constant(["Swift"]), selectionMode: .none, color: .contentPrimary) {
+                    Text($0.id)
+                }
+            }
+            self.row("single") {
+                TagGroup(self.ranges, selection: self.$single, selectionMode: .single, color: .contentPrimary) {
+                    Text($0.id)
+                }
+                Text(verbatim: "Selected: \(self.single.sorted().joined(separator: ", "))")
+                    .coreFont(.caption)
+                    .foregroundStyle(Color.contentSecondary)
+                    .accessibilityIdentifier("tag-group-single-selection")
+            }
+            self.row("multiple") {
+                TagGroup(self.languages, selection: self.$multiple, color: .contentPrimary) {
+                    Text($0.id)
+                }
+            }
+            self.row("disabled") {
+                TagGroup(self.platforms, selection: self.$withDisabled, disabled: ["Go", "watchOS"], color: .contentPrimary) {
+                    Text($0.id)
+                }
+            }
+            self.row("coreAccent(.blue)") {
+                TagGroup(self.teams, selection: self.$accented, color: .contentPrimary) {
+                    Text($0.id)
+                }
+                .coreAccent(.blue)
+            }
+            ForEach(sizeLadder, id: \.0) { label, size in
+                SizeLadderRow(label: label) {
+                    TagGroup(self.toggles, selection: self.$sized, color: .contentPrimary) {
+                        Text($0.id)
+                    }
+                }
+                .controlSize(size)
+            }
+        }
+    }
+
+    private func row(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+            Text(verbatim: title)
+                .coreFont(.caption)
+                .foregroundStyle(Color.contentSecondary)
+            content()
         }
     }
 }

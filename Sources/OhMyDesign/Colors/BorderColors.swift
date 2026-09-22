@@ -45,7 +45,7 @@ public extension Color {
     /// 选中态描边。语义上表示"已选中"而非"键盘 focus"，但与 `borderFocus` 同源 `accent`——
     /// 走别名而非直接引用第 1 层原子色，accent 重定向时自动跟随。
     static var borderSelected: Color {
-        .accent
+        Color.accentSelectedBorder(from: .accent)
     }
 
     /// 比 `borderDefault` / `borderStrong` 更具视觉重量，用于需强调的容器边框。
