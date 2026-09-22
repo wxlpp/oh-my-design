@@ -15,11 +15,12 @@
 > `NetworkGraph` 布局扩展点（`#312`）+ 删除 `SurfaceKind.overlay`（`#238`）+ NFR-7 能耗策略表
 > 下沉（`#271`）+ 画廊场景化配色 + `coredesign-leftover-closeout` epic（`#220`）
 > ——**含破坏性变更，所有 `import` 都要改**；本版共 7 个章节，见下）。
+> `v0.11.0`（2026-09-22，`heroui-absorption` epic（`#372`）：`FormField` / `TagGroup` / `anchoredBadge` / `.coreCircular` / 按压样式 / `coreSheetPresentation` 等新增，Toast / Banner / `StatusLevel` / 尺寸体系 / surface 层级增强 + 移除 `Sidebar` / `BottomInputBar` + `coreAccent` on-accent 通路（`#357`）+ 五组件布局扩展点（`#312`）+ `ui-followups` epic（`#397`）——**含破坏性变更**；本版共 11 个章节，见下）。
 > ⚠️ 本清单**失真过两次**：早期版本写「本库当前无外部版本 tag」（`v0.1.0` 之前成立、之后未同步）；
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
-## 未发布（相对 `v0.10.0`）——Issue #399：浮层与层级（Toast / `floatingGlass` / `.surface`）
+## `0.11.0`（2026-09-22）——Issue #399：浮层与层级（Toast / `floatingGlass` / `.surface`）
 
 **视觉变更（无签名破坏）。** 公开符号的签名一个都没变；以下是默认外观的变化：
 
@@ -34,7 +35,7 @@
 - `.floatingCapsule` 与公开入口 `.floatingGlass(in:isInteractive:)`（含 `FloatButton` 的扩展样式）外观不变。
 - macOS 上 `surfaceCard` 与 `surfaceElevated` 同色，描边是嵌套的唯一线索，所以 elevated 层的描边在 macOS 上保留。
 
-## 未发布（相对 `v0.10.0`）——Issue #400：输入控件的校验 / 禁用 / 尺寸外观
+## `0.11.0`（2026-09-22）——Issue #400：输入控件的校验 / 禁用 / 尺寸外观
 
 **视觉与布局变更（无签名破坏，无公开 API 增减）。**
 
@@ -53,7 +54,7 @@
   框，原生搜索框的绘制带与命中区都停在 44pt，不会跟着变高。依赖旧的「给多高就画多高」的调用点（如用
   `.frame(height: 60)` 画一条加高搜索条）需要自行包一个 `UISearchTextField` / `.searchable`，本库不提供开关。想让禁用的 CheckBox / Radio 保持不变淡的旧观感，没有开关——这是有意对齐系统控件的行为。
 
-## 未发布（相对 `v0.10.0`）——Issue #398：Banner 圆角与 neutral 不透明底色、Timeline 浅色 warning 圆点
+## `0.11.0`（2026-09-22）——Issue #398：Banner 圆角与 neutral 不透明底色、Timeline 浅色 warning 圆点
 
 **视觉变更（无签名破坏）。** 新增公开 token：`Color.systemGray5`（第 2 层）、`Color.statusNeutralSubtle`（第 3 层）。
 
@@ -67,7 +68,7 @@
   `Rectangle()` 背景、neutral 取 `Color.tertiaryFill`），经 `.bannerStyle(_:)` 注入。
 - 截图 / 快照基线比对 Banner 的下游需要重录；Timeline 只有浅色 warning 圆点变化。
 
-## 未发布（相对 `v0.10.0`）——Issue #382：surface 有效层级 + `coreSheetPresentation(background:)`
+## `0.11.0`（2026-09-22）——Issue #382：surface 有效层级 + `coreSheetPresentation(background:)`
 
 **行为变更（无签名破坏）。** `.surface(_:)` 现在按环境里的有效层级取背景（规则见
 `docs/components/surface.md`）：
@@ -100,7 +101,7 @@
 - macOS 上 `surfaceCard` 与 `surfaceElevated` 同值，背景像素不变；投影收起在 macOS 同样生效。
 - 新增（纯新增）：`View.coreSheetPresentation(background:)` 与 `enum CoreSheetBackground`（`.system` / `.raised`）。
 
-## 未发布（相对 `v0.10.0`）——Issue #377：Toast 标题 / 说明 / 动作、`ToastDuration`、计时状态机
+## `0.11.0`（2026-09-22）——Issue #377：Toast 标题 / 说明 / 动作、`ToastDuration`、计时状态机
 
 **破坏性变更（源码）。** 新旧签名映射：
 
@@ -132,7 +133,7 @@ print(item.title)
 - 新增（非破坏）：`ToastItem.description`、`ToastAction`、`ToastDuration.persistent`、`ToastHost.dismissAll()`；
   按住 / 拖拽暂停计时。
 
-## 未发布（相对 `v0.10.0`）——Issue #376：Banner 补齐 title / actions / dismiss
+## `0.11.0`（2026-09-22）——Issue #376：Banner 补齐 title / actions / dismiss
 
 **破坏性变更（自定义 style 行为 + 无障碍结构）；编译期无信号。**
 
@@ -173,7 +174,7 @@ print(item.title)
    调用点，该按钮仍被合并进内容元素——请改用 `actions` 槽让它成为独立节点。UI 测试若按旧的合并
    label 查找 Banner，需要同步。
 
-## 未发布（相对 `v0.10.0`）——Issue #378：Badge / Tag / Avatar 尺寸体系 + `AvatarSize`
+## `0.11.0`（2026-09-22）——Issue #378：Badge / Tag / Avatar 尺寸体系 + `AvatarSize`
 
 **破坏性变更（布局 + 函数引用）。**
 
@@ -208,7 +209,7 @@ print(item.title)
 `compactMinHeight(for:)` / `compactCornerRadius(for:)` /
 `avatarDiameter(for:)` / `avatarInitialFontSize(forDiameter:)`。
 
-## 未发布（相对 `v0.10.0`）——Issue #375：`StatusLevel` 新增 `.neutral`
+## `0.11.0`（2026-09-22）——Issue #375：`StatusLevel` 新增 `.neutral`
 
 **源码破坏性变更。** `public enum StatusLevel` 新增 `case neutral`（中性提示，取内容 / 填充语义色，
 不取状态色）。本包以源码形式分发、不开 library evolution，下游对 `StatusLevel` 写的 **exhaustive `switch`**
@@ -221,7 +222,7 @@ print(item.title)
   `Banner`（背景 `tertiaryFill`、描边 `borderDefault`，图标 `bell.fill`）、`Toast`（图标 `bell`）、`Timeline`
   （圆点 `contentSecondary`，VoiceOver 文案键 `"Neutral"`，已登记进 `en.lproj/Localizable.strings`）。
 
-## 未发布（相对 `v0.10.0`）——移除 `Sidebar` 与 `BottomInputBar` 组件
+## `0.11.0`（2026-09-22）——移除 `Sidebar` 与 `BottomInputBar` 组件
 
 **破坏性变更。** 这两个组件不再属于本库，整体删除（不迁到其他 target）；需要它们的调用方请在
 自己的代码里维护一份。被移除的公开符号：
@@ -241,7 +242,7 @@ print(item.title)
   `docs/bool-exemptions.json` 移除 15 条豁免，`docs/mainactor-static-exemptions.txt` 移除 4 条
   （`SidebarTextStyle.*` 与 `BottomInputBarDefaults.placeholder`）。
 
-## 未发布（相对 `v0.10.0`）——Issue #312：五个组件的布局形态扩展点
+## `0.11.0`（2026-09-22）——Issue #312：五个组件的布局形态扩展点
 
 **含破坏性变更（与 `v0.9.0` 那 7 处、`0.10.0` 的 `NetworkGraph` 同形）** —— 五个 `init` 各新增一个
 带默认值的 `layout:` 参数：
@@ -269,7 +270,7 @@ print(item.title)
 理由与判定过程见 `docs/components/{radar-chart,ring-chart,activity-heatmap,before-after-slider,orbiting-logos}.md`
 与登记表各条 `notes`；`OrbitingLogos` 的落点裁定见 `docs/contract-defects.md` 的 `## #312` 节。
 
-## 未发布（相对 `v0.10.0`）——Issue #357：`coreAccent` on-accent 通路
+## `0.11.0`（2026-09-22）——Issue #357：`coreAccent` on-accent 通路
 
 **源码兼容，行为有变。** `View.coreAccent(_:)` 增加可选 `on` 参数
 （`coreAccent(_ color: Color, on: Color? = nil)`）——与 `v0.9.0` 那 7 处同形：
