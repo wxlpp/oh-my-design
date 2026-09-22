@@ -653,11 +653,14 @@ private struct CarouselPreviewsPreviewGallery: View {
 }
 
 #Preview("AnchoredBadge") {
-    VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+    VStack(alignment: .leading, spacing: CoreSpacing.xxl) {
         HStack(spacing: CoreSpacing.xl) {
-            Avatar(name: "Evan").frame(width: CoreSpacing.xxxxl, height: CoreSpacing.xxxxl).clipShape(Circle()).anchoredBadge(.dot)
-            Avatar(name: "OhMyDesign").frame(width: CoreSpacing.xxxxl, height: CoreSpacing.xxxxl).clipShape(Circle()).anchoredBadge(.count(120, max: 99))
-            Avatar(name: "Design").frame(width: CoreSpacing.xxxxl, height: CoreSpacing.xxxxl).clipShape(Circle()).anchoredBadge(.text("NEW"), placement: .bottomTrailing)
+            Avatar(name: "Evan").frame(width: CoreSpacing.xxxxl, height: CoreSpacing.xxxxl).clipShape(Circle())
+                .anchoredBadge(.dot, hostShape: .circle)
+            Avatar(name: "Aurora").frame(width: CoreSpacing.xxxxl, height: CoreSpacing.xxxxl).clipShape(Circle())
+                .anchoredBadge(.count(120, max: 99), hostShape: .circle)
+            Avatar(name: "OhMyDesign").frame(width: CoreSpacing.huge, height: CoreSpacing.huge).clipShape(Circle())
+                .anchoredBadge(.text("NEW"), hostShape: .circle)
         }
         HStack(spacing: CoreSpacing.xxl) {
             Image(systemName: "bell.fill").font(.title).anchoredBadge(.dot)

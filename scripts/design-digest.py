@@ -26,9 +26,9 @@ FLOORS = {
     # #312：enums +5（五个 …Layout 配置枚举）、enumcases +18（4 + 4 + 4 + 3 + 3）。
     # #375：enumcases +1（StatusLevel.neutral）。
     # #378：enums +1（AvatarSize）、enumcases +2（.automatic / .fixed）。
-    # #379：enums +2（AnchoredBadgeContent / AnchoredBadgePlacement）、enumcases +7（3 + 4）、
-    # viewext +1（View.anchoredBadge）。
-    "colors": 118, "components": 84, "enums": 37, "enumcases": 136,
+    # #379：colors +2（systemRed / badgeFill）、enums +3（AnchoredBadgeContent / AnchoredBadgePlacement /
+    # AnchoredBadgeHostShape）、enumcases +9（3 + 4 + 2）、viewext +1（View.anchoredBadge）。
+    "colors": 120, "components": 84, "enums": 38, "enumcases": 138,
     "protocols": 6, "viewext": 40, "styleext": 12, "others": 27,
 }
 

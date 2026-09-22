@@ -202,7 +202,7 @@
 | `Color.contentSubtle` | 弱化辅助文本（弱于 `contentMuted`），用于占位 / 装饰文本。 |
 | `Color.contentOnEmphasis` | 在 emphasis 强调背景上的白色文本，用于通用 emphasis 背景（含中性 emphasis）。 |
 
-## `FillColors`（7）
+## `FillColors`（8）
 
 | token | 说明 |
 |---|---|
@@ -213,6 +213,7 @@
 | `Color.skeletonBase` | 骨架屏占位底色。 |
 | `Color.skeletonHighlight` | 骨架屏 shimmer 扫光高光色。 |
 | `Color.specularHighlight` | 扫光高光色（`.shine()` 这类掠过内容的高光带）。 |
+| `Color.badgeFill` | 锚定徽标（`View.anchoredBadge`）的底色：系统红，与 iOS 系统角标一致，不跟随 accent。 |
 
 ## `FunctionalColor`（10）
 
@@ -321,7 +322,7 @@
 | `Color.secondarySystemGroupedBackground` | 分组界面主要背景上层内容的颜色。 |
 | `Color.tertiarySystemGroupedBackground` | 内容层叠在分组界面次要背景之上的颜色。 |
 
-## `SystemLabelColors`（11）
+## `SystemLabelColors`（12）
 
 | token | 说明 |
 |---|---|
@@ -336,6 +337,7 @@
 | `Color.separator` | 分隔线颜色，允许下层内容透出，桥接 `UIColor.separator` / `NSColor.separatorColor`。 |
 | `Color.opaqueSeparator` | 不透明的分隔线颜色，完全遮住下层内容（`UIColor.opaqueSeparator`）。 |
 | `Color.link` | 可点击链接文本的颜色，桥接 `UIColor.link` / `NSColor.linkColor`。 |
+| `Color.systemRed` | 系统红，桥接 `UIColor.systemRed` / `NSColor.systemRed`，随外观与对比度设置自动适配。 |
 
 
 ---
@@ -615,12 +617,15 @@
 - *enum* **`AnchoredBadgeContent`** — 锚定徽标的内容：红点、计数或短文本。
   - `.dot` — 不带文字的红点。
   - `.count` — 计数；`≤ 0` 时不显示，超过 `max` 时显示为 `"\(max)+"`。
-  - `.text` — 调用方提供的短文本，原样显示；空串时不显示。
-- *enum* **`AnchoredBadgePlacement`** — 锚定徽标贴在宿主的哪个角；徽标中心落在该角上。
+  - `.text` — 调用方提供的短文案（本地化键，按 `Bundle.main` 解析）；空键时不显示。
+- *enum* **`AnchoredBadgePlacement`** — 锚定徽标贴在宿主的哪个角。
   - `.topTrailing` — 右上角（RTL 下为左上）。
   - `.topLeading` — 左上角（RTL 下为右上）。
   - `.bottomTrailing` — 右下角（RTL 下为左下）。
   - `.bottomLeading` — 左下角（RTL 下为右下）。
+- *enum* **`AnchoredBadgeHostShape`** — 宿主的外形，决定徽标锚点落在哪里。
+  - `.rectangle` — 矩形宿主（图标、卡片）：锚点在边界框的角上。
+  - `.circle` — 圆形宿主（头像）：锚点在内切圆的 45° 点上，并带一圈 `surfaceCanvas` 分隔环。
 
 ### `Modifier/FloatingGlassModifier.swift`
 
@@ -895,7 +900,7 @@
 | `OhMyDesign` | `.segmentedControlStyle` on `View` | 为子树中的所有 `SegmentedControl` 设置外观（对齐 `View.bannerStyle(_:)`）。 |
 | `OhMyDesign` | `.skeletonShimmer` on `View` | 骨架屏 shimmer 扫光叠加。 |
 | `OhMyDesign` | `.toastHost` on `View` | 在当前 view 子树挂载一个 scene-scoped `ToastHost`，并在 `edge` 方向以 `safeAreaInset` 渲染当前队列的首条 toast。 |
-| `OhMyDesign` | `.anchoredBadge` on `View` | 在宿主的一个角上叠加红点 / 计数 / 短文本徽标；计数并入宿主的可访问值。 |
+| `OhMyDesign` | `.anchoredBadge` on `View` | 在宿主的一个角上叠加红点 / 计数 / 短文案徽标，不改变宿主布局尺寸。 |
 | `OhMyDesign` | `.bordered` on `View` | 叠加一圈描边 / Add a border.  - Parameters: - style: 描边样式，任意 `ShapeStyle`（含 `Color` 与渐变）。 |
 | `OhMyDesign` | `.coreFont` on `View` | 施加 OhMyDesign 排版 token（直接取系统文本样式，随 Dynamic Type 缩放）。 |
 | `OhMyDesign` | `.floatingGlass` on `View` | ⚠️ 源码无文档注释 |
@@ -968,10 +973,10 @@
 | typography | 12 | 12 |
 | elevation | 4 | 4 |
 | controlsize | 5 | 5 |
-| colors | 118 | 118 |
+| colors | 120 | 120 |
 | components | 84 | 84 |
-| enums | 37 | 37 |
-| enumcases | 136 | 136 |
+| enums | 38 | 38 |
+| enumcases | 138 | 138 |
 | protocols | 6 | 6 |
 | viewext | 40 | 40 |
 | styleext | 12 | 12 |

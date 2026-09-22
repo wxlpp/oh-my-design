@@ -57,3 +57,15 @@ not a bare `String` ⇒ `knownFunctionSideBareText` unchanged. No Bool parameter
 3. placement → Alignment mapping for all four cases.
 4. fill == `.statusDangerEmphasis`, foreground == `.contentOnEmphasis` (structural equality, no `resolve`).
 5. accessibility value: count → `"99+"`, text → text, dot → non-nil, hidden → nil.
+
+## Review round 1 revision (PRD FR-8 rewritten on main, 61ab9af)
+
+- `.text(LocalizedStringKey)` (B class); `AnchoredBadgeContent` drops `Sendable` (LSK is not Sendable).
+- New `hostShape: AnchoredBadgeHostShape = .rectangle` (`.circle` anchors at the 45° point, ≈0.146·d inset, with a 2pt `surfaceCanvas` ring).
+- Geometry: vertical center on the anchor; horizontally the pill enters the host by half its height, width grows outward.
+- Color: layer-2 `Color.systemRed` bridge + layer-3 `Color.badgeFill`; resolved-color assertion allowed (system color).
+- Font `.caption` semibold, `@ScaledMetric` height 20 / padding 6.
+- Accessibility: public `@MainActor var accessibilityText: Text?`; host value set only while shown; no merge claim.
+- Chrome "New" via `LocalizedStringResource(bundle: .atURL(Bundle.module.bundleURL))`.
+- Docs: outset clipping inside ScrollView/List.
+- FLOORS: colors 118→120, enums 34→37, enumcases 127→136, viewext 39→40.

@@ -108,4 +108,13 @@ public extension Color {
             Color(nsColor: .linkColor)
         #endif
     }
+
+    /// 系统红，桥接 `UIColor.systemRed` / `NSColor.systemRed`，随外观与对比度设置自动适配。
+    static var systemRed: Color {
+        #if canImport(UIKit)
+            Color(uiColor: .systemRed)
+        #else
+            Color(nsColor: .systemRed)
+        #endif
+    }
 }

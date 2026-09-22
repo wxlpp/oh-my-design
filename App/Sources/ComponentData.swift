@@ -97,7 +97,7 @@ extension ComponentMeta {
         ComponentMeta(id: "badge", name: "Badge", description: "5 状态等级指示器：info / success / warning / danger / neutral", category: .indicator) {
             BadgePreview()
         },
-        ComponentMeta(id: "anchored-badge", name: "anchoredBadge", description: "View.anchoredBadge(_:placement:)：头像 / 图标角上的红点、计数（max+ 截断）、短文本；固定 danger 色，不跟随 accent", category: .indicator) {
+        ComponentMeta(id: "anchored-badge", name: "anchoredBadge", description: "View.anchoredBadge(_:placement:hostShape:)：头像 / 图标角上的红点、计数（max+ 截断）、短文本；固定 danger 色，不跟随 accent", category: .indicator) {
             AnchoredBadgePreview()
         },
         ComponentMeta(id: "tag", name: "Tag", description: "调用方自定义颜色的分类标签，支持 removable", category: .indicator) {
@@ -533,20 +533,16 @@ private struct SizeSystemPreview: View {
 
 private struct AnchoredBadgePreview: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: CoreSpacing.xl) {
-            HStack(spacing: CoreSpacing.xl) {
-                Avatar(name: "Evan")
-                    .frame(width: CoreSpacing.xxxxl, height: CoreSpacing.xxxxl)
-                    .clipShape(Circle())
-                    .anchoredBadge(.dot)
-                Avatar(name: "OhMyDesign")
-                    .frame(width: CoreSpacing.xxxxl, height: CoreSpacing.xxxxl)
-                    .clipShape(Circle())
-                    .anchoredBadge(.count(120, max: 99))
-                Avatar(name: "Design")
-                    .frame(width: CoreSpacing.xxxxl, height: CoreSpacing.xxxxl)
-                    .clipShape(Circle())
-                    .anchoredBadge(.text("NEW"), placement: .bottomTrailing)
+        VStack(alignment: .leading, spacing: CoreSpacing.xxl) {
+            HStack(spacing: CoreSpacing.xxl) {
+                self.avatar("Evan", side: CoreSpacing.xxxxl)
+                    .anchoredBadge(.dot, hostShape: .circle)
+                self.avatar("Aurora", side: CoreSpacing.xxxxl)
+                    .anchoredBadge(.count(120, max: 99), hostShape: .circle)
+                self.avatar("Design", side: CoreSpacing.xxxxl)
+                    .anchoredBadge(.count(3), placement: .bottomTrailing, hostShape: .circle)
+                self.avatar("OhMyDesign", side: CoreSpacing.huge)
+                    .anchoredBadge(.text("NEW"), hostShape: .circle)
             }
             HStack(spacing: CoreSpacing.xxl) {
                 Image(systemName: "bell.fill")
@@ -565,9 +561,19 @@ private struct AnchoredBadgePreview: View {
                     .font(.title)
                     .foregroundStyle(Color.contentSecondary)
                     .anchoredBadge(.text("NEW"), placement: .topLeading)
+                Image(systemName: "message.fill")
+                    .font(.title)
+                    .foregroundStyle(Color.contentSecondary)
+                    .anchoredBadge(.count(120))
             }
         }
-        .padding(CoreSpacing.md)
+        .padding(CoreSpacing.lg)
+    }
+
+    private func avatar(_ name: String, side: CGFloat) -> some View {
+        Avatar(name: name)
+            .frame(width: side, height: side)
+            .clipShape(Circle())
     }
 }
 
