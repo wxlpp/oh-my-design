@@ -180,7 +180,22 @@ struct CoreMotionTokenInFlightTests {
         return (peak, before.bytes != after.bytes)
     }
 
-    @Test("Toast 顶部入场：RM 关时从屏幕上沿滑入，RM 开时原地淡入")
+    nonisolated static let isCIRunner: Bool = {
+        let environment = ProcessInfo.processInfo.environment
+        return environment["CI"] != nil || environment["GITHUB_ACTIONS"] != nil
+    }()
+
+    nonisolated static let toastInsertionCISkip = """
+    跳过：CI runner 上从未在托管窗口里拍到 Toast 入场转场的中间帧（RM 关对照组峰值 [0, 0, 0]，\
+    runs 35755896429 / 35759184720），判据在那里无法下结论；本条在本机跑。\
+    Toast 在 RM 开时的转场选择由纯函数真值表 \
+    CoreMotionTokenDegradationTableTests.toastTransitionKind 在每条腿上兜住。
+    """
+
+    @Test(
+        "Toast 顶部入场：RM 关时从屏幕上沿滑入，RM 开时原地淡入",
+        .enabled(if: !isCIRunner, Comment(rawValue: Self.toastInsertionCISkip))
+    )
     func toastInsertion() {
         let on = Self.toastInsertionPeak(reduceMotion: true, sampleFor: 0.4)
         #expect(on.changed, "Toast 没出现，判据无效")
