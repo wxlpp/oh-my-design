@@ -57,8 +57,42 @@ send "26-control+a"   key-combo --modifiers 224 --key 4
 send "27-end"         key 77
 send "28-down"        key 81
 send "29-space"       key 44
-send "30-char-g"      key 10
-send "31-tab"         key 43
+
+# 焦点在 a1x 时点 a 的 chevron 把它折叠掉（a1x 随之隐藏），再按键：
+# 焦点须归约到最近的可见祖先 a，键盘层不能整条失效。
+send "30-home"        key 74
+send "31-right"       key 79
+send "32-right"       key 79
+send "33-right"       key 79
+send "34-right"       key 79
+mark "35-click-chevron-a"
+axe describe-ui --udid "$UDID" > "$OUT/describe-before-click.json" 2>&1
+XY=$(python3 - "$OUT/describe-before-click.json" <<'PY'
+import json, sys
+def walk(n):
+    yield n
+    for c in n.get("children") or []:
+        yield from walk(c)
+root = json.load(open(sys.argv[1]))
+nodes = [m for r in (root if isinstance(root, list) else [root]) for m in walk(r)]
+row_a = next(n for n in nodes if n.get("AXUniqueId") == "row-a")["frame"]
+cy = row_a["y"] + row_a["height"] / 2
+cands = [n["frame"] for n in nodes if n.get("AXLabel") == "Collapse"]
+f = min(cands, key=lambda f: abs(f["y"] + f["height"] / 2 - cy))
+print(f'{f["x"] + f["width"] / 2:.0f} {f["y"] + f["height"] / 2:.0f}')
+PY
+)
+echo "chevron(a) at $XY"
+axe tap -x "${XY% *}" -y "${XY#* }" --udid "$UDID" >/dev/null 2>&1; sleep 0.5
+send "36-down"        key 81
+send "37-space"       key 44
+
+# 按住 ↓：看系统是否送来 repeat、焦点是否连续移动。
+send "38-home"        key 74
+send "39-hold-down"   key 81 --duration 1.5
+send "40-space"       key 44
+send "41-char-g"      key 10
+send "42-tab"         key 43
 
 sleep 1
 axe screenshot --output "$OUT/screen.png" --udid "$UDID" >/dev/null 2>&1

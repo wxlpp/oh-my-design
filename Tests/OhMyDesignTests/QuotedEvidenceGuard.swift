@@ -76,6 +76,10 @@ struct QuotedEvidenceGuard {
         ("docs/component-registry.json", "Sources/OhMyDesign/Modifier/TelegramGlassButtonModifier.swift", "self.border ?? Color.white.opacity(CoreButtonMetrics.glassBorderOpacity)"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Modifier/TelegramGlassButtonModifier.swift", "isPressed: self.pressFeedback && self.isPressed,"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Timeline/Timeline.swift", "static let nodeColumnWidth: CGFloat = 24"),
+        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/Tree.swift", "content.disclosureGroupStyle(TreeDisclosureGroupStyle())"),
+        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeCore.swift", "TreeExpansionState"),
+        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeCore.swift", "TreeFocusing"),
+        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeCore.swift", "reconciled"),
         // ---- docs/issues/234-a11y-smoke.md ----
         ("docs/issues/234-a11y-smoke.md", "Sources/OhMyDesign/Components/Section/SectionHeader.swift", ".accessibilityAddTraits(.isHeader)"),
         ("docs/issues/234-a11y-smoke.md", "Sources/OhMyDesign/Components/Radio/Radio.swift", "[.isButton, .isSelected] : .isButton"),
@@ -101,6 +105,13 @@ struct QuotedEvidenceGuard {
         ("docs/components/checkbox.md", "Sources/OhMyDesign/Components/CheckBox/CheckBox.swift", "if isMixed { return .mixed }"),
         ("docs/components/checkbox.md", "Sources/OhMyDesign/Components/CheckBox/CheckBox.swift", "case .mixed: \"minus.square.fill\""),
         ("docs/components/checkbox.md", "Sources/OhMyDesign/Components/CheckBox/CheckBox.swift", ".contentTransition(self.motionPresentation.symbolReplacement)"),
+        // ---- docs/components/tree.md ----
+        ("docs/components/tree.md", "Sources/OhMyDesign/Components/Tree/Tree.swift", "CoreMotionToken.treeExpansion(for:"),
+        ("docs/components/tree.md", "Sources/OhMyDesign/Components/Tree/Tree.swift", "CoreMotionToken.reveal.transformAnimation(for:"),
+        ("docs/components/tree.md", "Sources/OhMyDesign/Components/Tree/Tree.swift", ".coreAnimation(.selection, value: self.selection)"),
+        ("docs/components/tree.md", "Tests/OhMyDesignTests/TreeTests.swift", "expansionAnimationHonoursReduceMotion"),
+        ("docs/components/tree.md", "Tests/OhMyDesignTests/TouchTargetTests.swift", "treeDisclosureMeetsMinimumTouchTarget"),
+        ("docs/components/tree.md", "Tests/OhMyDesignTests/TouchTargetTests.swift", "treeRowMeetsMinimumTouchTarget"),
         // ---- docs/superpowers/ ----
         ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Button/styles/SolidButtonStyle.swift", "? self.role.resolvedOnColor("),
         ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Button/styles/CoreBorderlessButtonStyle.swift", "onTapGesture(count: 1, perform: configuration.trigger)"),

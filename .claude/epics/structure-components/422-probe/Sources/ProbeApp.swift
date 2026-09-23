@@ -221,6 +221,10 @@ struct ProbeRootView: View {
             self.state.log("SENTINEL", "key=\(press.key) mods=\(press.modifiers) chars=\(press.characters.debugDescription)")
             return .ignored
         }
+        .onKeyPress(phases: .repeat) { press in
+            self.state.log("SENTINEL-REPEAT", "key=\(press.key)")
+            return .ignored
+        }
         .onAppear {
             self.state.log("LAUNCH", "expanded=\(self.state.expanded.sorted()) rows=\(ProbeState.visibleRowIDs(expanded: self.state.expanded))")
             #if canImport(AppKit)

@@ -26,6 +26,14 @@ enum TreeJudgeFixture {
 
     static let parentIDs: Set<String> = ["a", "a1", "c"]
 
+    static var treeIDs: Set<String> {
+        TreeFlatten.allIDs(Self.roots, id: \TreeJudgeNode.id, children: \TreeJudgeNode.children)
+    }
+
+    static func ancestors(of id: String) -> [String] {
+        TreeFlatten.ancestorIDs(of: id, in: Self.roots, id: \TreeJudgeNode.id, children: \TreeJudgeNode.children)
+    }
+
     static func rows(expanded: Set<String>) -> [TreeRow<String>] {
         TreeFlatten.rows(Self.roots, id: \TreeJudgeNode.id, children: \TreeJudgeNode.children, expanded: expanded)
     }
@@ -103,6 +111,14 @@ struct TreeFlattenTests {
         #expect(viaPublic == viaInternal)
     }
 
+    @Test("免写行内容泛型的 Tree.expandedIDs 与内部展平器同源")
+    func inferredPublicEntryForwardsToTheFlattener() {
+        let inferred = Tree.expandedIDs(
+            TreeJudgeFixture.roots, id: \TreeJudgeNode.id, children: \TreeJudgeNode.children, toDepth: 3
+        )
+        #expect(inferred == ["a", "a1", "c"], "实得 \(inferred.sorted())")
+    }
+
     @Test("descendantLeafIDs 逐层下探、只收叶节点")
     func descendantLeafIDsSkipEveryParent() {
         let underA = TreeFlatten.descendantLeafIDs(
@@ -138,7 +154,7 @@ struct TreeTruthTableTests {
     @Test("第 1 / 3 行：父节点可以被行选中，但永远不进勾选集合")
     func parentsAreSelectableButNeverChecked() {
         let rowIDs = Set(TreeJudgeFixture.rows(expanded: ["a", "c"]).map(\.id))
-        let selection = TreeSelection.toggled("a", in: [], rowIDs: rowIDs, mode: .multiple)
+        let selection = TreeSelection.toggled("a", in: [], rowIDs: rowIDs, treeIDs: TreeJudgeFixture.treeIDs, mode: .multiple)
         #expect(selection == ["a"], "行选中是导航语义，父行照样能选")
 
         var checked: Set<String> = []
@@ -157,9 +173,6 @@ struct TreeTruthTableTests {
         let leaves = Self.leaves(of: "a")
         #expect(leaves.count == 3, "样本里 a 的叶后代应当有 3 个，实得 \(leaves.count)")
         let mixed: Set<String> = ["a1x"]
-
-        // #421 已实测：mixed 下 `configuration.isOn` = false，`isOn.toggle()` 后那组绑定全为 true
-        // （读数在 docs/components/checkbox.md，本判据只核级联结果，不重测系统派生）。
         let afterFirstClick = TreeChecking.applying(true, toLeaves: leaves, in: mixed)
         #expect(Set(leaves).isSubset(of: afterFirstClick), "第一次点 mixed 父节点没有级联全选，实得 \(afterFirstClick.sorted())")
 
@@ -246,15 +259,60 @@ struct TreeTruthTableTests {
     @Test("单选 / 多选的选中归约：单选替换、多选逐项切换，数据外的 ID 原样保留")
     func selectionReducerHonoursTheMode() {
         let rowIDs: Set<String> = ["a", "b", "c"]
-        #expect(TreeSelection.toggled("b", in: ["a"], rowIDs: rowIDs, mode: .single) == ["b"])
-        #expect(TreeSelection.toggled("a", in: ["a"], rowIDs: rowIDs, mode: .single).isEmpty, "单选允许空选")
-        #expect(TreeSelection.toggled("b", in: ["a"], rowIDs: rowIDs, mode: .multiple) == ["a", "b"])
-        #expect(TreeSelection.toggled("a", in: ["a", "b"], rowIDs: rowIDs, mode: .multiple) == ["b"])
+        let treeIDs = TreeJudgeFixture.treeIDs
+        func toggled(_ id: String, _ selection: Set<String>, _ mode: TreeSelectionMode) -> Set<String> {
+            TreeSelection.toggled(id, in: selection, rowIDs: rowIDs, treeIDs: treeIDs, mode: mode)
+        }
+        #expect(toggled("b", ["a"], .single) == ["b"])
+        #expect(toggled("a", ["a"], .single).isEmpty, "单选允许空选")
+        #expect(toggled("b", ["a"], .multiple) == ["a", "b"])
+        #expect(toggled("a", ["a", "b"], .multiple) == ["b"])
         #expect(
-            TreeSelection.toggled("b", in: ["outside"], rowIDs: rowIDs, mode: .single) == ["outside", "b"],
+            toggled("b", ["outside"], .single) == ["outside", "b"],
             "不在数据里的 ID 必须原样保留——组件永不增删它们"
         )
-        #expect(TreeSelection.toggled("zz", in: ["a"], rowIDs: rowIDs, mode: .multiple) == ["a"], "不在可见行里的 ID 不可被选上")
+        #expect(toggled("zz", ["a"], .multiple) == ["a"], "不在可见行里的 ID 不可被选上")
+    }
+
+    @Test("单选：已选项被折叠隐藏后再选另一行，隐藏的那个也被替换掉，不会留下两个选中")
+    func singleSelectionReplacesCollapsedSelections() {
+        let collapsedRows = Set(TreeJudgeFixture.rows(expanded: []).map(\.id))
+        #expect(!collapsedRows.contains("a1x"), "样本前提变了：这条判据要的是「a1x 在数据里但不可见」")
+        #expect(TreeJudgeFixture.treeIDs.contains("a1x"))
+        let result = TreeSelection.toggled(
+            "b", in: ["a1x", "outside"], rowIDs: collapsedRows, treeIDs: TreeJudgeFixture.treeIDs, mode: .single
+        )
+        #expect(result == ["b", "outside"], "单选模式下留下了被折叠的旧选中项，实得 \(result.sorted())")
+    }
+
+    @Test("allIDs 收齐整棵树的每个节点，与折叠状态无关")
+    func allIDsCoverEveryNode() {
+        #expect(TreeJudgeFixture.treeIDs == ["a", "a1", "a1x", "a1y", "a2", "b", "c", "c1"])
+    }
+
+    @Test("生效焦点：焦点行被折叠隐藏后归约到最近的可见祖先；无焦点时按初始焦点规则")
+    func effectiveFocusReconcilesAHiddenFocus() {
+        func effective(_ focus: String?, expanded: Set<String>, selection: Set<String> = []) -> String? {
+            TreeFocusing.effective(
+                focus,
+                visibleRows: TreeJudgeFixture.rows(expanded: expanded),
+                selection: selection,
+                ancestors: TreeJudgeFixture.ancestors(of:)
+            )
+        }
+        #expect(effective("a1x", expanded: ["a1", "c"]) == "a", "a 折叠后 a1x 不可见，焦点应当回到 a")
+        #expect(effective("a1x", expanded: ["a"]) == "a1", "a1 仍可见时应当落在最近的 a1")
+        #expect(effective("a1x", expanded: ["a", "a1"]) == "a1x", "焦点可见时原样保留")
+        #expect(effective(nil, expanded: ["a"], selection: ["a2"]) == "a2", "无焦点时走初始焦点规则")
+        #expect(effective(nil, expanded: []) == "a")
+    }
+
+    @Test("焦点环只在容器有键盘焦点、且最近一次交互来自键盘时显示")
+    func focusRingNeedsKeyboardInteraction() {
+        #expect(TreeFocusing.showsRing(containerFocused: true, lastInteraction: .keyboard))
+        #expect(!TreeFocusing.showsRing(containerFocused: true, lastInteraction: .pointer), "点击也画出了焦点环")
+        #expect(!TreeFocusing.showsRing(containerFocused: false, lastInteraction: .keyboard), "容器失焦后焦点环还在")
+        #expect(TreeInteraction.pointer != TreeInteraction.keyboard)
     }
 
     @Test("初始焦点：无选中落首行，有选中落可见顺序里第一个被选中的行")
@@ -315,12 +373,10 @@ struct TreeKeyboardTests {
 
     @Test("macOS 真 HID 给方向键带的 .numericPad | .function 不能被读成「按了修饰键」")
     func hardwareFlagsDoNotLookLikeModifiers() {
-        // 实测：macOS System Events 发的方向键到达 onKeyPress 时 modifiers.rawValue == 96
-        // （= .numericPad 32 | .function 64）；Home / End 是 0。
         let macArrowFlags = EventModifiers(rawValue: 96)
         #expect(
             !macArrowFlags.isEmpty,
-            "前提没了：这批硬件位若本来就是空集，下面那条判据不再有意义"
+            "前提没了：macOS 真 HID 方向键带的 .numericPad | .function（rawValue 96）若是空集，下面那条判据不再有意义"
         )
         #expect(TreeKeyboard.selectionModifiers(macArrowFlags).isEmpty, "96 里有非选择位没被剥掉")
         #expect(TreeKeyboard.selectionModifiers([.numericPad]).isEmpty)
@@ -586,6 +642,18 @@ struct TreeMotionTests {
         )
     }
 
+    @Test("展开 / 折叠的曲线：animated 走 reveal，resting 退成同时长 easeInOut，hidden 不补间")
+    func expansionAnimationHonoursReduceMotion() {
+        #expect(CoreMotionToken.treeExpansion(for: .hidden) == nil, "hidden 下展开仍在补间")
+        let resting = CoreMotionToken.treeExpansion(for: .resting)
+        #expect(
+            resting == .easeInOut(duration: CoreMotionToken.reveal.duration),
+            "resting 下应当退成 reveal 同时长的 easeInOut（与 CoreDisclosureGroupStyle 同一口径），实得 \(String(describing: resting))"
+        )
+        #expect(resting != CoreMotionToken.reveal.animation, "resting 下仍是 animated 的 smooth 曲线")
+        #expect(CoreMotionToken.treeExpansion(for: .animated) == CoreMotionToken.reveal.animation)
+    }
+
     @Test("Reduce Motion 下 chevron 不补间（reveal 的 transformAnimation 为 nil）")
     func revealIsSilentUnderReduceMotion() {
         #expect(CoreMotionToken.reveal.transformAnimation(for: .resting) == nil)
@@ -683,14 +751,44 @@ struct TreeRenderTests {
         )
     }
 
-    @Test("父行的复选框在 off / mixed / on 三态下画出三张不同的图")
+    @Test("父行的复选框在 off / mixed / on 三态下画出三张不同的图（子行全折叠，只有父行自己能产生差异）")
     func parentRowRendersThreeDistinctCheckStates() {
-        let off = Self.pixels(Self.tree(expanded: ["a", "a1"], checked: []))
-        let mixed = Self.pixels(Self.tree(expanded: ["a", "a1"], checked: ["a1x"]))
-        let on = Self.pixels(Self.tree(expanded: ["a", "a1"], checked: ["a1x", "a1y", "a2"]))
+        let off = Self.pixels(Self.tree(expanded: [], checked: []))
+        let mixed = Self.pixels(Self.tree(expanded: [], checked: ["a1x"]))
+        let on = Self.pixels(Self.tree(expanded: [], checked: ["a1x", "a1y", "a2"]))
         expectBitmapsDiffer(off.bytes, mixed.bytes, "off 与 mixed 画得一样——系统没从 Toggle(sources:) 派生出 mixed")
         expectBitmapsDiffer(mixed.bytes, on.bytes, "mixed 与 on 画得一样")
         expectBitmapsDiffer(off.bytes, on.bytes, "off 与 on 画得一样")
+    }
+
+    private static func row(focus: String?, showsFocusRing: Bool) -> some View {
+        let context = TreeContext<[TreeJudgeNode], String, Text>(
+            id: \.id,
+            children: \.children,
+            expanded: .constant([]),
+            selection: .constant([]),
+            checked: nil,
+            selectionMode: .multiple,
+            rowIDs: ["b"],
+            treeIDs: TreeJudgeFixture.treeIDs,
+            focus: .constant(focus),
+            showsFocusRing: showsFocusRing,
+            motionPresentation: .animated,
+            claimKeyboardFocus: {},
+            notePointerInteraction: {},
+            content: { Text(verbatim: $0.id) }
+        )
+        return TreeRowView(element: TreeJudgeFixture.node("b"), level: 1, hasChildren: false, context: context)
+            .padding(8)
+    }
+
+    @Test("焦点行在点击交互后不画焦点环，键盘交互后才画")
+    func focusRingIsDrawnOnlyAfterKeyboardInteraction() {
+        let unfocused = Self.pixels(Self.row(focus: nil, showsFocusRing: true))
+        let pointer = Self.pixels(Self.row(focus: "b", showsFocusRing: false))
+        let keyboard = Self.pixels(Self.row(focus: "b", showsFocusRing: true))
+        expectBitmapsDiffer(unfocused.bytes, keyboard.bytes, "键盘交互后焦点行没画焦点环——下面那条相等判据会空转")
+        expectBitmapsEqual(unfocused.bytes, pointer.bytes, "点击选中后焦点行画出了焦点环")
     }
 
     @Test("不传 checked 时不画复选框")

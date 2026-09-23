@@ -119,5 +119,27 @@ iOS 点一下 `row-a`（Tab 在 iOS 上不移焦点，419 spike 实测），macO
 | 25 | Shift+↓ | sel `+b` | Shift+↓ 移焦 + 切换选中（可选项） |
 | 26 | Ctrl+A | sel ∪ 全部可见行 | Ctrl/Cmd+A 全选可见（可选项） |
 | 27–29 | End ↓ Space | sel `-c1` | ↓ 在最后一行 does nothing |
-| 30 | g | **无事件** | type-ahead 未实现，键须交回系统 |
-| 31 | Tab | **无事件** | 不吞 Tab |
+| 30–34 | Home → → → → | `EXPAND +a`、`EXPAND +a1`，焦点落到 a1x | 为下一步备好「焦点在 a1x」 |
+| 35 | 指针点 a 的 chevron | `EXPAND -a`（a1x 随之隐藏） | 焦点行被隐藏 |
+| 36–37 | ↓ Space | sel `-b` | 焦点先归约到最近可见祖先 a，↓ 到 b——键盘层不能整条失效 |
+| 38–40 | Home、按住 ↓ 1.5 s、Space | sel `+b`（只移一行） | 见下方《按住方向键》：装置送不出 repeat，这一步只证「一次按住 = 一个 `.down`」 |
+| 41 | g | **无事件** | type-ahead 未实现，键须交回系统 |
+| 42 | Tab | **无事件** | 不吞 Tab |
+
+`check.py` 另打印每步收到的 `.repeat` 相位哨兵数（`SENTINEL-REPEAT`）。
+
+## 焦点行被隐藏 / 按住方向键（2026-09-23，两条腿）
+
+- **35 这一步怎么点**：iOS 从 `axe describe-ui` 里取 `AXLabel == "Collapse"`、纵向离 `row-a` 最近的按钮，
+  `axe tap -x -y` 点它的中心；macOS 的 SwiftUI `DisclosureGroup` 把 label 里的每个子元素都报成
+  `AXDisclosureTriangle`（**没有** "Collapse" 按钮可找），`ax-elements.applescript` 递归列出元素后
+  取宽 24 pt（chevron 命中槽）且最靠上的那个，`cliclick c:x,y` 点中心。
+- **修复后读数**：macOS 3 次、iOS 26.4 模拟器 3 次，`check.py` 全部 `steps_ok=43/43`
+  （前奏 + 01–42，不计哨兵行；35 是指针点击，所以 `sentinel_per_step_min=0`）。
+- **修复前（按键前不归约焦点）**：两条腿都复现了——35 `EXPAND -a` 之后，36–40 每一下键哨兵都收到，
+  但 Tree 一个事件都不产生（37、40 的 `SELECT` 缺席，`steps_ok=41/43`），键盘层整条失效。
+- **按住方向键**：macOS 用 `hold-key-mac.swift`（`CGEvent` 只发一次 keyDown、1.5 s 后 keyUp，
+  不自己合成 repeat），iOS 用 `axe key 81 --duration 1.5`。两条腿哨兵的 `.repeat` 相位都是 **0** 次、
+  焦点都只移一行 ⇒ 这套装置**产生不了**自动重复，「按住是否连续移焦」测不出来，未验证。
+- macOS 腿的 `screencapture` 在本机会话里没有屏幕录制权限（`could not create image from display`），
+  `window.png` 不会生成；不影响 `events.tsv`。

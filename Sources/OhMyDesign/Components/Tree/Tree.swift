@@ -26,7 +26,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     ///   - selection: 已选中行 ID 集合的双向绑定。
     ///   - selectionMode: 行选择模式，默认 `.single`。
     ///   - checked: 已勾选叶节点 ID 集合的双向绑定；传 `nil`（默认）时不显示复选框。
-    ///   - onActivate: `Enter` 或双击激活某行时的回调；与选中**分开**。
+    ///   - onActivate: `Enter` 激活焦点行时的回调；与选中**分开**。传 `nil` 时 `Enter` 交回系统。
     ///   - content: 由元素生成行内容，常为 `Text` 或 `Label`。
     public init(
         _ data: Data,
@@ -53,6 +53,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     @Binding private var expanded: Set<ID>
     @Binding private var selection: Set<ID>
     @State private var focus: ID?
+    @State private var lastInteraction: TreeInteraction = .pointer
     @FocusState private var isFocused: Bool
     @Environment(\.coreMotionPresentation) private var motionPresentation
 
@@ -66,6 +67,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         .focusable()
         .focused(self.$isFocused)
         .onKeyPress(phases: .down) { press in self.handle(press, rows: rows) }
+        .onChange(of: rows.map(\.id)) { self.reconcileFocus() }
         .coreAnimation(.selection, value: self.selection)
     }
 
@@ -92,8 +94,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     // MARK: - 键盘 / Keyboard
 
     private func handle(_ press: KeyPress, rows: [TreeRow<ID>]) -> KeyPress.Result {
-        guard let focused = self.focus ?? TreeFocusing.initialFocus(rows: rows, selection: self.selection)
-        else { return .ignored }
+        guard let focused = self.effectiveFocus(rows: rows) else { return .ignored }
         if self.focus != focused { self.focus = focused }
         let action = TreeKeyboard.action(
             for: TreeKeyboard.key(for: press.key),
@@ -103,7 +104,21 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             expanded: self.expanded,
             mode: self.selectionMode
         )
-        return self.apply(action, rows: rows)
+        let result = self.apply(action, rows: rows)
+        if result == .handled { self.lastInteraction = .keyboard }
+        return result
+    }
+
+    private func effectiveFocus(rows: [TreeRow<ID>]) -> ID? {
+        TreeFocusing.effective(self.focus, visibleRows: rows, selection: self.selection) { hidden in
+            TreeFlatten.ancestorIDs(of: hidden, in: self.data, id: self.id, children: self.children)
+        }
+    }
+
+    private func reconcileFocus() {
+        guard self.focus != nil else { return }
+        let reconciled = self.effectiveFocus(rows: self.visibleRows)
+        if reconciled != self.focus { self.focus = reconciled }
     }
 
     private func apply(_ action: TreeKeyAction<ID>, rows: [TreeRow<ID>]) -> KeyPress.Result {
@@ -118,13 +133,14 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             self.focus = id
             self.toggleSelection(id, rows: rows)
         case .expand(let id):
-            self.setExpansion(id, isExpanded: true)
+            self.context(rows: rows).setExpansion(id, isExpanded: true)
         case .collapse(let id):
-            self.setExpansion(id, isExpanded: false)
+            self.context(rows: rows).setExpansion(id, isExpanded: false)
         case .toggleSelection(let id):
             self.toggleSelection(id, rows: rows)
         case .activate(let id):
-            self.onActivate?(id)
+            guard let onActivate = self.onActivate else { return .ignored }
+            onActivate(id)
         case .selectAllVisible:
             self.selection = TreeSelection.selectingAll(in: self.selection, rowIDs: rows.map(\.id))
         }
@@ -133,22 +149,22 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
 
     private func toggleSelection(_ id: ID, rows: [TreeRow<ID>]) {
         self.selection = TreeSelection.toggled(
-            id, in: self.selection, rowIDs: Set(rows.map(\.id)), mode: self.selectionMode
+            id,
+            in: self.selection,
+            rowIDs: Set(rows.map(\.id)),
+            treeIDs: self.treeIDs,
+            mode: self.selectionMode
         )
-    }
-
-    private func setExpansion(_ id: ID, isExpanded: Bool) {
-        var state = TreeExpansionState(persisted: self.expanded)
-        if isExpanded { state.expand(id) } else { state.collapse(id) }
-        withAnimation(CoreMotionToken.reveal.animation(for: self.motionPresentation)) {
-            self.expanded = state.persisted
-        }
     }
 
     // MARK: - 派生 / Derived
 
     private var visibleRows: [TreeRow<ID>] {
         TreeFlatten.rows(self.data, id: self.id, children: self.children, expanded: self.expanded)
+    }
+
+    private var treeIDs: Set<ID> {
+        TreeFlatten.allIDs(self.data, id: self.id, children: self.children)
     }
 
     private func context(rows: [TreeRow<ID>]) -> TreeContext<Data, ID, RowContent> {
@@ -160,9 +176,17 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             checked: self.checked,
             selectionMode: self.selectionMode,
             rowIDs: Set(rows.map(\.id)),
+            treeIDs: self.treeIDs,
             focus: self.$focus,
-            claimKeyboardFocus: { self.isFocused = true },
-            onActivate: self.onActivate,
+            showsFocusRing: TreeFocusing.showsRing(
+                containerFocused: self.isFocused, lastInteraction: self.lastInteraction
+            ),
+            motionPresentation: self.motionPresentation,
+            claimKeyboardFocus: {
+                self.isFocused = true
+                self.lastInteraction = .pointer
+            },
+            notePointerInteraction: { self.lastInteraction = .pointer },
             content: self.content
         )
     }
@@ -214,6 +238,28 @@ public extension Tree where Data.Element: Identifiable, ID == Data.Element.ID {
     }
 }
 
+// MARK: - 免写行内容泛型的 expandedIDs / expandedIDs without the row-content generic
+
+public extension Tree where RowContent == EmptyView {
+    /// 同 `expandedIDs(_:id:children:toDepth:)`，但不必写出无关的行内容泛型：
+    /// `Tree.expandedIDs(roots, id: \.id, children: \.children, toDepth: 2)`。
+    ///
+    /// - Parameters:
+    ///   - data: 根节点集合。
+    ///   - id: 从元素取稳定 ID 的 key path。
+    ///   - children: 从元素取子节点的 key path。
+    ///   - depth: 要展开到的层数，根为第 1 层。
+    /// - Returns: 该层数下应处于展开态的节点 ID 集合。
+    nonisolated static func expandedIDs(
+        _ data: Data,
+        id: KeyPath<Data.Element, ID>,
+        children: KeyPath<Data.Element, Data?>,
+        toDepth depth: Int
+    ) -> Set<ID> {
+        TreeFlatten.expandedIDs(data, id: id, children: children, toDepth: depth)
+    }
+}
+
 // MARK: - 递归上下文 / Recursion context
 
 struct TreeContext<Data: RandomAccessCollection, ID: Hashable, RowContent: View> {
@@ -224,20 +270,27 @@ struct TreeContext<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     let checked: Binding<Set<ID>>?
     let selectionMode: TreeSelectionMode
     let rowIDs: Set<ID>
+    let treeIDs: Set<ID>
     let focus: Binding<ID?>
+    let showsFocusRing: Bool
+    let motionPresentation: MotionPresentation
     let claimKeyboardFocus: () -> Void
-    let onActivate: ((ID) -> Void)?
+    let notePointerInteraction: () -> Void
     let content: (Data.Element) -> RowContent
 
     func expansion(of elementID: ID) -> Binding<Bool> {
         Binding(
             get: { self.expanded.wrappedValue.contains(elementID) },
-            set: { newValue in
-                var state = TreeExpansionState(persisted: self.expanded.wrappedValue)
-                if newValue { state.expand(elementID) } else { state.collapse(elementID) }
-                self.expanded.wrappedValue = state.persisted
-            }
+            set: { newValue in self.setExpansion(elementID, isExpanded: newValue) }
         )
+    }
+
+    func setExpansion(_ elementID: ID, isExpanded: Bool) {
+        var state = TreeExpansionState(persisted: self.expanded.wrappedValue)
+        if isExpanded { state.expand(elementID) } else { state.collapse(elementID) }
+        withAnimation(CoreMotionToken.treeExpansion(for: self.motionPresentation)) {
+            self.expanded.wrappedValue = state.persisted
+        }
     }
 
     func checkState(of leafID: ID, in checked: Binding<Set<ID>>) -> Binding<Bool> {
@@ -272,6 +325,14 @@ struct TreeBranch<Data: RandomAccessCollection, ID: Hashable, RowContent: View>:
                 TreeRowView(element: element, level: self.level, hasChildren: false, context: self.context)
             }
         }
+    }
+}
+
+// MARK: - 展开动效 / Expansion motion
+
+extension CoreMotionToken {
+    nonisolated static func treeExpansion(for presentation: MotionPresentation) -> Animation? {
+        CoreMotionToken.reveal.animation(for: presentation)
     }
 }
 
@@ -311,10 +372,11 @@ struct TreeRowView<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         let elementID = self.element[keyPath: self.context.id]
         let isExpanded = self.context.expanded.wrappedValue.contains(elementID)
         let isSelected = self.context.selection.wrappedValue.contains(elementID)
-        let isFocused = self.context.focus.wrappedValue == elementID
+        let isFocused = self.context.showsFocusRing && self.context.focus.wrappedValue == elementID
         return HStack(spacing: CoreSpacing.xs) {
             TreeDisclosureControl(hasChildren: self.hasChildren, isExpanded: isExpanded) {
-                self.context.expansion(of: elementID).wrappedValue.toggle()
+                self.context.notePointerInteraction()
+                self.context.setExpansion(elementID, isExpanded: !isExpanded)
             }
             if let checked = self.context.checked {
                 self.checkBox(checked)
@@ -366,6 +428,7 @@ struct TreeRowView<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             elementID,
             in: self.context.selection.wrappedValue,
             rowIDs: self.context.rowIDs,
+            treeIDs: self.context.treeIDs,
             mode: self.context.selectionMode
         )
     }
@@ -452,7 +515,7 @@ private enum TreePreviewData {
 }
 
 private struct TreePreviewGallery: View {
-    @State private var expanded: Set<String> = Tree<[TreePreviewNode], String, Text>.expandedIDs(
+    @State private var expanded: Set<String> = Tree.expandedIDs(
         TreePreviewData.roots, id: \.id, children: \.children, toDepth: 2
     )
     @State private var selection: Set<String> = ["icons"]

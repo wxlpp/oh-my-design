@@ -654,7 +654,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 ### `Components/Tree/TreeCore.swift`
 
 - *enum* **`TreeSelectionMode`** — `Tree` 的行选择模式。
-  - `.single` — 单选：选中一个未选行时替换整个已选集合；再选同一行取消（允许空选）。
+  - `.single` — 单选：选中一个未选行时，替换已选集合里属于本树的全部 ID（含被折叠而不可见的）。 不属于本树数据的 ID 原样保留；再选同一行取消（允许空选）。
   - `.multiple` — 多选：逐行切换选中态。
 
 ### `Environment/EnergyPolicy.swift`

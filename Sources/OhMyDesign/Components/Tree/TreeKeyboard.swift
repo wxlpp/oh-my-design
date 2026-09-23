@@ -45,11 +45,7 @@ nonisolated enum TreeKeyboard {
         }
     }
 
-    /// ⚠️ macOS 真 HID 下方向键的 `EventModifiers` 实测是 `rawValue 96`
-    /// （`.numericPad | .function`，Home / End 是 `0`）⇒ 判「没按修饰键」不能写
-    /// `modifiers.isEmpty`。本函数按**白名单**取交集而不是拉黑那两位：黑名单漏一位
-    /// 就让整条方向键静默失效（`#419` spike 只登记了 `.numericPad`，漏掉 `.function`，
-    /// 照它写出来的黑名单在真 HID 上一个方向键都不响应）。
+    // 白名单取交集，不要改成 `modifiers.isEmpty`：macOS 方向键自带 `.numericPad | .function`。
     static func selectionModifiers(_ modifiers: EventModifiers) -> EventModifiers {
         modifiers.intersection([.shift, .control, .option, .command])
     }

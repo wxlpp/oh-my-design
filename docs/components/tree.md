@@ -32,6 +32,16 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     ) -> Set<ID>
 }
 
+public extension Tree where RowContent == EmptyView {
+    // 同上，调用处不必写出行内容泛型：Tree.expandedIDs(roots, id: \.id, children: \.children, toDepth: 2)
+    nonisolated static func expandedIDs(
+        _ data: Data,
+        id: KeyPath<Data.Element, ID>,
+        children: KeyPath<Data.Element, Data?>,
+        toDepth depth: Int
+    ) -> Set<ID>
+}
+
 // Data.Element: Identifiable 时可省略 id:
 Tree(nodes, children: \.children, expanded: $expanded, selection: $selection) { Text($0.name) }
 ```
@@ -45,7 +55,7 @@ Tree(nodes, children: \.children, expanded: $expanded, selection: $selection) { 
 | selection | Binding<Set<ID>> | - | 已选中行（导航语义） |
 | selectionMode | TreeSelectionMode | `.single` | `single` / `multiple`；**枚举而非 Bool** |
 | checked | Binding<Set<ID>>? | `nil` | 已勾选**叶**节点（数据语义）；`nil` 时不画复选框 |
-| onActivate | ((ID) -> Void)? | `nil` | `Enter` 激活焦点行时回调，与选中分开 |
+| onActivate | ((ID) -> Void)? | `nil` | `Enter` 激活焦点行时回调，与选中分开；为 `nil` 时 `Enter` 交回系统 |
 | content | (Element) -> RowContent | - | 行内容，常为 `Text` / `Label` |
 
 ## 展开 / 默认展开到第 N 层
@@ -56,10 +66,11 @@ Tree(nodes, children: \.children, expanded: $expanded, selection: $selection) { 
   可以在 `@State` 的初值里直接调用。
 
 ```swift
-@State private var expanded = Tree<[Node], String, Text>.expandedIDs(
-    roots, id: \.id, children: \.children, toDepth: 2
-)
+@State private var expanded = Tree.expandedIDs(roots, id: \.id, children: \.children, toDepth: 2)
 ```
+
+不写泛型的这个写法解析到 `where RowContent == EmptyView` 的重载；已经写出
+`Tree<[Node], String, Text>` 时解析到主类型上的同名函数，两者结果相同。
 
 ## 选择与勾选：两套独立状态
 
@@ -69,8 +80,8 @@ Tree(nodes, children: \.children, expanded: $expanded, selection: $selection) { 
 | 谁能进集合 | 任意行（含父节点） | **只有叶节点** |
 | 改变方式 | 点行、`Space`、`Shift+↑/↓`、`Ctrl/Cmd+A` | 点复选框 |
 
-- `single`：选中一个未选行时替换「当前可见行里」的已选集合；再选同一行取消（允许空选）。
-  集合里不在可见行中的 ID 原样保留。
+- `single`：选中一个未选行时替换已选集合里**属于本树**的全部 ID——包括被折叠而当前不可见的；
+  再选同一行取消（允许空选）。集合里不属于本树数据的 ID 原样保留。
 - `multiple`：逐行切换。
 - **父行复选框是派生的**：父行用系统 `Toggle(sources:isOn:)`，源集合是它**全部叶后代**的勾选绑定，
   三态（off / mixed / on）由系统派生、由 `CheckBoxToggleStyle` 呈现（见 [checkbox.md](checkbox.md)）。
@@ -86,10 +97,11 @@ Tree(nodes, children: \.children, expanded: $expanded, selection: $selection) { 
 | 搜索期间的展开 | 不写进持久化 `Set<ID>`，只临时展开 | **只有状态结构** |
 | 清空搜索 | 恢复搜索前的展开态 | **只有状态结构** |
 | 过滤后「全选」 | 范围是可见节点 | 已实现（`Ctrl/Cmd+A` 只选可见行） |
-| 焦点节点被过滤隐藏 | 移到最近的仍可见祖先；无祖先则移到首个可见节点 | **只有状态结构** |
+| 焦点节点被过滤隐藏 | 移到最近的仍可见祖先；无祖先则移到首个可见节点 | 已实现（折叠祖先 / 宿主改 `expanded` 或 `data` 使焦点行不可见时即归约）；过滤触发属 `#423` |
 
-⚠️ 与搜索相关的三行，本组件只落了内部状态结构（展开态的临时 overlay、焦点归约），
-有纯函数判据；**搜索 UI 属 `#423`**。今天生产路径上 overlay 恒为 `nil`，只有判据在走它。
+⚠️ 「搜索期间的展开」「清空搜索」两行只落了内部状态结构（展开态的临时 overlay），有纯函数判据；
+**搜索 UI 属 `#423`**。今天生产路径上 overlay 恒为 `nil`，只有判据在走它。
+焦点归约则已在生产路径上：可见行集合一变就归约，按键时也先归约再执行。
 
 ## 键盘
 
@@ -112,6 +124,9 @@ Tree(nodes, children: \.children, expanded: $expanded, selection: $selection) { 
 - **焦点形态**：容器是**唯一**可聚焦元素，「焦点在哪一行」是组件内部状态（ARIA activedescendant 形态），
   画成行上的焦点环。⚠️ 不要改回「每行一个 `@FocusState`」：macOS 真 HID 实测那种形态下第一下 `Space`
   之后整个窗口丢键盘焦点。
+- **焦点环何时画**：容器有键盘焦点，**且**最近一次交互来自键盘（按键被 Tree 接住）时才画；
+  点行 / 点 chevron 会清掉它，容器失焦（macOS `Tab` 离开）也不画。iOS 模拟器截图核过：
+  点一行无环 → 按 `↓` 环落在下一行 → 再点一行环消失。
 - **进入方式**：macOS 上 `Tab` 进入容器；iOS 上 `Tab` 不移焦点，**点一行**会同时把键盘焦点交给容器。
 - **修饰键按白名单判**：只认 shift / control / option / command。macOS 真 HID 下方向键自带
   `.numericPad | .function`（`rawValue 96`），`Home` / `End` 带 `.function`（`64`）——写成黑名单漏一位，
@@ -119,6 +134,12 @@ Tree(nodes, children: \.children, expanded: $expanded, selection: $selection) { 
 - 键盘层挂在容器上。⚠️ 两条腿实测：宿主**祖先**视图上的 `onKeyPress` 比 Tree 的**先**执行——
   宿主若在祖先上对方向键返回 `.handled`，Tree 就收不到。
 - **不做**：type-ahead（组件不持有节点文案，行内容是调用方的 `@ViewBuilder`）、`F2` 重命名。
+- ⚠️ **按住方向键是否连续移焦：未验证。** 键盘层只接 `.down` 相位。两条腿的探针装置都送不出 repeat：
+  macOS 用 `CGEvent` 只发一次 keyDown、1.5 s 后 keyUp，iOS 用 `axe key --duration 1.5`，
+  哨兵的 `.repeat` 相位都收到 **0** 次、焦点都只移一行。物理键盘的自动重复是否会到达、到达后是否冒泡出提示音，
+  这套装置测不出来。
+- ⚠️ **虚拟焦点移出可视区时不跟随滚动**：Tree 不持有滚动容器，宿主的 `ScrollView` 不会因为焦点行变化而滚动。
+  可行的做法（行上挂 `.id`、Tree 内包 `ScrollViewReader` 按焦点 `scrollTo`）需要一套带滚动的探针另行验证，本次未做。
 
 真 HID 读数（macOS System Events / iOS 26.4 模拟器 `axe`，逐步对预期表）与装置在
 `.claude/epics/structure-components/422-probe/README.md`。
@@ -136,11 +157,10 @@ Tree(nodes, children: \.children, expanded: $expanded, selection: $selection) { 
 | 调用点 | token | Reduce Motion 下 |
 |---|---|---|
 | chevron 旋转 | `CoreMotionToken.reveal.transformAnimation(for:)` | `nil`，直接到终态角度 |
-| 键盘 `←` / `→` 展开折叠 | `withAnimation(CoreMotionToken.reveal.animation(for:))` | `easeInOut`（与 `CoreDisclosureGroupStyle` 同一口径） |
-| 选中态切换 | `.coreAnimation(.selection, value: selection)` | 按 `CoreMotionToken.selection` 的裁决 |
+| 展开折叠（点 chevron 与键盘 `←` / `→` 同一个函数） | `withAnimation(CoreMotionToken.treeExpansion(for:))`，即 `reveal.animation(for:)` | 同时长 `easeInOut`（`reveal` 档「展开」的既有口径，与 `CoreDisclosureGroupStyle` 相同）；`hidden` 下不补间 |
+| 选中态切换 | `.coreAnimation(.selection, value: self.selection)` | 按 `CoreMotionToken.selection` 的裁决 |
 
-⚠️ 点 chevron 展开**不**包 `withAnimation`（只有 chevron 自身旋转），键盘展开才包——两条通路的行出现方式不同。
-目前没有判据覆盖这一格。
+三档取值有判据：`TreeMotionTests.expansionAnimationHonoursReduceMotion`。
 
 ## 无障碍与触控
 
@@ -151,9 +171,17 @@ Tree(nodes, children: \.children, expanded: $expanded, selection: $selection) { 
   原先按钮只有图标大小（实测 12×7 pt），在 iOS 上偏离 10 pt 的点击会落到紧邻的父行复选框上，
   **一次点击勾上整棵子树**；判据 `TouchTargetTests.treeDisclosureMeetsMinimumTouchTarget`（iOS 腿）。
 - 行高 ≥ 44 pt：判据 `TouchTargetTests.treeRowMeetsMinimumTouchTarget`（iOS 腿）。
-- ⚠️ **已知缺口**：复选框没有可读的 label——`CheckBoxToggleStyle` 自身不设无障碍标签，
-  Tree 里又是 `labelsHidden()` + 空 label，iOS 实测 VoiceOver 读到的是 SF Symbol 名 "Square"。
-  根因在 CheckBox，不在本组件内处置。
+- 行在无障碍树里**不是一个元素**：iOS `axe describe-ui` 实读，父行拆成 chevron（`Button`）、复选框、
+  行内容三个元素，行上的 `accessibilityValue`（"Expanded" / "Collapsed"）被复制到这三个元素上。
+  没有改成 `.accessibilityElement(children: .combine)`：合并后 chevron 与复选框不再是独立可激活的目标，
+  而这套装置读不到 VoiceOver 的激活语义，无法确认合并后展开 / 勾选仍可达。行元素的整体设计并入 `#427` / `#428`。
+- ⚠️ **已知缺口（`#427`）**：复选框没有可读的 label、不报勾选态——iOS 实读叶行 `CheckBox` / 父行 `Button`，
+  AXLabel 都是 SF Symbol 名 "Square"。根因在 `CheckBoxToggleStyle`（裸 `Image` + `onTapGesture`），
+  Tree 又是 `labelsHidden()` + 空 label。试过给行内容与复选框配 `accessibilityLabeledPair`：
+  iOS AXLabel 仍为 "Square"、macOS `AXTitleUIElement` 仍缺失，两条腿都无效，未采用。
+- ⚠️ **已知缺口（`#428`）**：勾选态无法用键盘操作——`Space` 切换的是行选中，没有键改变勾选。
+- ⚠️ **未验证**：macOS 上 `.focusable()` 容器是否另画一圈系统焦点环（与行上的焦点环叠加）。
+  本机会话没有屏幕录制权限，`screencapture` 取不到图，没能实看；iOS 截图上没有容器级的环。
 
 ## 判定法
 

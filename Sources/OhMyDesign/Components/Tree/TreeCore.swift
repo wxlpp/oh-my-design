@@ -7,7 +7,8 @@ import SwiftUI
 /// 行选中是**导航语义**（当前高亮哪一行），与复选框的**数据语义**（勾了哪些）是两套独立状态，
 /// 互不写入。`Shift+↑ / ↓` 与 `Ctrl / Cmd + A` 只在 `.multiple` 下生效。
 public nonisolated enum TreeSelectionMode: Hashable, Sendable, CaseIterable {
-    /// 单选：选中一个未选行时替换整个已选集合；再选同一行取消（允许空选）。
+    /// 单选：选中一个未选行时，替换已选集合里属于本树的全部 ID（含被折叠而不可见的）。
+    /// 不属于本树数据的 ID 原样保留；再选同一行取消（允许空选）。
     case single
     /// 多选：逐行切换选中态。
     case multiple
@@ -94,6 +95,22 @@ nonisolated enum TreeFlatten {
         } else {
             out.append(element[keyPath: id])
         }
+        return out
+    }
+
+    static func allIDs<Data: RandomAccessCollection, ID: Hashable>(
+        _ data: Data,
+        id: KeyPath<Data.Element, ID>,
+        children: KeyPath<Data.Element, Data?>
+    ) -> Set<ID> {
+        var out: Set<ID> = []
+        func walk(_ nodes: Data) {
+            for node in nodes {
+                out.insert(node[keyPath: id])
+                if let kids = node[keyPath: children] { walk(kids) }
+            }
+        }
+        walk(data)
         return out
     }
 
@@ -189,6 +206,7 @@ nonisolated enum TreeSelection {
         _ id: ID,
         in selection: Set<ID>,
         rowIDs: Set<ID>,
+        treeIDs: Set<ID>,
         mode: TreeSelectionMode
     ) -> Set<ID> {
         guard rowIDs.contains(id) else { return selection }
@@ -196,7 +214,7 @@ nonisolated enum TreeSelection {
         case .multiple:
             return selection.symmetricDifference([id])
         case .single:
-            let outside = selection.subtracting(rowIDs)
+            let outside = selection.subtracting(treeIDs)
             return selection.contains(id) ? outside : outside.union([id])
         }
     }
@@ -211,12 +229,32 @@ nonisolated enum TreeSelection {
 
 // MARK: - 焦点归约 / Focus reduction
 
+nonisolated enum TreeInteraction: Hashable, Sendable {
+    case pointer
+    case keyboard
+}
+
 nonisolated enum TreeFocusing {
     static func initialFocus<ID: Hashable>(
         rows: [TreeRow<ID>],
         selection: Set<ID>
     ) -> ID? {
         rows.first(where: { selection.contains($0.id) })?.id ?? rows.first?.id
+    }
+
+    static func effective<ID: Hashable>(
+        _ focus: ID?,
+        visibleRows rows: [TreeRow<ID>],
+        selection: Set<ID>,
+        ancestors: (ID) -> [ID]
+    ) -> ID? {
+        guard let focus else { return Self.initialFocus(rows: rows, selection: selection) }
+        if rows.contains(where: { $0.id == focus }) { return focus }
+        return Self.reconciled(focus, visibleRows: rows, ancestorsOfFocus: ancestors(focus))
+    }
+
+    static func showsRing(containerFocused: Bool, lastInteraction: TreeInteraction) -> Bool {
+        containerFocused && lastInteraction == .keyboard
     }
 
     static func reconciled<ID: Hashable>(

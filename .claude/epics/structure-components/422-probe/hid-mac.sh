@@ -32,6 +32,17 @@ if [ "$FRONT" != "TreeProbeMac" ]; then
 fi
 
 mark() { printf '#\tMARK\t%s\n' "$1" >> "$LOG"; }
+# 打印第一个父行 chevron 的中心点（屏幕坐标 "x,y"）。macOS 把 DisclosureGroup 的
+# label 子元素都报成 AXDisclosureTriangle；chevron 是其中宽 24 pt（命中槽）且最靠上的那个。
+chevron_center() {
+  osascript "$ROOT/ax-elements.applescript" | python3 -c '
+import sys
+rows = [l.split(",") for l in sys.stdin.read().splitlines()]
+rows = [r for r in rows if r[0] == "AXDisclosureTriangle" and int(float(r[3])) == 24]
+rows.sort(key=lambda r: float(r[2]))
+_, x, y, w, h = rows[0]
+print(f"{int(float(x) + float(w) / 2)},{int(float(y) + float(h) / 2)}")'
+}
 send() { mark "$1"; osascript -e "tell application \"System Events\" to $2" >/dev/null 2>&1; sleep 0.35; }
 
 # 前奏：macOS 上 Tab 把焦点送进树容器（`.focusable()`），随后第一个 Space 会先按
@@ -68,8 +79,29 @@ send "26-control+a"   'key code 0 using {control down}'
 send "27-end"         'key code 119'
 send "28-down"        'key code 125'
 send "29-space"       'key code 49'
-send "30-char-g"      'key code 5'
-send "31-tab"         'key code 48'
+
+# 焦点在 a1x 时用鼠标点 a 的 chevron 把它折叠掉（a1x 随之隐藏），再按键：
+# 焦点须归约到最近的可见祖先 a，键盘层不能整条失效。
+send "30-home"        'key code 115'
+send "31-right"       'key code 124'
+send "32-right"       'key code 124'
+send "33-right"       'key code 124'
+send "34-right"       'key code 124'
+mark "35-click-chevron-a"
+XY=$(chevron_center)
+echo "chevron(a) at $XY"
+cliclick "c:$XY" >/dev/null 2>&1; sleep 0.5
+send "36-down"        'key code 125'
+send "37-space"       'key code 49'
+
+# 按住 ↓：看系统是否送来 repeat、焦点是否连续移动。hold-key-mac.swift 只发一次
+# keyDown / keyUp，不自己合成 repeat。
+send "38-home"        'key code 115'
+mark "39-hold-down"
+swift "$ROOT/hold-key-mac.swift" 125 1.5; sleep 0.35
+send "40-space"       'key code 49'
+send "41-char-g"      'key code 5'
+send "42-tab"         'key code 48'
 
 sleep 1
 screencapture -x -o -l "$(osascript -e 'tell application "System Events" to tell process "TreeProbeMac" to get id of window 1' 2>/dev/null)" "$LOGDIR/window.png" >/dev/null 2>&1

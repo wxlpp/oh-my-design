@@ -798,3 +798,10 @@ nonisolated func consumeTreeExpandedIDs() -> Set<String> {
         roots, id: \.id, children: \.children, toDepth: 2
     )
 }
+
+nonisolated func consumeTreeExpandedIDsInferred() -> Set<String> {
+    let roots = [
+        ProbeTreeNode(id: "root", children: [ProbeTreeNode(id: "leaf", children: nil)]),
+    ]
+    return Tree.expandedIDs(roots, id: \.id, children: \.children, toDepth: 2)
+}
