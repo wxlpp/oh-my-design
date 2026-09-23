@@ -36,6 +36,8 @@
 | `Tree.searchMatches(_:id:children:query:text:)`（`#423`） | `nonisolated` 静态函数，返回搜索词**直接命中**的节点 ID，与 `searchFilter` 同一实现；供宿主算命中数、显示空态、播报结果数。`where RowContent == EmptyView` 上另有免写行内容泛型的同名重载（与 `expandedIDs` 同形） |
 | `Text.init(verbatim:highlighting:)`（`#423`） | 以原文显示并高亮与搜索词匹配的片段（加粗 + `searchMatchBackground` 底色），与 `searchFilter` 同一条匹配规则；仅当传入相同的搜索词与文案时片段与过滤一致 |
 | `Color.searchMatchBackground` / `Color.systemYellow`（`#423`） | 搜索命中底色（第 3 层，系统黄 × 0.35，暗色 × 0.20）与它的第 2 层来源（桥接 `UIColor` / `NSColor.systemYellow`） |
+| `TreeRowClickBehavior`（`#431`） | 单击父行的行为枚举：`.select`（默认，只选中）/ `.selectAndToggleExpansion`（选中并取反展开态）（`nonisolated`、`Hashable`、`Sendable`、`CaseIterable`） |
+| `Tree.rowClickBehavior(_:)`（`#431`） | builder 方法，设置单击父行的行为，返回改了这一项的同一棵树。不调用时与此前相同（`.select`） |
 
 模块 `Localizable.strings` 新增两个 key：`"Expand"` / `"Collapse"`（chevron 的无障碍标签，说的是动作）。
 `#423` 再加一个：`"Applies to filtered results only"`（搜索期间父行复选框的无障碍提示）。
@@ -72,7 +74,15 @@ iOS 的无障碍树有四处变化（iOS `axe describe-ui` 前后对照，详见
 `systemYellow` / `searchMatchBackground`，或给 `Text` 扩展了同签名的 `init(verbatim:highlighting:)`，会报重复声明或歧义，
 改名或用模块限定即可。
 
-行为契约（两套独立状态、键盘表、Reduce Motion 取值、搜索过滤、已知缺口 `#427` / `#428`）见
+**新增行为（`#431`）：单击父行可同时展开 / 折叠。** 只在调用了 `.rowClickBehavior(.selectAndToggleExpansion)` 时生效：
+单击父行（行内容或缩进区）照旧按 `selectionMode` 改行选中，**另外**取反该行的展开态——两者各算各的，`.single` 下再点已选中的
+父行是「取消选中 + 折叠」。chevron、复选框、叶行与键盘不受影响；搜索期间的展开只写临时 overlay、不写 `expanded`。
+**行为（`#431`，所有调用方）：** 单击行改为按点击当时的可见行归约——折叠动画期间点到正在淡出的行，这一击什么都不改。
+此前按该行渲染时的快照归约，会选中这个已不可见的行（按代码推断，`.select` 下未实测）；`.selectAndToggleExpansion` 下
+按快照归约还会把旧展开态写回，搜索期间实测刚折叠的父行被重新展开——本次一并避开。**下游要改什么：不用改。**
+可能碰到的是**类型名歧义**：下游若也声明了 `TreeRowClickBehavior`，同 `Tree` 一条的处置。
+
+行为契约（两套独立状态、键盘表、Reduce Motion 取值、搜索过滤、单击父行、已知缺口 `#427` / `#428`）见
 [tree.md](components/tree.md)。
 
 ## 未发布（相对 `v0.11.0`）——Issue #421：CheckBox 增读系统 mixed 态

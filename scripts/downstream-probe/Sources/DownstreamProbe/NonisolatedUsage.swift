@@ -215,3 +215,8 @@ nonisolated func countTreeSearchMatches(_ query: String) -> Int {
     )
     return inferred.union(spelled).union(emptyRow).count
 }
+
+// Issue #431：`TreeRowClickBehavior` 是 `nonisolated` 的公开枚举，下游可在非 MainActor 语境里存取、比较、枚举。
+nonisolated func readTreeRowClickBehaviors() -> [TreeRowClickBehavior] {
+    TreeRowClickBehavior.allCases.filter { $0 != .select }
+}

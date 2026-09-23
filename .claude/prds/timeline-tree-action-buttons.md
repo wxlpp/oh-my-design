@@ -228,6 +228,9 @@ Timeline 不吸收 Steps 的向导行为，Steps 不因本 epic 改动。两者�
 - **整行右键菜单**（`#429` 修订，PR 3 已交付：`Tree.rowContextMenu(_:)`）：`rowContextMenu` 的目标集合——右键的行**已选中**时，
   取选中集合与树的可见行的交集；**否则**只取右键那一行。「可见」指展开 / 过滤之后的行序列，不是视口内可见。
   唤起菜单不改变选中、焦点或交互来源；不设置时不挂菜单。验收按 spec §4、§7.6。
+- **单击父行**（`#431` 已交付：`Tree.rowClickBehavior(_:)`，取值为枚举 `TreeRowClickBehavior` 的 `.select`（默认）/
+  `.selectAndToggleExpansion`）：后者下单击父行照旧按 `selectionMode` 改行选中，**另外**取反该行的展开态，两份状态各算各的；
+  chevron、复选框、叶行与键盘不受影响；搜索期间只写 overlay（与真值表第 4 行同一定案）。设计定案见 `docs/components/tree.md`「单击父行」。
 
 **FR-2 的行为真值表（本 PRD 定案，不留给实现期自选）**
 
@@ -393,8 +396,8 @@ RM 下手势本身不受影响（手势驱动），但**回弹与触发后的转
 - Tree 的 `F2` 重命名与 type-ahead——属 FR-2a 的可降级项，除实测证明成本很低否则不做。
 - Tree 搜索的**组件内**结果数播报、空态视图与输入法组字识别（`#423`）：三者由宿主负责，组件提供
   `Tree.searchMatches` 作接入点；搜索性能的数值预算留待发布前确定。
-- 「单击父行即展开」——是**行为**不是外观，不进 `TreeStyle`（公约《边界条款：样式不得携带行为》），
-  另开 `#431` 在 `Tree` 上加行为参数（`#429` 修订）。
+- ~~「单击父行即展开」~~ ——**已由 `#431` 交付**（`Tree.rowClickBehavior(_:)`，见 FR-2「单击父行」一条），
+  不再在范围外。原判「是**行为**不是外观，不进 `TreeStyle`（公约《边界条款：样式不得携带行为》）」不变。
 - `SlideToConfirm` 的速度补偿确认（显式不采，理由见 FR-4）。
 - `Steps` 组件的任何改动（边界见 FR-1）；`AsyncButton` 的重构或废弃。
 - `tripled-analysis.md` 里其余 P2 / P3 项（CountUpText、TypingIndicator、FloatButton 展开、

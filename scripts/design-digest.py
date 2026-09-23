@@ -42,7 +42,8 @@ FLOORS = {
     # #422：components +1（Tree）、enums +1（TreeSelectionMode）、enumcases +2（single / multiple）。
     # #429：viewext +1（View.treeStyle）、others +1（TreeStyle，封闭 struct，不是协议也不是枚举）。
     # #423：colors +2（systemYellow / searchMatchBackground）；Tree.searchFilter 与 Text.init(verbatim:highlighting:) 不在任何计数节里。
-    "colors": 124, "components": 90, "enums": 46, "enumcases": 157,
+    # #431：enums +1（TreeRowClickBehavior）、enumcases +2（select / selectAndToggleExpansion）；Tree.rowClickBehavior 不在任何计数节里。
+    "colors": 124, "components": 90, "enums": 47, "enumcases": 159,
     "protocols": 6, "viewext": 47, "styleext": 15, "others": 29,
 }
 

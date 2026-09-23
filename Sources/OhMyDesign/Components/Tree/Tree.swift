@@ -13,7 +13,7 @@ import SwiftUI
 ///
 /// 行距、缩进、chevron 与复选框字形跟随环境 `controlSize`；iOS 上行距不低于 44 pt。
 /// 行外观由 `.treeStyle(_:)` 选择（`.automatic` / `.navigator`）；整行（含缩进区）都是点选区，
-/// 也是 `rowContextMenu(_:)` 的右键区。
+/// 也是 `rowContextMenu(_:)` 的右键区；单击父行是否同时展开由 `rowClickBehavior(_:)` 决定。
 ///
 /// ⚠️ **不是原生外观**：可见行按深度优先展平进 `LazyVStack`（放在 `ScrollView` 里时只构建视口附近的行），
 /// chevron、缩进、行选中底色与无障碍播报全部自绘。
@@ -173,21 +173,26 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         )
     }
 
-    private func select(_ id: ID, rows: [TreeRow<ID>], frame: TreeSearchFrame<ID>) {
+    private func click(_ id: ID) {
         if !self.isFocused {
             self.pointerClaimsFocus = true
             self.isFocused = true
         }
-        self.commit(
-            TreeInteractionReducer.pointerSelect(
-                id,
-                state: self.interactionState(frame),
-                rowIDs: Set(rows.map(\.id)),
-                mode: self.selectionMode,
-                treeIDs: { self.treeIDs }
-            ),
-            frame: frame
+        let frame = self.searchFrame
+        let rows = TreeFlatten.rows(
+            self.data, id: self.id, children: self.children,
+            expanded: frame.expansion.effective, included: frame.included
         )
+        let outcome = TreeInteractionReducer.pointerClick(
+            id,
+            behavior: self.clickBehavior,
+            state: self.interactionState(frame),
+            rows: rows,
+            mode: self.selectionMode,
+            motion: self.motionPresentation,
+            treeIDs: { self.treeIDs }
+        )
+        self.commit(outcome.state, frame: frame, expansionMotion: outcome.expansionMotion)
     }
 
     private func setExpansion(_ id: ID, to target: TreeExpansionTarget, frame: TreeSearchFrame<ID>) {
@@ -224,7 +229,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             showsFocusIndicator: TreeFocusing.showsRing(
                 containerFocused: self.isFocused, lastInteraction: self.lastInteraction
             ),
-            select: { id in self.select(id, rows: rows, frame: frame) },
+            click: { id in self.click(id) },
             setExpansion: { id, target in self.setExpansion(id, to: target, frame: frame) },
             notePointerCheck: {
                 self.commit(TreeInteractionReducer.pointerCheck(state: self.interactionState(frame)), frame: frame)
@@ -246,6 +251,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     private let content: (Data.Element) -> RowContent
     private var rowMenu: ((Set<ID>) -> AnyView)?
     private var search: TreeSearchSpec<Data.Element>?
+    private var clickBehavior: TreeRowClickBehavior = .select
 }
 
 struct TreeSearchSpec<Element> {
@@ -310,6 +316,25 @@ public extension Tree {
     func rowContextMenu<M: View>(@ViewBuilder _ menu: @escaping (Set<ID>) -> M) -> Tree {
         var tree = self
         tree.rowMenu = { targets in AnyView(menu(targets)) }
+        return tree
+    }
+}
+
+// MARK: - 单击父行 / Row click behavior
+
+public extension Tree {
+    /// 设置单击父行（行内容或缩进区）时做什么：`.select`（默认）只选中；`.selectAndToggleExpansion`
+    /// 选中并取反该行的展开态（VS Code Explorer 式）。
+    ///
+    /// 行选中照旧按 `selectionMode` 的规则变化，展开态的取反不看这一击是选中还是取消选中。
+    /// 叶行、chevron（仍只切换展开）、复选框（仍只勾选）与键盘都不受影响。搜索期间的展开只作用于本次搜索，
+    /// 与点 chevron 相同。直接在 `Tree` 上调用，放在其它 modifier 之前。
+    ///
+    /// - Parameter behavior: 单击父行的行为。
+    /// - Returns: 带该点击行为的同一棵树。
+    func rowClickBehavior(_ behavior: TreeRowClickBehavior) -> Tree {
+        var tree = self
+        tree.clickBehavior = behavior
         return tree
     }
 }
@@ -406,7 +431,7 @@ struct TreeContext<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     let focus: ID?
     let metrics: TreeRowMetrics
     let showsFocusIndicator: Bool
-    let select: (ID) -> Void
+    let click: (ID) -> Void
     let setExpansion: (ID, TreeExpansionTarget) -> Void
     let notePointerCheck: () -> Void
     let rowMenu: ((Set<ID>) -> AnyView)?
@@ -492,7 +517,7 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
                 menu: self.context.rowMenu,
                 targets: TreeContextMenu.targets(for: elementID, selectedVisible: self.context.selectedVisible)
             ))
-            .onTapGesture { self.context.select(elementID) }
+            .onTapGesture { self.context.click(elementID) }
             .accessibilityValue(self.expansionValue(isExpanded: isExpanded))
             .accessibilityAddTraits(TreeRowAccessibility.traits(isSelected: isSelected))
     }

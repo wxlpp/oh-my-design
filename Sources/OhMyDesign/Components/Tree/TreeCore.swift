@@ -14,6 +14,20 @@ public nonisolated enum TreeSelectionMode: Hashable, Sendable, CaseIterable {
     case multiple
 }
 
+// MARK: - TreeRowClickBehavior
+
+/// 单击 `Tree` 的**父行**（行内容或缩进区，不含 chevron 与复选框）时做什么；经 `Tree.rowClickBehavior(_:)` 设置。
+///
+/// 行选中与展开是两套独立状态：两种取值下行选中都按 `TreeSelectionMode` 的既有规则变化，
+/// 展开态只在 `.selectAndToggleExpansion` 下、且被点的是父行时取反，不看这一击是选中还是取消选中。
+/// 叶行、chevron、复选框与键盘不受影响。
+public nonisolated enum TreeRowClickBehavior: Hashable, Sendable, CaseIterable {
+    /// 只选中（默认）：展开 / 折叠只经 chevron 与 `←` / `→`。
+    case select
+    /// 选中并切换展开（VS Code Explorer 式）：单击父行同时取反该行的展开态。
+    case selectAndToggleExpansion
+}
+
 // MARK: - TreeRow
 
 nonisolated struct TreeRow<ID: Hashable>: Identifiable, Equatable {

@@ -59,6 +59,12 @@ public extension Tree {
     func rowContextMenu<M: View>(@ViewBuilder _ menu: @escaping (Set<ID>) -> M) -> Tree
 }
 
+// 单击父行的行为（#431）：builder 方法，同上；默认 .select 与此前相同
+public nonisolated enum TreeRowClickBehavior: Hashable, Sendable, CaseIterable { case select, selectAndToggleExpansion }
+public extension Tree {
+    func rowClickBehavior(_ behavior: TreeRowClickBehavior) -> Tree
+}
+
 // 搜索过滤（#423）：builder 方法，同上；搜索词由调用方持有
 public extension Tree {
     func searchFilter(_ query: String, text: @escaping (Data.Element) -> String) -> Tree
@@ -100,7 +106,8 @@ public extension Color {
 
 ## 展开 / 默认展开到第 N 层
 
-- 展开态就是 `expanded` 这个 `Set<ID>`；组件不另存一份。点 chevron、按 `←` / `→` 都直接写它。
+- 展开态就是 `expanded` 这个 `Set<ID>`；组件不另存一份。点 chevron、按 `←` / `→`、
+  `.rowClickBehavior(.selectAndToggleExpansion)` 下单击父行（`#431`）都直接写它。
   例外是搜索期间（`#423`）：那时的展开 / 折叠只落组件内的临时 overlay，不写 `expanded`，清空搜索词即丢弃。
 - **根为第 1 层**。`Tree.expandedIDs(_:id:children:toDepth:)` 预算「默认展开到第 N 层」的集合：
   `toDepth: 1` 全折叠，`toDepth: 2` 只展开根这一层，依此类推。它是 `nonisolated` 的纯函数，
@@ -120,6 +127,8 @@ public extension Color {
 | 语义 | 导航：当前高亮哪几行 | 数据：勾了哪些 |
 | 谁能进集合 | 任意行（含父节点） | **只有叶节点** |
 | 改变方式 | 点行、`Space`、`Shift+↑/↓`、`Ctrl/Cmd+A` | 点复选框 |
+
+`rowClickBehavior(.selectAndToggleExpansion)`（`#431`）下点父行还会取反展开态——那是第三份状态，行选中照旧按下面的规则变化。
 
 - `single`：选中一个未选行时替换已选集合里**属于本树**的全部 ID——包括被折叠而当前不可见的；
   再选同一行取消（允许空选）。集合里不属于本树数据的 ID 原样保留。
@@ -313,6 +322,43 @@ Tree(roots, children: \.children, expanded: $expanded, selection: $selection, se
 - 菜单内容是调用方的数据操作，不是外观——所以它是 `Tree` 上的 builder 方法，不在 `TreeStyle` 里，
   也不是环境值（环境值要擦除 `ID`，闭包里就拿不到强类型集合）。拖放仍不在范围内。
 
+## 单击父行：`rowClickBehavior(_:)`（`#431`）
+
+```swift
+Tree(roots, children: \.children, expanded: $expanded, selection: $selection) { node in
+    Label(node.name, systemImage: node.children == nil ? "doc" : "folder")
+}
+.rowClickBehavior(.selectAndToggleExpansion)   // VS Code Explorer 式：单击文件夹行即展开 / 折叠
+.treeStyle(.navigator)
+```
+
+### 设计定案
+
+| 问题 | 定案 | 理由 / 放弃的方案 |
+|---|---|---|
+| 参数形态 | 公开枚举 `TreeRowClickBehavior`（`.select` 默认 / `.selectAndToggleExpansion`），经 `Tree` 上的 builder 方法 `rowClickBehavior(_:)` 设置 | **不进 `TreeStyle`**：这是行为，公约《边界条款：样式不得携带行为》。**不做 init 参数**：`#422` 之后加到 `Tree` 上的能力（`rowContextMenu` / `searchFilter`）都是 builder 方法，init 保持不变、现有调用点零改动。**不做环境值**：环境值会穿透到子树里的**每一棵** `Tree`，而点击行为是某一棵树的交互设计（同一窗口里导航树与勾选树常常要不同的点击语义）。**枚举而非 Bool**：公开 API 无 Bool 入参（`BoolExemptionGuard`），也给「双击展开」之类留位 |
+| 默认值 | `.select`：与 `#422` 起的现状逐字相同（只走行选中归约，不动展开态） | 已有调用方不改就不变 |
+| 一次单击改了哪几份状态 | `.select`：焦点 → 被点的行、交互来源 → pointer、行选中按既有归约。`.selectAndToggleExpansion` **且被点的是父行**：上面三份照旧，**另外**把该行的展开态取反（生效集合里有它就折叠，否则展开）。**两份状态各按各的规则算、互不读取**：行选中不看展开态，展开态不看这次点击是选中还是取消选中 | 行选中与展开是两套独立状态（本文档「选择与勾选」一节的同一原则）。放弃「这次点击取消了选中就不折叠」之类的耦合：会让同一个点击的结果依赖另一份状态，调用方推不出来 |
+| `.single` 下再点已选中的父行 | 行选中按既有规则**取消选中**（允许空选），展开态照样取反 ⇒ 结果是「取消选中 + 折叠」 | 与上一行同一原则。⚠️ VS Code 再点已选中的文件夹是「保持选中 + 折叠」；要那样需要改 `.single` 的「再选同一行取消」语义，不在本 issue 射程内 |
+| `.multiple` | 行选中逐行切换（既有），展开态取反，两者独立 | 同上 |
+| 修饰键 | 行上的点击**不读修饰键**（`#422` 起如此：点选走 `onTapGesture`，没有 Shift / Cmd 点击的范围选 / 追加语义），因此带修饰键的单击与普通单击相同，`.selectAndToggleExpansion` 下同样切换展开（按源码推断；真 HID 下修饰键点击是否仍送达 `onTapGesture` 未实测） | 组件没有修饰键点击语义可供区分；将来要加 Shift / Cmd 点击，另开 issue 一并定「修饰键点击是否切换展开」 |
+| 点 chevron | 仍**只**切换展开，不选中（chevron 是独立的 `Button`，行上的点选手势收不到这次点击）；`.selectAndToggleExpansion` 下也**只切换一次**，不会被行上的点击再切回去 | chevron 与整行各管各的；两者都切换时一次点击等于没点 |
+| 点复选框 | 不受影响：只写 `checked`，不选中、不动展开 | 勾选是数据语义，与点击行为无关 |
+| 叶行 | 不受影响：两种取值下都只选中 | 叶行没有展开态 |
+| 键盘 | 不受影响：`Space` 仍只切换选中、`←` / `→` 仍只展开 / 折叠、`Enter` 仍只激活 | 本参数只管指针单击 |
+| 搜索期间（`#423`） | 展开态的写入与点 chevron 同一路径（`TreeExpansionState.set`）：写 overlay、**不写** `expanded` 绑定；清空搜索词即丢弃 | 与 `#423`「临时展开写到哪」一行同一定案 |
+| 动效 | 展开事务与点 chevron / 按 `←` `→` 同一个 `withAnimation(CoreMotionToken.treeExpansion(for:))`，Reduce Motion 分支不变；选中底色仍按 `.coreAnimation(.selection, …)` | 没有新增动效 ⇒ 没有新的 Reduce Motion 分支 |
+| 点到正在淡出的行 | 折叠动画期间，被折叠掉的子行还在屏幕上淡出、仍能接到点击。单击按**点击当时**的可见行与展开态归约（不用该行渲染时的快照）：被点的行已不在可见行里 ⇒ 这一击什么都不改（焦点、交互来源、选中、展开都不动） | 淡出中的行保留的是渲染时的旧闭包。按旧快照归约时，`.selectAndToggleExpansion` 下搜索期间实测会把旧 overlay 整个写回——刚折叠的父行被重新展开，淡出的子行被选中（`TreeSearchHostedTests` 两种外观都复现）；`.select` 下按快照归约会选中这个已不可见的行（按代码推断，未实测）。⚠️ 点 chevron 的路径仍按渲染时的快照，同一竞态在那里未修，见下 |
+
+- 行为落在纯函数 `TreeInteractionReducer.pointerClick`：它先走既有的点选归约，再按行为与「该行是不是父行」决定是否取反展开态并带出环境动效档；
+  视图只把点击转给它、把结果经同一个 `commit` 写回（与点 chevron 共用写回与动效路径）。
+- ⚠️ **推断、未实测**：VoiceOver / 切换控制对行内容元素的「激活」经 `onTapGesture` 到达时，同样会切换展开；本仓装置读不到辅助技术的激活语义。
+- ⚠️ **非 key 窗口里的首击**（见「判据覆盖到哪」）：行上的点选手势在非 key 窗口里首击不生效，`.selectAndToggleExpansion` 下这一击同样既不选中也不展开。
+- ⚠️ **已知缺口：点正在淡出的行的 chevron。** chevron 的动作仍按行渲染时的快照归约（`#422` 起如此，本 issue 未改），
+  理论上会像上表「点到正在淡出的行」那样把旧展开态写回。未构造判据、未实测。
+- ⚠️ 不在搜索时，托管窗口里「折叠后紧接着点第 2 行位置」点到的是已上移的 `b`，没能构造出「点到淡出行」——
+  不搜索时的这一格没有判据（修法相同：单击一律按点击当时的可见行归约）。
+
 ## 搜索过滤与命中高亮（`#423`）
 
 ```swift
@@ -403,7 +449,7 @@ struct CommittedSearchField: UIViewRepresentable {
 | 调用点 | token | Reduce Motion 下 |
 |---|---|---|
 | chevron 旋转 | `CoreMotionToken.reveal.transformAnimation(for:)` | `nil`，直接到终态角度 |
-| 展开折叠（点 chevron 与键盘 `←` / `→` 同一个函数） | `withAnimation(CoreMotionToken.treeExpansion(for:))`，即 `reveal.animation(for:)` | 同时长 `easeInOut`（`reveal` 档「展开」的既有口径，与 `CoreDisclosureGroupStyle` 相同）；`hidden` 下不补间 |
+| 展开折叠（点 chevron、键盘 `←` / `→`、`#431` 单击父行同一个函数） | `withAnimation(CoreMotionToken.treeExpansion(for:))`，即 `reveal.animation(for:)` | 同时长 `easeInOut`（`reveal` 档「展开」的既有口径，与 `CoreDisclosureGroupStyle` 相同）；`hidden` 下不补间 |
 | 选中态切换 | `.coreAnimation(.selection, value: self.selection)` | 按 `CoreMotionToken.selection` 的裁决 |
 | `.navigator` 悬停 | 无（即时生效） | 无分支可言 |
 
@@ -574,6 +620,19 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
   这类取 token 的调用也会被拦，这是刻意的）；`.onHover` 只在行宿主的 `case .navigator` 分支内；容器无悬停状态；
   行为 / 无障碍只挂在行宿主上。
 
+`#431` 起的单击行为判据：
+- `TreeRowClickBehaviorTests`（双腿，纯函数 `TreeInteractionReducer.pointerClick`）：`.select` 与既有点选归约逐字段相同、不动展开；
+  `.selectAndToggleExpansion` 在父行上选中并取反展开（`.single` / `.multiple`），再点已选中的父行时取消选中**且**照样取反展开
+  （两份状态各算各的）；叶行只选中；点到不在可见行里的 ID 状态原样返回；三档动效档原样带出；搜索期间只写 overlay；
+  多选不求整树 ID。
+- `TreeHostedWiringTests`（**仅 macOS**，两种外观）：不调用 / `.select` 下单击父行只选中；`.selectAndToggleExpansion` 下
+  单击父行选中并展开、再点取消选中并折叠；单击父行的展开事务曲线等于环境动效档的 token 取值（三档）；
+  点 chevron 恰好切换一次、不选中，点复选框只勾选，点叶行只选中。
+- `TreeSearchHostedTests`（**仅 macOS**，两种外观）：搜索期间单击父行只在 overlay 里折叠、不写宿主 `expanded`；
+  紧接着点正在淡出的子行不选中它、不回滚这次折叠；清空后宿主 `expanded` 不变。
+- ⚠️ iOS 腿只有纯函数判据（托管窗口的合成点击只在 macOS 做）。真 HID 未测：真指针 / 触控下单击父行、修饰键点击、
+  VoiceOver 激活行内容。
+
 `#423` 起的搜索判据（`TreeSearchTests.swift`）：
 - `TreeSearchMatcherTests` / `TreeSearchResultTests`（双腿，纯函数）：匹配规则（含组合 / 分解形式的 Unicode 等价、
   片段取原文）；公开入口 `searchMatches` 的两个重载与过滤的命中集合相同、高亮片段非空当且仅当命中；
@@ -621,6 +680,9 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
 `#429` 的 `rowContextMenu(_:)` 同样**不改判**：菜单内容是调用方按目标 ID 集合给出的数据操作，与行内容 `content`
 同属调用方内容槽，不改变行的画法与含义，不是外观扩展点。
 
+`#431` 的 `rowClickBehavior(_:)` 同样**不改判**：它选的是行为（单击父行是否同时取反展开态），不改变行的画法与含义，
+不是外观扩展点；取值是封闭枚举，第三方不能新增。
+
 `#423` 的 `searchFilter(_:text:)`、`searchMatches(...)` 与 `Text(verbatim:highlighting:)` 同样**不改判**：前两者是调用方给的数据投影
 （按哪段文案过滤 / 求命中），匹配谓词固定、不可替换；后者是 SwiftUI `Text` 上的构造器，不是 `Tree` 的外观槽。
 两者都不改变行的骨架与含义。
@@ -655,7 +717,7 @@ struct FileBrowser: View {
     }
 }
 
-// VS Code Explorer 式：整行选中 / 悬停 / 缩进参考线，行距 22（iOS 上仍 44）+ 搜索过滤
+// VS Code Explorer 式：整行选中 / 悬停 / 缩进参考线，行距 22（iOS 上仍 44）+ 搜索过滤 + 单击文件夹即展开
 struct Explorer: View {
     let roots: [Node]
     @State private var expanded: Set<String> = []
@@ -679,6 +741,7 @@ struct Explorer: View {
                 }
             }
             .searchFilter(self.query, text: \.name)
+            .rowClickBehavior(.selectAndToggleExpansion)
             .rowContextMenu { targets in
                 Button("Rename") { print("rename \(targets)") }
                     .disabled(targets.count != 1)

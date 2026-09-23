@@ -106,6 +106,24 @@ nonisolated enum TreeInteractionReducer {
         return next
     }
 
+    static func pointerClick<ID: Hashable>(
+        _ id: ID,
+        behavior: TreeRowClickBehavior,
+        state: TreeInteractionState<ID>,
+        rows: [TreeRow<ID>],
+        mode: TreeSelectionMode,
+        motion: MotionPresentation,
+        treeIDs: () -> Set<ID>
+    ) -> TreeInteractionOutcome<ID> {
+        guard let row = rows.first(where: { $0.id == id }) else { return TreeInteractionOutcome(state: state, result: .ignored) }
+        var next = Self.pointerSelect(id, state: state, rowIDs: Set(rows.map(\.id)), mode: mode, treeIDs: treeIDs)
+        guard behavior == .selectAndToggleExpansion, row.hasChildren else {
+            return TreeInteractionOutcome(state: next, result: .handled)
+        }
+        next.expansion.set(id, to: state.expanded.contains(id) ? .collapsed : .expanded)
+        return TreeInteractionOutcome(state: next, result: .handled, expansionMotion: motion)
+    }
+
     static func pointerExpansion<ID: Hashable>(
         _ id: ID,
         to target: TreeExpansionTarget,

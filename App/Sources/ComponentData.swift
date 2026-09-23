@@ -2266,7 +2266,7 @@ private struct TreePreview: View {
                 }
             }
             VStack(alignment: .leading, spacing: CoreSpacing.xs) {
-                Text(verbatim: "导航器 / navigator（.treeStyle(.navigator) + .controlSize(.small)，VS Code Explorer 式）")
+                Text(verbatim: "导航器 / navigator（.treeStyle(.navigator) + .controlSize(.small) + .rowClickBehavior(.selectAndToggleExpansion)，VS Code Explorer 式：单击文件夹行即展开 / 折叠）")
                     .coreFont(.footnote).foregroundStyle(Color.contentSecondary)
                 ExplorerTreePreview()
             }
@@ -2376,6 +2376,7 @@ private struct ExplorerTreePreview: View {
             }
         }
         .searchFilter(self.query, text: \.name)
+        .rowClickBehavior(.selectAndToggleExpansion)
         .rowContextMenu { targets in
             Button("New File", systemImage: "doc.badge.plus") {
                 self.lastMenuAction = "New File in \(targets.sorted())"

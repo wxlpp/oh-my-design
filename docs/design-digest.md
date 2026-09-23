@@ -658,6 +658,9 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 - *enum* **`TreeSelectionMode`** — `Tree` 的行选择模式。
   - `.single` — 单选：选中一个未选行时，替换已选集合里属于本树的全部 ID（含被折叠而不可见的）。 不属于本树数据的 ID 原样保留；再选同一行取消（允许空选）。
   - `.multiple` — 多选：逐行切换选中态。
+- *enum* **`TreeRowClickBehavior`** — 单击 `Tree` 的**父行**（行内容或缩进区，不含 chevron 与复选框）时做什么；经 `Tree.rowClickBehavior(_:)` 设置。
+  - `.select` — 只选中（默认）：展开 / 折叠只经 chevron 与 `←` / `→`。
+  - `.selectAndToggleExpansion` — 选中并切换展开（VS Code Explorer 式）：单击父行同时取反该行的展开态。
 
 ### `Components/Tree/TreeStyle.swift`
 
@@ -1067,8 +1070,8 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | motion | 4 | 4 |
 | colors | 124 | 124 |
 | components | 90 | 90 |
-| enums | 46 | 46 |
-| enumcases | 157 | 157 |
+| enums | 47 | 47 |
+| enumcases | 159 | 159 |
 | protocols | 6 | 6 |
 | viewext | 47 | 47 |
 | styleext | 15 | 15 |
