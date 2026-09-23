@@ -2,8 +2,8 @@
 name: structure-components
 status: in-progress
 created: 2026-09-23T01:14:48Z
-updated: 2026-09-23T03:09:17Z
-progress: 20%
+updated: 2026-09-23T03:39:51Z
+progress: 40%
 prd: .claude/prds/timeline-tree-action-buttons.md
 github: https://github.com/wxlpp/oh-my-design/issues/416
 ---
@@ -51,7 +51,7 @@ Tree 搜索接在 Tree 本体之后（同一批文件，不并行）。
    不是原生 chevron / 动画 / 无障碍播报。spike 要按这个前提比较三条路径。
 
 ## Tasks Created
-- [ ] 419.md - Tree 实现路径与键盘射程 spike (parallel: true)
+- [x] 419.md - Tree 实现路径与键盘射程 spike (parallel: true)
 - [ ] 420.md - Timeline 改组合式 API (parallel: true)
 - [x] 421.md - CheckBox 增读系统 mixed 态 (parallel: true)
 - [ ] 422.md - Tree 本体 (parallel: false, depends #419 + #421)
