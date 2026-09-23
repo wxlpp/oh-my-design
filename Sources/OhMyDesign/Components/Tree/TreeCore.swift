@@ -33,10 +33,10 @@ nonisolated struct TreeRowMetrics: Equatable {
     let rowSpacing: CGFloat
     let checkBoxGlyph: CGFloat
 
-    #if os(iOS)
-    static let platformFloor: CGFloat = CoreControlMetrics.height(for: .regular)
-    #else
+    #if os(macOS)
     static let platformFloor: CGFloat = 0
+    #else
+    static let platformFloor: CGFloat = CoreControlMetrics.height(for: .regular)
     #endif
 
     static func resolve(_ size: ControlSize, platformFloor: CGFloat = Self.platformFloor) -> TreeRowMetrics {

@@ -1312,6 +1312,41 @@ struct TreeDensityTests {
         #expect(height == want, "\(size)：两层树渲染高 \(height)pt，应为 \(want)pt")
     }
 
+    @Test(".small 下两个根叶子 + 一个展开的两子父节点：总高 = 5 × 行距，根层与嵌套层都不插行间距")
+    func rootAndNestedSiblingsStackWithoutGapsWhenDense() {
+        let roots = [
+            TreeJudgeNode(id: "a", children: nil),
+            TreeJudgeNode(id: "b", children: nil),
+            TreeJudgeNode(id: "p", children: [
+                TreeJudgeNode(id: "c1", children: nil),
+                TreeJudgeNode(id: "c2", children: nil),
+            ]),
+        ]
+        #expect(Self.expected(.small).rowSpacing == 0)
+        let height = Self.renderedHeight(Self.tree(roots, expanded: ["p"], size: .small))
+        let want = 5 * Self.pitch(.small)
+        #expect(height == want, ".small：五行树渲染高 \(height)pt，应为 \(want)pt")
+    }
+
+    #if os(macOS)
+    @Test("调用方放进行内容的 CheckBox 不吃 Tree 的密集布局：.small 下该行仍被撑到 44")
+    func callerCheckBoxKeepsRegularMinHeight() {
+        let view = Tree(
+            Self.leaf,
+            children: \.children,
+            expanded: .constant([]),
+            selection: .constant([])
+        ) { _ in
+            Toggle(isOn: .constant(false)) { EmptyView() }
+                .toggleStyle(CheckBoxToggleStyle())
+                .labelsHidden()
+        }
+        .controlSize(.small)
+        let height = Self.renderedHeight(view)
+        #expect(height == 44, ".small：行内容里的调用方 CheckBox 行高 \(height)pt，应为 44pt")
+    }
+    #endif
+
     @Test("父子两行色块左缘的列差等于该档的缩进步长", arguments: [ControlSize.small, .regular])
     func indentationFollowsControlSize(size: ControlSize) {
         let scale: CGFloat = 2
