@@ -23,7 +23,6 @@ public extension StatefulButtonState {
 }
 
 extension StatefulButtonState {
-    // 三个非静息态的符号必须互异：相同就无法在渲染上分辨，`StatefulButtonTests` 按这条钉死。
     nonisolated var symbolName: String? {
         switch self {
         case .idle: nil
@@ -42,12 +41,23 @@ extension StatefulButtonState {
         case .failure: Text("Failed", bundle: .module)
         }
     }
+
+    func announcement(locale: Locale) -> String? {
+        switch self {
+        case .idle: nil
+        case .loading: String(localized: "Loading", bundle: .module, locale: locale)
+        case .success: String(localized: "Success", bundle: .module, locale: locale)
+        case .failure: String(localized: "Failed", bundle: .module, locale: locale)
+        }
+    }
 }
 
 // MARK: - 执行门闩 / Execution gate
 
 // 门闩只认自己发出的运行号，**不读任何视觉态**——视觉态在托管模式下由调用方写，
 // 拿它当门闩时调用方把态改回 `.idle` 就能重入。
+// `running` 只由该次运行自己的 `finish` 清：离屏作废只收回显示权，不开闸——
+// 不响应取消的 action 在离屏后仍在跑，此时开闸会让回屏后的点击并发重入。
 struct StatefulButtonGate: Sendable, Hashable {
     private var issued = 0
     private var running: Int?
@@ -64,9 +74,8 @@ struct StatefulButtonGate: Sendable, Hashable {
     }
 
     mutating func finish(_ run: Int) -> Bool {
-        guard self.running == run else { return false }
-        self.running = nil
-        return true
+        if self.running == run { self.running = nil }
+        return self.ownsDisplay(run)
     }
 
     func ownsDisplay(_ run: Int) -> Bool { self.displaying == run }
@@ -74,7 +83,6 @@ struct StatefulButtonGate: Sendable, Hashable {
     mutating func invalidate() {
         self.issued += 1
         self.displaying = self.issued
-        self.running = nil
     }
 }
 
@@ -133,9 +141,9 @@ struct StatefulButtonCore: Sendable, Hashable {
     }
 
     mutating func settle(_ run: Int, to state: StatefulButtonState, host: StatefulButtonState?) -> Bool {
-        guard self.gate.finish(run) else { return false }
-        if host == nil { self.managed = state }
-        return true
+        let owned = self.gate.finish(run)
+        if host == nil { self.managed = owned ? state : .idle }
+        return owned
     }
 
     mutating func reset(_ run: Int, host: StatefulButtonState?) -> Bool {
@@ -144,7 +152,10 @@ struct StatefulButtonCore: Sendable, Hashable {
         return true
     }
 
-    mutating func invalidate() { self.gate.invalidate() }
+    mutating func invalidate(host: StatefulButtonState?) {
+        self.gate.invalidate()
+        if host == nil { self.managed = self.gate.isRunning ? .loading : .idle }
+    }
 }
 
 // MARK: - StatefulButton
@@ -173,6 +184,8 @@ public struct StatefulButton<Label: View>: View {
 
     @Environment(\.coreMotionPresentation) private var motionPresentation
     @Environment(\.controlSize) private var controlSize
+    @Environment(\.statefulButtonAnnouncementPoster) private var poster
+    @Environment(\.locale) private var locale
 
     private let hostState: StatefulButtonState?
     private let successDwell: Duration
@@ -237,9 +250,13 @@ public struct StatefulButton<Label: View>: View {
         }
         .animation(CoreMotionToken.press.transformAnimation(for: self.motionPresentation), value: state)
         .modifier(StatefulButtonAccessibility(state: state))
+        .onChange(of: state) { _, next in
+            guard let text = next.announcement(locale: self.locale) else { return }
+            self.poster.post(text)
+        }
         .onDisappear {
             self.task?.cancel()
-            self.core.invalidate()
+            self.core.invalidate(host: self.hostState)
         }
     }
 
@@ -272,15 +289,17 @@ public struct StatefulButton<Label: View>: View {
 
 // MARK: - 无障碍 / Accessibility
 
+extension EnvironmentValues {
+    @Entry var statefulButtonAnnouncementPoster: FieldAnnouncementPoster = .system
+}
+
+// 恒挂同一个 modifier、idle 给空值：写成 `if let … else content` 会产生 `_ConditionalContent`，
+// idle ↔ 非 idle 时整棵 Button 子树换身份被重建，挂在里面的宽度动画就不补间了。
 private struct StatefulButtonAccessibility: ViewModifier {
     let state: StatefulButtonState
 
     func body(content: Content) -> some View {
-        if let value = self.state.accessibilityValueText {
-            content.accessibilityValue(value)
-        } else {
-            content
-        }
+        content.accessibilityValue(self.state.accessibilityValueText ?? Text(verbatim: ""))
     }
 }
 
@@ -356,10 +375,15 @@ public extension StatefulButton where Label == Text {
             VStack(spacing: 16) {
                 StatefulButton("Upload", state: self.state) {
                     self.state = .loading
-                    try await Task.sleep(for: .milliseconds(900))
-                    self.state = .success
-                    try await Task.sleep(for: .seconds(1))
-                    self.state = .idle
+                    do {
+                        try await Task.sleep(for: .milliseconds(900))
+                        self.state = .success
+                        try await Task.sleep(for: .seconds(1))
+                        self.state = .idle
+                    } catch {
+                        self.state = .idle
+                        throw error
+                    }
                 }
                 .buttonStyle(.solid())
 

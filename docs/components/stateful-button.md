@@ -64,7 +64,10 @@ Aceternity `stateful-button` 的 `delay: 2` 一致；两个停留时长可分别
 | `loading` | action 抛 `CancellationError` | `idle` | 静默，不给失败回执、不进停留 |
 | `success` / `failure` | 停留结束 | `idle` | 只有**仍拥有显示权**的那次运行才复位 |
 | `success` / `failure` | 点击 | `loading` | 门闩此时已开 ⇒ **立即开始新一轮**，旧停留被作废 |
-| 任意 | 离屏（`onDisappear`） | 不变 | `Task` 取消 + 门闩作废；不回滚已画出的态 |
+| `loading` | 离屏（`onDisappear`） | `loading` | `Task` 取消 + 收回显示权；**门闩不开**，直到这次运行自己结束 |
+| `loading`（已离屏作废） | action 结束（任意结果） | `idle` | 门闩开；结果不给回执、不进停留 |
+| `loading`（已离屏作废） | 点击 | `loading` | 门闩仍关 → **忽略**（action 不响应取消时仍在跑，放行就是并发重入） |
+| `success` / `failure` | 离屏 | `idle` | 停留随 `Task` 取消而中止，直接复位，不会卡在回执态 |
 
 ### 托管模式：事件 → 状态
 
@@ -74,7 +77,7 @@ Aceternity `stateful-button` 的 `delay: 2` 一致；两个停留时长可分别
 | 点击（门闩关） | **忽略** | 不动 |
 | action 结束（成功 / 失败 / 取消） | 只开门闩 | **不动** |
 | 停留 | **不做**——停留与复位是调用方的事 | 不动 |
-| 离屏 | `Task` 取消 + 门闩作废 | 不动 |
+| 离屏 | `Task` 取消 + 收回显示权；门闩**仍关**到旧运行结束 | 不动 |
 
 ⇒ 托管模式下 `successDwell` / `failureDwell` 不起作用，因此那个 `init` 不收这两个参数。
 
@@ -98,11 +101,15 @@ Aceternity `stateful-button` 的 `delay: 2` 一致；两个停留时长可分别
 继承 `AsyncButton` 的两条语义（逐字对照 `Sources/OhMyDesign/Components/Button/AsyncButton.swift`
 的 `.onDisappear { self.task?.cancel() }` 与它对 `CancellationError` 的静默处置）：
 
-- **离屏**取消在跑的 `Task`，并把门闩作废；
+- **离屏**取消在跑的 `Task`，并收回这次运行的显示权；
 - action 抛 `CancellationError` **不**产生 `failure` 回执，自管模式下静默回 `idle`。
 
+⚠️ **离屏不开门闩**。取消只是请求，不响应取消的 action 会继续跑；门闩只由这次运行自己结束时打开，
+与 `AsyncButton` 在 `Task` 的 `defer` 里才复位同理。离屏后回屏、旧 action 仍未返回时点击会被忽略；
+自管模式下此时如实显示 `loading`，旧运行结束后回 `idle`（不给回执）。
+
 **过期任务的结果不能改变外观**：每次准入都拿一个递增的运行号，
-写回视觉态之前先核这次运行是否仍是当前运行 / 仍拥有显示权。
+写回视觉态之前先核这次运行是否仍拥有显示权。
 所以「外部复位（离屏、或新一轮抢走显示权）之后旧任务才完成」时，
 它的成功 / 失败结果与停留复位**都不生效**。
 
@@ -160,10 +167,13 @@ StatefulButton("Upload") {
   直接跳到新宽度——补间等于横向位移，不该在 RM 下发生）」。
 - ⚠️ **不要改回 `.coreAnimation(.press, value:)`**：那条入口走
   `CoreMotionToken.animation(for:)`，在 `.resting` 下返回的是**同时长 `easeInOut` 而不是
-  `nil`**，宽度会照常补间 —— 那正是本组件落地时犯过、后来按契约修掉的错。
+  `nil`**，宽度会照常补间。
   库内 5 处布局类动效（`AnchoredBadgeModifier` / `TagInput` / `TagGroup` /
   `UnderlinedTabBar` / `CoreDisclosureGroupStyle`）用的都是 `transformAnimation(for:)`。
   `.coreAnimation` 留给**颜色 / 不透明度**类（包围盒不变），例如 `TagGroup` 的选中态淡变。
+- ⚠️ **不要把无障碍 modifier 写成 `if let … { content.accessibilityValue(v) } else { content }`**：
+  那会产生 `_ConditionalContent`，`idle` ↔ 非 `idle` 时整棵 `Button` 子树换身份被重建，
+  宽度过渡在 animated 下也不补间（配件槽直接出现）。`idle` 恒挂同一个 modifier、给空值。
 - 触发值就是 `StatefulButtonState`，所以四个 case 两两不等是**判据保护的不变量**
   （`==` 若被改写成恒真，`.animation(_:value:)` 分辨不出任何两态、永不触发）。
 - 符号槽内的切换走 `.contentTransition(self.motionPresentation.symbolReplacement)`，
@@ -171,31 +181,30 @@ StatefulButton("Upload") {
 - 该文件在 `CoreMotionTokenDisciplineGuard` 的台账里登记为 `.gated`，
   `contentTransition` 调用点另有逐点登记。
 
-### 判据覆盖面与两条实测事实（如实登记）
+### 判据覆盖面
 
-in-flight 采样（macOS 腿，`HostedWindow` + `cacheDisplay` 逐帧取「两端之外」的像素数）
-实测到两件不直观的事：
+in-flight 采样（macOS 腿，`HostedWindow` + `cacheDisplay` 逐帧取「两端之外」的像素数）两条：
 
-1. **采样器看不见宽度维度。** `idle → loading`（配件槽出现、按钮变宽）在 **animated 与
-   resting 两臂上都是 0** 个两端之外的像素 —— 改契约前后都一样。⇒ 「宽度在 `animated`
-   下究竟补不补间」**没有机器判据**，两个方向都未证实；宽度那条入口的存在由**源码级**
-   判据 `layoutAnimationIsTransformGated` 钉住（实测「摘掉那一行」只被它打红，没有任何
-   像素判据会红）。
-2. **符号替换特效画在采样器拍不到的层里。** `loading → success` 在改契约后 animated 臂
-   峰值 21–25、resting 臂 **0**；而把 `.contentTransition` 整个摘掉再采一次，animated 臂
-   **升到 218–224**、逼近 resting 臂当时的 215–216。⇒ animated 臂读数偏低不是「动得少」，
-   而是符号替换特效替掉了那份**能被 `cacheDisplay` 拍到**的普通交叉淡变。
-   这一条是做过判别实验的，不是猜测。
+- `idle → loading`（宽度 / 布局过渡）：animated 臂 > 0（经 `observeControlMotion` 重试），
+  resting 臂 == 0。摘掉动效入口、退回 `.coreAnimation`、把无障碍 modifier 改回条件分支、
+  把 `==` 改成恒真，都会让它判红。
+- `loading → success`（符号替换）：resting 臂 == 0，animated 臂 > 0。
+  ⚠️ 这条的 animated 臂读数偏低不代表「动得少」：符号替换特效画在 `cacheDisplay` 拍不到的层里，
+  摘掉 `.contentTransition` 后读数反而上升（做过判别实验）。
+
+iOS 腿上 `layer.render(in:)` 取的是模型层、拍不到进行中的帧，这两条只在 macOS 腿跑。
 
 ## 无障碍
 
 - 角色：底层就是 `Button`，键盘 / 语音控制 / 切换控制的激活路径与普通按钮一致，
   且与触摸路径**共用同一道门闩**。
 - 名称：调用方的 label（`accessibilityLabel`）。
-- 状态：`accessibilityValue` 按态给出本地化文案——`idle` **不给值**，
+- 状态：`accessibilityValue` 按态给出本地化文案——`idle` 给**空值**，
   `loading` / `success` / `failure` 分别是 `Loading` / `Success` / `Failed`
   （都已注册进 `Sources/OhMyDesign/Resources/en.lproj/Localizable.strings`）。
-  VoiceOver 对焦点元素的 value 变化会自动播报，所以四态切换不是纯视觉的。
+- 播报：每次进入 `loading` / `success` / `failure` 都经 `AccessibilityNotification.Announcement`
+  主动播一次同一份文案（回 `idle` 与首帧不播）。不依赖「VoiceOver 会不会自动读焦点元素的
+  value 变化」——那条没有证据，且焦点不在按钮上时一定读不到。托管模式下调用方写态同样触发。
 - 配件符号 `accessibilityHidden(true)`——它是状态的视觉表示，语义已由 value 承担，
   再读一遍是重复。
 - ⚠️ **已知缺口一**：`loading` 期间按钮**没有**被标成 disabled。这是与 `AsyncButton` 一致的
@@ -207,12 +216,15 @@ in-flight 采样（macOS 腿，`HostedWindow` + `cacheDisplay` 逐帧取「两�
   iOS 的 `_UIHostingView` 连子视图都没有、`accessibilityElementCount()` 恒为 **0**
   （同一份托管视图的位图渲染正常，所以不是「没渲染」）。成因未查明，
   最可能是 SwiftUI 只在进程里有 AX 客户端时才建这棵树，而单测进程没有。
-  ⇒ 现有覆盖是三层**替代**判据，都不等于「辅助技术实读」：
-  ① 态 → `Text` 的值级真值表（含 `idle` 必须无值）；
+  ⇒ 现有覆盖是四层**替代**判据，都不等于「辅助技术实读」：
+  ① 态 → `Text` 的值级真值表（`idle` 在模型层无值，接线处补空值）；
   ② 三个键都已注册进 `Localizable.strings`（缺键时读到的是原始 key）；
   ③ 源码级接线判据（态文本接在 `Button` 整体上、由 `StatefulButtonState` 派生、
-  配件符号 `accessibilityHidden(true)`）——已实测「摘掉无障碍 modifier」这条变异被它打红。
-  真正的实读验证需要 XCUITest 或人工开 VoiceOver，本 issue 未做。
+  配件符号 `accessibilityHidden(true)`）；
+  ④ 播报判据：注入记录型 poster，驱动托管态走一串切换，核播报序列与文案逐项相等
+  （这一条是行为级的，不是源码 grep）。
+  真正的实读验证（含「`idle` 的空 value 对 VoiceOver 是否等同于无 value」）需要 XCUITest
+  或人工开 VoiceOver，本 issue 未做。
 
 ## 使用示例 / Usage
 
@@ -234,6 +246,9 @@ StatefulButton("Deploy", state: self.deployState) {
     do {
         try await deploy()
         self.deployState = .success
+    } catch is CancellationError {
+        self.deployState = .idle      // 离屏取消不是失败，别给 failure 回执
+        throw CancellationError()
     } catch {
         self.deployState = .failure
         throw error

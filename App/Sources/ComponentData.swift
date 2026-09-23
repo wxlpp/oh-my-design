@@ -2234,8 +2234,13 @@ private struct StatefulButtonPreview: View {
                     .foregroundStyle(.secondary)
                 StatefulButton("Upload", state: self.hosted) {
                     self.hosted = .loading
-                    try await Task.sleep(for: .milliseconds(900))
-                    self.hosted = .success
+                    do {
+                        try await Task.sleep(for: .milliseconds(900))
+                        self.hosted = .success
+                    } catch {
+                        self.hosted = .idle
+                        throw error
+                    }
                 }
                 .buttonStyle(.solid())
                 Picker("State", selection: self.$hosted) {

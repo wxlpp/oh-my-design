@@ -172,20 +172,58 @@ struct StatefulButtonTests {
         #expect(core.display(host: nil) == .idle)
     }
 
-    @Test("离屏 / 取消后作废：旧任务后到的结果与复位都不再改外观")
-    func invalidatedRunCannotChangeAppearance() {
+    @Test("离屏作废只收回显示权、不开闸：旧运行 finish 前再点仍被忽略，finish 后自管态回 idle")
+    func invalidatedRunKeepsGateClosedUntilItFinishes() {
+        for host in [nil, StatefulButtonState.idle] {
+            var core = StatefulButtonCore()
+            guard case .run(let run) = core.tap(host: host) else {
+                Issue.record("host \(String(describing: host))：首次点击应被准入")
+                continue
+            }
+            core.invalidate(host: host)
+            #expect(core.isRunning, "host \(String(describing: host))：作废后旧运行仍在跑，门闩却开了")
+            #expect(
+                core.tap(host: host) == .ignored,
+                "host \(String(describing: host))：旧运行未 finish 时的点击被准入了 —— 会与仍在跑的 action 并发"
+            )
+            let staleSettle = core.settle(run, to: .success, host: host)
+            #expect(staleSettle == false, "host \(String(describing: host))：作废后旧运行的结果仍改了外观")
+            let staleReset = core.reset(run, host: host)
+            #expect(staleReset == false, "host \(String(describing: host))：作废后旧运行的复位仍改了外观")
+            #expect(core.isRunning == false, "host \(String(describing: host))：旧运行 finish 后门闩应已开")
+            guard case .run = core.tap(host: host) else {
+                Issue.record("host \(String(describing: host))：旧运行 finish 后的点击应被准入")
+                continue
+            }
+        }
+    }
+
+    @Test("自管模式离屏不卡态：loading 期间离屏保持 loading 直到旧运行结束再回 idle；停留期间离屏直接回 idle")
+    func selfManagedInvalidationNeverStrandsVisualState() {
         var core = StatefulButtonCore()
-        guard case .run(let run) = core.tap(host: nil) else {
+        guard case .run(let running) = core.tap(host: nil) else {
             Issue.record("首次点击应被准入")
             return
         }
-        core.invalidate()
-        let staleSettle = core.settle(run, to: .success, host: nil)
-        #expect(staleSettle == false, "作废后旧任务的结果仍改了外观")
-        let staleReset = core.reset(run, host: nil)
-        #expect(staleReset == false, "作废后旧任务的复位仍改了外观")
-        #expect(core.display(host: nil) == .loading, "作废不回滚已画出的态")
-        #expect(core.isRunning == false, "作废后门闩应已开，离屏再回来能重新点")
+        core.invalidate(host: nil)
+        #expect(core.display(host: nil) == .loading, "旧运行仍占着门闩，外观应如实显示 loading")
+        _ = core.settle(running, to: .success, host: nil)
+        #expect(core.display(host: nil) == .idle, "作废后的旧运行结束，自管态卡在 \(core.display(host: nil))")
+
+        for outcome in [StatefulButtonState.success, .failure] {
+            var dwelling = StatefulButtonCore()
+            guard case .run(let run) = dwelling.tap(host: nil) else {
+                Issue.record("首次点击应被准入")
+                continue
+            }
+            _ = dwelling.settle(run, to: outcome, host: nil)
+            #expect(dwelling.display(host: nil) == outcome)
+            dwelling.invalidate(host: nil)
+            #expect(
+                dwelling.display(host: nil) == .idle,
+                "\(outcome) 停留期间离屏：停留复位随 Task 取消而不会来，自管态卡在 \(dwelling.display(host: nil))"
+            )
+        }
     }
 
     // MARK: 执行结果 / Outcome
@@ -209,33 +247,31 @@ struct StatefulButtonTests {
         #expect(MotionPresentation.hidden.symbolReplacement == ContentTransition.identity)
     }
 
-    // MARK: 动效入口 / Motion entry
+    // MARK: 播报 / Announcements
 
-    // ⚠️ 本条是**源码级**的，理由写在下面的失败消息里：in-flight 采样看不见宽度维度
-    // （`idle → loading` 两臂实测都是 0），所以「摘掉这行」无法被像素判据抓到。
-    @Test("布局 / 宽度类动效走 transformAnimation 门控，不得退回 animation(for:) 那条入口")
-    func layoutAnimationIsTransformGated() {
-        let url = GuardScanRoots.sourcesURL(of: GuardScanRoots.primaryTargetName)
-            .appendingPathComponent("Components/Button/StatefulButton.swift")
-        guard let source = try? String(contentsOf: url, encoding: .utf8) else {
-            Issue.record(Comment(rawValue: "读不到 StatefulButton 源码：\(url.path)"))
-            return
+    @Test("态切换经 poster 播报：每次进入非静息态播一次、文案取本地化值，回 idle 与首帧不播")
+    func stateChangesAreAnnounced() {
+        let recorder = StatefulAnnouncementRecorder()
+        let poster = FieldAnnouncementPoster { recorder.posts.append($0) }
+        let box = StatefulStateBox(.idle)
+        let window = HostedWindow(
+            StatefulHarness(box: box)
+                .environment(\.statefulButtonAnnouncementPoster, poster)
+                .environment(\.locale, Locale(identifier: "en_US")),
+            size: CGSize(width: 240, height: 64),
+            scheme: .light
+        )
+        defer { window.close() }
+        #expect(recorder.posts.isEmpty, "首帧就播报了：\(recorder.posts)")
+        for next in [StatefulButtonState.loading, .success, .idle, .loading, .failure, .idle] {
+            box.state = next
+            window.settle()
         }
-        #expect(
-            source.contains(".animation(CoreMotionToken.press.transformAnimation(for: self.motionPresentation), value: state)"),
-            """
-            态切换的动效入口不在了。它是 FR-3「按钮宽度随图标显隐自动 layout 过渡」的唯一实现点，\
-            而 in-flight 采样在宽度维度上两臂都测 0 ⇒ 摘掉它不会有任何像素判据判红
-            """
-        )
-        #expect(
-            !source.contains(".coreAnimation("),
-            """
-            本文件出现了 `.coreAnimation(`。它走 `CoreMotionToken.animation(for:)`，\
-            Reduce Motion 下返回同时长 easeInOut 而不是 nil ⇒ 宽度会补间，\
-            等于横向位移。宽度 / 布局类动效一律走 `transformAnimation(for:)`
-            """
-        )
+        let expected = [StatefulButtonState.loading, .success, .loading, .failure].compactMap {
+            $0.announcement(locale: Locale(identifier: "en_US"))
+        }
+        #expect(expected == ["Loading", "Success", "Loading", "Failed"], "announcement 文案实得 \(expected)")
+        #expect(recorder.posts == expected, "播报序列实得 \(recorder.posts)，期望 \(expected)")
     }
 
     // MARK: 渲染 / Rendering
@@ -266,11 +302,7 @@ struct StatefulButtonTests {
 
     // MARK: 无障碍接线 / Accessibility wiring
 
-    // ⚠️ 实测（两条腿各一次）：单测进程里 SwiftUI 的无障碍树**观测不到**——
-    // macOS 的 `NSHostingView` 只给出 `KeyViewProxy` / `_FocusRingView` 两个 AXUnknown 子节点，
-    // iOS 的 `_UIHostingView` 连子视图都没有、`accessibilityElementCount()` 恒为 0，
-    // 而同一份托管视图的位图渲染是正常的。⇒ 本条退回源码级接线判据；缺口已登记在
-    // `docs/components/stateful-button.md` 的《无障碍》一节。
+    // 单测进程里观测不到 SwiftUI 的无障碍树，所以接线只能在源码层核；缺口见组件文档《无障碍》。
     @Test("无障碍接线：态文本接在 Button 整体上、由 StatefulButtonState 派生、配件符号对辅助技术隐藏")
     func accessibilityWiringIsStateDriven() {
         let url = GuardScanRoots.sourcesURL(of: GuardScanRoots.primaryTargetName)
@@ -281,24 +313,23 @@ struct StatefulButtonTests {
         }
         let required = [
             ".modifier(StatefulButtonAccessibility(state: state))",
-            "if let value = self.state.accessibilityValueText {",
-            "content.accessibilityValue(value)",
+            "content.accessibilityValue(self.state.accessibilityValueText ?? Text(verbatim: \"\"))",
             ".accessibilityHidden(true)",
         ]
         let missing = required.filter { !source.contains($0) }
         #expect(
             missing.isEmpty,
-            "无障碍接线缺 \(missing.count) 处，期望 0：\(missing) —— 缺第 1 条 ⇒ 四态切换对辅助技术不可见；缺第 2 / 3 条 ⇒ 播报的不是按态派生的那份文本；缺第 4 条 ⇒ 状态被读两遍"
+            "无障碍接线缺 \(missing.count) 处，期望 0：\(missing) —— 缺第 1 条 ⇒ 四态对辅助技术不可见；缺第 2 条 ⇒ value 不是按态派生的那份文本；缺第 3 条 ⇒ 状态被读两遍"
         )
     }
 }
 
 // MARK: - 动画进行中 / In-flight frames
 
-// iOS 上 `layer.render(in:)` 取的是模型层，拍不到进行中的帧 ⇒ 只在 macOS 腿观测。
-// ⚠️ 本采样器**观测不到宽度维度**：`idle → loading`（配件槽出现、按钮变宽）在两臂上实测都是
-// 0 个两端之外的像素 ⇒ 「宽度补不补间」这条没有机器判据，只有下面这条符号替换的。
-#if os(macOS)
+@MainActor
+private final class StatefulAnnouncementRecorder {
+    var posts: [String] = []
+}
 
 @MainActor
 private final class StatefulStateBox: ObservableObject {
@@ -318,6 +349,9 @@ private struct StatefulHarness: View {
             .controlSize(.large)
     }
 }
+
+// iOS 上 `layer.render(in:)` 取的是模型层，拍不到进行中的帧 ⇒ 只在 macOS 腿观测。
+#if os(macOS)
 
 @Suite("StatefulButton 动画进行中：态切换经 CoreMotionToken 补间", .serialized)
 @MainActor
@@ -365,6 +399,26 @@ struct StatefulButtonInFlightTests {
         return (peak, before.bytes != after.bytes)
     }
 
+    @Test("idle → loading：RM 关时配件槽出现、宽度补间有中间帧，RM 开时直接跳到位")
+    func layoutTransitionInFlight() {
+        let resting = Self.peak(from: .idle, to: .loading, reduceMotion: true, sampleFor: 0.3)
+        #expect(resting.changed, "配件槽没有出现，判据无效")
+        #expect(
+            resting.peak == 0,
+            """
+            RM 开时宽度不得补间（补间等于横向位移），两端之外的中间帧峰值实得 \(resting.peak)。\
+            布局类动效须走 `transformAnimation(for:)`，它在 resting 下为 nil
+            """
+        )
+        _ = CoreMotionTokenInFlightTests.observeControlMotion(
+            "StatefulButton idle → loading（animated）",
+            threshold: 0
+        ) { window in
+            let animated = Self.peak(from: .idle, to: .loading, reduceMotion: false, sampleFor: window)
+            return animated.changed ? animated.peak : -1
+        }
+    }
+
     @Test("loading → success：RM 关时符号替换有中间帧，RM 开时一帧都没有")
     func symbolReplacementInFlight() {
         let resting = Self.peak(from: .loading, to: .success, reduceMotion: true, sampleFor: 0.3)
@@ -372,9 +426,9 @@ struct StatefulButtonInFlightTests {
         #expect(
             resting.peak == 0,
             """
-            RM 开时不得出现两端之外的中间帧，实测峰值 \(resting.peak)。\
-            动画入口若从 `transformAnimation(for:)` 退回 `animation(for:)`（即 `.coreAnimation`），\
-            该峰值实测回到 214 上下 —— 那条入口在 resting 下给的是同时长 easeInOut，不是 nil
+            RM 开时不得出现两端之外的中间帧，峰值实得 \(resting.peak)。\
+            态切换的动效入口须走 `transformAnimation(for:)`；`animation(for:)`（即 `.coreAnimation`）\
+            在 resting 下给的是同时长 easeInOut，不是 nil
             """
         )
         _ = CoreMotionTokenInFlightTests.observeControlMotion(
