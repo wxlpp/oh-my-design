@@ -170,8 +170,14 @@ Timeline 不吸收 Steps 的向导行为，Steps 不因本 epic 改动。两者�
 ⚠️ **两条 spike 发现的坑，实现期必须知道**：
 - **`DisclosureGroupStyle` 在 `configuration.content` 内被重置回 `.automatic`** ⇒ 嵌套的
   `DisclosureGroup` **不继承**外层自定义样式，而且**不报错、静默换人**。
-- **macOS 方向键的 `EventModifiers` 自带 `.numericPad`**（Home / End 不带）⇒ 判「没按修饰键」
-  **不能**写 `press.modifiers.isEmpty`。
+- **macOS 方向键的 `EventModifiers` 带的不止 `.numericPad`**：⚠️ `#419` spike 只登记了
+  `.numericPad`，**那份清单不完整**——`#422` 真 HID 实测 `EventModifiers.rawValue` = **96**，
+  即 `.numericPad | .function`（Home / End / Space / Return 都是 **0**）。
+  ⇒ 判「没按修饰键」**既不能**写 `press.modifiers.isEmpty`，**也不能按 spike 那份清单写黑名单**
+  ——照它写会让**每个方向键都被判成组合键、整条键盘层静默失效**（无报错）。
+  **正确做法是白名单取交集**：只认 `shift` / `control` / `option` / `command`，其余位一律忽略。
+  ⚠️ `419-spike.md` 那一处至今仍是不完整的清单（该文档在 `epic/structure-components` 分支上），
+  读它的人要以本条为准。
 
 能力范围（用户已勾选四项）：
 
@@ -228,8 +234,17 @@ Timeline 不吸收 Steps 的向导行为，Steps 不因本 epic 改动。两者�
 **FR-2a 实现路径与键盘先验实测（spike）—— 已完成，见 `.claude/epics/structure-components/419-spike.md`**
 
 结论：实现路径走递归 `DisclosureGroup(isExpanded:)`（理由见 FR-2）；
-**四项硬下限（上下移动焦点、左右折叠展开、Space 切换选中、Enter 激活）在两条腿上全部满足**
+spike 报「**四项硬下限（上下移动焦点、左右折叠展开、Space 切换选中、Enter 激活）在两条腿上全部满足**」
 （iOS 真 HID via `axe`、macOS 真 HID via System Events，两条候选路径各验一次）。
+
+⚠️⚠️ **其中「Space 切换选中」这一项的证据受质疑，尚未澄清**（`#422` 实测发现）：
+在**逐行 `@FocusState`** 的形态下，macOS 把 `Space` 当成**对焦点行的激活**、直接走了 `onTapGesture`
+——同一下键既进了哨兵、又产生了选中，**而 Tree 自己的 `onKeyPress` 根本没接到它**
+⇒ 「Space 能用」是假象。`#422` 因此把焦点形态改成「容器唯一可聚焦 + 虚拟焦点 `@State`」。
+**spike 当时的探针是否栽在同一个假象上，未核实。**
+⇒ 依赖这条硬下限之前，必须在**新的焦点形态**下重测 `Space`，并核对哨兵是否同时收到那一下键。
+另：**逐行 `@FocusState` 在 macOS 上会丢掉整个窗口的键盘焦点**（第一下 `Space` 之后连哨兵都收不到键）
+——这条形态**不要再试**。
 
 ⚠️ **spike 自己更正过一处**：左 / 右三分支的**第二支**（→ 已展开时移到首个子节点、
 ← 已折叠 / 叶子时移到父节点）在那轮 18 键固定序列里**没被触发到**——代码有、**未验证**，
