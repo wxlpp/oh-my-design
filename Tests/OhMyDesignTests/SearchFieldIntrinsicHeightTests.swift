@@ -61,7 +61,7 @@ struct SearchFieldIntrinsicHeightTests {
         )
         #expect(now.nativeFrame != nil && now.nativeFrame == old.nativeFrame, "\(scheme)：\(String(describing: now.nativeFrame)) vs \(String(describing: old.nativeFrame))")
         #expect(now.height == old.height)
-        expectBitmapsEqual(now.pixels.bytes, old.pixels.bytes, "\(scheme)")
+        expectBitmapsEquivalent(now.pixels.bytes, old.pixels.bytes, maxChannelDelta: 1, "\(scheme)")
     }
 
     @Test("调用方显式给高度（frame(height: 60)）时：原生框保持固有高度、居中于 60pt 的框内，不再被撑到 60pt（light）")

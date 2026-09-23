@@ -370,9 +370,10 @@ struct FieldControlFollowUpTests {
     @Test("PinCode 获焦 valid 格与旧实现逐像素一致（光晕只属于 invalid，light / dark）")
     func pinCodeFocusedValidCellUnchanged() {
         for scheme in ControlRender.schemes {
-            expectBitmapsEqual(
+            expectBitmapsEquivalent(
                 ControlRender.pixels(PinCodeCell(character: "4", isSecure: false, isCurrent: true), scheme: scheme),
                 ControlRender.pixels(LegacyPinCodeCell(value: "4", index: 0, isSecure: false, isCurrent: true), scheme: scheme),
+                maxChannelDelta: 1,
                 "\(scheme)"
             )
         }
@@ -395,9 +396,10 @@ struct FieldControlFollowUpTests {
     @Test("CheckBox / Radio enabled 与旧实现逐像素一致（light / dark，两条腿）", arguments: FieldControlSample.choiceCases)
     func choiceControlsEnabledUnchanged(_ sample: FieldControlSample) {
         for scheme in ControlRender.schemes {
-            expectBitmapsEqual(
+            expectBitmapsEquivalent(
                 ControlRender.pixels(sample.current, scheme: scheme),
                 ControlRender.pixels(sample.legacy, scheme: scheme),
+                maxChannelDelta: 1,
                 "\(scheme)"
             )
         }

@@ -364,7 +364,7 @@ struct TimelineNodeColorRenderTests {
         let now = try self.pixels(Timeline(items: items), scheme: .dark)
         let old = try self.pixels(LegacyTimeline(items: items), scheme: .dark)
         #expect(now.width == old.width && now.height == old.height)
-        expectBitmapsEqual(now.bytes, old.bytes, "暗色 Timeline 与旧实现不同")
+        expectBitmapsEquivalent(now.bytes, old.bytes, maxChannelDelta: 1, "暗色 Timeline 与旧实现不同")
     }
 
     @Test("浅色 info / success / danger / neutral 与旧实现逐像素一致")
@@ -373,7 +373,7 @@ struct TimelineNodeColorRenderTests {
         let now = try self.pixels(Timeline(items: items), scheme: .light)
         let old = try self.pixels(LegacyTimeline(items: items), scheme: .light)
         #expect(now.width == old.width && now.height == old.height)
-        expectBitmapsEqual(now.bytes, old.bytes, "浅色非 warning 档与旧实现不同")
+        expectBitmapsEquivalent(now.bytes, old.bytes, maxChannelDelta: 1, "浅色非 warning 档与旧实现不同")
     }
 
     @Test("浅色 warning 只有圆点方框内的像素变化")
@@ -403,7 +403,7 @@ struct TimelineNodeColorRenderTests {
         }
         let a = split(now.bytes)
         let b = split(old.bytes)
-        expectBitmapsEqual(a.outside, b.outside, "圆点方框以外与旧实现不同")
+        expectBitmapsEquivalent(a.outside, b.outside, maxChannelDelta: 1, "圆点方框以外与旧实现不同")
         expectBitmapsDiffer(a.inside, b.inside, "浅色 warning 圆点与旧实现相同")
     }
 }

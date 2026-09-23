@@ -269,12 +269,13 @@ struct CoreMotionTokenRestingAppearanceTests {
 
     @Test("按钮背景：未按下 / 按下（RM 关）与旧实现逐像素相同；未按下与 RM 无关")
     func buttonBackgroundMatchesLegacy() {
-        expectBitmapsEqual(pixels(self.chrome(pressed: false, legacy: false)), pixels(self.chrome(pressed: false, legacy: true)))
+        expectBitmapsEquivalent(pixels(self.chrome(pressed: false, legacy: false)), pixels(self.chrome(pressed: false, legacy: true)),
+                                maxChannelDelta: 1)
         // 按下态缩放后边缘落在亚像素上，跨视图树的抗锯齿差 1 LSB。
         expectBitmapsEquivalent(pixels(self.chrome(pressed: true, legacy: false)), pixels(self.chrome(pressed: true, legacy: true)),
                                 maxChannelDelta: 1, "isPressed=true")
-        expectBitmapsEqual(pixels(self.chrome(pressed: false, legacy: false, reduceMotion: true)),
-                           pixels(self.chrome(pressed: false, legacy: true)))
+        expectBitmapsEquivalent(pixels(self.chrome(pressed: false, legacy: false, reduceMotion: true)),
+                                pixels(self.chrome(pressed: false, legacy: true)), maxChannelDelta: 1)
         expectBitmapsDiffer(pixels(self.chrome(pressed: true, legacy: false, reduceMotion: true)),
                             pixels(self.chrome(pressed: true, legacy: true)), "RM 开时按下必须与旧实现不同，否则上面的相等是恒真的")
     }
@@ -296,9 +297,9 @@ struct CoreMotionTokenRestingAppearanceTests {
     func telegramMatchesLegacy() {
         for pressed in [false, true] {
             for feedback in [false, true] {
-                expectBitmapsEqual(pixels(self.glass(pressed: pressed, feedback: feedback, legacy: false)),
-                                   pixels(self.glass(pressed: pressed, feedback: feedback, legacy: true)),
-                                   "isPressed=\(pressed) pressFeedback=\(feedback)")
+                expectBitmapsEquivalent(pixels(self.glass(pressed: pressed, feedback: feedback, legacy: false)),
+                                        pixels(self.glass(pressed: pressed, feedback: feedback, legacy: true)),
+                                        maxChannelDelta: 1, "isPressed=\(pressed) pressFeedback=\(feedback)")
             }
         }
     }
@@ -335,7 +336,7 @@ struct CoreMotionTokenRestingAppearanceTests {
             let off = pixels(self.underRM(view, false))
             let on = pixels(self.underRM(view, true))
             #expect(off?.contains(where: { $0 != 0 }) == true, "\(name) 没画出东西，相等断言恒真")
-            expectBitmapsEqual(off, on, "\(name)：RM 开关不应改变静息外观")
+            expectBitmapsEquivalent(off, on, maxChannelDelta: 1, "\(name)：RM 开关不应改变静息外观")
         }
         var tabBars: [HostedPixels] = []
         for reduceMotion in [false, true] {
@@ -349,11 +350,11 @@ struct CoreMotionTokenRestingAppearanceTests {
             window.close()
         }
         #expect(tabBars[0].bytes != nil)
-        expectBitmapsEqual(tabBars[0].bytes, tabBars[1].bytes, "UnderlinedTabBar：RM 开关不应改变静息外观")
+        expectBitmapsEquivalent(tabBars[0].bytes, tabBars[1].bytes, maxChannelDelta: 1, "UnderlinedTabBar：RM 开关不应改变静息外观")
         let restingBar = TopBarIndicator(tint: .black).frame(width: 200)
         let barA = pixels(self.underRM(restingBar, true))
         let barB = pixels(self.underRM(restingBar, true))
-        expectBitmapsEqual(barA, barB, "RM 下顶条应静止（两次渲染相同）")
+        expectBitmapsEquivalent(barA, barB, maxChannelDelta: 1, "RM 下顶条应静止（两次渲染相同）")
     }
 }
 

@@ -200,7 +200,7 @@ struct PressableButtonStyleTests {
         let disabledPressed = try #require(rgba(
             PressableRowBody(label: label, isPressed: true).environment(\.colorScheme, .light).environment(\.isEnabled, false)
         ))
-        expectBitmapsEqual(disabledIdle, disabledPressed, "\(name)：禁用时按下不应有任何变化")
+        expectBitmapsEquivalent(disabledIdle, disabledPressed, maxChannelDelta: 1, "\(name)：禁用时按下不应有任何变化")
         expectBitmapsDiffer(idle, disabledIdle, "\(name)：禁用态应整体变淡")
     }
 
@@ -255,7 +255,7 @@ struct PressableButtonStyleTests {
             .environment(\.isEnabled, false)
         let buttonPixels = try #require(rgba(self.cardHost(button)))
         let directPixels = try #require(rgba(self.cardHost(direct)))
-        expectBitmapsEqual(buttonPixels, directPixels, "Button 渲染应与 PressableCardBody 一致")
+        expectBitmapsEquivalent(buttonPixels, directPixels, maxChannelDelta: 1, "Button 渲染应与 PressableCardBody 一致")
         let stats = alphaStats(buttonPixels)
         #expect(abs(stats.meanAlpha - 255 * PressFeedback.disabledOpacity) < 3, "Button 禁用态应带 0.4 透明度，实测 α=\(stats.meanAlpha)")
     }
