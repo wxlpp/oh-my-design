@@ -13,7 +13,7 @@ struct StatefulButtonTests {
 
     // MARK: 四态是枚举 / The four states are one enum
 
-    @Test("四态两两不等——`==` 被改写成恒真时 .coreAnimation(_, value:) 分辨不出任何两态")
+    @Test("四态两两不等——`==` 被改写成恒真时 .animation(_:value:) 分辨不出任何两态、永不触发")
     func fourStatesArePairwiseDistinct() {
         let cases = StatefulButtonState.allCases
         #expect(cases.count == 4, "allCases 实得 \(cases.count) 个，期望 4")
@@ -209,6 +209,35 @@ struct StatefulButtonTests {
         #expect(MotionPresentation.hidden.symbolReplacement == ContentTransition.identity)
     }
 
+    // MARK: 动效入口 / Motion entry
+
+    // ⚠️ 本条是**源码级**的，理由写在下面的失败消息里：in-flight 采样看不见宽度维度
+    // （`idle → loading` 两臂实测都是 0），所以「摘掉这行」无法被像素判据抓到。
+    @Test("布局 / 宽度类动效走 transformAnimation 门控，不得退回 animation(for:) 那条入口")
+    func layoutAnimationIsTransformGated() {
+        let url = GuardScanRoots.sourcesURL(of: GuardScanRoots.primaryTargetName)
+            .appendingPathComponent("Components/Button/StatefulButton.swift")
+        guard let source = try? String(contentsOf: url, encoding: .utf8) else {
+            Issue.record(Comment(rawValue: "读不到 StatefulButton 源码：\(url.path)"))
+            return
+        }
+        #expect(
+            source.contains(".animation(CoreMotionToken.press.transformAnimation(for: self.motionPresentation), value: state)"),
+            """
+            态切换的动效入口不在了。它是 FR-3「按钮宽度随图标显隐自动 layout 过渡」的唯一实现点，\
+            而 in-flight 采样在宽度维度上两臂都测 0 ⇒ 摘掉它不会有任何像素判据判红
+            """
+        )
+        #expect(
+            !source.contains(".coreAnimation("),
+            """
+            本文件出现了 `.coreAnimation(`。它走 `CoreMotionToken.animation(for:)`，\
+            Reduce Motion 下返回同时长 easeInOut 而不是 nil ⇒ 宽度会补间，\
+            等于横向位移。宽度 / 布局类动效一律走 `transformAnimation(for:)`
+            """
+        )
+    }
+
     // MARK: 渲染 / Rendering
 
     @Test("四态渲染出四张互异位图 —— 不靠颜色，靠配件符号槽的有无与字形")
@@ -267,14 +296,17 @@ struct StatefulButtonTests {
 // MARK: - 动画进行中 / In-flight frames
 
 // iOS 上 `layer.render(in:)` 取的是模型层，拍不到进行中的帧 ⇒ 只在 macOS 腿观测。
-// ⚠️ 两臂都断言「采到中间帧」，不断言 resting 臂为 0：`.press` 档在 Reduce Motion 下按
-// `CoreMotionToken.animation(for:)` 的定义仍是同时长 `easeInOut`（只去掉运动、保留淡变），
-// 且实测 resting 臂的中间像素峰值（214）比 animated 臂（28）还高。
+// ⚠️ 本采样器**观测不到宽度维度**：`idle → loading`（配件槽出现、按钮变宽）在两臂上实测都是
+// 0 个两端之外的像素 ⇒ 「宽度补不补间」这条没有机器判据，只有下面这条符号替换的。
 #if os(macOS)
 
 @MainActor
 private final class StatefulStateBox: ObservableObject {
-    @Published var state: StatefulButtonState = .loading
+    @Published var state: StatefulButtonState
+
+    init(_ state: StatefulButtonState) {
+        self.state = state
+    }
 }
 
 private struct StatefulHarness: View {
@@ -305,8 +337,13 @@ struct StatefulButtonInFlightTests {
         return count
     }
 
-    static func peak(reduceMotion: Bool, sampleFor duration: TimeInterval) -> (peak: Int, changed: Bool) {
-        let box = StatefulStateBox()
+    static func peak(
+        from: StatefulButtonState,
+        to: StatefulButtonState,
+        reduceMotion: Bool,
+        sampleFor duration: TimeInterval
+    ) -> (peak: Int, changed: Bool) {
+        let box = StatefulStateBox(from)
         let window = HostedWindow(
             StatefulHarness(box: box)
                 .environment(\.coreMotionPresentationOverride, reduceMotion ? .resting : .animated),
@@ -316,7 +353,7 @@ struct StatefulButtonInFlightTests {
         defer { window.close() }
         let before = window.pixels()
         var frames: [HostedPixels] = []
-        box.state = .success
+        box.state = to
         let start = Date()
         while Date().timeIntervalSince(start) < duration {
             RunLoop.main.run(until: Date().addingTimeInterval(0.008))
@@ -328,17 +365,24 @@ struct StatefulButtonInFlightTests {
         return (peak, before.bytes != after.bytes)
     }
 
-    @Test("loading → success 真的在补间：两种呈现下都采到两端之外的中间帧（态枚举的 == 被改写或 coreAnimation 被摘掉时归零）")
-    func stateChangeIsInterpolatedInFlight() {
-        for reduceMotion in [false, true] {
-            let arm = reduceMotion ? "resting" : "animated"
-            _ = CoreMotionTokenInFlightTests.observeControlMotion(
-                "StatefulButton loading → success（\(arm)）",
-                threshold: 0
-            ) { window in
-                let sample = Self.peak(reduceMotion: reduceMotion, sampleFor: window)
-                return sample.changed ? sample.peak : -1
-            }
+    @Test("loading → success：RM 关时符号替换有中间帧，RM 开时一帧都没有")
+    func symbolReplacementInFlight() {
+        let resting = Self.peak(from: .loading, to: .success, reduceMotion: true, sampleFor: 0.3)
+        #expect(resting.changed, "符号没有换过去，判据无效")
+        #expect(
+            resting.peak == 0,
+            """
+            RM 开时不得出现两端之外的中间帧，实测峰值 \(resting.peak)。\
+            动画入口若从 `transformAnimation(for:)` 退回 `animation(for:)`（即 `.coreAnimation`），\
+            该峰值实测回到 214 上下 —— 那条入口在 resting 下给的是同时长 easeInOut，不是 nil
+            """
+        )
+        _ = CoreMotionTokenInFlightTests.observeControlMotion(
+            "StatefulButton loading → success（animated）",
+            threshold: 0
+        ) { window in
+            let animated = Self.peak(from: .loading, to: .success, reduceMotion: false, sampleFor: window)
+            return animated.changed ? animated.peak : -1
         }
     }
 }

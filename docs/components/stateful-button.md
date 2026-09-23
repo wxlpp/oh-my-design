@@ -5,8 +5,9 @@
 `loading && success` 这类无意义状态。
 
 配件符号槽在 `idle` 时不存在，在三个非静息态各画一个不同的 SF Symbol；
-槽的出现 / 消失让按钮宽度变化，走 `CoreMotionToken.press`；
-槽内符号之间的切换走 `.contentTransition(.symbolEffect(.replace))`。
+槽的出现 / 消失让按钮宽度变化，走 `CoreMotionToken.press.transformAnimation(for:)`
+（**布局类入口**，Reduce Motion 下为 `nil`）；槽内符号之间的切换走
+`.contentTransition(.symbolEffect(.replace))`。
 
 ## API
 
@@ -148,18 +149,43 @@ StatefulButton("Upload") {
 
 ## 动效与 Reduce Motion
 
-- 态切换的补间走 `.coreAnimation(.press, value:)` —— 触发值就是 `StatefulButtonState`，
-  所以四个 case 两两不等是**判据保护的不变量**（`==` 若被改写成恒真，动画永不触发）。
+态切换驱动的是**宽度 / 布局**（配件槽出现或消失），所以动效入口必须是布局类的那一条：
+
+```swift
+.animation(CoreMotionToken.press.transformAnimation(for: self.motionPresentation), value: state)
+```
+
+- `transformAnimation(for:)` 在 `.resting` / `.hidden` 下返回 **`nil`** ⇒ 宽度**直接跳到位**。
+  这与 #408 对 `anchoredBadge` 的定案同源，那里逐字写着「胶囊宽度也**不补间**（位数变化时
+  直接跳到新宽度——补间等于横向位移，不该在 RM 下发生）」。
+- ⚠️ **不要改回 `.coreAnimation(.press, value:)`**：那条入口走
+  `CoreMotionToken.animation(for:)`，在 `.resting` 下返回的是**同时长 `easeInOut` 而不是
+  `nil`**，宽度会照常补间 —— 那正是本组件落地时犯过、后来按契约修掉的错。
+  库内 5 处布局类动效（`AnchoredBadgeModifier` / `TagInput` / `TagGroup` /
+  `UnderlinedTabBar` / `CoreDisclosureGroupStyle`）用的都是 `transformAnimation(for:)`。
+  `.coreAnimation` 留给**颜色 / 不透明度**类（包围盒不变），例如 `TagGroup` 的选中态淡变。
+- 触发值就是 `StatefulButtonState`，所以四个 case 两两不等是**判据保护的不变量**
+  （`==` 若被改写成恒真，`.animation(_:value:)` 分辨不出任何两态、永不触发）。
 - 符号槽内的切换走 `.contentTransition(self.motionPresentation.symbolReplacement)`，
-  Reduce Motion（`.resting`）与能耗停摆（`.hidden`）下退化为 `ContentTransition.identity`。
+  `.resting` / `.hidden` 下退化为 `ContentTransition.identity`。
 - 该文件在 `CoreMotionTokenDisciplineGuard` 的台账里登记为 `.gated`，
   `contentTransition` 调用点另有逐点登记。
 
-⚠️ **一条反直觉的实测事实**：`.press` 档在 Reduce Motion 下按 token 定义仍是**同时长
-`easeInOut`**（只去掉运动、保留淡变），所以 in-flight 采样在 `resting` 臂**也能采到**
-两端之外的中间帧——实测 `resting` 臂峰值 214 像素，比 `animated` 臂的 28 还高。
-⇒ 判据断言的是「两臂都在补间」，**不是**「RM 臂为 0」；RM 分支由
-`symbolReplacement == ContentTransition.identity` 这条值级判据承担。
+### 判据覆盖面与两条实测事实（如实登记）
+
+in-flight 采样（macOS 腿，`HostedWindow` + `cacheDisplay` 逐帧取「两端之外」的像素数）
+实测到两件不直观的事：
+
+1. **采样器看不见宽度维度。** `idle → loading`（配件槽出现、按钮变宽）在 **animated 与
+   resting 两臂上都是 0** 个两端之外的像素 —— 改契约前后都一样。⇒ 「宽度在 `animated`
+   下究竟补不补间」**没有机器判据**，两个方向都未证实；宽度那条入口的存在由**源码级**
+   判据 `layoutAnimationIsTransformGated` 钉住（实测「摘掉那一行」只被它打红，没有任何
+   像素判据会红）。
+2. **符号替换特效画在采样器拍不到的层里。** `loading → success` 在改契约后 animated 臂
+   峰值 21–25、resting 臂 **0**；而把 `.contentTransition` 整个摘掉再采一次，animated 臂
+   **升到 218–224**、逼近 resting 臂当时的 215–216。⇒ animated 臂读数偏低不是「动得少」，
+   而是符号替换特效替掉了那份**能被 `cacheDisplay` 拍到**的普通交叉淡变。
+   这一条是做过判别实验的，不是猜测。
 
 ## 无障碍
 

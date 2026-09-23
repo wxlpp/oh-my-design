@@ -235,7 +235,7 @@ public struct StatefulButton<Label: View>: View {
                 self.label
             }
         }
-        .coreAnimation(.press, value: state)
+        .animation(CoreMotionToken.press.transformAnimation(for: self.motionPresentation), value: state)
         .modifier(StatefulButtonAccessibility(state: state))
         .onDisappear {
             self.task?.cancel()

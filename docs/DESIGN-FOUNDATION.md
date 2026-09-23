@@ -268,6 +268,7 @@ role 的底色是明暗镜像的 `ColorGrade` 色阶，前景仍走它、不吃 
 | `anchoredBadge` 计数变化（#408） | `.numericText(value:)` 纵向滚动（方向由框架按当前计数判）+ 胶囊宽度补间 | `ContentTransition.identity`，数字直接替换、宽度直接跳到位 |
 | `anchoredBadge` 出现 / 消失（#408） | 缩放 0.6 → 1 + 淡变 | 纯淡变，不缩放 |
 | `CheckBoxToggleStyle` / `RadioGroup` 指示符（#408） | `.symbolEffect(.replace)` 描画 | `ContentTransition.identity`，直接换图 |
+| `StatefulButton` 四态切换（#417） | 配件符号槽出现 / 消失使按钮变宽，走 `CoreMotionToken.press.transformAnimation(for:)`；槽内符号切换走 `.symbolEffect(.replace)` | 驱动曲线为 `nil` ⇒ 宽度**直接跳到位**（同 #408 的定案：宽度补间等于横向位移）；符号切换退为 `ContentTransition.identity` |
 
 **框架不替我们降级（FR-1 实测，Xcode 26.4）。** iOS 26.4 模拟器打开系统「减弱动态效果」（屏上同时核对
 `\.accessibilityReduceMotion` 与 `UIAccessibility.isReduceMotionEnabled` 均为 `true`）后录屏逐帧量色块：
