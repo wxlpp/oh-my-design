@@ -15,8 +15,8 @@ import SwiftUI
 /// 行外观由 `.treeStyle(_:)` 选择（`.automatic` / `.navigator`）；整行（含缩进区）都是点选区，
 /// 也是 `rowContextMenu(_:)` 的右键区。
 ///
-/// ⚠️ **不是原生外观**：本组件走递归 `DisclosureGroup(isExpanded:)`，从系统拿到的是
-/// 展开态接口与嵌套能力；chevron、缩进、行选中底色与无障碍播报全部自绘。
+/// ⚠️ **不是原生外观**：可见行按深度优先展平进 `LazyVStack`（放在 `ScrollView` 里时只构建视口附近的行），
+/// chevron、缩进、行选中底色与无障碍播报全部自绘。
 public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>: View {
     // MARK: - Init
 
@@ -64,21 +64,19 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     @Environment(\.controlSize) private var controlSize
 
     public var body: some View {
-        let rows = self.visibleRows
+        let items = self.visibleItems
+        let rows = items.map(\.row)
         let metrics = TreeRowMetrics.resolve(self.controlSize)
-        return VStack(alignment: .leading, spacing: metrics.rowSpacing) {
-            TreeBranch(data: self.data, level: 1, context: self.context(rows: rows, metrics: metrics))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .modifier(TreeNestedStyle())
-        .focusable()
-        .focused(self.$isFocused)
-        .onKeyPress(phases: .down) { press in self.handle(press, rows: rows) }
-        .onChange(of: rows) { oldRows, newRows in
-            self.commit(TreeInteractionReducer.rowsChanged(state: self.interactionState, from: oldRows, to: newRows))
-        }
-        .onChange(of: self.isFocused) { _, focused in self.focusChanged(focused, rows: rows) }
-        .coreAnimation(.selection, value: self.selection)
+        return TreeRowStack(items: items, context: self.context(rows: rows, metrics: metrics))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .focusable()
+            .focused(self.$isFocused)
+            .onKeyPress(phases: .down) { press in self.handle(press, rows: rows) }
+            .onChange(of: rows) { oldRows, newRows in
+                self.commit(TreeInteractionReducer.rowsChanged(state: self.interactionState, from: oldRows, to: newRows))
+            }
+            .onChange(of: self.isFocused) { _, focused in self.focusChanged(focused, rows: rows) }
+            .coreAnimation(.selection, value: self.selection)
     }
 
     // MARK: - 默认展开到第 N 层 / Expand-to-depth
@@ -172,8 +170,8 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
 
     // MARK: - 派生 / Derived
 
-    private var visibleRows: [TreeRow<ID>] {
-        TreeFlatten.rows(self.data, id: self.id, children: self.children, expanded: self.expanded)
+    private var visibleItems: [TreeRenderItem<Data.Element, ID>] {
+        TreeFlatten.items(self.data, id: self.id, children: self.children, expanded: self.expanded)
     }
 
     private var treeIDs: Set<ID> {
@@ -294,7 +292,7 @@ public extension Tree where RowContent == EmptyView {
     }
 }
 
-// MARK: - 递归上下文 / Recursion context
+// MARK: - 行上下文 / Row context
 
 struct TreeContext<Data: RandomAccessCollection, ID: Hashable, RowContent: View> {
     let id: KeyPath<Data.Element, ID>
@@ -312,13 +310,6 @@ struct TreeContext<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     let selectedVisible: Set<ID>
     let content: (Data.Element) -> RowContent
 
-    func expansion(of elementID: ID) -> Binding<Bool> {
-        Binding(
-            get: { self.expanded.contains(elementID) },
-            set: { newValue in self.setExpansion(elementID, newValue ? .expanded : .collapsed) }
-        )
-    }
-
     func checkState(of leafID: ID, in checked: Binding<Set<ID>>) -> Binding<Bool> {
         Binding(
             get: { checked.wrappedValue.contains(leafID) },
@@ -332,24 +323,21 @@ struct TreeContext<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     }
 }
 
-// MARK: - 递归分支 / Recursive branch
+// MARK: - 展平行栈 / Flattened row stack
 
-struct TreeBranch<Data: RandomAccessCollection, ID: Hashable, RowContent: View>: View {
-    let data: Data
-    let level: Int
+struct TreeRowStack<Data: RandomAccessCollection, ID: Hashable, RowContent: View>: View {
+    let items: [TreeRenderItem<Data.Element, ID>]
     let context: TreeContext<Data, ID, RowContent>
 
     var body: some View {
-        ForEach(self.data, id: self.context.id) { element in
-            if let kids = element[keyPath: self.context.children], !kids.isEmpty {
-                DisclosureGroup(isExpanded: self.context.expansion(of: element[keyPath: self.context.id])) {
-                    TreeBranch(data: kids, level: self.level + 1, context: self.context)
-                        .modifier(TreeNestedStyle())
-                } label: {
-                    TreeRowHost(element: element, level: self.level, hasChildren: true, context: self.context)
-                }
-            } else {
-                TreeRowHost(element: element, level: self.level, hasChildren: false, context: self.context)
+        LazyVStack(alignment: .leading, spacing: self.context.metrics.rowSpacing) {
+            ForEach(self.items) { item in
+                TreeRowHost(
+                    element: item.element,
+                    level: item.row.level,
+                    hasChildren: item.row.hasChildren,
+                    context: self.context
+                )
             }
         }
     }
@@ -360,30 +348,6 @@ struct TreeBranch<Data: RandomAccessCollection, ID: Hashable, RowContent: View>:
 extension CoreMotionToken {
     nonisolated static func treeExpansion(for presentation: MotionPresentation) -> Animation? {
         CoreMotionToken.reveal.animation(for: presentation)
-    }
-}
-
-// MARK: - 逐层重施样式 / Per-level restyling
-
-struct TreeNestedStyle: ViewModifier {
-    func body(content: Content) -> some View {
-        content.disclosureGroupStyle(TreeDisclosureGroupStyle())
-    }
-}
-
-// MARK: - TreeDisclosureGroupStyle
-
-struct TreeDisclosureGroupStyle: DisclosureGroupStyle {
-    @Environment(\.controlSize) private var controlSize
-
-    func makeBody(configuration: Configuration) -> some View {
-        VStack(alignment: .leading, spacing: TreeRowMetrics.resolve(self.controlSize).rowSpacing) {
-            configuration.label
-            if configuration.isExpanded {
-                configuration.content
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
     }
 }
 
