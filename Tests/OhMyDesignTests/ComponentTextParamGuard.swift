@@ -15,11 +15,15 @@ struct ComponentTextParamGuard {
     static let knownUnmappedOwnerParams: Set<String> = [
         "Color.init#text",
         "SettingsRowIcon.init#systemName",
+        "Text.init#content",
+        "Text.init#query",
     ]
 
     static let knownFunctionSideBareText: Set<String> = [
         "ToastHost.show#description",
         "ToastHost.show#title",
+        "Tree.searchFilter#query",
+        "Tree.searchFilter#text",
         "View.spray#symbol",
     ]
 

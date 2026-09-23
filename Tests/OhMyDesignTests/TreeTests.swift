@@ -915,6 +915,36 @@ struct TreeLazinessTests {
         #expect(evaluations == 1)
     }
 
+    @Test("设了 searchFilter 但搜索词为空：照样不读折叠子树；有搜索词时才遍历整树（如实登记的代价）")
+    func anInactiveSearchNeverReadsCollapsedSubtrees() {
+        func render(_ query: String, log: TreeChildrenReadLog) -> CGImage? {
+            ImageRenderer(
+                content: Tree(
+                    TreeCountingNode.roots(log: log),
+                    children: \.children,
+                    expanded: .constant(["a"]),
+                    selection: .constant([])
+                ) { node in
+                    Text(verbatim: node.id)
+                }
+                .searchFilter(query, text: \.id)
+                .frame(width: 260)
+            ).cgImage
+        }
+        let idle = TreeChildrenReadLog()
+        #expect(render(" ", log: idle) != nil)
+        #expect(
+            idle.reads(of: Self.hiddenWhenOnlyAIsExpanded) == 0,
+            "空搜索词也读了折叠子树：\(idle.reads.filter { Self.hiddenWhenOnlyAIsExpanded.contains($0.key) })"
+        )
+        let active = TreeChildrenReadLog()
+        #expect(render("y", log: active) != nil)
+        #expect(
+            active.reads(of: ["c1"]) > 0,
+            "有搜索词时没有下探到折叠的 c 子树——过滤不可能知道那里有没有命中"
+        )
+    }
+
     @Test("带右键菜单渲染：选中集里有折叠在 a1 下的 a1x，目标集合照样不读折叠子树")
     func renderingWithARowMenuNeverReadsCollapsedSubtrees() {
         let log = TreeChildrenReadLog()
@@ -1643,6 +1673,7 @@ struct TreeRenderTests {
             id: \.id,
             children: \.children,
             expanded: [],
+            included: nil,
             selection: [],
             checked: nil,
             focus: focus,

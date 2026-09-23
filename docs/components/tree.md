@@ -58,6 +58,22 @@ public extension View {
 public extension Tree {
     func rowContextMenu<M: View>(@ViewBuilder _ menu: @escaping (Set<ID>) -> M) -> Tree
 }
+
+// 搜索过滤（#423）：builder 方法，同上；搜索词由调用方持有
+public extension Tree {
+    func searchFilter(_ query: String, text: @escaping (Data.Element) -> String) -> Tree
+}
+
+// 命中高亮（#423）：与 searchFilter 同一个匹配函数
+public extension Text {
+    init(verbatim content: String, highlighting query: String)
+}
+
+// 高亮底色（#423）：第 3 层 token 与它的第 2 层来源
+public extension Color {
+    static var searchMatchBackground: Color { get }   // systemYellow × 0.35
+    static var systemYellow: Color { get }
+}
 ```
 
 | 参数 | 类型 | 默认值 | 说明 |
@@ -75,6 +91,7 @@ public extension Tree {
 ## 展开 / 默认展开到第 N 层
 
 - 展开态就是 `expanded` 这个 `Set<ID>`；组件不另存一份。点 chevron、按 `←` / `→` 都直接写它。
+  例外是搜索期间（`#423`）：那时的展开 / 折叠只落组件内的临时 overlay，不写 `expanded`，清空搜索词即丢弃。
 - **根为第 1 层**。`Tree.expandedIDs(_:id:children:toDepth:)` 预算「默认展开到第 N 层」的集合：
   `toDepth: 1` 全折叠，`toDepth: 2` 只展开根这一层，依此类推。它是 `nonisolated` 的纯函数，
   可以在 `@State` 的初值里直接调用。
@@ -108,14 +125,14 @@ public extension Tree {
 | 行选中与复选框 | 两套独立状态 | 已实现 |
 | 点击 mixed 父节点 | 全选（级联全部后代）；再点全不选 | 已实现 |
 | 父节点自身 | 只由后代推导，不单独进选择集合 | 已实现（勾选侧） |
-| 搜索期间的展开 | 不写进持久化 `Set<ID>`，只临时展开 | **只有状态结构** |
-| 清空搜索 | 恢复搜索前的展开态 | **只有状态结构** |
-| 过滤后「全选」 | 范围是可见节点 | 已实现（`Ctrl/Cmd+A` 只选可见行） |
-| 焦点节点被过滤隐藏 | 移到最近的仍可见祖先；无祖先则移到首个可见节点 | 已实现（折叠祖先 / 宿主改 `expanded` 或 `data` 使焦点行不可见时即归约）；过滤触发属 `#423` |
+| 搜索期间的展开 | 不写进持久化 `Set<ID>`，只临时展开 | 已实现（`#423`：`searchFilter(_:text:)` 期间展开 / 折叠只写 overlay） |
+| 清空搜索 | 恢复搜索前的展开态 | 已实现（`#423`：搜索词为空即丢弃 overlay） |
+| 过滤后「全选」 | 范围是可见节点 | 已实现（`Ctrl/Cmd+A` 只选可见行；`#423` 起搜索期间父行复选框也只级联留下的叶后代） |
+| 焦点节点被过滤隐藏 | 移到最近的仍可见祖先；无祖先则移到首个可见节点 | 已实现（折叠祖先、宿主改 `expanded` 或 `data`、`#423` 起搜索过滤，任一使焦点行不可见时即归约） |
 
-⚠️ 「搜索期间的展开」「清空搜索」两行只落了内部状态结构（展开态的临时 overlay），有纯函数判据；
-**搜索 UI 属 `#423`**。今天生产路径上 overlay 恒为 `nil`，只有判据在走它。
-焦点归约则已在生产路径上：可见行集合一变就归约，按键时也先归约再执行。
+`#422` 只落了第 4 / 5 行的状态结构（`TreeExpansionState` 的 overlay），生产路径上 overlay 恒为 `nil`；
+`#423` 起搜索期间 overlay 在生产路径上（见「搜索过滤与命中高亮」），不搜索时仍为 `nil`。
+焦点归约：可见行集合一变就归约，按键时也先归约再执行。
 
 ## 键盘
 
@@ -284,6 +301,43 @@ Tree(roots, children: \.children, expanded: $expanded, selection: $selection, se
 - 菜单内容是调用方的数据操作，不是外观——所以它是 `Tree` 上的 builder 方法，不在 `TreeStyle` 里，
   也不是环境值（环境值要擦除 `ID`，闭包里就拿不到强类型集合）。拖放仍不在范围内。
 
+## 搜索过滤与命中高亮（`#423`）
+
+```swift
+@State private var query = ""
+
+TextField("Filter", text: self.$query)
+Tree(roots, children: \.children, expanded: self.$expanded, selection: self.$selection) { node in
+    Label { Text(verbatim: node.name, highlighting: self.query) } icon: { Image(systemName: "doc") }
+}
+.searchFilter(self.query, text: \.name)
+```
+
+### 设计定案
+
+| 问题 | 定案 | 理由 / 放弃的方案 |
+|---|---|---|
+| 搜索词谁持有 | **调用方**，每次 body 把当前值传给 `searchFilter(_:text:)` | 与 `expanded` / `selection` 同一惯例（组件不藏状态）；搜索框放哪（工具栏、`.searchable`、行内 `TextField`）是宿主的事。组件自带搜索框会把布局写死 |
+| 匹配谓词 | 调用方给**文案投影** `text: (Element) -> String`，谓词由组件**固定**：去首尾空白后的整串，按不区分大小写 / 变音符 / 全半角做子串匹配；空串 = 不在搜索 | 组件不持有节点文案，只能由调用方投影。谓词不开放，是为了让高亮与过滤**同源**——调用方自定谓词时，高亮的片段与「为什么这行被留下」对不上。需要模糊 / 多字段匹配时，投影里拼接字段即可；真要自定谓词另开 issue |
+| 过滤后留下哪些行 | **命中 ∪ 命中的祖先 ∪ 命中的后代** | 祖先：不留就无法定位；后代：命中一个文件夹后要能展开浏览它的内容（Xcode 导航器过滤同型）。只留「命中 ∪ 祖先」时，命中的文件夹变成没有 chevron 的行，而它的复选框又级联不到任何可见叶子 |
+| 自动临时展开 | **命中的严格祖先**全部临时展开；命中后代不自动展开（沿用调用方持久化集合里的展开态） | 展开到「看见每个命中」为止，不多展一层 |
+| 临时展开写到哪 | `TreeExpansionState` 的 overlay（`#422` 为本 issue 预留的结构）：生效集合 = 持久化 ∪ 自动展开 ∪ overlay 展开 − overlay 折叠。搜索期间点 chevron / `←` / `→` **只写 overlay**，调用方的 `expanded` 绑定不被写（真值表第 4 行） | 否则搜一次就永久改了用户的展开偏好 |
+| 清空搜索 | 搜索词变成空串，overlay 整个丢弃，生效集合回到持久化集合（第 5 行）。搜索词**每变一次**，overlay 里用户手动的展开 / 折叠也清零，按新命中重新自动展开 | 换了关键词，旧的手动折叠会把新命中藏起来 |
+| 非命中但为命中祖先 / 后代的行 | **照常画**，不变暗；只有命中片段被高亮 | 行内容是调用方的视图，组件改它的前景色会覆盖调用方的着色（例如 VS Code 示例里的 git 状态色） |
+| 命中高亮 | 组件**不往行内容里注入**任何东西；公开 `Text(verbatim:highlighting:)`，用与过滤同一个匹配函数算片段，`AttributedString` 给片段加粗 + `Color.searchMatchBackground`（第 3 层，系统黄 × 0.35）底色 | 行内容是调用方的 `@ViewBuilder`，组件改不了其中某段文字；环境值方案需要新增一个公开 View 类型读环境。调用方传的 `highlighting:` 与 `searchFilter` 的是同一个搜索词、同一个文案时，两边必然一致。加粗是**非颜色**线索（不只靠颜色区分） |
+| 选择 / 焦点 / 右键菜单 / 键盘 | 全部作用在**过滤后的可见行**上：`↑` / `↓` / `Home` / `End` 只在留下的行里走；`Ctrl/Cmd+A` 只选留下的可见行（第 6 行）；右键目标取「选中 ∩ 过滤后的可见行」；焦点行被过滤掉时移到最近的仍可见祖先，无祖先则移到首个可见行（第 7 行，走 `#422` 既有的可见行变化归约） | 与折叠隐藏同一套口径，没有第二套「可见」定义 |
+| 勾选级联 | 搜索期间，父行复选框的来源是它**被过滤留下的**叶后代：点父行只勾 / 取消留下的叶子，看不见的不动；三态也只反映留下的叶子 | 真值表第 6 行的依据原文是「作用到全树会静默勾上看不见的项」——级联是另一处「全选」。不在搜索时仍按 `#422` 级联全部叶后代（折叠不算看不见） |
+| 单选替换 | 不变：单选下选中一行，仍替换本树内全部已选 ID（含被过滤掉的） | 单选的语义是「树里只有一个选中」，与过滤无关 |
+| 动效 | 过滤结果随搜索词**即时**变化，不补间；搜索期间点 chevron / 按键展开仍走 `CoreMotionToken.treeExpansion(for:)`（同一个 `withAnimation`，Reduce Motion 分支不变） | 逐键输入时补间会让行跳动；没有新增动效 ⇒ 没有新的 Reduce Motion 分支 |
+| 惰性 | **不搜索时零代价**（`TreeLazinessTests` 的承诺不变，加一条「设了 `searchFilter` 但搜索词为空」的格）；**搜索期间每次 body 求值遍历整树一次**，读每个节点的 `children` 与投影文案 | 不读折叠子树就不可能知道折叠子树里有没有命中。代价如实登记，不做缓存（缓存要以数据身份为键，`Data` 没有这个约束） |
+
+- 公开 API 无 Bool 入参；`query` / `text` 是调用方数据（用户输入与节点文案），不是组件文案，所以是 `String`
+  而不是 `LocalizedStringKey`。
+- `searchFilter(_:text:)` 与 `rowContextMenu(_:)` 一样是 `Tree` 上的 builder 方法，**直接在 `Tree` 上调用、放在其它 modifier 之前**；
+  两者可以连写。
+- 行为落在纯函数层：`TreeSearch`（匹配、留下的集合、自动展开集合、overlay 的派生与回写）与既有的
+  `TreeInteractionReducer`（键盘 / 点击对展开态的写入改为经 `TreeExpansionState`）。视图只把搜索词与投影交给它们。
+
 ## 动效
 
 | 调用点 | token | Reduce Motion 下 |
@@ -365,6 +419,10 @@ Tree(roots, children: \.children, expanded: $expanded, selection: $selection, se
   ⚠️ `ImageRenderer` 下是全量构建（同一夹具 201 行）。iOS 托管窗口上这一项未测。
   ⚠️ `#422` 的递归 `DisclosureGroup` 下，一个根节点的整棵可见子树是**一个**子项——同一夹具构建 201 行；
   换成惰性容器而不展平，收益为零。
+- **搜索（`#423`）**：`searchFilter` 的搜索词为空（去首尾空白后）时不遍历，上面几条不变
+  （`TreeLazinessTests` 的空搜索词一格）；有搜索词时**每次 body 求值遍历整树一次**，读每个节点的 `children`
+  与投影文案——不下探就不知道折叠子树里有没有命中。同一格的正向对照判「有搜索词时读到了折叠的 `c1`」。
+  按键与点击的归约不另遍历：它们用 body 算好的那一份。
 - ⚠️ 传了 `checked` 时，父行复选框的三态要读它**全部叶后代**的勾选态，因此会遍历该父行的整棵子树，
   折叠与否都一样。这是三态派生本身的代价。
 
@@ -451,6 +509,22 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
   这类取 token 的调用也会被拦，这是刻意的）；`.onHover` 只在行宿主的 `case .navigator` 分支内；容器无悬停状态；
   行为 / 无障碍只挂在行宿主上。
 
+`#423` 起的搜索判据（`TreeSearchTests.swift`）：
+- `TreeSearchMatcherTests` / `TreeSearchResultTests`（双腿，纯函数）：匹配规则；留下的集合 = 命中 ∪ 祖先 ∪ 后代，
+  自动展开 = 命中的严格祖先；命中的文件夹保留不命中的后代且不自动展开。
+- `TreeSearchTruthTableTests`（双腿，纯函数）：真值表第 4–7 行在搜索触发下逐行一条（← / → / 点 chevron 只写 overlay；
+  清空与换词后 overlay 不带出；`Cmd+A` 与父行级联只作用于留下的行；焦点回退到最近可见祖先，按键路径也先归约）、
+  右键目标不含被过滤掉的 ID、不搜索时与既有行为相同、搜索期间展开照样带环境动效档。
+- `TreeSearchRenderTests`（双腿，`ImageRenderer`）：两种外观下，`searchFilter("y")` 的画面与手工裁剪成
+  a › a1 › a1y 并展开的树逐像素等价（容差 2）；空搜索词与不设等价；`Text(verbatim:highlighting:)` 命中时与普通
+  `Text` 不同（最小差异 > 8）、未命中 / 空词时等价、命中片段有底色（与只加粗的同一段文字不同）、高亮跟着命中片段走、
+  两种外观的行里（含选中行）都画得出来。高亮底色是系统色，不走 asset catalog。
+- `TreeSearchHostedTests`（**仅 macOS**，托管窗口，两种外观）：搜索期间 `←` 不写宿主 `expanded`、清空后恢复展开、
+  清空后再搜同一个词重新自动展开、`Cmd+A` 只选留下的行、点父行复选框只勾留下的叶子、焦点行被过滤后下一键从最近可见祖先出发。
+  ⚠️ iOS 腿没有这组接线判据（托管窗口的合成键盘事件只在 macOS 做得出来）。
+- ⚠️ **未验证**：真 HID 下在搜索框与树之间切换键盘焦点（`Tab`）、输入法组字（中文拼音）期间的中间态是否被当成搜索词；
+  VoiceOver 对过滤结果条数的播报（组件不播报，登记为缺口）。
+
 ## 判定法
 
 规定性组件（`prescriptive` / `step3`），**不给扩展点**，不进 `ComponentExtensionPointGuard` 的定义域。
@@ -470,6 +544,10 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
 
 `#429` 的 `rowContextMenu(_:)` 同样**不改判**：菜单内容是调用方按目标 ID 集合给出的数据操作，与行内容 `content`
 同属调用方内容槽，不改变行的画法与含义，不是外观扩展点。
+
+`#423` 的 `searchFilter(_:text:)` 与 `Text(verbatim:highlighting:)` 同样**不改判**：前者是调用方给的数据投影
+（按哪段文案过滤），匹配谓词固定、不可替换；后者是 SwiftUI `Text` 上的构造器，不是 `Tree` 的外观槽。
+两者都不改变行的骨架与含义。
 
 ## 使用示例 / Usage
 
@@ -501,13 +579,15 @@ struct FileBrowser: View {
     }
 }
 
-// VS Code Explorer 式：整行选中 / 悬停 / 缩进参考线，行距 22（iOS 上仍 44）
+// VS Code Explorer 式：整行选中 / 悬停 / 缩进参考线，行距 22（iOS 上仍 44）+ 搜索过滤
 struct Explorer: View {
     let roots: [Node]
     @State private var expanded: Set<String> = []
     @State private var selection: Set<String> = []
+    @State private var query = ""
 
     var body: some View {
+        TextField("Filter files", text: self.$query)
         ScrollView {
             Tree(
                 self.roots,
@@ -516,8 +596,13 @@ struct Explorer: View {
                 selection: self.$selection,
                 selectionMode: .multiple
             ) { node in
-                Label(node.name, systemImage: node.children == nil ? "doc" : "folder")
+                Label {
+                    Text(verbatim: node.name, highlighting: self.query)
+                } icon: {
+                    Image(systemName: node.children == nil ? "doc" : "folder")
+                }
             }
+            .searchFilter(self.query, text: \.name)
             .rowContextMenu { targets in
                 Button("Rename") { print("rename \(targets)") }
                     .disabled(targets.count != 1)

@@ -2311,10 +2311,17 @@ private struct ExplorerTreePreview: View {
     )
     @State private var selection: Set<String> = ["Sources/Tree/TreeStyle.swift"]
     @State private var lastMenuAction: String = "—"
+    @State private var query: String = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+            TextField("Filter files", text: self.$query)
+                .textFieldStyle(.roundedBorder)
+                .controlSize(.small)
             self.explorer
+            Text(verbatim: "搜索 / filter: \"\(self.query)\" — expanded=\(self.expanded.sorted())（搜索期间不写）")
+                .coreFont(.caption)
+                .foregroundStyle(Color.contentSubtle)
             Text(verbatim: "右键菜单 / context menu: \(self.lastMenuAction)")
                 .coreFont(.caption)
                 .foregroundStyle(Color.contentSubtle)
@@ -2331,7 +2338,7 @@ private struct ExplorerTreePreview: View {
         ) { node in
             HStack(spacing: CoreSpacing.xs) {
                 Label {
-                    Text(verbatim: node.name)
+                    Text(verbatim: node.name, highlighting: self.query)
                         .foregroundStyle(Self.tint(for: node.git) ?? Color.contentPrimary)
                         .lineLimit(1)
                 } icon: {
@@ -2347,6 +2354,7 @@ private struct ExplorerTreePreview: View {
                 }
             }
         }
+        .searchFilter(self.query, text: \.name)
         .rowContextMenu { targets in
             Button("New File", systemImage: "doc.badge.plus") {
                 self.lastMenuAction = "New File in \(targets.sorted())"

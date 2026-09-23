@@ -49,6 +49,11 @@ public extension Color {
     static let neutralAccentPressed = Color.grey7
     static let neutralAccentDisabled = Color.grey2
 
+    // MARK: - 搜索命中 / Search match
+
+    /// 搜索命中片段的底色：系统黄淡染，与选中底色（强调色派生）分开，选中行上仍看得出命中。
+    static var searchMatchBackground: Color { Color.systemYellow.opacity(0.35) }
+
     /// 常规选中态背景：低调的强调色淡染。
     static var selectionBackground: Color {
         .accentSubtleBackground

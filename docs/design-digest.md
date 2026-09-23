@@ -242,7 +242,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | `Color.dangerDisable` | → `.red2` |
 | `Color.dangerHover` | → `.red6` |
 
-## `InteractionColors`（21）
+## `InteractionColors`（22）
 
 | token | 说明 |
 |---|---|
@@ -261,6 +261,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | `Color.neutralAccentHover` | → `Color.grey6` |
 | `Color.neutralAccentPressed` | → `Color.grey7` |
 | `Color.neutralAccentDisabled` | → `Color.grey2` |
+| `Color.searchMatchBackground` | 搜索命中片段的底色：系统黄淡染，与选中底色（强调色派生）分开，选中行上仍看得出命中。 |
 | `Color.selectionBackground` | 常规选中态背景：低调的强调色淡染。 |
 | `Color.selectionBackgroundEmphasis` | 强调选中态背景：实心 `accent`，与 `contentOnAccent` 前景配对（该前景随主题反转，不再是白字）。 |
 | `Color.hoverBackground` | 中性 hover 底色。 |
@@ -335,7 +336,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | `Color.secondarySystemGroupedBackground` | 分组界面主要背景上层内容的颜色。 |
 | `Color.tertiarySystemGroupedBackground` | 内容层叠在分组界面次要背景之上的颜色。 |
 
-## `SystemLabelColors`（13）
+## `SystemLabelColors`（14）
 
 | token | 说明 |
 |---|---|
@@ -351,6 +352,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | `Color.opaqueSeparator` | 不透明的分隔线颜色，完全遮住下层内容（`UIColor.opaqueSeparator`）。 |
 | `Color.link` | 可点击链接文本的颜色，桥接 `UIColor.link` / `NSColor.linkColor`。 |
 | `Color.systemRed` | 系统红，桥接 `UIColor.systemRed` / `NSColor.systemRed`，随外观与对比度设置自动适配。 |
+| `Color.systemYellow` | 系统黄，桥接 `UIColor.systemYellow` / `NSColor.systemYellow`，随外观与对比度设置自动适配。 |
 | `Color.systemGray5` | 不透明的中浅灰，桥接 `UIColor.systemGray5`，明暗两种外观 α 均为 1。 |
 
 
@@ -1063,7 +1065,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | elevation | 4 | 4 |
 | controlsize | 5 | 5 |
 | motion | 4 | 4 |
-| colors | 122 | 122 |
+| colors | 124 | 124 |
 | components | 90 | 90 |
 | enums | 46 | 46 |
 | enumcases | 157 | 157 |

@@ -81,12 +81,14 @@ nonisolated enum TreeFlatten {
         _ data: Data,
         id: KeyPath<Data.Element, ID>,
         children: KeyPath<Data.Element, Data?>,
-        expanded: Set<ID>
+        expanded: Set<ID>,
+        included: Set<ID>? = nil
     ) -> [TreeRenderItem<Data.Element, ID>] {
         var out: [TreeRenderItem<Data.Element, ID>] = []
         func walk(_ nodes: Data, level: Int, parent: ID?) {
             for node in nodes {
                 let nodeID = node[keyPath: id]
+                if let included, !included.contains(nodeID) { continue }
                 let kids = node[keyPath: children]
                 let branching = !(kids?.isEmpty ?? true)
                 out.append(TreeRenderItem(
@@ -106,9 +108,10 @@ nonisolated enum TreeFlatten {
         _ data: Data,
         id: KeyPath<Data.Element, ID>,
         children: KeyPath<Data.Element, Data?>,
-        expanded: Set<ID>
+        expanded: Set<ID>,
+        included: Set<ID>? = nil
     ) -> [TreeRow<ID>] {
-        Self.items(data, id: id, children: children, expanded: expanded).map(\.row)
+        Self.items(data, id: id, children: children, expanded: expanded, included: included).map(\.row)
     }
 
     static func expandedIDs<Data: RandomAccessCollection, ID: Hashable>(
@@ -133,11 +136,13 @@ nonisolated enum TreeFlatten {
     static func descendantLeafIDs<Data: RandomAccessCollection, ID: Hashable>(
         of element: Data.Element,
         id: KeyPath<Data.Element, ID>,
-        children: KeyPath<Data.Element, Data?>
+        children: KeyPath<Data.Element, Data?>,
+        within included: Set<ID>? = nil
     ) -> [ID] {
         var out: [ID] = []
         func walk(_ nodes: Data) {
             for node in nodes {
+                if let included, !included.contains(node[keyPath: id]) { continue }
                 if let kids = node[keyPath: children], !kids.isEmpty {
                     walk(kids)
                 } else {
@@ -198,6 +203,7 @@ nonisolated enum TreeFlatten {
 
 nonisolated struct TreeExpansionState<ID: Hashable>: Equatable {
     nonisolated struct Overlay: Equatable {
+        var revealed: Set<ID> = []
         var expanded: Set<ID> = []
         var collapsed: Set<ID> = []
     }
@@ -212,7 +218,7 @@ nonisolated struct TreeExpansionState<ID: Hashable>: Equatable {
 
     var effective: Set<ID> {
         guard let overlay = self.overlay else { return self.persisted }
-        return self.persisted.union(overlay.expanded).subtracting(overlay.collapsed)
+        return self.persisted.union(overlay.revealed).union(overlay.expanded).subtracting(overlay.collapsed)
     }
 
     mutating func expand(_ id: ID) {
@@ -233,8 +239,8 @@ nonisolated struct TreeExpansionState<ID: Hashable>: Equatable {
         }
     }
 
-    mutating func beginTransientSession() {
-        self.overlay = Overlay()
+    mutating func beginTransientSession(revealing revealed: Set<ID> = []) {
+        self.overlay = Overlay(revealed: revealed)
     }
 
     mutating func endTransientSession() {
