@@ -328,11 +328,11 @@ public extension Tree {
 - **未设置时不挂 `.contextMenu`**（`if let` 分支，不挂空菜单）。
 - 菜单项 `AnyView` 擦除只发生在菜单 builder 上，不在行上；P3 实测菜单项自身 body 在右键前调用 0 次。
 - **受影响调用点核实**（源码读）：
-  - `App/Sources/ComponentData.swift:2233` `Tree<[GalleryTreeNode], String, Text>.expandedIDs` —— 不受影响；
-  - `scripts/downstream-probe/Sources/DownstreamProbe/PublicVisibility.swift:797`
+  - `App/Sources/ComponentData.swift` 里逐字 `Tree<[GalleryTreeNode], String, Text>.expandedIDs` —— 不受影响；
+  - `scripts/downstream-probe/Sources/DownstreamProbe/PublicVisibility.swift` 里逐字
     `Tree<[ProbeTreeNode], String, Text>.expandedIDs` —— 不受影响；
-  - `Tests/OhMyDesignTests/TreeTests.swift:105` `Tree<[TreeJudgeNode], String, Text>.expandedIDs` —— 不受影响；
-  - `Tests/OhMyDesignTests/TreeTests.swift:562` `Tree<[TreeJudgeNode], String, Text>.Body` 类型串断言含
+  - `Tests/OhMyDesignTests/TreeTests.swift` 里逐字 `Tree<[TreeJudgeNode], String, Text>.expandedIDs` —— 不受影响；
+  - `TreeNestedStyleTests.theRootAppliesTheStyleToo` 里逐字 `Tree<[TreeJudgeNode], String, Text>.Body` 的类型串断言含
     `TreeNestedStyle` —— 与右键菜单无关；**PR 4（展平）**删除 `TreeNestedStyle` 时整个
     `TreeNestedStyleTests` 随之删除（§5）。
   - 另需**新增**：downstream-probe 一处 `.rowContextMenu { … }` 调用。

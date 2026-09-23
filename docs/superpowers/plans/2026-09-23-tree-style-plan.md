@@ -266,8 +266,8 @@ grep -rn "struct .*Tests\|@Suite" Tests/OhMyDesignTests/TreeTests.swift Tests/Oh
   `selectedVisible.contains(id) ? selectedVisible : [id]`，不逐行重做交集）；行宿主 `if let menu` 才挂 `.contextMenu`。
   `Tree` 仍三个泛型。
 - `TreeInteraction.swift`（或 `TreeCore.swift`）：`nonisolated enum TreeContextMenu { static func targets(for:selection:visibleIDs:) -> Set<ID> }`。
-- 调用点核实（spec §4）：`App/Sources/ComponentData.swift:2233`、`PublicVisibility.swift:797`、`TreeTests.swift:105`
-  不需改；`TreeTests.swift:562` 与本 PR 无关。
+- 调用点核实（spec §4）：`ComponentData.swift` / `PublicVisibility.swift` / `TreeTests.swift` 里三处
+  `Tree<[…], String, Text>.expandedIDs` 不需改；`TreeNestedStyleTests.theRootAppliesTheStyleToo` 的类型串断言与本 PR 无关。
 - `scripts/downstream-probe/.../PublicVisibility.swift`：新增一处 `.rowContextMenu { targets in … }`。
 - `App/Sources/ComponentData.swift`：VS Code 示例挂 `.rowContextMenu`。
 - 测试：新 suite `TreeContextMenuTests`；`TreeLazinessTests` 加「带菜单渲染」一格。
