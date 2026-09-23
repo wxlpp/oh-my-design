@@ -74,6 +74,75 @@ nonisolated struct SlideToConfirmGeometry: Sendable, Hashable {
     }
 }
 
+// MARK: - 手势认领 / Gesture arbitration
+
+nonisolated enum SlideToConfirmPanArbitration {
+    // 横向位移占主导才认领这次触摸；纵向起手让给外层滚动视图（不吸收、不开会话）。
+    static func claims(_ movement: CGPoint) -> Bool {
+        abs(movement.x) > abs(movement.y)
+    }
+}
+
+#if os(iOS)
+// SwiftUI 的 `DragGesture`（含 `simultaneousGesture`）一挂上就吞掉起手于轨道的纵向滑动，外层 `ScrollView` 滚不动；
+// UIKit 的平移识别器能在起手时按方向放弃，把触摸还给滚动视图。
+struct SlideToConfirmPan: UIGestureRecognizerRepresentable {
+    let isEnabled: Bool
+    let changed: @MainActor (_ translation: CGFloat, _ startX: CGFloat) -> Void
+    let ended: @MainActor (_ translation: CGFloat) -> Void
+    let cancelled: @MainActor () -> Void
+
+    // 平移识别器在认领时把位移清零、位置也已越过起手点 ⇒ 按下点自己记，位移与起点都从它算。
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var touchDown: CGPoint?
+
+        func gestureRecognizer(_ recognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            self.touchDown = touch.location(in: recognizer.view)
+            return true
+        }
+
+        func movement(of recognizer: UIGestureRecognizer) -> CGPoint {
+            let now = recognizer.location(in: recognizer.view)
+            let down = self.touchDown ?? now
+            return CGPoint(x: now.x - down.x, y: now.y - down.y)
+        }
+
+        func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
+            SlideToConfirmPanArbitration.claims(self.movement(of: recognizer))
+        }
+    }
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator {
+        Coordinator()
+    }
+
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let pan = UIPanGestureRecognizer()
+        pan.delegate = context.coordinator
+        pan.isEnabled = self.isEnabled
+        return pan
+    }
+
+    func updateUIGestureRecognizer(_ recognizer: UIPanGestureRecognizer, context: Context) {
+        recognizer.isEnabled = self.isEnabled
+    }
+
+    func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context: Context) {
+        let translation = context.coordinator.movement(of: recognizer).x
+        switch recognizer.state {
+        case .began, .changed:
+            self.changed(translation, context.converter.localLocation.x - translation)
+        case .ended:
+            self.ended(translation)
+        case .cancelled, .failed:
+            self.cancelled()
+        default:
+            break
+        }
+    }
+}
+#endif
+
 // MARK: - 动效 / Motion
 
 nonisolated enum SlideToConfirmMotion {
@@ -94,6 +163,16 @@ nonisolated enum SlideToConfirmAppearance {
 
     static func opacity(isEnabled: Bool) -> Double {
         isEnabled ? 1 : Self.disabledOpacity
+    }
+}
+
+extension SlideToConfirmAppearance {
+    // 箭头与进度压在浅色岛的 `surfaceRaised` 上：宿主强调色（白 / 黄 / 薄荷）对比不足时退回墨色。
+    @MainActor
+    static func glyph(accent: Color) -> Color {
+        var environment = EnvironmentValues()
+        environment.colorScheme = Self.knobScheme
+        return Color.legibleAccent(accent, on: .surfaceRaised, in: environment)
     }
 }
 
@@ -392,11 +471,13 @@ final class SlideToConfirmRunner {
 /// 从确认到回位走完之间，手势与无障碍激活都被忽略——一次滑动只对应一次执行；
 /// 这期间开始的拖动整段作废，回位走完后才松手也不会触发。
 /// 从右到左的布局下轨道镜像：指示器从右端出发、向左滑到尽头。
+/// iOS 上只认领横向占主导的滑动：在轨道上起手的纵向滑动交给外层滚动视图。
 ///
 /// 视图离屏（例如导航返回）会取消 `action` 所在的任务；不可中断的工作请在 `action` 内另起非结构化 `Task`。
 ///
 /// 对辅助技术整体暴露为一个普通按钮：激活即执行同一个 `action`，执行中为禁用并带「Loading」状态。
-/// 箭头与执行中的进度取 `View.coreAccent(_:on:)` 的强调色；尺寸读 `controlSize`。
+/// 箭头取 `View.coreAccent(_:on:)` 的强调色；它与白色指示器对比不足 3:1（例如白、黄、薄荷）时退回墨色。
+/// 执行中的进度在 iOS 上取同一颜色；macOS 的系统圆形进度不响应 `.tint`，保持系统灰。尺寸读 `controlSize`。
 public struct SlideToConfirm<Label: View>: View {
     @State private var runner: SlideToConfirmRunner
     @State private var width: CGFloat = 0
@@ -475,6 +556,29 @@ public struct SlideToConfirm<Label: View>: View {
         .contentShape(Capsule(style: .continuous))
         // 挂在整条轨道上：起点不在指示器上的横滑也被吸收，不漏给系统返回手势。
         // 执行 / 回位期间不停用，正确性由 core 的会话裁决与门闩保证。
+        #if os(iOS)
+        .gesture(
+            SlideToConfirmPan(
+                isEnabled: self.isEnabled,
+                changed: { translation, startX in
+                    self.runner.dragChanged(
+                        translation * geometry.directionSign,
+                        startX: geometry.logicalX(startX),
+                        geometry: geometry
+                    )
+                },
+                ended: { translation in
+                    self.runner.release(
+                        geometry.sample(translation: translation, predictedEndTranslation: translation),
+                        geometry: geometry,
+                        presentation: self.motionPresentation,
+                        action: self.action
+                    )
+                },
+                cancelled: { self.runner.interrupt() }
+            )
+        )
+        #else
         .gesture(
             DragGesture()
                 .updating(self.$dragging) { _, state, _ in state = true }
@@ -498,6 +602,7 @@ public struct SlideToConfirm<Label: View>: View {
                 },
             isEnabled: self.isEnabled
         )
+        #endif
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { self.width = $0 }
         .animation(CoreMotionToken.reveal.transformAnimation(for: self.motionPresentation), value: core.motionKey)
         .sensoryFeedback(trigger: core.feedback) { _, event in event?.kind.sensoryFeedback }
@@ -552,7 +657,8 @@ public struct SlideToConfirm<Label: View>: View {
     }
 
     private func knob(geometry: SlideToConfirmGeometry, executing: Bool) -> some View {
-        Circle()
+        let glyph = SlideToConfirmAppearance.glyph(accent: self.resolvedAccent)
+        return Circle()
             .fill(Color.surfaceRaised)
             .frame(width: geometry.knob, height: geometry.knob)
             .coreShadow(SlideToConfirmAppearance.knobElevation)
@@ -564,11 +670,11 @@ public struct SlideToConfirm<Label: View>: View {
                     if executing {
                         ProgressView()
                             .controlSize(.small)
-                            .tint(self.resolvedAccent)
+                            .tint(glyph)
                             .transition(.opacity)
                     }
                 }
-                .foregroundStyle(self.resolvedAccent)
+                .foregroundStyle(glyph)
                 .animation(CoreMotionToken.press.animation(for: self.motionPresentation), value: executing)
             }
             .environment(\.colorScheme, SlideToConfirmAppearance.knobScheme)

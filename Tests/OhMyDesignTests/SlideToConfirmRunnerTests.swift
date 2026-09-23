@@ -330,6 +330,54 @@ struct SlideToConfirmRunnerTests {
                 },
             isEnabled: self.isEnabled
             """,
+            """
+            #if os(iOS)
+                    .gesture(
+                        SlideToConfirmPan(
+                            isEnabled: self.isEnabled,
+                            changed: { translation, startX in
+                                self.runner.dragChanged(
+                                    translation * geometry.directionSign,
+                                    startX: geometry.logicalX(startX),
+                                    geometry: geometry
+                                )
+                            },
+                            ended: { translation in
+                                self.runner.release(
+                                    geometry.sample(translation: translation, predictedEndTranslation: translation),
+                                    geometry: geometry,
+                                    presentation: self.motionPresentation,
+                                    action: self.action
+                                )
+                            },
+                            cancelled: { self.runner.interrupt() }
+                        )
+                    )
+                    #else
+            """,
+            """
+                    func gestureRecognizer(_ recognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+                        self.touchDown = touch.location(in: recognizer.view)
+                        return true
+                    }
+            """,
+            """
+                    func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
+                        SlideToConfirmPanArbitration.claims(self.movement(of: recognizer))
+                    }
+            """,
+            """
+                    let translation = context.coordinator.movement(of: recognizer).x
+                    switch recognizer.state {
+                    case .began, .changed:
+                        self.changed(translation, context.converter.localLocation.x - translation)
+                    case .ended:
+                        self.ended(translation)
+                    case .cancelled, .failed:
+                        self.cancelled()
+            """,
+            "pan.delegate = context.coordinator",
+            "recognizer.isEnabled = self.isEnabled",
             ".contentShape(Capsule(style: .continuous))",
             ".animation(CoreMotionToken.reveal.transformAnimation(for: self.motionPresentation), value: core.motionKey)",
             """
@@ -362,6 +410,7 @@ struct SlideToConfirmRunnerTests {
             missing.isEmpty,
             """
             视图接线缺 \(missing.count) 处，期望 0：\(missing) —— 缺 GestureState / updating ⇒ 被打断的手势不回位；\
+            iOS 平移识别器不经 claims 认领 ⇒ 轨道上起手的纵向滑动被吞、页面滚不动；不从按下点算位移 ⇒ 认领前的那段位移丢失、起点落在指示器外；\
             onChanged 不带起点 / 方向系数 ⇒ 轨道空白处也能推动指示器、RTL 下方向反了；isEnabled 读 core ⇒ 执行中横滑漏给系统返回手势；\
             缺 animation(reveal) ⇒ 回弹 / 回位不走 bounce 为 0 的 token；\
             缺 onEnded ⇒ 松手不判定；缺 onChange(dragging) ⇒ 打断不转交；缺 onDisappear ⇒ 离屏不取消；\

@@ -156,6 +156,14 @@ struct SlideToConfirmTests {
         #expect(g.knobContains(logicalX: g.travel + Self.onKnob, atOffset: g.travel))
     }
 
+    @Test("手势认领：横向位移严格占主导才认领；纵向起手、正斜 45° 与零位移都让给外层滚动视图")
+    func panClaimsOnlyHorizontalDominantMovement() {
+        let claimed: [CGPoint] = [CGPoint(x: 10, y: 0), CGPoint(x: -10, y: 3), CGPoint(x: 10, y: 9.9), CGPoint(x: 60, y: -20)]
+        let yielded: [CGPoint] = [CGPoint(x: 0, y: 10), CGPoint(x: 3, y: -10), CGPoint(x: 10, y: 10), CGPoint(x: -10, y: -10), .zero]
+        #expect(claimed.filter { !SlideToConfirmPanArbitration.claims($0) }.isEmpty, "横向占主导却没认领")
+        #expect(yielded.filter { SlideToConfirmPanArbitration.claims($0) }.isEmpty, "纵向占主导或不分胜负却认领了 ⇒ 外层 ScrollView 滚不动")
+    }
+
     @Test("起点不在指示器上的会话只吸收：不位移、松手不触发、不给触觉、不改动效键")
     func sessionStartingOffTheKnobIsAbsorbed() {
         var core = SlideToConfirmCore()
@@ -439,8 +447,9 @@ struct SlideToConfirmTests {
             ".onScrollVisibilityChange { self.titleOnScreen = $0 }",
             ".foregroundStyle(SlideToConfirmShimmer.style(bandCenter: bandCenter))",
             ".opacity(geometry.titleOpacity(forOffset: offset))",
-            ".tint(self.resolvedAccent)",
-            ".foregroundStyle(self.resolvedAccent)",
+            "let glyph = SlideToConfirmAppearance.glyph(accent: self.resolvedAccent)",
+            ".tint(glyph)",
+            ".foregroundStyle(glyph)",
             ".environment(\\.colorScheme, SlideToConfirmAppearance.knobScheme)",
             ".coreShadow(SlideToConfirmAppearance.knobElevation)",
             ".opacity(SlideToConfirmAppearance.opacity(isEnabled: self.isEnabled))",
@@ -585,21 +594,31 @@ struct SlideToConfirmTests {
     func knobIsALightIsland() {
         var environment = EnvironmentValues()
         environment.colorScheme = SlideToConfirmAppearance.knobScheme
-        func luminance(_ color: Color) -> Double {
-            let r = color.resolve(in: environment)
-            func channel(_ c: Float) -> Double { let v = Double(c); return v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
-            return 0.2126 * channel(r.red) + 0.7152 * channel(r.green) + 0.0722 * channel(r.blue)
-        }
-        let knob = luminance(Color.surfaceRaised)
-        let ink = luminance(Color.inkPrimary)
-        let ratio = (max(knob, ink) + 0.05) / (min(knob, ink) + 0.05)
-        #expect(ratio >= 7, "指示器底 \(knob) 与墨色箭头 \(ink) 对比 \(ratio):1")
-        #expect(knob > 0.9, "指示器底在浅色岛里不是近白：亮度 \(knob)")
+        let ink = Color.contrastRatio(Color.surfaceRaised, Color.inkPrimary, in: environment)
+        let white = Color.contrastRatio(Color.surfaceRaised, Color.white, in: environment)
+        #expect(ink >= 7, "指示器底与墨色箭头对比 \(ink):1")
+        #expect(white < 1.1, "指示器底在浅色岛里不是近白：与纯白对比 \(white):1")
         #expect(SlideToConfirmAppearance.opacity(isEnabled: true) == 1)
         #expect(SlideToConfirmAppearance.opacity(isEnabled: false) < 1)
     }
 
-    @Test("箭头跟随 coreAccent：深色外观下 .red / .blue 的指示器区各自偏红 / 偏蓝，默认墨色箭头在白底上是深色；指示器之外相同")
+    @Test("箭头 / 进度取色：宿主强调色在浅色岛上对比不足 3:1 时退回墨色（.yellow / .white / .mint），够的不退（.blue / .red / 默认墨色）")
+    func glyphFallsBackToInkWhenAccentIsIllegible() {
+        var environment = EnvironmentValues()
+        environment.colorScheme = SlideToConfirmAppearance.knobScheme
+        for accent in [Color.yellow, .white, .mint] {
+            let ratio = Color.contrastRatio(accent, .surfaceRaised, in: environment)
+            #expect(ratio < 3, "\(accent) 在浅色岛上对比 \(ratio):1，本应不足 3:1 —— 样本失效")
+            #expect(SlideToConfirmAppearance.glyph(accent: accent) == Color.inkPrimary, "\(accent)（对比 \(ratio):1）没有退回墨色")
+        }
+        for accent in [Color.blue, .red, .inkPrimary] {
+            let ratio = Color.contrastRatio(accent, .surfaceRaised, in: environment)
+            #expect(ratio >= 3, "\(accent) 在浅色岛上对比 \(ratio):1，本应 ≥ 3:1 —— 样本失效")
+            #expect(SlideToConfirmAppearance.glyph(accent: accent) == accent, "\(accent)（对比 \(ratio):1）被错误地换掉了")
+        }
+    }
+
+    @Test("箭头跟随 coreAccent：深色外观下 .red / .blue 的指示器区各自偏红 / 偏蓝，默认墨色与 .yellow（退回墨色）的箭头在白底上是深色；指示器之外相同")
     func arrowFollowsCoreAccent() {
         struct Tally { var red = 0, blue = 0, dark = 0 }
         func render(_ accent: Color?) -> HostedPixels {
@@ -616,26 +635,38 @@ struct SlideToConfirmTests {
             return window.pixels()
         }
         let knobEnd = Self.geometry.idleKnobRegion.upperBound
+        // 深色像素只数四个方向 14 pt 内都碰得到白色的——即被白色圆盘包住的箭头；圆盘外接方框四角的深色画布不算。
         func tally(_ pixels: HostedPixels) -> Tally {
             var t = Tally()
-            guard let bytes = pixels.bytes, let leading = slideKnobLeadingEdge(pixels) else { return t }
+            guard let bytes = pixels.bytes, slideKnobLeadingEdge(pixels) != nil else { return t }
             let limit = min(pixels.width, Int(knobEnd * pixels.scale))
+            let reach = Int((14 * pixels.scale).rounded())
+            func white(_ x: Int, _ y: Int) -> Bool {
+                guard x >= 0, x < pixels.width, y >= 0, y < pixels.height else { return false }
+                let i = (y * pixels.width + x) * 4
+                return bytes[i] > 235 && bytes[i + 1] > 235 && bytes[i + 2] > 235
+            }
+            func enclosed(_ x: Int, _ y: Int) -> Bool {
+                (1...reach).contains { white(x - $0, y) } && (1...reach).contains { white(x + $0, y) }
+                    && (1...reach).contains { white(x, y - $0) } && (1...reach).contains { white(x, y + $0) }
+            }
             for y in 0..<pixels.height {
                 for x in 0..<limit {
                     let i = (y * pixels.width + x) * 4
                     let r = Int(bytes[i]), g = Int(bytes[i + 1]), b = Int(bytes[i + 2])
                     if r - max(g, b) > 80 { t.red += 1 }
                     if b - max(r, g) > 80 { t.blue += 1 }
-                    if bytes[i + 3] > 200, r < 60, g < 60, b < 60, x > leading { t.dark += 1 }
+                    if bytes[i + 3] > 200, r < 60, g < 60, b < 60, enclosed(x, y) { t.dark += 1 }
                 }
             }
             return t
         }
-        let red = render(.red), blue = render(.blue), ink = render(nil)
-        let tr = tally(red), tb = tally(blue), ti = tally(ink)
+        let red = render(.red), blue = render(.blue), ink = render(nil), yellow = render(.yellow)
+        let tr = tally(red), tb = tally(blue), ti = tally(ink), ty = tally(yellow)
         #expect(tr.red > 20 && tr.blue == 0, ".red 下指示器区红 \(tr.red) / 蓝 \(tr.blue)")
         #expect(tb.blue > 20 && tb.red == 0, ".blue 下指示器区蓝 \(tb.blue) / 红 \(tb.red)")
         #expect(ti.dark > 20, "默认墨色下白底指示器里的深色箭头像素只有 \(ti.dark) —— 箭头没按浅色岛解析（深色外观下成了白箭头）")
+        #expect(ty.dark > 20, ".yellow 下白底指示器里的深色箭头像素只有 \(ty.dark) —— 对比不足的强调色没有退回墨色")
         func outsideKnob(_ p: HostedPixels) -> [UInt8]? {
             guard let bytes = p.bytes else { return nil }
             let start = Int(knobEnd * p.scale) + 2
@@ -770,8 +801,27 @@ struct SlideToConfirmInFlightTests {
         RunLoop.main.run(until: Date().addingTimeInterval(0.008))
     }
 
-    // 返回（途经的互异中间位置个数, 越出起止区间的帧数, 起止是否确实不同）。
-    static func trace(_ scenario: Scenario, presentation: MotionPresentation, sampleFor duration: TimeInterval) async -> (intermediate: Int, overshoot: Int, moved: Bool) {
+    struct Trace {
+        var intermediate: Int
+        var overshoot: Int
+        var moved: Bool
+        var detail: String
+    }
+
+    // 一次 settle 约 0.24 s，追不完 reveal 弹簧的尾巴：起点读早了，后续朝尽头的残余位移会被记成越界。
+    static func settledEdge(_ window: HostedWindow) -> Int? {
+        window.settle()
+        var previous = slideKnobLeadingEdge(window.pixels())
+        for _ in 0..<10 {
+            window.settle()
+            let next = slideKnobLeadingEdge(window.pixels())
+            if next == previous { return next }
+            previous = next
+        }
+        return nil
+    }
+
+    static func trace(_ scenario: Scenario, presentation: MotionPresentation, sampleFor duration: TimeInterval) async -> Trace {
         let runner = SlideToConfirmRunner { _ in }
         let window = HostedWindow(
             SlideHarness(runner: runner).environment(\.coreMotionPresentationOverride, presentation),
@@ -788,8 +838,7 @@ struct SlideToConfirmInFlightTests {
             runner.activate(presentation: presentation, action: { try await action.suspend() })
             _ = await action.waitForArrivals(1)
         }
-        window.settle()
-        let before = slideKnobLeadingEdge(window.pixels())
+        let before = Self.settledEdge(window)
 
         var edges: [Int?] = []
         switch scenario {
@@ -809,15 +858,21 @@ struct SlideToConfirmInFlightTests {
             Self.pump()
             edges.append(slideKnobLeadingEdge(window.pixels()))
         }
-        window.settle()
-        let after = slideKnobLeadingEdge(window.pixels())
+        let after = Self.settledEdge(window)
         await runner.task?.value
-        guard let before, let after else { return (-1, -1, false) }
+        guard let before, let after else {
+            return Trace(intermediate: -1, overshoot: -1, moved: false, detail: "before=\(String(describing: before)) after=\(String(describing: after))（前沿未稳定或找不到指示器）")
+        }
         let low = min(before, after), high = max(before, after)
         let seen = edges.compactMap { $0 }
         let intermediate = Set(seen.filter { $0 > low + 1 && $0 < high - 1 }).count
-        let overshoot = seen.filter { $0 < low - 1 || $0 > high + 1 }.count
-        return (intermediate, overshoot, abs(before - after) > 10)
+        let outside = seen.filter { $0 < low - 1 || $0 > high + 1 }
+        return Trace(
+            intermediate: intermediate,
+            overshoot: outside.count,
+            moved: abs(before - after) > 10,
+            detail: "before=\(before) after=\(after) 越界帧=\(outside)"
+        )
     }
 
     @Test("未达阈值松手的回弹：RM 关时途经中间位置且不越过起点，RM 开时直接到位")
@@ -826,15 +881,17 @@ struct SlideToConfirmInFlightTests {
         #expect(resting.moved, "指示器没有回到起点，判据无效")
         #expect(resting.intermediate == 0, "RM 开时回弹途经了 \(resting.intermediate) 个中间位置，期望 0（位移类动效须走 transformAnimation(for:)）")
         var overshoot = 0
+        var detail = ""
         for window in CoreMotionTokenInFlightTests.samplingWindows {
             let animated = await Self.trace(.rebound, presentation: .animated, sampleFor: window)
+            if animated.overshoot != 0 { detail += "[\(animated.detail)] " }
             overshoot = max(overshoot, animated.overshoot)
             if animated.moved, animated.intermediate >= 2 { break }
             if window == CoreMotionTokenInFlightTests.samplingWindows.last {
                 Issue.record("回弹：RM 关时 \(CoreMotionTokenInFlightTests.samplingWindows.count) 个窗口里互异中间位置都不足 2 个（最后一次 \(animated.intermediate)）—— 无法下结论，不是通过")
             }
         }
-        #expect(overshoot == 0, "回弹有 \(overshoot) 帧越出起止区间（过冲）")
+        #expect(overshoot == 0, "回弹有 \(overshoot) 帧越出起止区间（过冲）：\(detail)")
     }
 
     @Test("执行后回位：RM 关时途经中间位置且不越过起点，RM 开时直接到位")
@@ -843,15 +900,17 @@ struct SlideToConfirmInFlightTests {
         #expect(resting.moved, "指示器没有回到起点，判据无效")
         #expect(resting.intermediate == 0, "RM 开时回位途经了 \(resting.intermediate) 个中间位置，期望 0")
         var overshoot = 0
+        var detail = ""
         for window in CoreMotionTokenInFlightTests.samplingWindows {
             let animated = await Self.trace(.returning, presentation: .animated, sampleFor: window)
+            if animated.overshoot != 0 { detail += "[\(animated.detail)] " }
             overshoot = max(overshoot, animated.overshoot)
             if animated.moved, animated.intermediate >= 2 { break }
             if window == CoreMotionTokenInFlightTests.samplingWindows.last {
                 Issue.record("回位：RM 关时 \(CoreMotionTokenInFlightTests.samplingWindows.count) 个窗口里互异中间位置都不足 2 个（最后一次 \(animated.intermediate)）—— 无法下结论，不是通过")
             }
         }
-        #expect(overshoot == 0, "回位有 \(overshoot) 帧越出起止区间（过冲）")
+        #expect(overshoot == 0, "回位有 \(overshoot) 帧越出起止区间（过冲）：\(detail)")
     }
 }
 

@@ -29,6 +29,13 @@ action 返回后指示器回到起点。RTL 下整条轨道镜像：指示器从
 - **拖动手势挂在整条轨道上**，会话在第一次拖动变化时裁决、整段不变：起点落在指示器（含两侧间距）上
   且门闩开着 ⇒ 有效会话；否则只**吸收**——不位移、松手不触发、不给触觉。吸收的意义是横滑不漏给系统
   返回手势（iOS 26 的全内容区返回手势会把轨道空白处的右滑当成 pop）。
+- **iOS 上只认领横向占主导的滑动**（`SlideToConfirmPanArbitration.claims`：|dx| > |dy|，按下点起算）：
+  纵向起手的触摸手势直接放弃，交给外层 `ScrollView`——不开会话、不吸收。为此 iOS 用 UIKit 平移识别器
+  （`UIGestureRecognizerRepresentable`，在 `gestureRecognizerShouldBegin` 里裁决），macOS 仍用 `DragGesture`。
+  ⚠️ 实测 SwiftUI 的 `DragGesture` 挂在轨道上时，轨道上起手的纵向滑动一律滚不动页面，
+  换成 `.simultaneousGesture` 也一样；去掉手势页面就能滚。所以不能只在会话裁决里加方向条件，得换识别器。
+  ⚠️ 平移识别器在认领那一刻把位移清零（实测 axe 从 x = 54 横滑，认领时位置已到 83、位移读 0，
+  全程只累计 284 pt < 294），所以位移与起点都从 `shouldReceive` 记下的按下点算。
 - 执行 / 回位期间手势**不停用**（停用了横滑就会落到返回手势上），正确性交给会话裁决与门闩。
 - ⚠️ **门闩关闭期间开始的会话整段作废**：即便 action 返回、回位走完、门闩已开之后才松手，也不触发
   （对应下表「执行」行的「不排队」）。无障碍激活同样把进行中的会话作废。
@@ -70,7 +77,7 @@ action 返回后指示器回到起点。RTL 下整条轨道镜像：指示器从
   此时开闸会让回屏后的滑动并发重入（与 `AsyncButton` 在 `Task` 的 `defer` 里才复位同理）。
   action 返回后回位等待随 `Task` 取消立即结束，门闩随之打开。
 - **宿主 `.disabled`**：待命时手势不响应（手势的 `isEnabled` 只读宿主环境值）、替代 `Button` 为 disabled（`isEnabled` 环境值自然继承）、
-  指示器与文案换成禁用配色；拖动中途被禁用 ⇒ 手势被取消 ⇒ 按「被打断」处理；
+  整个控件不透明度降到 0.4；拖动中途被禁用 ⇒ 手势被取消 ⇒ 按「被打断」处理；
   执行中被禁用 ⇒ **不取消** action，照常回位，回到待命后保持禁用。
 - **不引入隐式超时**：action 永不返回，控件就一直停在执行阶段（同 `StatefulButton`）。
 
@@ -80,7 +87,7 @@ action 返回后指示器回到起点。RTL 下整条轨道镜像：指示器从
 |---|---|---|
 | 轨道 | `secondaryFill` 胶囊作玻璃的内容，外挂 `.glassEffect(.regular, in: Capsule(style: .continuous))` | 关机滑块的轨道是压在内容上的半透明材质；iOS 26 / macOS 26 上对应 Liquid Glass。垫 `secondaryFill`：玻璃压在纯色背景上几乎不可见（macOS 深色外观截图里整条轨道消失），垫一层系统填充色才看得出轨道。取 `.regular` 不取 `.interactive()`：整条轨道都吸收拖动，交互玻璃会在每次按下时整条形变，抢指示器的戏 |
 | 指示器底色 | `Color.surfaceRaised`，整个指示器子树钉 `.environment(\.colorScheme, .light)` | 关机滑块的指示器两种外观下都是白的。`surfaceRaised` 在浅色外观下解析为白（iOS `secondarySystemGroupedBackground` / macOS `controlBackgroundColor`），不写色相字面量、不用 asset catalog 色 |
-| 箭头 / 执行中的进度 | 环境 `coreAccent`（`foregroundStyle` 与 `.tint` 同取） | 宿主 `.coreAccent(.blue)` ⇒ 箭头变蓝。⚠️ 默认 accent 是墨色，**深色外观下解析为白**，白底白箭头会看不见 ⇒ 这正是指示器钉浅色外观的原因：墨色在浅色岛里解析为黑 |
+| 箭头 / 执行中的进度 | 环境 `coreAccent`（`foregroundStyle` 与 `.tint` 同取）；在浅色岛里与 `surfaceRaised` 对比不足 3:1 时退回 `Color.inkPrimary`（`Color.legibleAccent(_:on:in:)`，WCAG 对比度，3:1 是非文字图形的下限） | 宿主 `.coreAccent(.blue)` ⇒ 箭头变蓝；`.white` / `.yellow` / `.mint` 在白底上看不见 ⇒ 退回墨色。⚠️ 默认 accent 是墨色，**深色外观下解析为白**，白底白箭头会看不见 ⇒ 这正是指示器钉浅色外观的原因：墨色在浅色岛里解析为黑。⚠️ **进度取色只在 iOS 生效**：macOS 的系统圆形 `ProgressView` 不响应 `.tint`，白底上是浅灰（见《已知缺口》） |
 | 指示器阴影 | `coreShadow(.medium)` | 白底压在浅色玻璃上时靠它分层。⚠️ shadow token 是 asset catalog 色，macOS `swift test` 腿上解析为全透明 ⇒ 没有任何位图判据依赖它 |
 | 文案 | 放在「指示器右侧剩余区域」居中：左留白 = 指示器 + 2×间距，右留白 = 2×间距（RTL 下经 `.leading` / `.trailing` 自动镜像）；底色 `contentSecondary` | 待命时不与指示器重叠；拖动时透明度 = 1 − 位移 / 全程，执行阶段（位移 = 全程）为 0 ⇒ 文案隐去 |
 | 流光 | 文案的前景是一段线性渐变：`contentSecondary → contentPrimary → contentSecondary`，高光带宽为文案宽的 0.6，每 2.4 s 从起点一侧外沿扫到另一侧外沿 | 不用 `.mask`：渐变直接作前景样式，不引入遮罩点位与位移调用点。方向朝指示器前进的方向，RTL 下从右往左——⚠️ SwiftUI **不**按布局方向镜像渐变的 `UnitPoint`（macOS 实测：同一中心值在 LTR / RTL 下高光落在同一位置），所以方向由 `SlideToConfirmShimmer.bandCenter(progress:layoutDirection:)` 自己换算 |
@@ -147,7 +154,7 @@ public init(_ titleKey: LocalizedStringKey, action: @escaping @MainActor @Sendab
 
 - 无 Bool 入参。尺寸读环境 `controlSize`：指示器直径取 `CoreControlMetrics.height(for:)`
   （`.regular` 为 44 pt），间距 `CoreSpacing.xs`，轨道高 = 指示器 + 2×间距；宽度撑满父视图提议。
-- 强调色读 `coreAccent`：箭头与执行中的进度取它（指示器底色恒为浅色岛里的 `surfaceRaised`，见上方《外观》）；
+- 强调色读 `coreAccent`：箭头与执行中的进度（仅 iOS）取它，对比不足 3:1 时退回墨色（指示器底色恒为浅色岛里的 `surfaceRaised`，见上方《外观》）；
   `coreAccentOn` 不参与。轨道 Liquid Glass，文案 `contentSecondary` + 流光，禁用时整体不透明度 0.4。
 - label 同时是轨道上的提示文案与无障碍按钮的名称。
 
@@ -169,6 +176,8 @@ public init(_ titleKey: LocalizedStringKey, action: @escaping @MainActor @Sendab
   门闩关闭期间开始的会话、被无障碍激活作废的会话，开闸后继续拖再松手都不触发；
   打断先于松手到达时松手仍按会话裁决判定。编排层另有两条：起点在空白处滑满全程不起 `Task`；
   执行中在尽头指示器上开始的拖动、开闸后才松手，action 仍只调起一次。
+- **手势认领（纯函数）**：`SlideToConfirmPanArbitration.claims` 横向严格占主导才认领；纯纵向、正斜 45°、零位移都不认领。
+  iOS 识别器经它裁决、位移从按下点算，这两处只有源码接线判据（下方「视图接线」）。
 - **RTL**：纯函数层——向左滑满全程触发、向右不触发，右端是指示器起点、左端不是；
   渲染层——RTL 下待命指示器前沿在右半边，执行帧向左移约一个全程（±2 pt）。
 - **编排（走真实 `SlideToConfirmRunner`）**：注入可控挂起的 action 与回位 sleep，
@@ -187,11 +196,12 @@ public init(_ titleKey: LocalizedStringKey, action: @escaping @MainActor @Sendab
   指示器寻址：**深色外观**下取「横向与纵向都连续近白 ≥ 14 pt」的像素里最小的横坐标——白色圆盘两个方向都满足，
   流光里的白色字形横向不够长、玻璃高光边纵向不够厚。浅色外观下白指示器与画布同色，找不到，所以渲染判据一律用深色。
 - **外观**：文案区域在各档 `controlSize` × 五种宽度下都不与待命指示器重叠、宽度 = 全程 − 2×间距（纯函数）；
-  执行阶段文案透明度为 0、回位后回到 1；流光开关真值表（经 `EnergyState.presentation(reduceMotion:)` 裁决：Reduce Motion / 场景不活跃 /
+  执行阶段文案透明度为 0、回位后回到 1；箭头取色真值表（`.yellow` / `.white` / `.mint` 退回墨色，`.blue` / `.red` / 默认墨色不退）；流光开关真值表（经 `EnergyState.presentation(reduceMotion:)` 裁决：Reduce Motion / 场景不活跃 /
   场景在后台 / 禁用 / 执行 / 回位 / 离屏都关，低电量不关）；流光进度随时间线性、按周期回绕，高光带从外侧进、外侧出，RTL 反向；
   渲染层——同一进度下 LTR 高光质心在文案左半、RTL 在右半；动效开 + 场景活跃时两帧文案不同，Reduce Motion /
   禁用时两帧在噪声以内相同（只在 macOS 腿：iOS 单测宿主里动效开时两帧也相同，实测）；浅色岛里 `surfaceRaised` 与墨色对比 ≥ 7:1；深色外观下 `.coreAccent(.red)` /
-  `.blue` 的指示器区各自偏红 / 偏蓝、默认墨色下白底里有深色箭头像素，指示器之外两帧相同；
+  `.blue` 的指示器区各自偏红 / 偏蓝、默认墨色与 `.yellow`（退回墨色）下白底里有深色箭头像素（只数四个方向 14 pt 内
+  都碰得到白色的深色像素——圆盘外接方框四角的深色画布不算），指示器之外两帧相同；
   源码接线——轨道上的 `.glassEffect`、流光开关的实参、只在开关为真时建 `TimelineView`、在屏状态的三处维护、
   指示器的浅色岛与 `coreAccent` 取色、禁用不透明度。
 - **位移曲线（两级）**：接线级——源码里必须有
@@ -202,10 +212,12 @@ public init(_ titleKey: LocalizedStringKey, action: @escaping @MainActor @Sendab
 - **操作提示**：`Double-tap to confirm` 键已注册且取值逐字一致（值级）；替代 `Button` 挂着它（接线级）。
 - **动画进行中（macOS 腿）**：驱动编排器、逐帧量指示器前沿（同上方的白色圆盘寻址，深色外观）：
   回弹与回位两个场景，RM 关时互异中间位置 ≥ 2 且没有任何一帧越出起止区间（容差 1 px），
-  RM 开时中间位置为 0。iOS 腿上 `layer.render(in:)` 拍不到进行中的帧，这两条只在 macOS 腿跑。
+  RM 开时中间位置为 0。起止前沿都要连续两次 settle 读数相同才采用（上限 10 次）：一次 settle 约 0.24 s，
+  追不完 `reveal` 弹簧的尾巴，起点读早了，后续朝尽头的残余位移会被记成越界。iOS 腿上 `layer.render(in:)` 拍不到进行中的帧，这两条只在 macOS 腿跑。
   ⚠️ 「不越出起止区间」**分不出 `.smooth` 与 `.snappy`**：把 token 换成 `.press`（`.snappy`）后这两条照绿，
   没有观测到越界。它能抓的是明显的过冲，不是「选了哪一族曲线」。
-- **视图接线（源码级）**：`@GestureState` + `updating`、带起点与方向系数的 `onChanged`、
+- **视图接线（源码级）**：iOS 平移识别器的四处（`shouldReceive` 记按下点、`gestureRecognizerShouldBegin` 经 `claims`、
+  位移从按下点算、`isEnabled` 随宿主）与它转交编排器的三路；macOS `@GestureState` + `updating`、带起点与方向系数的 `onChanged`、
   带预测终点样本的 `onEnded`、手势 `isEnabled` 只读宿主环境值、整条轨道的 `contentShape`、上面那行 `.animation`、
   `onChange(of: dragging)` 转交打断、`onDisappear`、`accessibilityRepresentation` 里的
   `Button` + `accessibilityHint` + `.disabled` + `accessibilityValue`。单测进程里合成事件驱动不了 SwiftUI 手势，
@@ -245,6 +257,21 @@ iOS 26.4 模拟器、预览宿主画廊 `slide-to-confirm` 页，`axe swipe` 发
 RTL（直达预览，伪语言启动参数）：向右横滑指示器、从轨道空白处向左滑满、从指示器向左甩一半都保持
 `Confirmed 0`；从右端指示器向左滑满 ⇒ `Loading`，截图里执行中的指示器停在左端，约 7 s 后 `Confirmed 1`。
 
+换成平移识别器之后的一轮（iOS 26.4 模拟器，专用设备；画廊 `slide-to-confirm` 页在 `ScrollView` 里，
+页面最大滚动量约 207 pt；读「Slide to delete account」按钮的 y 坐标判滚动）：
+
+| 操作 | `DragGesture` 构建 | 平移识别器构建 |
+|---|---|---|
+| 轨道空白处（x = 250）纵向上滑 | y 不变（351.7），页面**没滚** | y 351.7 → 144.3，页面滚动 |
+| 轨道空白处纵向下滑（已滚到底后） | y 不变（144.3），连做 3 次 | y 144.3 → 351.7 |
+| 指示器上（x = 54）纵向上滑 / 下滑 | 下滑 y 不变 | 351.7 → 144.3 → 351.7 |
+| 对照：同样的纵滑起手于轨道外的文字 / 空白 | 页面滚动 | —— |
+| 轨道空白处（x = 150）向右横滑，连做 3 次 | —— | 页面未 pop，`Confirmed 0` |
+| 甩一半 / 反向 / 阈值前一点（54 → 336） | —— | `Confirmed 0` |
+| 滑到底（54 → 395） | —— | 立即读 value `Loading`、`enabled=False`；3 s 后 `Confirmed 1` |
+| 对照：同样的横滑落在说明文字上 | —— | 页面被 pop |
+| RTL（直达预览）：右滑指示器 / 空白处左滑 / 从右端指示器左滑满 | —— | `0` / `0` / `Loading` → `Confirmed 1` |
+
 ## 已知缺口（如实登记）
 
 - **Liquid Glass 轨道没有位图判据**：macOS `swift test` 腿的离屏渲染里玻璃一个像素都不画（实测轨道区域与画布
@@ -252,17 +279,20 @@ RTL（直达预览，伪语言启动参数）：向右横滑指示器、从轨�
 - **流光依赖场景阶段**：能耗闸读 `\.scenePhase`，不在 SwiftUI `Scene` 里（例如测试宿主）时它不是 `.active`，
   流光不画——实测托管窗口里不注入 `scenePhaseOverride` 时两帧逐像素相同。纯 UIKit 宿主里嵌
   `UIHostingController` 的情形**未实测**。
+- **macOS 上执行中的进度不跟随强调色**：系统圆形 `ProgressView` 在 macOS 上不响应 `.tint`，白底上是浅灰
+  （评审读数约 `#A7A7A7`，对比约 2.4:1，本轮未复测）。库里没有可着色的不确定态进度（`CoreCircularProgressViewStyle`
+  的不确定态同样回退系统 spinner），自绘要另起一套循环动效与 Reduce Motion 处置，本轮不做。
 - **浅色外观下指示器与轨道的分层靠阴影**：白色指示器压在浅色玻璃上，边界主要由 `coreShadow(.medium)` 给出。
 
-- **手势回调的先后没有视图层判据**：「正常松手时 `onEnded` 先于 `@GestureState` 复位触发的
-  `onChange`」按 SwiftUI 的更新顺序推断，上表的模拟器正例说明这条路径在 iOS 26.4 上走得通；
+- **手势回调的先后没有视图层判据（macOS）**：「正常松手时 `onEnded` 先于 `@GestureState` 复位触发的
+  `onChange`」按 SwiftUI 的更新顺序推断（iOS 改用平移识别器后，松手与取消是互斥的两个状态，不再有这个先后问题）；
   core 按两种顺序都能判定（打断只把会话标成已结束，裁决留给松手消费，有纯函数判据）。
   代价：若打断先到，指示器会先按打断回弹、再因松手进入执行 ⇒ **成功的一滑可能出现视觉回跳**。
   「手势被系统中途取消」没有在模拟器上构造出来，只有编排层判据。
 - **「执行中开始、开闸后松手」没有真实触摸实测**：会话从尽头开始，要在开闸后仍以「位移 ≥ 全程」松手，
   直线横滑得从尽头再往前拖一个全程，出了屏幕；只有纯函数与编排层判据。
 - **宿主 `.disabled` 时横滑会漏给返回手势**：手势随宿主禁用而停用，实测在导航栈页面里从禁用行的
-  指示器向右横滑，页面被 pop。action 不会被触发（见上方直达预览那一轮）。
+  指示器向右横滑，页面被 pop（`DragGesture` 构建上测的；平移识别器同样随宿主停用，未复测）。action 不会被触发（见上方直达预览那一轮）。
 - **辅助技术实读只到无障碍树**：上表读到了替代元素的角色 / 名称 / 状态 / 禁用；VoiceOver 实际朗读、
   语音控制 / 切换控制下的激活与焦点保持没有实测；硬件键盘可达性**另行验证**，
   不能由 `accessibilityRepresentation` 推出。
