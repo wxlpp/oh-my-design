@@ -20,6 +20,25 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.11.0`）——Issue #417：`StatefulButton` 四态动作按钮
+
+**纯新增，无破坏性变更。** 已有公开符号一个都没动，`AsyncButton` 未改。
+
+新增公开符号：
+
+| 符号 | 说明 |
+|---|---|
+| `enum StatefulButtonState`（`.idle` / `.loading` / `.success` / `.failure`） | 四态视觉态；`Sendable, Hashable, CaseIterable` |
+| `StatefulButtonState.defaultDwell` | `success` / `failure` 停留时长默认值，`.seconds(2)` |
+| `struct StatefulButton<Label: View>: View` | 四态动作按钮 |
+| `StatefulButton.init(successDwell:failureDwell:action:label:)` | 自管模式 |
+| `StatefulButton.init(state:action:label:)` | 托管模式 |
+| `StatefulButton.init(_:successDwell:failureDwell:action:)`（`Label == Text`） | 自管 + `LocalizedStringKey` 文案 |
+| `StatefulButton.init(_:state:action:)`（`Label == Text`） | 托管 + `LocalizedStringKey` 文案 |
+
+新增本地化键：`Failed`（`Sources/OhMyDesign/Resources/en.lproj/Localizable.strings`；
+`Loading` / `Success` 两个键已存在，本次复用）。下游若自带 `.strings` 覆盖本库文案，需要补这个键。
+
 ## 未发布（相对 `v0.11.0`）——Issue #409：TagGroup / TagInput 增删与选中动画
 
 **行为变更（无签名破坏）。** 公开符号的签名一个都没变；`Tag` 一字未动。

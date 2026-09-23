@@ -604,6 +604,22 @@ enum PreviewSnapshotFixtures {
     .background(Color.surfaceCanvas)
 }
 
+#Preview("StatefulButton") {
+    VStack(alignment: .leading, spacing: CoreSpacing.md) {
+        ForEach(StatefulButtonState.allCases, id: \.self) { state in
+            StatefulButton("Submit", state: state) { }
+                .buttonStyle(.solid())
+        }
+        StatefulButton("Send message") {
+            try await Task.sleep(for: .milliseconds(1200))
+        }
+        .buttonStyle(.light())
+    }
+    .padding()
+    .frame(width: 320)
+    .background(Color.surfaceCanvas)
+}
+
 #Preview("TagGroup") {
     struct Item: Identifiable, Hashable { let id: String }
     let languages = ["Swift", "Kotlin", "Rust", "TypeScript", "Go"].map(Item.init(id:))

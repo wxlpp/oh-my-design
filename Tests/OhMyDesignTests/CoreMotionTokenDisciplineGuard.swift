@@ -36,6 +36,7 @@ struct CoreMotionTokenDisciplineGuard {
         "Components/Button/styles/PressableButtonStyles.swift": .gated,
         "Components/Button/styles/CoreBorderlessButtonStyle.swift": .fadeOnly,
         "Components/Button/AsyncButton.swift": .fadeOnly,
+        "Components/Button/StatefulButton.swift": .gated,
         "Components/CheckBox/CheckBox.swift": .gated,
         "Components/Radio/Radio.swift": .gated,
         "Modifier/AnchoredBadgeModifier.swift": .gated,
@@ -58,6 +59,8 @@ struct CoreMotionTokenDisciplineGuard {
             "symbolReplacement 在 resting / hidden 下为 ContentTransition.identity，直接换图不描画",
         "Components/Radio/Radio.swift|contentTransition(self.motionPresentation.symbolReplacement)":
             "同 CheckBox：resting / hidden 下为 ContentTransition.identity",
+        "Components/Button/StatefulButton.swift|contentTransition(self.motionPresentation.symbolReplacement)":
+            "loading / success / failure 三态共用一个符号槽；resting / hidden 下为 ContentTransition.identity，直接换图不描画",
         "Modifier/AnchoredBadgeModifier.swift|contentTransition(self.motionPresentation.numericRoll(to: value))":
             "numericRoll 在 resting / hidden 下为 ContentTransition.identity，数字直接替换、不纵向滚动",
         "Components/Button/styles/PressableButtonStyles.swift|scaleEffect(feedback.scale)":
