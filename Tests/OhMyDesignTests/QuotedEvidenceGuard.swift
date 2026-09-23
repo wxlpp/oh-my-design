@@ -124,6 +124,9 @@ struct QuotedEvidenceGuard {
         ("docs/components/tree.md", "Tests/OhMyDesignTests/TreeTests.swift", "TreeGuideLineTests"),
         ("docs/components/tree.md", "Tests/OhMyDesignTests/TreeTests.swift", "TreeHoverTests"),
         ("docs/components/tree.md", "Tests/OhMyDesignTests/TreeHoverMotionGuard.swift", "TreeHoverMotionGuard"),
+        ("docs/components/tree.md", "Sources/OhMyDesign/Components/Tree/Tree.swift", "func rowContextMenu<M: View>(@ViewBuilder _ menu: @escaping (Set<ID>) -> M) -> Tree"),
+        ("docs/components/tree.md", "Tests/OhMyDesignTests/TreeTests.swift", "TreeContextMenuTests"),
+        ("docs/components/tree.md", "Tests/OhMyDesignTests/TreeTests.swift", "UIContextMenuInteraction"),
         // ---- docs/superpowers/ ----
         ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Button/styles/SolidButtonStyle.swift", "? self.role.resolvedOnColor("),
         ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Button/styles/CoreBorderlessButtonStyle.swift", "onTapGesture(count: 1, perform: configuration.trigger)"),

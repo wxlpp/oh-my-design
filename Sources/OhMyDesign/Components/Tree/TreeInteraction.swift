@@ -166,3 +166,19 @@ nonisolated enum TreeActivation: Hashable, Sendable {
     case enabled
     case disabled
 }
+
+// MARK: - 右键菜单目标 / Context-menu targets
+
+nonisolated enum TreeContextMenu {
+    static func targets<ID: Hashable>(for id: ID, selection: Set<ID>, visibleIDs: Set<ID>) -> Set<ID> {
+        Self.targets(for: id, selectedVisible: Self.selectedVisible(selection, visibleIDs: visibleIDs))
+    }
+
+    static func selectedVisible<ID: Hashable>(_ selection: Set<ID>, visibleIDs: Set<ID>) -> Set<ID> {
+        selection.intersection(visibleIDs)
+    }
+
+    static func targets<ID: Hashable>(for id: ID, selectedVisible: Set<ID>) -> Set<ID> {
+        selectedVisible.contains(id) ? selectedVisible : [id]
+    }
+}

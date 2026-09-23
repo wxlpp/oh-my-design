@@ -53,6 +53,11 @@ public struct TreeStyle {
 public extension View {
     func treeStyle(_ style: TreeStyle) -> some View
 }
+
+// 整行右键菜单（#429）：builder 方法，返回同一棵树；Tree 仍是三个泛型参数
+public extension Tree {
+    func rowContextMenu<M: View>(@ViewBuilder _ menu: @escaping (Set<ID>) -> M) -> Tree
+}
 ```
 
 | 参数 | 类型 | 默认值 | 说明 |
@@ -248,6 +253,37 @@ Tree(roots, children: \.children, expanded: $expanded, selection: $selection) { 
 - **即时生效、无补间**，三档 `MotionPresentation` 一致，没有需要按 Reduce Motion 分支的动效。
 - macOS 鼠标触发；iPadOS 指针下预期同样触发（未实测）；iPhone 纯触控下永不触发。
 
+## 右键菜单：`rowContextMenu(_:)`
+
+```swift
+Tree(roots, children: \.children, expanded: $expanded, selection: $selection, selectionMode: .multiple) { node in
+    Label(node.name, systemImage: node.children == nil ? "doc" : "folder")
+}
+.rowContextMenu { targets in
+    Button("Delete \(targets.count) item(s)", role: .destructive) { delete(targets) }
+}
+```
+
+- **目标集合**：右键的行**已选中**时，是「选中集合 ∩ 当前可见行」；否则**只是右键的那一行**（不并进已有选中）。
+  「可见」指展开之后的行序列，不是视口内可见。因此被折叠隐藏的选中项、不属于本树的 ID
+  （几棵树共用一个 `selection` 时）都不会传给菜单——对齐 Finder：折叠的文件夹里之前选中的项不参与右键操作。
+- **唤起菜单不改变**选中、焦点与交互来源。
+- ⚠️ **已知缺口（`#438`）：macOS 右键时不给目标行画指示环。** Finder / Xcode（`NSOutlineView`）右键时会给被点的行
+  画 contextual-menu 高亮环，VS Code 也画；本组件不画，不是有意对齐。后果：多选时右键一个**未选中**的行，
+  菜单只作用于这一行，屏幕上却仍高亮原选中——`Delete 1 item` 读不出删的是哪个。SwiftUI `.contextMenu`
+  没有打开 / 关闭回调，行宿主拿不到「正在给我弹菜单」，候选机制与成本见该 issue。
+- **整行都是右键区**（含缩进区）：菜单挂在行宿主上、`contentShape` 之后，与点选区同一层，换外观不丢菜单。
+- **不调用就不挂**：没有 `rowContextMenu` 时行上不挂 `.contextMenu`（不是挂一个空菜单）。
+- builder **只在取菜单时求值**，渲染行时不求值：行上挂的是一个小视图，它的 `body` 才调 builder。
+  直接写 `.contextMenu { menu(targets) }` 时 builder 随每行的 body 求值（`ImageRenderer` 与托管窗口实测每行都会跑）。
+  builder 在视图更新期执行，**必须是纯的**，不要在里面写状态。选中 ∩ 可见行每次 body 只算一次，所有行共用，不遍历整树。
+- **直接在 `Tree` 上调用，放在其它 modifier 之前**（它返回 `Tree`，放在 modifier 之后编译不过）。
+  ⚠️ 不要写 `flag ? tree.rowContextMenu { … } : tree` 这类按条件开关菜单：设与不设走行宿主里
+  `TreeRowMenu` 的两个条件分支，切换即换分支，行内容里的 `@State` 会被重置（按 `if let` 结构推断，未实测）。要按条件禁用，
+  让 builder 按条件返回不同的菜单项。
+- 菜单内容是调用方的数据操作，不是外观——所以它是 `Tree` 上的 builder 方法，不在 `TreeStyle` 里，
+  也不是环境值（环境值要擦除 `ID`，闭包里就拿不到强类型集合）。拖放仍不在范围内。
+
 ## 动效
 
 | 调用点 | token | Reduce Motion 下 |
@@ -299,6 +335,7 @@ Tree(roots, children: \.children, expanded: $expanded, selection: $selection) { 
   已选集合里属于本树、但被折叠而不可见的旧选中项，只能求整树 ID。多选不遍历。
 - 可见行变化后的焦点归约用**变化前的行**求祖先，不回头遍历数据。按键时若焦点行已不可见
   （可见行变化的回调还没来得及归约）才按数据求祖先——正常路径上不发生。
+- 挂了 `rowContextMenu` 时，目标集合只用可见行求交，不读折叠子树（`TreeLazinessTests` 带菜单渲染的一格）。
 - ⚠️ 传了 `checked` 时，父行复选框的三态要读它**全部叶后代**的勾选态，因此会遍历该父行的整棵子树，
   折叠与否都一样。这是三态派生本身的代价。
 
@@ -328,6 +365,14 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
   容器 `Tree` 没有名字含 `hover` 的成员变量——**按名字匹配**，把容器状态起名 `pointerRow` 就漏。
 - **悬停命中区**：`.navigator` 行在 `.onHover` 之前挂了 `.contentShape(Rectangle())`，意在让从行右侧空白 / 缩进区进入也点亮（空闲态底色是 `Color.clear`）；真指针下从这两处进入是否点亮，**未验证**。
 - iPadOS 指针下 `onHover` 是否触发。
+- **右键菜单的真实唤起路径**（`#429`）：真右键 / 双指点按 / Control-点按（macOS）、长按（iOS）真的弹出菜单，
+  且**唤起后选中、焦点、交互来源都不变**；iOS 长按升起的预览 / 高亮是被按的那一行（含缩进区），而不是整棵树
+  ——整棵树只挂 1 个 `UIContextMenuInteraction`、按位置分派，预览走 delegate 的 `previewForHighlightingMenuWithConfiguration`，没有判据。判据只对行所在点调 `NSView.menu(for:)`——那是菜单的构建，不是唤起。
+  经 `sendEvent` 合成 `rightMouseDown` 会进入菜单的模态追踪，可用 `NSMenu.didBeginTrackingNotification` +
+  异步 `cancelTracking()` 退出（合成右键确实弹出了该行的菜单，选中与展开未变）；⚠️ 但在 `swift test` 进程里
+  这样做，该测试返回后**测试进程以退出码 0 整体退出**，后面的测试一条都不跑（退出栈在
+  `swift_task_asyncMainDrainQueue` → `exit`）；在通知里同步 `cancelTracking()` 则追踪不退出、进程挂住。
+  ⇒ 没有采用为判据，这一项仍只在真 HID 清单里。
 - **两种外观下无障碍取值相同**的运行时读数：托管窗口的 `NSHostingView` 读不到无障碍子树（KVC 读
   `accessibilityChildren` 只有根 `AXGroup`）。现有的网是源码判据：`accessibilityValue` / `accessibilityAddTraits` /
   `onTapGesture` / `contentShape` 只挂在行宿主上、两种外观类型里一处都没有。
@@ -344,6 +389,25 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
 - `TreeGuideLineTests`（双腿）：参考线对齐父行 chevron 中心（≤ 1 pt，`.small` / `.regular`）、跨行连续、
   第 3 层恰有 2 根、RTL 是 LTR 的镜像（容 1 px 亚像素错位）。
 - `TreeHoverTests`（macOS）：翻转悬停时行内容收到的事务不带动画（三档动效）。
+
+`#429` 起的右键菜单判据（`TreeContextMenuTests`）：
+- 纯函数（双腿）：右键已选中的行 → 选中 ∩ 可见行，折叠隐藏的本树 ID 与树外 ID 都不传出；右键未选中的行 → 只有这一行。
+- 渲染不求值 builder（双腿，`ImageRenderer`）：渲染后 builder 调用 0 次。它单独看会被「根本没挂菜单」骗绿，
+  所以两条腿各有一条同时判「挂上了、目标对」的托管判据（下两条）。
+- 托管窗口（**仅 macOS**，两种外观）：渲染后 builder 0 次；对每一行所在点取 `NSView.menu(for:)`，得到的菜单就是
+  这一行的目标集合（取过后 builder 计数非 0，证明计数探针有效）；第 2 层行 `a1` / `a2` 的**缩进区**也取到该行的菜单；
+  取过一次菜单后点另一行改选中，再取，目标集合跟着新选中走（不陈旧）。
+  ⚠️ 缩进区一条只在 `.automatic` 下能判出「菜单挂在 `contentShape` 之前」：`.navigator` 行自己带
+  `contentShape`，那样挂照样覆盖整行。
+  ⚠️ 它**不判**「唤起菜单不改选中」：把「构建菜单时顺手选中该行」写进 builder 包装，这条照样绿
+  （builder 改为延迟求值后复测仍绿）⇒ 该项只在上面的真 HID 清单里。
+- 托管窗口（**仅 iOS**）：渲染后 builder 0 次；沿纵向逐点向 `UIContextMenuInteraction` 的 delegate 要菜单配置，
+  builder 收到的集合恰是各行的目标集合。托管窗口里整棵树只有 1 个菜单交互，按位置分派到行。
+  ⚠️ iOS 腿没有「改选中后不陈旧」的判据（那条要点击改选中，只在 macOS 托管窗口里做）。
+- 托管窗口点选（**仅 macOS**）：`clickingARowSelectsIt` 对「无菜单 / 设了菜单」参数化，设了菜单后点选照样工作。
+- **「不调用就不挂」只在 iOS 腿有判据**：视图树里没有 `UIContextMenuInteraction`，调用了才有（正向对照在同一条里）。
+  ⚠️ macOS 腿上**没有**这条判据：`menu(for:)` 对「不挂」与「挂了空菜单」都返回 `nil`，两者分不开；
+  AX 动作列表也读不到（同上一条，`NSHostingView` 读不到无障碍子树）。
 - `TreeHoverMotionGuard`（源码）：行宿主与 `.navigator` 行内不出现 `animation(` / `coreAnimation(` / `withAnimation` /
   `transaction` / `withTransaction`（按名禁调用，不看实参——局部别名绕不过去；`CoreMotionToken.x.animation(for:)`
   这类取 token 的调用也会被拦，这是刻意的）；`.onHover` 只在行宿主的 `case .navigator` 分支内；容器无悬停状态；
@@ -365,6 +429,9 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
    `.automatic` 取 `.tint`——是同一部件的上色，不改变部件承载的展开态）；焦点指示形态（`.automatic` 圆角焦点环、
    `.navigator` 直角内描边——两者承载同一个焦点状态，只是画法不同）。
 3. 将来要让第三方扩展：升协议 + `where Self ==` 静态成员，modifier 取 `any TreeStyle`；届时走修订回路，J-2 计数 16 → 17。
+
+`#429` 的 `rowContextMenu(_:)` 同样**不改判**：菜单内容是调用方按目标 ID 集合给出的数据操作，与行内容 `content`
+同属调用方内容槽，不改变行的画法与含义，不是外观扩展点。
 
 ## 使用示例 / Usage
 
@@ -412,6 +479,11 @@ struct Explorer: View {
                 selectionMode: .multiple
             ) { node in
                 Label(node.name, systemImage: node.children == nil ? "doc" : "folder")
+            }
+            .rowContextMenu { targets in
+                Button("Rename") { print("rename \(targets)") }
+                    .disabled(targets.count != 1)
+                Button("Delete", role: .destructive) { print("delete \(targets)") }
             }
         }
         .treeStyle(.navigator)
