@@ -2311,13 +2311,41 @@ private struct ExplorerTreePreview: View {
     )
     @State private var selection: Set<String> = ["Sources/Tree/TreeStyle.swift"]
     @State private var lastMenuAction: String = "—"
+    @State private var query: String = ""
+
+    private var isSearching: Bool {
+        !self.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var matchCount: Int {
+        Tree.searchMatches(Self.roots, id: \.id, children: \.children, query: self.query, text: \.name).count
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+            TextField("Filter files", text: self.$query)
+                .textFieldStyle(.roundedBorder)
+                .controlSize(.small)
             self.explorer
+            if self.isSearching, self.matchCount == 0 {
+                ContentUnavailableView.search(text: self.query)
+            }
+            if self.isSearching {
+                Text(verbatim: "命中 / matches: \(self.matchCount)（直接命中的节点数，不计只作上下文保留的祖先 / 后代）")
+                    .coreFont(.caption)
+                    .foregroundStyle(Color.contentSecondary)
+            }
+            Text(verbatim: "搜索 / filter: \"\(self.query)\" — expanded=\(self.expanded.sorted())（搜索期间不写）")
+                .coreFont(.caption)
+                .foregroundStyle(Color.contentSubtle)
             Text(verbatim: "右键菜单 / context menu: \(self.lastMenuAction)")
                 .coreFont(.caption)
                 .foregroundStyle(Color.contentSubtle)
+        }
+        .task(id: self.query) {
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled, self.isSearching else { return }
+            AccessibilityNotification.Announcement("\(self.matchCount) matches").post()
         }
     }
 
@@ -2331,7 +2359,7 @@ private struct ExplorerTreePreview: View {
         ) { node in
             HStack(spacing: CoreSpacing.xs) {
                 Label {
-                    Text(verbatim: node.name)
+                    Text(verbatim: node.name, highlighting: self.query)
                         .foregroundStyle(Self.tint(for: node.git) ?? Color.contentPrimary)
                         .lineLimit(1)
                 } icon: {
@@ -2347,6 +2375,7 @@ private struct ExplorerTreePreview: View {
                 }
             }
         }
+        .searchFilter(self.query, text: \.name)
         .rowContextMenu { targets in
             Button("New File", systemImage: "doc.badge.plus") {
                 self.lastMenuAction = "New File in \(targets.sorted())"

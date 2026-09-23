@@ -4,6 +4,7 @@
 "%@, %@" = "%@, %@";
 "%@, required" = "%@, required";
 "Alert" = "Alert";
+"Applies to filtered results only" = "Applies to filtered results only";
 "Collapse" = "Collapse";
 "Collapsed" = "Collapsed";
 "Dismiss" = "Dismiss";

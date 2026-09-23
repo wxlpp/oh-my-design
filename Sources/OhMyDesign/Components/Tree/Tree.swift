@@ -59,23 +59,32 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     @State private var focus: ID?
     @State private var lastInteraction: TreeInteraction = .pointer
     @State private var pointerClaimsFocus = false
+    @State private var searchSession: TreeSearchSession<ID>?
     @FocusState private var isFocused: Bool
     @Environment(\.coreMotionPresentation) private var motionPresentation
     @Environment(\.controlSize) private var controlSize
 
     public var body: some View {
-        let items = self.visibleItems
+        let frame = self.searchFrame
+        let items = TreeFlatten.items(
+            self.data, id: self.id, children: self.children,
+            expanded: frame.expansion.effective, included: frame.included
+        )
         let rows = items.map(\.row)
         let metrics = TreeRowMetrics.resolve(self.controlSize)
-        return TreeRowStack(items: items, context: self.context(rows: rows, metrics: metrics))
+        return TreeRowStack(items: items, context: self.context(rows: rows, metrics: metrics, frame: frame))
             .frame(maxWidth: .infinity, alignment: .leading)
             .focusable()
             .focused(self.$isFocused)
-            .onKeyPress(phases: .down) { press in self.handle(press, rows: rows) }
+            .onKeyPress(phases: .down) { press in self.handle(press, rows: rows, frame: frame) }
             .onChange(of: rows) { oldRows, newRows in
-                self.commit(TreeInteractionReducer.rowsChanged(state: self.interactionState, from: oldRows, to: newRows))
+                self.commit(
+                    TreeInteractionReducer.rowsChanged(state: self.interactionState(frame), from: oldRows, to: newRows),
+                    frame: frame
+                )
             }
-            .onChange(of: self.isFocused) { _, focused in self.focusChanged(focused, rows: rows) }
+            .onChange(of: self.isFocused) { _, focused in self.focusChanged(focused, rows: rows, frame: frame) }
+            .onChange(of: frame.query) { self.searchSession = nil }
             .coreAnimation(.selection, value: self.selection)
     }
 
@@ -101,31 +110,45 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
 
     // MARK: - 交互接线 / Interaction wiring
 
-    private var interactionState: TreeInteractionState<ID> {
+    private var searchFrame: TreeSearchFrame<ID> {
+        TreeSearch.frame(
+            self.data, id: self.id, children: self.children,
+            query: self.search?.query, text: self.search?.text,
+            persisted: self.expanded, session: self.searchSession
+        )
+    }
+
+    private func interactionState(_ frame: TreeSearchFrame<ID>) -> TreeInteractionState<ID> {
         TreeInteractionState(
             focus: self.focus,
             lastInteraction: self.lastInteraction,
             selection: self.selection,
-            expanded: self.expanded
+            expansion: frame.expansion
         )
     }
 
-    private func commit(_ next: TreeInteractionState<ID>, expansionMotion: MotionPresentation? = nil) {
+    private func commit(
+        _ next: TreeInteractionState<ID>,
+        frame: TreeSearchFrame<ID>,
+        expansionMotion: MotionPresentation? = nil
+    ) {
         if next.focus != self.focus { self.focus = next.focus }
         if next.lastInteraction != self.lastInteraction { self.lastInteraction = next.lastInteraction }
         if next.selection != self.selection { self.selection = next.selection }
-        if next.expanded != self.expanded {
+        if next.expansion != frame.expansion {
+            let session = TreeSearch.session(from: next.expansion, query: frame.query)
             withAnimation(expansionMotion.flatMap(CoreMotionToken.treeExpansion(for:))) {
-                self.expanded = next.expanded
+                if next.expansion.persisted != self.expanded { self.expanded = next.expansion.persisted }
+                if session != self.searchSession { self.searchSession = session }
             }
         }
     }
 
-    private func handle(_ press: KeyPress, rows: [TreeRow<ID>]) -> KeyPress.Result {
+    private func handle(_ press: KeyPress, rows: [TreeRow<ID>], frame: TreeSearchFrame<ID>) -> KeyPress.Result {
         let outcome = TreeInteractionReducer.key(
             TreeKeyboard.key(for: press.key),
             modifiers: press.modifiers,
-            state: self.interactionState,
+            state: self.interactionState(frame),
             rows: rows,
             mode: self.selectionMode,
             activation: self.onActivate == nil ? .disabled : .enabled,
@@ -133,46 +156,48 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             treeIDs: { self.treeIDs },
             ancestors: self.ancestors(of:)
         )
-        self.commit(outcome.state, expansionMotion: outcome.expansionMotion)
+        self.commit(outcome.state, frame: frame, expansionMotion: outcome.expansionMotion)
         if let activated = outcome.activated { self.onActivate?(activated) }
         return outcome.result
     }
 
-    private func focusChanged(_ focused: Bool, rows: [TreeRow<ID>]) {
+    private func focusChanged(_ focused: Bool, rows: [TreeRow<ID>], frame: TreeSearchFrame<ID>) {
         let source: TreeInteraction = self.pointerClaimsFocus ? .pointer : .keyboard
         self.pointerClaimsFocus = false
         guard focused else { return }
-        self.commit(TreeInteractionReducer.focusEntered(
-            via: source, state: self.interactionState, rows: rows, ancestors: self.ancestors(of:)
-        ))
+        self.commit(
+            TreeInteractionReducer.focusEntered(
+                via: source, state: self.interactionState(frame), rows: rows, ancestors: self.ancestors(of:)
+            ),
+            frame: frame
+        )
     }
 
-    private func select(_ id: ID, rows: [TreeRow<ID>]) {
+    private func select(_ id: ID, rows: [TreeRow<ID>], frame: TreeSearchFrame<ID>) {
         if !self.isFocused {
             self.pointerClaimsFocus = true
             self.isFocused = true
         }
-        self.commit(TreeInteractionReducer.pointerSelect(
-            id,
-            state: self.interactionState,
-            rowIDs: Set(rows.map(\.id)),
-            mode: self.selectionMode,
-            treeIDs: { self.treeIDs }
-        ))
+        self.commit(
+            TreeInteractionReducer.pointerSelect(
+                id,
+                state: self.interactionState(frame),
+                rowIDs: Set(rows.map(\.id)),
+                mode: self.selectionMode,
+                treeIDs: { self.treeIDs }
+            ),
+            frame: frame
+        )
     }
 
-    private func setExpansion(_ id: ID, to target: TreeExpansionTarget) {
+    private func setExpansion(_ id: ID, to target: TreeExpansionTarget, frame: TreeSearchFrame<ID>) {
         let outcome = TreeInteractionReducer.pointerExpansion(
-            id, to: target, state: self.interactionState, motion: self.motionPresentation
+            id, to: target, state: self.interactionState(frame), motion: self.motionPresentation
         )
-        self.commit(outcome.state, expansionMotion: outcome.expansionMotion)
+        self.commit(outcome.state, frame: frame, expansionMotion: outcome.expansionMotion)
     }
 
     // MARK: - 派生 / Derived
-
-    private var visibleItems: [TreeRenderItem<Data.Element, ID>] {
-        TreeFlatten.items(self.data, id: self.id, children: self.children, expanded: self.expanded)
-    }
 
     private var treeIDs: Set<ID> {
         TreeFlatten.allIDs(self.data, id: self.id, children: self.children)
@@ -182,11 +207,16 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         TreeFlatten.ancestorIDs(of: hidden, in: self.data, id: self.id, children: self.children)
     }
 
-    private func context(rows: [TreeRow<ID>], metrics: TreeRowMetrics) -> TreeContext<Data, ID, RowContent> {
+    private func context(
+        rows: [TreeRow<ID>],
+        metrics: TreeRowMetrics,
+        frame: TreeSearchFrame<ID>
+    ) -> TreeContext<Data, ID, RowContent> {
         TreeContext(
             id: self.id,
             children: self.children,
-            expanded: self.expanded,
+            expanded: frame.expansion.effective,
+            included: frame.included,
             selection: self.selection,
             checked: self.checked,
             focus: self.focus,
@@ -194,9 +224,11 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             showsFocusIndicator: TreeFocusing.showsRing(
                 containerFocused: self.isFocused, lastInteraction: self.lastInteraction
             ),
-            select: { id in self.select(id, rows: rows) },
-            setExpansion: { id, target in self.setExpansion(id, to: target) },
-            notePointerCheck: { self.commit(TreeInteractionReducer.pointerCheck(state: self.interactionState)) },
+            select: { id in self.select(id, rows: rows, frame: frame) },
+            setExpansion: { id, target in self.setExpansion(id, to: target, frame: frame) },
+            notePointerCheck: {
+                self.commit(TreeInteractionReducer.pointerCheck(state: self.interactionState(frame)), frame: frame)
+            },
             rowMenu: self.rowMenu,
             selectedVisible: self.rowMenu == nil
                 ? []
@@ -213,6 +245,56 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     private let onActivate: ((ID) -> Void)?
     private let content: (Data.Element) -> RowContent
     private var rowMenu: ((Set<ID>) -> AnyView)?
+    private var search: TreeSearchSpec<Data.Element>?
+}
+
+struct TreeSearchSpec<Element> {
+    let query: String
+    let text: (Element) -> String
+}
+
+// MARK: - 搜索过滤 / Search filter
+
+public extension Tree {
+    /// 按搜索词过滤行：留下文案命中的节点、它们的祖先与后代，并**临时**展开到每个命中。
+    ///
+    /// 匹配规则：`query` 去首尾空白后，在 `text` 给出的文案里做不区分大小写 / 变音符 / 全半角的子串匹配；
+    /// 去空白后为空即不在搜索，树与不调用本方法时相同。搜索期间的展开 / 折叠只作用于本次搜索，
+    /// 不写 `expanded` 绑定；清空搜索词即丢弃这些临时展开，按调用方当前的 `expanded` 显示。
+    /// 键盘、全选、右键菜单与焦点只作用于过滤后的可见行。父行复选框的三态仍按它**全部**叶后代显示，
+    /// 点击只勾选 / 取消被过滤留下的叶后代（含因折叠未显示的）。无命中时不显示任何行，由调用方显示空态；
+    /// 命中数用 `Tree.searchMatches(_:id:children:query:text:)` 求。命中片段的高亮用 `Text(verbatim:highlighting:)`
+    /// 画在行内容里。直接在 `Tree` 上调用，放在其它 modifier 之前。
+    ///
+    /// - Parameters:
+    ///   - query: 当前搜索词，由调用方持有。
+    ///   - text: 从元素取用于匹配的文案。
+    /// - Returns: 带搜索过滤的同一棵树。
+    func searchFilter(_ query: String, text: @escaping (Data.Element) -> String) -> Tree {
+        var tree = self
+        tree.search = TreeSearchSpec(query: query, text: text)
+        return tree
+    }
+
+    /// 求搜索词**直接命中**的节点 ID（不含只因是命中的祖先 / 后代而留下的节点），与 `searchFilter(_:text:)`
+    /// 同一个实现，供调用方算命中数、显示空态或播报结果数。搜索词去首尾空白后为空时返回空集。
+    ///
+    /// - Parameters:
+    ///   - data: 根节点集合。
+    ///   - id: 从元素取稳定 ID 的 key path。
+    ///   - children: 从元素取子节点的 key path。
+    ///   - query: 当前搜索词。
+    ///   - text: 从元素取用于匹配的文案，与传给 `searchFilter(_:text:)` 的相同。
+    /// - Returns: 文案命中的节点 ID 集合。
+    nonisolated static func searchMatches(
+        _ data: Data,
+        id: KeyPath<Data.Element, ID>,
+        children: KeyPath<Data.Element, Data?>,
+        query: String,
+        text: (Data.Element) -> String
+    ) -> Set<ID> {
+        TreeSearch.result(data, id: id, children: children, query: query, text: text).matches
+    }
 }
 
 // MARK: - 整行右键菜单 / Row context menu
@@ -290,6 +372,26 @@ public extension Tree where RowContent == EmptyView {
     ) -> Set<ID> {
         TreeFlatten.expandedIDs(data, id: id, children: children, toDepth: depth)
     }
+
+    /// 同 `searchMatches(_:id:children:query:text:)`，但不必写出无关的行内容泛型：
+    /// `Tree.searchMatches(roots, id: \.id, children: \.children, query: query, text: \.name).count`。
+    ///
+    /// - Parameters:
+    ///   - data: 根节点集合。
+    ///   - id: 从元素取稳定 ID 的 key path。
+    ///   - children: 从元素取子节点的 key path。
+    ///   - query: 当前搜索词。
+    ///   - text: 从元素取用于匹配的文案。
+    /// - Returns: 文案命中的节点 ID 集合。
+    nonisolated static func searchMatches(
+        _ data: Data,
+        id: KeyPath<Data.Element, ID>,
+        children: KeyPath<Data.Element, Data?>,
+        query: String,
+        text: (Data.Element) -> String
+    ) -> Set<ID> {
+        TreeSearch.result(data, id: id, children: children, query: query, text: text).matches
+    }
 }
 
 // MARK: - 行上下文 / Row context
@@ -298,6 +400,7 @@ struct TreeContext<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     let id: KeyPath<Data.Element, ID>
     let children: KeyPath<Data.Element, Data?>
     let expanded: Set<ID>
+    let included: Set<ID>?
     let selection: Set<ID>
     let checked: Binding<Set<ID>>?
     let focus: ID?
@@ -412,8 +515,23 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         let leaves = TreeFlatten.descendantLeafIDs(
             of: self.element, id: self.context.id, children: self.context.children
         )
+        guard let hint = TreeRowAccessibility.checkBoxHintKey(
+            hasChildren: self.hasChildren, isSearching: self.context.included != nil
+        ) else {
+            return TreeRowCheckBox(
+                sources: leaves.map { self.context.checkState(of: $0, in: checked) },
+                hint: nil,
+                metrics: self.context.metrics
+            )
+        }
+        let retained = TreeFlatten.descendantLeafIDs(
+            of: self.element, id: self.context.id, children: self.context.children, within: self.context.included
+        )
         return TreeRowCheckBox(
-            sources: leaves.map { self.context.checkState(of: $0, in: checked) },
+            sources: TreeCheckBindings.scoped(
+                display: leaves, scope: retained, in: checked, onWrite: self.context.notePointerCheck
+            ),
+            hint: hint,
             metrics: self.context.metrics
         )
     }
@@ -455,10 +573,12 @@ struct TreeDeferredMenu<ID: Hashable>: View {
 
 struct TreeRowCheckBox: View {
     private let sources: [Binding<Bool>]
+    private let hint: String?
     let metrics: TreeRowMetrics
 
-    init(sources: [Binding<Bool>], metrics: TreeRowMetrics) {
+    init(sources: [Binding<Bool>], hint: String? = nil, metrics: TreeRowMetrics) {
         self.sources = sources
+        self.hint = hint
         self.metrics = metrics
     }
 
@@ -468,10 +588,38 @@ struct TreeRowCheckBox: View {
         }
         .toggleStyle(CheckBoxToggleStyle())
         .labelsHidden()
+        .accessibilityHint(Text(LocalizedStringKey(self.hint ?? ""), bundle: .module), isEnabled: self.hint != nil)
         .environment(
             \.checkBoxLayout,
             CheckBoxLayout(glyph: self.metrics.checkBoxGlyph, minHeight: self.metrics.rowHeight)
         )
+    }
+}
+
+// MARK: - 搜索期间的父行复选框 / Parent check box under search
+
+enum TreeCheckBindings {
+    // 恰两路来源让系统派生 off / mixed / on。动作只挂一路（两路都挂则一次点击翻转两次），且挂在「全勾」那一路：
+    // 系统把 mixed 点成 on 时，三种态下写入的新值都与它的现值相反，即使系统只写值有变化的来源也写得到它。
+    static func scoped<ID: Hashable>(
+        display leaves: [ID],
+        scope retained: [ID],
+        in checked: Binding<Set<ID>>,
+        onWrite: @escaping () -> Void
+    ) -> [Binding<Bool>] {
+        [
+            Binding(
+                get: { TreeChecking.indicatorSources(ofLeaves: leaves, in: checked.wrappedValue)[0] },
+                set: { _ in }
+            ),
+            Binding(
+                get: { TreeChecking.indicatorSources(ofLeaves: leaves, in: checked.wrappedValue)[1] },
+                set: { _ in
+                    onWrite()
+                    checked.wrappedValue = TreeChecking.toggling(scope: retained, in: checked.wrappedValue)
+                }
+            ),
+        ]
     }
 }
 

@@ -748,7 +748,7 @@ func consumeTagGroup(selection: Binding<Set<String>>) -> some View {
     }
 }
 
-// MARK: - Tree（Issue #422 / #429）
+// MARK: - Tree（Issue #422 / #429 / #423）
 // `.treeStyle` 只以 `.treeStyle(.navigator)` 形态调用：别写 `TreeStyle.navigator` 或把它存成属性——
 // 那两种写法在 `TreeStyle` 将来升协议时编译不过（#429 spec §2.1）。
 
@@ -791,6 +791,20 @@ func consumeTree(
             Button("Delete \(targets.count)") { selection.wrappedValue.subtract(targets) }
         }
         .treeStyle(.navigator)
+        Tree(
+            roots,
+            children: \.children,
+            expanded: expanded,
+            selection: selection
+        ) { node in
+            Text(verbatim: node.id, highlighting: "lea")
+        }
+        .searchFilter("lea", text: \.id)
+        .rowContextMenu { (targets: Set<String>) in
+            Button("Open \(targets.count)") {}
+        }
+        Rectangle().fill(Color.searchMatchBackground)
+        Rectangle().fill(Color.systemYellow)
     }
     .treeStyle(.automatic)
 }

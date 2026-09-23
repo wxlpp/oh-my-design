@@ -32,8 +32,13 @@
 | `TreeStyle`（`#429`） | `Tree` 的行外观预设，**封闭配置**（`public struct`，无公开 init / 属性 / `Equatable`）：`nonisolated` 静态成员 `.automatic`（默认）/ `.navigator`（整行选中、悬停、缩进参考线、中性色 chevron） |
 | `View.treeStyle(_:)`（`#429`） | 为子树中的所有 `Tree` 设置行外观。**只写 `.treeStyle(.navigator)` 形态**；不要写 `TreeStyle.navigator`、不要把 `TreeStyle` 存成属性——将来升协议时这两种写法编译不过 |
 | `Tree.rowContextMenu(_:)`（`#429`） | builder 方法，为整行（含缩进区）挂右键菜单，返回改了这一项的同一棵树；`Tree` 仍是三个泛型参数。菜单以目标 ID 集合生成：右键的行已选中时为「选中 ∩ 当前可见行」，否则只是这一行。不调用时不挂菜单 |
+| `Tree.searchFilter(_:text:)`（`#423`） | builder 方法，按调用方持有的搜索词过滤行：留下命中 ∪ 祖先 ∪ 后代，临时展开到每个命中；搜索期间的展开 / 折叠不写 `expanded`，搜索词为空（去首尾空白后）即恢复。匹配规则固定：不区分大小写 / 变音符 / 全半角的子串 |
+| `Tree.searchMatches(_:id:children:query:text:)`（`#423`） | `nonisolated` 静态函数，返回搜索词**直接命中**的节点 ID，与 `searchFilter` 同一实现；供宿主算命中数、显示空态、播报结果数。`where RowContent == EmptyView` 上另有免写行内容泛型的同名重载（与 `expandedIDs` 同形） |
+| `Text.init(verbatim:highlighting:)`（`#423`） | 以原文显示并高亮与搜索词匹配的片段（加粗 + `searchMatchBackground` 底色），与 `searchFilter` 同一条匹配规则；仅当传入相同的搜索词与文案时片段与过滤一致 |
+| `Color.searchMatchBackground` / `Color.systemYellow`（`#423`） | 搜索命中底色（第 3 层，系统黄 × 0.35，暗色 × 0.20）与它的第 2 层来源（桥接 `UIColor` / `NSColor.systemYellow`） |
 
 模块 `Localizable.strings` 新增两个 key：`"Expand"` / `"Collapse"`（chevron 的无障碍标签，说的是动作）。
+`#423` 再加一个：`"Applies to filtered results only"`（搜索期间父行复选框的无障碍提示）。
 `"Expanded"` / `"Collapsed"` 此前已由 `CoreDisclosureGroupStyle` 登记，本次复用。
 
 **下游要改什么：通常不用改。** 唯一可能碰到的是**类型名歧义**：下游自己的模块（或它依赖的另一个库）
@@ -60,7 +65,14 @@ iOS 的无障碍树有四处变化（iOS `axe describe-ui` 前后对照，详见
 其余元素的类型、label、value、位置不变（同为 iOS 读数）。**下游要改什么：不用改**（公开 API 不变）；依赖「整棵树的行都在无障碍树里」
 的 UI 测试需先把目标行滚进视口。
 
-行为契约（两套独立状态、键盘表、Reduce Motion 取值、已知缺口 `#427` / `#428`）见
+**新增行为（`#423`）：搜索过滤。** 只在调用了 `searchFilter(_:text:)` 且搜索词非空时生效，其余情况与此前相同。
+搜索期间键盘、`Cmd/Ctrl+A`、右键菜单与焦点只作用于可见行；**父行复选框的三态仍按全部叶后代显示，点击只勾选 / 取消
+被过滤保留的叶后代**（按「保留的叶子是否全勾」翻转，范围外的勾选值不变；不搜索时仍级联全部叶后代）。无结果时不画任何行、
+不显示空态（宿主用 `searchMatches` 判空）。**下游要改什么：不用改。** 可能碰到的是**名字歧义**：下游若自己给 `Color` 扩展了
+`systemYellow` / `searchMatchBackground`，或给 `Text` 扩展了同签名的 `init(verbatim:highlighting:)`，会报重复声明或歧义，
+改名或用模块限定即可。
+
+行为契约（两套独立状态、键盘表、Reduce Motion 取值、搜索过滤、已知缺口 `#427` / `#428`）见
 [tree.md](components/tree.md)。
 
 ## 未发布（相对 `v0.11.0`）——Issue #421：CheckBox 增读系统 mixed 态

@@ -6,7 +6,23 @@ nonisolated struct TreeInteractionState<ID: Hashable>: Equatable {
     var focus: ID?
     var lastInteraction: TreeInteraction
     var selection: Set<ID>
-    var expanded: Set<ID>
+    var expansion: TreeExpansionState<ID>
+
+    var expanded: Set<ID> { self.expansion.effective }
+
+    init(focus: ID?, lastInteraction: TreeInteraction, selection: Set<ID>, expansion: TreeExpansionState<ID>) {
+        self.focus = focus
+        self.lastInteraction = lastInteraction
+        self.selection = selection
+        self.expansion = expansion
+    }
+
+    init(focus: ID?, lastInteraction: TreeInteraction, selection: Set<ID>, expanded: Set<ID>) {
+        self.init(
+            focus: focus, lastInteraction: lastInteraction, selection: selection,
+            expansion: TreeExpansionState(persisted: expanded)
+        )
+    }
 }
 
 nonisolated struct TreeInteractionOutcome<ID: Hashable>: Equatable {
@@ -34,7 +50,8 @@ nonisolated enum TreeInteractionReducer {
         guard let focused = TreeFocusing.effective(
             state.focus, visibleRows: rows, selection: state.selection, ancestors: ancestors
         ) else {
-            return TreeInteractionOutcome(state: state, result: .ignored)
+            next.focus = nil
+            return TreeInteractionOutcome(state: next, result: .ignored)
         }
         next.focus = focused
         let action = TreeKeyboard.action(
@@ -56,10 +73,10 @@ nonisolated enum TreeInteractionReducer {
                 id, in: next.selection, rowIDs: rowIDs, treeIDs: treeIDs(), mode: mode
             )
         case .expand(let id):
-            next.expanded = Self.expansion(id, to: .expanded, in: next.expanded)
+            next.expansion.set(id, to: .expanded)
             expansionMotion = motion
         case .collapse(let id):
-            next.expanded = Self.expansion(id, to: .collapsed, in: next.expanded)
+            next.expansion.set(id, to: .collapsed)
             expansionMotion = motion
         case .toggleSelection(let id):
             next.selection = TreeSelection.toggled(
@@ -97,7 +114,7 @@ nonisolated enum TreeInteractionReducer {
     ) -> TreeInteractionOutcome<ID> {
         var next = state
         next.lastInteraction = .pointer
-        next.expanded = Self.expansion(id, to: target, in: state.expanded)
+        next.expansion.set(id, to: target)
         return TreeInteractionOutcome(state: next, result: .handled, expansionMotion: motion)
     }
 
@@ -132,19 +149,6 @@ nonisolated enum TreeInteractionReducer {
         }
         return next
     }
-
-    static func expansion<ID: Hashable>(
-        _ id: ID,
-        to target: TreeExpansionTarget,
-        in expanded: Set<ID>
-    ) -> Set<ID> {
-        var state = TreeExpansionState(persisted: expanded)
-        switch target {
-        case .expanded: state.expand(id)
-        case .collapsed: state.collapse(id)
-        }
-        return state.persisted
-    }
 }
 
 extension TreeInteractionOutcome {
@@ -160,6 +164,15 @@ extension TreeInteractionOutcome {
 nonisolated enum TreeExpansionTarget: Hashable, Sendable {
     case expanded
     case collapsed
+}
+
+extension TreeExpansionState {
+    nonisolated mutating func set(_ id: ID, to target: TreeExpansionTarget) {
+        switch target {
+        case .expanded: self.expand(id)
+        case .collapsed: self.collapse(id)
+        }
+    }
 }
 
 nonisolated enum TreeActivation: Hashable, Sendable {
