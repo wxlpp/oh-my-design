@@ -400,6 +400,15 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 
 - *enum* **`ButtonRoleStyleRole`**: `.primary`, `.secondary`, `.tertiary`, `.warning`, `.danger`
 
+### `Components/Button/StatefulButton.swift`
+
+- **`StatefulButton`** *<Label: View>: View* — 带 idle / loading / success / failure 四态视觉回执的动作按钮。
+- *enum* **`StatefulButtonState`** — 四态动作按钮的视觉态 / The four visual states of a stateful action button.  四态是**一个枚举**而不是四个 Bool：任意两态互斥，Bool 组合能表达出 `loading && success` 这类无意义状态。
+  - `.idle` — 静息：只画 label，无配件符号。
+  - `.loading` — 正在执行调用方的 action。
+  - `.success` — action 正常返回。
+  - `.failure` — action 抛出了非取消错误。
+
 ### `Components/Button/styles/CircularGlassButtonStyle.swift`
 
 - **`CircularGlassButtonStyle`** *: ButtonStyle* — 圆形玻璃浮按钮样式。
@@ -1049,9 +1058,9 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | controlsize | 5 | 5 |
 | motion | 4 | 4 |
 | colors | 122 | 122 |
-| components | 89 | 89 |
-| enums | 45 | 45 |
-| enumcases | 155 | 155 |
+| components | 90 | 90 |
+| enums | 46 | 46 |
+| enumcases | 159 | 159 |
 | protocols | 6 | 6 |
 | viewext | 46 | 46 |
 | styleext | 15 | 15 |
