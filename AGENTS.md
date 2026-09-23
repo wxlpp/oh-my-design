@@ -88,6 +88,8 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 
 新增带样式的组件时复用该形态，不要另立平行模式。
 
+⚠️ 刻意例外：`TreeStyle`（`#429`）是**封闭外观配置**（`public struct` + `.automatic` / `.navigator` 两个静态成员，无公开 init / 属性），不是协议——理由见 `docs/superpowers/specs/2026-09-23-tree-style-design.md` §2.1。除非按那里的兼容路径升级（modifier 改取 `treeStyle(_: any TreeStyle)`，**不是** `some TreeStyle`），勿改成协议。
+
 ### 系统控件 `.core` style 与分组容器（Phase 2 / `0.4.0`）
 
 - **`.core` style 的强调色必须走 `.tint` 通路**：`ProgressView` / `Label` / `DisclosureGroup` 各有一个 `.core` style（`Components/Style/`），**换皮不重造控件**；`makeBody` 中强调色一律经 `TintShapeStyle`（`.tint`）取，**不得写死 `Color.accent`**——否则调用方 `.tint(_:)` 对这些控件静默失效（FR-12）。`Toggle` / `TextField` 有意未提供 `.core` style（前者丢原生手势/haptic，后者 `_body` 私有无公开自定义入口）；设置行里的开关直接用系统 `Toggle` + `.tint`。
