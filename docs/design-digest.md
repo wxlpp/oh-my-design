@@ -438,7 +438,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 
 ### `Components/CheckBox/CheckBox.swift`
 
-- **`CheckBoxToggleStyle`** *: ToggleStyle* — 复选框样式 / CheckBox toggle style：把 SwiftUI `Toggle` 渲染为左侧方框 + 右侧 label 的复选框形态。
+- **`CheckBoxToggleStyle`** *: ToggleStyle* — 复选框样式 / CheckBox toggle style：把 SwiftUI `Toggle` 渲染为左侧方框 + 右侧 label 的复选框形态；勾选 / 未勾选之外，还读系统从 `Toggle(sources:isOn:)` 派生的 mixed 态并画出第三种符号。
 
 ### `Components/Form/Form.swift`
 

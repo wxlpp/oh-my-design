@@ -78,6 +78,10 @@ RadioGroup(
   且同样的写法会让 CheckBox 的勾被同色实心层吃掉（逐通道差到 191）
 - 无障碍：每个选项 `.accessibilityElement(children: .combine)` + `.accessibilityAddTraits(.isButton)`，选中项额外带 `.isSelected`；圆点图标本身纯装饰、`.accessibilityHidden(true)`，避免 SF Symbol 隐式 label（如 "circle"）混入朗读结果
 
+⚠️ **「成对」不等于状态集相同**：CheckBox 自 `#421` 起有**三**个指示符态（多了系统派生的
+mixed，`minus.square.fill`，见 `checkbox.md`），`RadioGroup` 只有选中 / 未选中两态——
+互斥单选没有「部分选中」可言。上面这几行说的是 token 与手法成对，不是态数成对。
+
 > **不响应 `.tint`**：与本仓库 Phase 2 的 `.core` style 系统控件（`ProgressView`/`Label`/`DisclosureGroup`，见 `docs/components/core-control-styles.md`）不同，`RadioGroup` 的选中态颜色**固定用 `Color.contentPrimary`**，不经 `TintShapeStyle`——调用方 `.tint(_:)` 对它不生效。这是与 `CheckBoxToggleStyle` 视觉配对的显式取舍（两者都不引入强调色语义），而非疏漏；需要强调色响应的场景应换用系统 `Picker`/`Toggle` + `.tint`。
 
 ## 校验态 / Field validation
