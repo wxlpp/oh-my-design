@@ -26,6 +26,13 @@
 | P2 | 「嵌套 `DisclosureGroup` + 逐行 leading padding」与「展平成单层 `ForEach`」在 `VStack(spacing: 2)` 下的位图 | **逐字节相同**（400×732，差异字节 0）——用的是仿照 `TreeRowView` 结构的代理视图，**不是真组件** |
 | P2b | 同一份展平内容 `VStack` vs `LazyVStack` | 尺寸相同；60 个字节不同，**最大逐通道偏差 1 LSB**，两次运行读数相同（文字抗锯齿层面） |
 | P3 | `.contextMenu { … }` 的 builder 闭包何时求值 | **随 body 立即求值**：5 行在 `ImageRenderer` 与 `NSHostingView` 下各调用 10 次（每行 2 次）；菜单项自身的 `body` 调用 0 次 |
+| C | 调用方写法在「今天的 struct」与「将来升协议」两种库版本下是否编译（见 §2.1 兼容表） | 见 §2.1；库与调用方都是独立模块（`swiftc -swift-version 6`，**未开** `defaultIsolation(MainActor)`） |
+
+C 组探针：库三版——v1 `public struct TreeStyle`（`nonisolated static var`、`treeStyle(_: TreeStyle)`）；
+v3 `public protocol TreeStyle { associatedtype Body: View; func makeBody(configuration:) -> Body }` +
+`where Self ==` 静态成员 + 泛型 `treeStyle<S: TreeStyle>(_: S)`；v4 同 v3 但 modifier 为非泛型
+`treeStyle(_: any TreeStyle)`。调用方四份（c1 `.treeStyle(.navigator)`、c2 `let s: TreeStyle = .navigator`、
+c3 `.treeStyle(TreeStyle.navigator)`、c4 `.treeStyle(flag ? .navigator : .automatic)`）分别对三版做 `-typecheck`。
 
 ## 1. 密度：读 `@Environment(\.controlSize)`
 
@@ -97,10 +104,14 @@
 
 1. `CheckBox` 已随 `v0.11.0` 发布。让它整体读 `controlSize` 是它自己的设计决定：iOS 上
    `height(for: .small)` = 32 < 44，需要它自己的触控下限裁决，还要登记 BREAKING / 行为变化、
-   复核 `CheckBoxMixedTests` 与 `FieldValidationControlsTests` 的全部判据——超出本 issue 射程。
+   复核 `CheckBoxMixedTests.swift` 的四个 suite（`CheckBoxIndicatorTests` / `CheckBoxMixedRenderTests` /
+   `CheckBoxMixedWriteBackTests` / `CheckBoxLegacyAppearanceTests`）与 `FieldValidationControlsAppearanceTests` /
+   `FieldControlFollowUpTests` 的 CheckBox 格——超出本 issue 射程。
 2. internal 环境值可逆：将来 `CheckBox` 若自己读 `controlSize`，Tree 的注入直接删掉。
 3. 三态（`#421` 的 mixed 态）不受影响：注入只改字形尺寸与最小高度，`CheckBoxIndicator.resolve`
-   与 `Toggle(sources:isOn:)` 的派生路径不动；`CheckBoxMixedTests` 在 PR 1 里照跑作回归。
+   与 `Toggle(sources:isOn:)` 的派生路径不动；上面那四个 CheckBox suite 在 PR 1 里照跑作回归。
+4. 注入点**只在 Tree 自己构造的那个 `Toggle` 上**（`.environment(\.checkBoxLayout, …)` 施在该 `Toggle`
+   本身），不施在行、不施在 `Tree` 容器——否则调用方放进行内容里的 `CheckBox` 也会被改尺寸。
 
 **另登记（不修）**：调用方行内容里若放了读 `controlSize` 的控件（例如按钮，`height(for: .small)` = 32），
 行会被内容撑高到 32。行高是**下限**不是上限，这是正确行为；`tree.md` 写明「密集档位的行内容宜用
@@ -143,17 +154,39 @@ public extension Tree {
 
 - 公约「多给扩展点不可逆」：公开协议一旦发出，第三方样式就依赖 configuration 的每个字段，收不回来。
 - 但「唯一外观」又回到 issue 动机里的问题——下游先拿到一个锁死的版本。
-- 封闭配置是**可逆的那一侧**：调用点 `.treeStyle(.navigator)` 与将来改成
-  `protocol TreeStyle` + `extension TreeStyle where Self == NavigatorTreeStyle { static var navigator }`
-  **在调用点源码兼容**（推断；PR 2 前置一个编译探针把它变成实测，见 plan）⇒ 以后开放协议是加法。
+- 封闭配置是**可逆的那一侧**：将来改成
+  `protocol TreeStyle { associatedtype Body: View; func makeBody(configuration:) -> Body }` +
+  `extension TreeStyle where Self == NavigatorTreeStyle { static var navigator }` 时，常见调用点源码兼容
+  ⇒ 以后开放协议是加法——**前提是 modifier 届时写成非泛型 `treeStyle(_ style: any TreeStyle)`**（下表）。
+
+**升协议兼容表**（§0 C 组探针，实测；macOS、独立模块、未开 `defaultIsolation(MainActor)`）：
+
+| 调用方写法 | 今天：struct（v1） | 升协议 + 泛型 `treeStyle<S: TreeStyle>(_: S)`（v3） | 升协议 + `treeStyle(_: any TreeStyle)`（v4） |
+|---|---|---|---|
+| `.treeStyle(.navigator)` | 通过 | 通过 | 通过 |
+| `.treeStyle(flag ? .navigator : .automatic)` | 通过 | **报错**：`static property 'automatic' requires the types 'NavigatorTreeStyle' and 'AutomaticTreeStyle' be equivalent` | 通过 |
+| `.treeStyle(TreeStyle.navigator)` | 通过 | **报错**：`static member 'navigator' cannot be used on protocol metatype '(any TreeStyle).Type'` | **报错**（同左） |
+| `let s: TreeStyle = .navigator` | 通过 | 通过，警告 `use of protocol 'TreeStyle' as a type must be written 'any TreeStyle'`（`ExistentialAny`，将来的语言模式下升为错误） | 同左 |
+
+⇒ **定案：将来升协议时 modifier 必须是 `treeStyle(_ style: any TreeStyle)`，不是本仓先例的
+`some XStyle`**（`bannerStyle(_ style: some BannerStyle)`、`segmentedControlStyle(_ style: some SegmentedControlStyle)`）。
+偏离理由：今天的 struct 形态下三元表达式 `flag ? .navigator : .automatic` 是合法写法，泛型参数要求两个分支
+推断成同一个具体类型，升级后这类调用点会编译失败；存在类型参数把两个分支都推到 `any TreeStyle`，保住它。
+代价：环境里存 `any TreeStyle`、行宿主要对存在类型开箱调用 `makeBody`（`AnyView` 擦除，见 §2.3 末段）——
+这份代价升协议时本来就要付，不是 `any` modifier 额外带来的。
+
+升级后**仍不**源码兼容的两种写法（上表实测）：显式 `TreeStyle.navigator`（协议元类型上取不到
+`where Self ==` 的静态成员，`any` modifier 也救不了）；把 `TreeStyle` 当具体类型存储（今天只是警告，
+将来的语言模式下是错误）。⇒ 文档注释与 `tree.md` 只示范 `.treeStyle(.navigator)`，并写明「不要写
+`TreeStyle.navigator`」。
 
 **为保住这条升级路径，公开面刻意收窄**：
 
 - 不给 `TreeStyle` 公开 init、公开属性、`Equatable` / `Hashable` 一致性——这些都是协议形态兑现不了的承诺。
-- `Sendable` 只在编译器要求时加（`@Entry` 默认值的隔离需要）；加了就登记为升级时要一并处理的一项。
-- 升协议后**不**源码兼容的用法（推断，同一编译探针核实）：把 `TreeStyle` 当具体类型存储
-  （`let s: TreeStyle = .navigator`，届时需 `some` / `any`）、显式写 `TreeStyle.navigator`
-  （协议元类型上取 `where Self ==` 的静态成员不成立）。文档注释与 `tree.md` 只示范 `.treeStyle(.navigator)`。
+- 隔离：上表的探针**没开** `defaultIsolation(MainActor)`；本仓三个 target 都开了。在本仓 target 里
+  `TreeStyle` 可能要写成 `nonisolated public struct` 并加 `Sendable`（`nonisolated` 静态成员返回它、
+  `@Entry` 默认值都可能要求）。以 PR 2 前置探针的编译器读数为准；加了 `Sendable` 就登记为升级时要一并
+  处理的一项（协议届时同样要 `Sendable` 约束，否则存在类型进不了环境）。
 - 静态成员一律 `nonisolated`（对齐 `SegmentedControlStyle` 的 `.glass` / `.plain` / `.ink`），
   不给 MainActor 棘轮添新豁免。
 
@@ -311,8 +344,10 @@ targets(for id, selection, visibleIDs) =
     selection.contains(id) ? selection ∩ visibleIDs : [id]
 ```
 
-- 纯函数 `TreeContextMenu.targets(for:selection:visibleIDs:) -> Set<ID>`。`visibleIDs` 是容器 body 里
-  **已经算好**的可见行 ID 集合（每次 body 建一次，所有行共用），**不遍历树**（P3 实测 builder 随 body
+- 纯函数 `TreeContextMenu.targets(for:selection:visibleIDs:) -> Set<ID>` 定义语义（判据对它写）。
+  视图侧**每次 body 预算一次** `selectedVisible = selection ∩ visibleIDs`（`visibleIDs` 取自容器 body 里
+  已经算好的可见行），所有行共用；行上只做 `selectedVisible.contains(id) ? selectedVisible : [id]`——
+  右键行必然可见，故与纯函数等价，且不逐行重做交集。**不遍历树**（P3 实测 builder 随 body
   逐行求值，这里若求整树 ID 就把惰性毁了）。
 - **不把其他树共享 selection 里的 ID 传出**：交集天然滤掉。
 - **被折叠隐藏的选中项不入目标**（对齐 Finder：折叠的文件夹里之前选中的项不参与右键操作）；文档注释写明。
@@ -385,8 +420,9 @@ LazyVStack(alignment: .leading, spacing: metrics.rowSpacing) {
 
 - 在 PR 4 里把**被本 PR 改动或删除**的渲染类型从 PR 4 的父提交原样拷进测试 target，改名 `Legacy422*`：
   至少 `TreeBranch` / `TreeNestedStyle` / `TreeDisclosureGroupStyle` / `TreeContext`（`TreeBranch` 依赖它，
-  必须连带拷贝）与当时的行宿主；PR 4 未改动的类型直接引用生产代码。拷贝范围以
-  `git diff --stat <父提交>..HEAD -- Sources/OhMyDesign/Components/Tree/` 列出的类型为准。
+  必须连带拷贝）与当时的行宿主；PR 4 未改动的类型直接引用生产代码。拷贝范围：先用
+  `git diff --stat <父提交>..HEAD -- Sources/OhMyDesign/Components/Tree/` 列出**被改动的文件**，再逐文件读
+  `git diff <父提交>..HEAD -- <文件>` 的 hunk，列出其中被改动或删除的**类型**（`--stat` 只到文件粒度，不列类型）。
 - 夹具矩阵：{全折叠, 展开到第 3 层} × {无选中, 选中一个第 3 层行} × {不传 `checked`, 父行 mixed} ×
   {焦点指示画在某行, 不画} × {`.automatic`, `.navigator`} × {light, dark} × {LTR, RTL}，`.regular`，新旧各渲一张。
 - 判据：**尺寸完全相同**，且**逐通道最大偏差 ≤ `noiseTolerance`（2）**（P2b）。权威腿是 iOS，macOS 辅证。
@@ -411,22 +447,36 @@ LazyVStack(alignment: .leading, spacing: metrics.rowSpacing) {
 ### 6.2 登记表：仍 prescriptive，不进 J-2
 
 - `docs/component-registry.json` 的 `Tree`：`kind` / `decidedBy` / `needsExtensionPoint` / 各协议字段
-  **不动**（`prescriptive` / `step3` / `false`）⇒ **不走修订回路**，不新增 `D-429-*` / `R-50`，
+  **不动**（`prescriptive` / `step3` / `false`）⇒ **不走修订回路**，不新增 `R-50`，
   `ComponentExtensionPointGuard` 的 `inspected.count == 16` 不动。
 - `notes` 追加一段（不改原有步骤 1–3 的走查），写明：
-  1. `TreeStyle` 是**封闭的外观配置**，不是扩展点：第三方不能新增外观，公开面只有两个静态成员与一个
-     modifier；参考线 / 悬停仍按 `#422` 步骤 2 归装饰。
-  2. **按公约《D2 的边界》核一次**：步骤 2 已枚举的候选能否被 `{.automatic, .navigator}` 一一覆盖——
-     Apple outline view（整行高亮，≈ `.navigator` 去掉参考线）、Material 嵌套 list（≈ `.automatic`）、
-     Fluent `TreeView` size（由 `controlSize` 承担）、Ant `blockNode` / `DirectoryTree`（≈ `.navigator`）、
-     VS Code Explorer（`.navigator`）可覆盖；**Ant `showLine` 肘线、Fluent `TreeView` appearance 三档、
-     reui 的 `data-*` 开放样式覆盖不了** ⇒ 按该条 D2 不成立 ⇒ 这正是 `TreeStyle` **不**登记为
-     `styleEnum` 扩展点的原因：它是本库自选的两种预设，不声称承载候选空间。
-  3. 将来若要让第三方扩展：`TreeStyle` 升为协议 + `where Self ==` 静态成员，调用点 `.treeStyle(.navigator)`
-     源码兼容；届时 `kind` / `decidedBy` 翻转走修订回路（公约《事后补写的效力边界》），J-2 计数 16 → 17。
+  1. **步骤 3 ⇒ 公约不要求扩展点**。`TreeStyle` 是规定性组件上的「**装饰预设**」——封闭配置，第三方不能
+     新增外观，公开面只有两个静态成员与一个 modifier——**不在公约 A–D 扩展点形态的射程内**
+     （A–D 讲的都是把定制权交给调用方的形态；封闭预设不交出任何定制权）。它是否仍应被公约当作扩展点
+     处置，公约没有成文，已登记 `docs/contract-defects.md` 的 `D-429-1` 待公约 owner 裁定。
+  2. **两种外观之间的差异逐项落档**。`#422` 步骤 2 的装饰档原文是「连线 / 选中块 / 尺寸 / 缩进引导线」：
+     整行选中 vs 圆角选中块 ⇒「选中块」；缩进参考线 ⇒「缩进引导线」；密度 ⇒「尺寸」（由 `controlSize`
+     承担）；chevron 着色 ⇒ 同一槽内的画法变化。**悬停高亮不在那份名单里**，不挂在 `#422` 名下，按公约
+     补充规则 1（「纯装饰层」指不承载状态 / 内容语义的层，判装饰须写明依据、自陈不足以定性）逐条论证：
+     · 它是背景层（补充规则 1 列举的「背景」）；
+     · 它不进任何绑定、不进无障碍树（无 trait / value）、不改变可见行 / 选中 / 焦点 / 展开任一状态；
+       去掉它，用户失去的只是「指针在哪一行」的冗余反馈——指针自身已经给出这一信息；
+     · **但**它随「指针在本行」这一交互状态变化而变化——补充规则 1 的反例（`SidebarStatusFooter` 的状态圆点，
+       颜色即状态）判的是**承载**组件状态的层，悬停承载的是指针位置这一**宿主输入**状态，公约没有区分这两者。
+     ⇒ **如实写明：论证落在灰区**，倾向「装饰」的理由是前两点；这一问并入 `D-429-1` 一起待裁。
+  3. 将来若要让第三方扩展：`TreeStyle` 升为协议 + `where Self ==` 静态成员，modifier 改为
+     `treeStyle(_: any TreeStyle)`（§2.1 兼容表）；届时 `kind` / `decidedBy` 翻转走修订回路
+     （公约《事后补写的效力边界》），J-2 计数 16 → 17。
 - `docs/components/tree.md`「判定法」一节同步上述三点。
+- `docs/contract-defects.md` 按既有条目格式（「撞上公约哪一条 / 撞法 / 判据侧现状 / 本轮处置」）新增
+  `## #429` 与 `### D-429-1：规定性组件的装饰预设（封闭外观配置）是否属扩展点`，首例 `TreeStyle`，
+  连同第 2 点的悬停灰区，**待公约 owner 裁定**，本 issue 不改判。
+- 仓库根 `CLAUDE.md`《组件 style 协议》节补一句：`TreeStyle` 是刻意的封闭配置例外（非协议），理由见本 spec
+  §2.1；除非按那里的兼容路径（`any TreeStyle` modifier）升级，否则勿改成协议。
+- 以上三处文档（registry `notes`、`contract-defects.md`、`CLAUDE.md`）**都落在 PR 2**，与 `TreeStyle` 同 PR。
 - `QuotedEvidenceGuard`：registry notes 逐字引用的 `content.disclosureGroupStyle(TreeDisclosureGroupStyle())`
-  在 PR 4 删除 → 该条登记与 notes 里那句原文**同 PR 改写**（否则判红）；其余四条引文所在的
+  在 PR 1–3 **保持原样**（PR 1 的行间距由 `TreeDisclosureGroupStyle` 在自己的 body 里读 `controlSize` 推出，
+  不给它加构造参数，那句引文不变），在 PR 4 删除 → 该条登记与 notes 里那句原文**同 PR 改写**（否则判红）；其余四条引文所在的
   `TreeCore.swift` / `TreeInteraction.swift` 片段若被 PR 1–4 改到，同样同 PR 同步。
 - 「更正传播」三处：源码文档注释、`tree.md`（「外观」改为推导表 + 两个内置外观；新增「外观配置」「右键菜单」
   两节；「判定法」追加上面三点）、registry `notes`。改完 grep「CoreSpacing.md」「height(for: .regular)」
@@ -468,7 +518,10 @@ LazyVStack(alignment: .leading, spacing: metrics.rowSpacing) {
 | 父行（有 chevron）渲染行距 = `metrics.rowHeight` | **macOS** | 两层树折叠态，`.small` 下等于 22 |
 | 渲染缩进 = `metrics.indentation` | 双腿 | 两层树、行内容是纯色块：量父子两行色块左缘的列差（位图），`.small` 与 `.regular` 各一次 |
 | iOS 触控目标 | **iOS** | `TouchTargetTests` 的 Tree 两条改成对 `ControlSize.allCases` 参数化：行高、chevron 槽高都 ≥ 44；加一条带复选框的行 |
-| `CheckBox` 公开行为不变 | 双腿 | 既有 `CheckBoxMixedTests` 全绿；新增：未注入时 `CheckBox` 渲染尺寸与注入 `nil` 相同 |
+| `CheckBox` 公开行为不变 | 双腿 | 不另写判据，靠既有的逐像素对照：`CheckBoxLegacyAppearanceTests.matchesLegacy`（与 `ce20fad` 原样拷贝的旧样式逐像素相等）与 `FieldValidationControlsAppearanceTests` 的 CheckBox 格（与测试内的 `LegacyCheckBoxToggleStyle` 对照）；另三个 CheckBox suite 照跑 |
+
+「未注入 = 注入 `nil`」这类判据**不写**：两边走的是同一个 `nil` 分支，恒真。上面两条对照的参照物是写死
+`.regular` 的旧实现拷贝，能打红 `nil` 分支的取值漂移（见下面第 5 条变异）。
 
 计划中的变异：
 
@@ -476,17 +529,24 @@ LazyVStack(alignment: .leading, spacing: metrics.rowSpacing) {
 - **忘了给 Tree 的复选框注入布局**（`CheckBoxBody` 读了环境值，但 Tree 没注入）——预期带复选框行距判据红。
 - **平台下限写反**（`#if os(macOS)` 施 44）——预期 iOS 触控目标判据红、macOS 行距判据红。
 - **缩进从错误来源取**（行宿主里写 `CoreSpacing.md`）——预期 `.small` 缩进位图判据红。
+- **`CheckBoxBody` 的 `nil` 分支取错档**（缺省分支写成 `iconSize(for: .small)`，「顺手统一成 Tree 的密集档」）——
+  预期 `CheckBoxLegacyAppearanceTests.matchesLegacy` 与 `FieldValidationControlsAppearanceTests` 的 CheckBox 格红。
 
 ### 7.2 `.automatic` 像素一致（PR 2）
 
 PR 2 把行修饰链搬进 `AutomaticTreeRow`、把 `contentShape` 挪到外层。`.regular` 下既有 `TreeRenderTests`
-的位图判据须全绿；另加一格「选中行 + 第 3 层」与 PR 1 合入态逐像素对照（同一 PR 内先渲存基准再改，
-不入库）。变异：选中块圆角换 `CoreRadius.medium`；把 `.padding(.leading)` 挪到背景之前（选中块铺进缩进区）。
+的位图判据须全绿；另加一格「选中行 + 第 3 层」与 PR 1 合入态逐像素对照。基准**不存 scratch**：照
+`CheckBoxLegacyAppearanceTests` 的做法，在 PR 2 内把 PR 1 合入态的行实现（`TreeRowView` 及其依赖）原样拷进
+测试 target、改名作参照，新旧同进程各渲一张比；PR 2 最后一个 commit 删除拷贝（读数进 PR 正文）。
+变异：选中块圆角换 `CoreRadius.medium`；把 `.padding(.leading)` 挪到背景之前（选中块铺进缩进区）。
 
 ### 7.3 两种外观下行为一致（PR 2）
 
-1. `TreeHostedWiringTests`（macOS 托管窗口 + 合成事件）的既有判据对 `[.automatic, .navigator]` 参数化：
-   按键写回宿主绑定、点 chevron 展开、点复选框勾选、点行选中——两种外观下绑定终态逐项相等。
+1. `TreeHostedWiringTests`（macOS 托管窗口 + 合成事件）：既有判据**只有两条**——
+   `expansionTransactionsFollowTheEnvironment`（点 chevron / 按 `←` 的展开事务曲线）与
+   `keysWriteTheReducedStateBack`（`↓` + `Space` 写回选中）；这两条对 `[.automatic, .navigator]` 参数化。
+   **新增**两条判据（同样参数化）：点复选框勾选、点行选中。`TreeHostedHarness` 今天不传 `checked`，
+   要加一个 `@State checked` 绑定与对应的 `TreeHostedLog` 字段。两种外观下绑定终态逐项相等。
    点击坐标由 `metrics` 推出（chevron 中心 = `xs + (level-1) × indentation + disclosureWidth / 2`）；
    外观若把 chevron 放错位置，点击落空、判据红——这是真实的检查，不是自证。
 2. 新增一格：点**缩进区**选中该行（§6.1 第 2 条的行为变化），两种外观都要成立。
@@ -505,18 +565,21 @@ PR 2 把行修饰链搬进 `AutomaticTreeRow`、把 `contentShape` 挪到外层�
 |---|---|
 | `.navigator` 悬停 / 未悬停两张图不同；选中 + 悬停 与 仅选中 相同 | 位图（直接构造 `NavigatorTreeRow` 喂 `isHovered`） |
 | **悬停切换不带动画（整行层）** | macOS 托管窗口：宿主 `@State` 翻转传给 `NavigatorTreeRow` 的 `isHovered`，行 `label` 里放 `.transaction { log($0.animation) }` 探针；三档 `MotionPresentation` 下翻转时 `animation == nil` |
-| **悬停切换不带动画（源码层）** | SwiftSyntax 判据：Tree 源码目录内，任何 `animation(_:value:)` / `.coreAnimation(_:value:)` 调用的 `value:` 实参不得引用 `isHovered`；`withAnimation` / `withTransaction` 不得出现在 `.onHover` 闭包内 |
+| **悬停切换不带动画（源码层）** | SwiftSyntax 判据：`NavigatorTreeRow`（以实现时的实际类型名为准）与行宿主类型内**不得出现任何** `animation(` / `coreAnimation(` / `withAnimation` 调用——不做「`value:` 是否引用 `isHovered`」的数据流分析（写成 `value: hovered` 的局部别名就能绕过）。`.navigator` 的外观本来没有任何补间，禁令不误伤；chevron 旋转在 `TreeDisclosureControl` 里，不在这两个类型内 |
 | 悬停状态在行级 | 源码判据：`Tree` 容器结构体内无含 `hover` 的存储属性；`.onHover` 只出现在行宿主类型内 |
-| 悬停不重算整棵树 | macOS 托管窗口：`content` 闭包调用计数——翻转一行的悬停，只有该行的 `content` 被再次调用（其余行计数不变） |
-| `onHover` 真的接到状态 | **不在 CI**：托管窗口不是 key window，合成 `mouseMoved` 能否触发 tracking area 未验证 ⇒ 先试，失败则登记为真 HID 探针项 |
+| 悬停不重算整棵树 | macOS 托管窗口：`content` 闭包调用计数——翻转一行的悬停，只有该行的 `content` 被再次调用（其余行计数不变）。**依赖合成悬停可行**（下一行）；不可行则本条降级为真 HID 登记项 |
+| `onHover` 真的接到状态 | 先试托管窗口合成 `mouseMoved` / `mouseEntered`（托管窗口不是 key window，能否触发 tracking area 未验证）。**不可行 ⇒ 不写这条判据**，登记为真 HID 探针项（写进 `tree.md`「不在 CI」清单），并在 PR 正文写明合成的读数 |
 
 变异（均为真实会犯的错，不照判据形状）：
 
 - 在 `NavigatorTreeRow` 的整行背景上加 `.animation(CoreMotionToken.selection.animation(for: presentation), value: isHovered)`
   （「给悬停加个淡入」，且走了 token，能过 `CoreMotionTokenDisciplineGuard`）——预期源码层判据红；
   若加在包住 `label` 的层上，整行层判据也红。
+- 同一句改写成局部别名 `let hovered = isHovered` + `.animation(…, value: hovered)`——预期源码层判据仍红（按名禁调用，不看实参）。
 - 把 `.onHover` 的写入包进 `withAnimation(CoreMotionToken.selection.animation(...))`——预期源码层判据红。
-- 把悬停状态上提成容器 `@State hoveredID`——预期「状态在行级」与「不重算整棵树」两条红。
+- 把悬停状态上提成容器 `@State hoveredID`——预期「状态在行级」源码判据红。**覆盖面如实写**：「不重算整棵树」
+  那条只在合成悬停可行时存在；不可行时，这个变异只有源码判据一道网，而源码判据按名字（`hover`）匹配存储属性——
+  换个名字（`@State pointerRow`）就漏。这一层缺口登记在 `tree.md`「不在 CI」清单。
 
 Reduce Motion 台账：Tree 仍登记 `gated`；chevron 旋转、展开曲线两个调用点不变；悬停无动效调用点。
 
@@ -537,22 +600,26 @@ Reduce Motion 台账：Tree 仍登记 `gated`；chevron 旋转、展开曲线两
 | 判据 | 形式 |
 |---|---|
 | 目标集合 | 纯函数 `targets(for:selection:visibleIDs:)`：右键行在选中集里 → 选中 ∩ 可见；不在 → 单元素；selection 含树外 ID → 不传出；selection 含被折叠隐藏的本树 ID → 不传出 |
-| 接线 | 渲染时捕获 builder 的实参（P3 实测 builder 随 body 求值）：每个已构建行各收到一次正确的目标集合 |
-| 未设置不挂菜单 | 不调 `rowContextMenu` 时 builder 捕获计数为 0，且 `Tree.Body` 类型串不含 `ContextMenu`（或等价的结构探针，实现期定） |
+| 接线 | 渲染时捕获 builder 的实参（P3 实测 builder 随 body 求值）：每个已构建行**收到的目标集合都正确**、每行调用次数 **≥ 1**（P3 实测每行 2 次，次数是 SwiftUI 的实现细节，不钉死） |
+| 未设置不挂菜单 | **运行时探针**：macOS 托管窗口里对行所在点取 `NSView.menu(for:)`（合成右键事件），或读该行 AX 元素的动作列表是否含 `AXShowMenu`；未设置时应无菜单 / 无该动作。⚠️ **实现前先验证探针可区分**：对「正确实现」与「无条件挂空 `.contextMenu`」这两份代码各跑一次，读数不同才采用；读数相同 ⇒ 换探针或登记为真 HID 项，不写一条恒绿的判据 |
 | 不遍历树 | 沿用 `TreeLazinessTests` 的 `children` 读取计数：带菜单渲染时折叠子树读取次数仍为 0 |
 | 右键不改状态 | 纯函数层无状态写入；视图层登记为真 HID 项 |
 
 变异：目标集合写成 `selection.union([id])`（右键未选中行时把它并进旧选中集）——预期目标集合判据红；
-目标集合直接用 `selection` 不求交（「对齐 `contextMenu(forSelectionType:)`」的上一稿写法）——预期
-「树外 ID / 折叠隐藏 ID 不传出」红；用 `treeIDs` 求交代替可见集——预期惰性判据红。
+目标集合直接用 `selection` 不求交（「对齐 `contextMenu(forSelectionType:)`」的写法）——预期
+「树外 ID / 折叠隐藏 ID 不传出」红；用 `treeIDs` 求交代替可见集——预期惰性判据红；行宿主无条件挂
+`.contextMenu { rowMenu?(targets) }`——预期「未设置不挂菜单」的运行时探针红（前提是该探针已通过可区分性验证）。
 
 ### 7.7 展平 + `LazyVStack`（PR 4）
 
 - 构建计数：`ScrollView` 300pt 视口、200 个子节点的展开父节点，构建的行数 < 20（P2 实测 7）。
+- 行身份：macOS 托管窗口里每行 `onAppear` 记下自己的 ID；展开一个中间的父节点后，新出现的 ID 集合恰为被插入的
+  子行。`ForEach` 若按下标取 id，已有行的身份随下标平移，新出现的是尾部下标上的行 ⇒ 集合不同。
+  （`ImageRenderer` 下每次都是全新构建，身份错位画不出差别，所以这条必须在托管窗口里做。）
 - §5.6 的一次性 `Legacy422` 位图闸门。
 - §5.4 的 iOS `axe describe-ui` 前置对照。
 - 变异：容器换回 `VStack`——预期构建计数红；保留 `LazyVStack` 但恢复根层 `DisclosureGroup` 嵌套——预期红
-  （P2 实测 201）；展平改成层序遍历——预期 `Legacy422` 闸门红、键盘判据红。
+  （P2 实测 201）；展平改成层序遍历——预期 `Legacy422` 闸门红、键盘判据红；`ForEach` 按下标取 id——预期行身份判据红。
 
 ### 7.8 强制检查
 
@@ -673,8 +740,8 @@ iOS 上：同一份代码行距 44（§1.3），其余一致。
    改判论证可被反驳为「与缩进冗余编码」，且公开协议不可逆。封闭配置先交付两种外观，升协议保留为加法（§2.1）。
 3. **`rowStyle:` 闭包（外观槽，形态 D1）**。差异分布在多处（选中底色铺设范围、缩进区参考线、焦点指示、
    chevron 着色、缩进由谁施加），一个槽装不下；且槽是逐实例参数，不能像 `.treeStyle(_:)` 那样对整个子树生效。
-4. **公开 `styleEnum`（形态 D2）并登记为扩展点**。按《D2 的边界》，已枚举候选里 `showLine` / Fluent appearance /
-   reui 覆盖不了 ⇒ D2 不成立。本 spec 的封闭配置**不声称**是扩展点，正是为了不与这条冲突（§6.2）。
+4. **公开枚举（形态 D2）并登记为扩展点**。登记为扩展点就要把 `Tree` 从步骤 3 改判、走修订回路，
+   与第 2 条是同一个问题；本 spec 的封闭配置**不声称**是扩展点，它是否仍须按扩展点处置交 `D-429-1` 裁（§6.2）。
 5. **系统 `List` / `OutlineGroup` + `.listStyle`**。`ListStyle` 没有公开 `makeBody`；`OutlineGroup` 的 8 个
    public init 无一带展开态；`List(selection:)` 在 iOS 26 上给 0 键盘、不能嵌进 `ScrollView`（`#419` spike）。
 6. **第 4 个泛型 `MenuItems` + `contextMenu:` init 参数**。要么 init 翻倍、要么 `expandedIDs` 免泛型重载的约束
@@ -689,7 +756,7 @@ iOS 上：同一份代码行距 44（§1.3），其余一致。
 | # | 定案 |
 |---|---|
 | D1 | 展平 + `LazyVStack`，单独成最后一个 PR（PR 4），含 `Legacy422` 一次性闸门与 iOS `axe` 前置实验 |
-| D2 | 封闭配置 `struct TreeStyle`（`.automatic` / `.navigator`），非协议；registry 不改判、J-2 仍 16 |
+| D2 | 封闭配置 `struct TreeStyle`（`.automatic` / `.navigator`），非协议；registry 不改判、J-2 仍 16；「装饰预设是否属扩展点」登记 `D-429-1` 待公约 owner 裁定；将来升协议时 modifier 取 `any TreeStyle` |
 | D3 | iOS 各档行距保底 44 |
 | D4 | `.automatic` 跟随 `controlSize`；macOS `.regular` 仍 44，不做平台分叉 |
 | D5 | 「单击文件夹行即展开」不进本 issue，另开 issue（编排者开） |
@@ -700,7 +767,9 @@ iOS 上：同一份代码行距 44（§1.3），其余一致。
 - **R1** 展平后无障碍树结构可能变化——PR 4 前置 `axe describe-ui` 对照（§5.4）。
 - **R2** `LazyVStack` 的插入 / 删除动画在展开折叠时的在飞帧质量未测；静态终态有判据，在飞帧只能人工看。
 - **R3** 行内容里读 `controlSize` 的控件会把密集行撑高（§1.4 末段），只能靠文档。
-- **R4** 升协议的源码兼容性目前是推断——PR 2 前置编译探针；若探针否定，回到本 spec 重议 D2，不带着错误前提实现。
+- **R4** 升协议的源码兼容性已在独立模块上实测（§2.1 兼容表），但**未在开了 `defaultIsolation(MainActor)` 的本仓
+  target 里测**——PR 2 前置探针补这一格；若 `.treeStyle(.navigator)` 或三元写法在 `any TreeStyle` 版本下不过，
+  回到本 spec 重议 D2，不带着错误前提实现。
 - **R5** `onHover` 的接线（尤其 iPadOS 指针）不在 CI；合成 `mouseMoved` 在非 key 托管窗口是否触发未知。
 - **R6** 右键菜单 builder 随 body 逐行求值（P3 实测）——调用方在闭包里做重活会拖慢滚动；只能靠文档。
 - **R7** `#423`（搜索高亮）改同一批文件，且要往行里加命中高亮；本 issue 的行宿主重构后 `#423` 需要 rebase，
