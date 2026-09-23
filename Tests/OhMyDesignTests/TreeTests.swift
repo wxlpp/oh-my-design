@@ -585,47 +585,6 @@ struct TreeKeyboardTests {
     }
 }
 
-// MARK: - 递归逐层重施样式
-
-@Suite("Tree 递归的每一层都重施 DisclosureGroup 样式")
-struct TreeNestedStyleTests {
-    private static var branchBody: String {
-        String(reflecting: TreeBranch<[TreeJudgeNode], String, Text>.Body.self)
-    }
-
-    @Test("嵌套的 TreeBranch 被 TreeNestedStyle 包住——DisclosureGroupStyle 在 configuration.content 内会被重置回 .automatic")
-    func nestedBranchIsWrappedInTheStyleModifier() {
-        let branch = String(reflecting: TreeBranch<[TreeJudgeNode], String, Text>.self)
-        let expected = "SwiftUI.ModifiedContent<\(branch), OhMyDesign.TreeNestedStyle>"
-        #expect(
-            Self.branchBody.contains(expected),
-            """
-            递归层没有重施样式：body 的静态类型里找不到 \(expected)。
-            失效方向是静默的——不加也能编译、也能展开，只是第 2 层起 chevron 与缩进悄悄换成系统的。
-            实得类型串：\(Self.branchBody)
-            """
-        )
-    }
-
-    @Test("同一个样式也施在根层")
-    func theRootAppliesTheStyleToo() {
-        let treeBody = String(reflecting: Tree<[TreeJudgeNode], String, Text>.Body.self)
-        #expect(
-            treeBody.contains("OhMyDesign.TreeNestedStyle"),
-            "根层没有施样式，第 1 层就会是系统外观。实得类型串：\(treeBody)"
-        )
-    }
-
-    @Test("TreeNestedStyle 施的确实是 TreeDisclosureGroupStyle")
-    func theModifierAppliesTreesOwnStyle() {
-        let modifierBody = String(reflecting: TreeNestedStyle.Body.self)
-        #expect(
-            modifierBody.contains("TreeDisclosureGroupStyle"),
-            "TreeNestedStyle 施的不是 Tree 自己的样式。实得类型串：\(modifierBody)"
-        )
-    }
-}
-
 // MARK: - 无障碍
 
 @Suite("Tree 行的无障碍取值")
@@ -978,6 +937,102 @@ struct TreeLazinessTests {
         #expect(
             log.reads(of: Self.hiddenWhenOnlyAIsExpanded) == 0,
             "求目标集合读了折叠子树：\(log.reads.filter { Self.hiddenWhenOnlyAIsExpanded.contains($0.key) })"
+        )
+    }
+}
+
+// MARK: - 展平渲染 / Flattened rendering
+
+@MainActor
+final class TreeBuildLog {
+    var built: [String] = []
+    var appeared: [String] = []
+}
+
+@MainActor
+@Observable
+final class TreeExpansionModel {
+    var expanded: Set<String>
+
+    init(_ expanded: Set<String>) {
+        self.expanded = expanded
+    }
+}
+
+struct TreeFlatHarness<Node: Identifiable>: View where Node.ID == String {
+    let roots: [Node]
+    let children: KeyPath<Node, [Node]?>
+    let model: TreeExpansionModel
+    let log: TreeBuildLog
+    let scrolls: Bool
+
+    var body: some View {
+        let tree = Tree(
+            self.roots,
+            children: self.children,
+            expanded: Binding(get: { self.model.expanded }, set: { self.model.expanded = $0 }),
+            selection: .constant([])
+        ) { node in
+            let _ = self.log.built.append(node.id)
+            Text(verbatim: node.id)
+                .onAppear { self.log.appeared.append(node.id) }
+        }
+        if self.scrolls {
+            ScrollView { tree }
+        } else {
+            tree.frame(maxHeight: .infinity, alignment: .top)
+        }
+    }
+}
+
+nonisolated struct TreeWideNode: Identifiable {
+    let id: String
+    let children: [TreeWideNode]?
+
+    static let roots: [TreeWideNode] = [
+        TreeWideNode(id: "root", children: (0..<200).map { TreeWideNode(id: "child-\($0)", children: nil) }),
+    ]
+}
+
+@Suite("Tree 展平渲染：放在 ScrollView 里只构建视口附近的行；行身份按节点 ID，不按下标")
+@MainActor
+struct TreeFlattenedRenderingTests {
+    @Test("ScrollView 300 pt 视口、展开一个有 200 个子节点的父节点：构建的行数 < 20")
+    func scrollViewBuildsOnlyTheRowsNearTheViewport() {
+        let log = TreeBuildLog()
+        let window = HostedWindow(
+            TreeFlatHarness(
+                roots: TreeWideNode.roots, children: \.children,
+                model: TreeExpansionModel(["root"]), log: log, scrolls: true
+            ),
+            size: CGSize(width: 260, height: 300),
+            scheme: .light
+        )
+        defer { window.close() }
+        let built = Set(log.built)
+        #expect(built.contains("root") && built.contains("child-0"), "视口顶部的行没构建——下面的上限判据会空转。实得 \(built.sorted())")
+        #expect(built.count < 20, "展开 200 个子节点后构建了 \(built.count) 行——展平或惰性容器失效")
+    }
+
+    @Test("展开中间的父节点后，新出现的行恰为插入的子行（行身份跟着节点 ID 走）")
+    func expandingAMiddleParentInsertsExactlyItsChildren() {
+        let log = TreeBuildLog()
+        let model = TreeExpansionModel(["a"])
+        let window = HostedWindow(
+            TreeFlatHarness(
+                roots: TreeJudgeFixture.roots, children: \.children, model: model, log: log, scrolls: false
+            ),
+            size: CGSize(width: 260, height: 600),
+            scheme: .light
+        )
+        defer { window.close() }
+        #expect(Set(log.appeared) == ["a", "a1", "a2", "b", "c"], "初始可见行没全部出现，下面的差集无意义。实得 \(log.appeared)")
+        log.appeared = []
+        model.expanded = ["a", "a1"]
+        window.settle()
+        #expect(
+            Set(log.appeared) == ["a1x", "a1y"],
+            "展开 a1 后新出现的行应恰为 a1x / a1y，实得 \(log.appeared)——身份错位时出现的是尾部下标上的行"
         )
     }
 }

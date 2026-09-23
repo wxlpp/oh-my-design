@@ -23,6 +23,15 @@ nonisolated struct TreeRow<ID: Hashable>: Identifiable, Equatable {
     let hasChildren: Bool
 }
 
+// MARK: - 渲染项 / Render item
+
+nonisolated struct TreeRenderItem<Element, ID: Hashable>: Identifiable {
+    let row: TreeRow<ID>
+    let element: Element
+
+    var id: ID { self.row.id }
+}
+
 // MARK: - 行度量 / Row metrics
 
 nonisolated struct TreeRowMetrics: Equatable {
@@ -68,19 +77,22 @@ nonisolated enum TreeFlatten {
         return !kids.isEmpty
     }
 
-    static func rows<Data: RandomAccessCollection, ID: Hashable>(
+    static func items<Data: RandomAccessCollection, ID: Hashable>(
         _ data: Data,
         id: KeyPath<Data.Element, ID>,
         children: KeyPath<Data.Element, Data?>,
         expanded: Set<ID>
-    ) -> [TreeRow<ID>] {
-        var out: [TreeRow<ID>] = []
+    ) -> [TreeRenderItem<Data.Element, ID>] {
+        var out: [TreeRenderItem<Data.Element, ID>] = []
         func walk(_ nodes: Data, level: Int, parent: ID?) {
             for node in nodes {
                 let nodeID = node[keyPath: id]
                 let kids = node[keyPath: children]
                 let branching = !(kids?.isEmpty ?? true)
-                out.append(TreeRow(id: nodeID, level: level, parent: parent, hasChildren: branching))
+                out.append(TreeRenderItem(
+                    row: TreeRow(id: nodeID, level: level, parent: parent, hasChildren: branching),
+                    element: node
+                ))
                 if branching, expanded.contains(nodeID), let kids {
                     walk(kids, level: level + 1, parent: nodeID)
                 }
@@ -88,6 +100,15 @@ nonisolated enum TreeFlatten {
         }
         walk(data, level: 1, parent: nil)
         return out
+    }
+
+    static func rows<Data: RandomAccessCollection, ID: Hashable>(
+        _ data: Data,
+        id: KeyPath<Data.Element, ID>,
+        children: KeyPath<Data.Element, Data?>,
+        expanded: Set<ID>
+    ) -> [TreeRow<ID>] {
+        Self.items(data, id: id, children: children, expanded: expanded).map(\.row)
     }
 
     static func expandedIDs<Data: RandomAccessCollection, ID: Hashable>(

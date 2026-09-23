@@ -3,8 +3,8 @@
 递归层级树 / Recursive tree：受控展开 + 行选中（单选 / 多选）+ 可选的三态复选框 +
 W3C ARIA Treeview 键盘导航。
 
-本仓**第一个递归组件**。走递归 `DisclosureGroup(isExpanded:)`：从系统拿到的是**展开态接口与嵌套能力**，
-**不是原生外观**——chevron、缩进、行选中底色与展开态的无障碍播报全部自绘。
+本仓**第一个层级数据组件**。可见行按深度优先展平成一列，放进 `LazyVStack`（`#429` 起；`#422` 走的是递归
+`DisclosureGroup(isExpanded:)`）。**不是原生外观**——chevron、缩进、行选中底色与展开态的无障碍播报全部自绘。
 
 ## API
 
@@ -63,7 +63,7 @@ public extension Tree {
 | 参数 | 类型 | 默认值 | 说明 |
 |---|---|---|---|
 | data | RandomAccessCollection | - | 根节点集合 |
-| id | KeyPath<Element, ID> | `\.id`（Identifiable 便利 init） | 稳定标识，**整棵树内**唯一 |
+| id | KeyPath<Element, ID> | `\.id`（Identifiable 便利 init） | 稳定标识，**整棵树内**唯一；跨子树重复时，除了状态集合分不开，行的渲染身份（展平后 `ForEach` 按它取 id）也会错位 |
 | children | KeyPath<Element, Data?> | - | 子节点；`nil` 与空集合都算叶节点 |
 | expanded | Binding<Set<ID>> | - | 已展开节点，调用方持有，可读可写可持久化 |
 | selection | Binding<Set<ID>> | - | 已选中行（导航语义） |
@@ -293,6 +293,9 @@ Tree(roots, children: \.children, expanded: $expanded, selection: $selection, se
 | 选中态切换 | `.coreAnimation(.selection, value: self.selection)` | 按 `CoreMotionToken.selection` 的裁决 |
 | `.navigator` 悬停 | 无（即时生效） | 无分支可言 |
 
+⚠️ `#429` 展平后，展开由「`DisclosureGroup` 内容整体插入」变为「若干行插入 `ForEach`」，仍在同一个 `withAnimation` 事务里。
+静态终态逐像素相同（迁移对照），**在飞帧的样子未验证**（没有真机人工看过）。
+
 判据分三层，射程各不相同：
 
 - `TreeMotionTests.expansionAnimationHonoursReduceMotion` **只判 token 函数** `CoreMotionToken.treeExpansion(for:)`
@@ -318,8 +321,25 @@ Tree(roots, children: \.children, expanded: $expanded, selection: $selection, se
   行内容三个元素，行上的 `accessibilityValue`（"Expanded" / "Collapsed"）被复制到这三个元素上。
   没有改成 `.accessibilityElement(children: .combine)`：合并后 chevron 与复选框不再是独立可激活的目标，
   而这套装置读不到 VoiceOver 的激活语义，无法确认合并后展开 / 勾选仍可达。行元素的整体设计并入 `#427` / `#428`。
-- ⚠️ **已知缺口（`#427`）**：复选框没有可读的 label、不报勾选态——iOS 实读叶行 `CheckBox` / 父行 `Button`，
-  AXLabel 都是 SF Symbol 名 "Square"。根因在 `CheckBoxToggleStyle`（裸 `Image` + `onTapGesture`），
+- **展平前后的无障碍树对照**（`#429`，iOS 26.4 模拟器，预览宿主 Tree 画廊，同一操作序列——组件详情页、展开到第 3 层、
+  再滚动一屏——各读一次 `axe describe-ui`，逐元素比对类型 / label / value / frame）：
+  1. **视口外的行不在无障碍树里**：展平前 6 棵树（明 / 暗各 3 棵）的全部行都在，不论是否在屏幕上；展平后只有与窗口
+     相交的行在，滚进来才出现（首屏整页的视口外元素 81 → 9，剩下的 9 个都是画廊里的说明文字，没有一个是树行）。直达预览（不在 `ScrollView` 里、内容溢出屏幕上下缘）
+     同样如此。这是 `LazyVStack` 的行为：放在 `ScrollView` 里时 VoiceOver 靠滚动走到后面的行，与 `List` 同型；
+     ⚠️ 不放在可滚动容器里、又被裁出屏幕的行，辅助技术**够不到**——展平前它们至少还在树里。
+     VoiceOver 实际的逐项滑动能否滚到视口外的行，**未验证**（本套装置只读快照，读不到 VoiceOver 的导航）。
+  2. 每棵树多出一个匿名 `AXGroup` 容器包住它的行。
+  3. **父行复选框的元素类型从 `Button` 变为 `CheckBox`（`AXSwitch`）**，与叶行一致；label 仍是 SF Symbol 名（见 `#427`）。
+  4. 放在 `ScrollView` 里时，`.navigator` 示例里 `Label` 的图标展平前不是独立元素、展平后是独立的 `AXImage`
+     （详情页展开后那一屏：展平前 0 个、展平后 11 个）。实读：`folder` 图标是 `AXImage`，label `'Move'`（SF Symbol 的名字），
+     value `'Expanded'`——行上的 `accessibilityValue` 被复制到了图标上。⚠️ 这不是本次独有：展平前的直达预览
+     已有同样 12 个 `AXImage`、取值相同。成因未查明。处置并入 `#427`。
+  5. 其余视口内元素的类型、label、value、frame 逐一相同。
+  ⚠️ 以上 1–5 都是 **iOS** 读数；**macOS 的无障碍树未做前后对照**（本次会话屏幕锁定，System Events 读不到窗口）。
+  ⚠️ `axe describe-ui` 的输出不含 traits，`.isSelected` 这一项读不到；它的取值由 `TreeAccessibilityTests` 的纯函数判据
+  与行宿主上未改动的 `accessibilityAddTraits` 保证。
+- ⚠️ **已知缺口（`#427`）**：复选框没有可读的 label、不报勾选态——iOS 实读叶行、父行均为 `CheckBox`（`#429` 起；
+  此前父行是 `Button`），AXLabel 都是 SF Symbol 的名字（"Square" 等）。根因在 `CheckBoxToggleStyle`（裸 `Image` + `onTapGesture`），
   Tree 又是 `labelsHidden()` + 空 label。试过给行内容与复选框配 `accessibilityLabeledPair`：
   iOS AXLabel 仍为 "Square"、macOS `AXTitleUIElement` 仍缺失，两条腿都无效，未采用。
 - ⚠️ **已知缺口（`#428`）**：勾选态无法用键盘操作——`Space` 切换的是行选中，没有键改变勾选。
@@ -336,6 +356,15 @@ Tree(roots, children: \.children, expanded: $expanded, selection: $selection, se
 - 可见行变化后的焦点归约用**变化前的行**求祖先，不回头遍历数据。按键时若焦点行已不可见
   （可见行变化的回调还没来得及归约）才按数据求祖先——正常路径上不发生。
 - 挂了 `rowContextMenu` 时，目标集合只用可见行求交，不读折叠子树（`TreeLazinessTests` 带菜单渲染的一格）。
+- **行视图的构建也是惰性的**（`#429`）：可见行一次遍历展平成一列，直接作为 `LazyVStack` 的 `ForEach` 子项，
+  每行的身份是节点 ID。放在 `ScrollView` 里时只构建视口附近的行：300 pt 视口、展开一个有 200 个子节点的父节点，
+  实测构建 7 行（macOS / iOS 相同；判据 `TreeFlattenedRenderingTests`，上限 < 20）。
+  不放在 `ScrollView` 里时**也不是全量构建**：同一夹具放进 300 pt 高的 macOS 托管窗口、不包 `ScrollView`，
+  实测构建 10 行（直接放、`frame(maxHeight: .infinity)`、`fixedSize(vertical:)` 三种放法相同）——`LazyVStack`
+  按窗口可见区裁，不看有没有可滚动容器；这与下面「无障碍与触控」第 1 点里直达预览的读数一致。
+  ⚠️ `ImageRenderer` 下是全量构建（同一夹具 201 行）。iOS 托管窗口上这一项未测。
+  ⚠️ `#422` 的递归 `DisclosureGroup` 下，一个根节点的整棵可见子树是**一个**子项——同一夹具构建 201 行；
+  换成惰性容器而不展平，收益为零。
 - ⚠️ 传了 `checked` 时，父行复选框的三态要读它**全部叶后代**的勾选态，因此会遍历该父行的整棵子树，
   折叠与否都一样。这是三态派生本身的代价。
 
@@ -364,6 +393,8 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
   `onHover` 回调都是 0 次）⇒ 两条都没有自动判据。剩下的网只有源码判据：`.onHover` 只在行宿主内、
   容器 `Tree` 没有名字含 `hover` 的成员变量——**按名字匹配**，把容器状态起名 `pointerRow` 就漏。
 - **悬停命中区**：`.navigator` 行在 `.onHover` 之前挂了 `.contentShape(Rectangle())`，意在让从行右侧空白 / 缩进区进入也点亮（空闲态底色是 `Color.clear`）；真指针下从这两处进入是否点亮，**未验证**。
+- **悬停中滚出视口再滚回不残留**：`.navigator` 行离开视口时（`onDisappear`）把悬停复位——`LazyVStack` 回收行时
+  不保证先送一次「指针离开」。指针停在某行上滚动（触控板 / 滚轮）、该行滚出再滚回时不应仍是悬停底色，**未验证**。
 - iPadOS 指针下 `onHover` 是否触发。
 - **右键菜单的真实唤起路径**（`#429`）：真右键 / 双指点按 / Control-点按（macOS）、长按（iOS）真的弹出菜单，
   且**唤起后选中、焦点、交互来源都不变**；iOS 长按升起的预览 / 高亮是被按的那一行（含缩进区），而不是整棵树
@@ -389,6 +420,13 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
 - `TreeGuideLineTests`（双腿）：参考线对齐父行 chevron 中心（≤ 1 pt，`.small` / `.regular`）、跨行连续、
   第 3 层恰有 2 根、RTL 是 LTR 的镜像（容 1 px 亚像素错位）。
 - `TreeHoverTests`（macOS）：翻转悬停时行内容收到的事务不带动画（三档动效）。
+
+`#429` 起的展平判据（`TreeFlattenedRenderingTests`，双腿，托管窗口）：
+- 构建计数：`ScrollView` 300 pt 视口、200 个子节点展开，构建的行 < 20（实测 7）。容器换回 `VStack`、或保留
+  `LazyVStack` 但恢复递归 `DisclosureGroup`，都是 201 行。
+- 行身份：展开中间的父节点后，新出现（`onAppear`）的行恰为插入的子行。`ForEach` 按下标取 id 时，新出现的是尾部下标上的行。
+  这条必须在托管窗口里做：`ImageRenderer` 每次全新构建，身份错位画不出差别。
+- 展平前后的逐像素对照（128 格矩阵、两条腿全部偏差 0）只在 `#429` 的迁移 PR 里跑过一次，不常驻。
 
 `#429` 起的右键菜单判据（`TreeContextMenuTests`）：
 - 纯函数（双腿）：右键已选中的行 → 选中 ∩ 可见行，折叠隐藏的本树 ID 与树外 ID 都不传出；右键未选中的行 → 只有这一行。
