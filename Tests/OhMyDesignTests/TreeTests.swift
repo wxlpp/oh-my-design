@@ -959,7 +959,6 @@ struct TreeLazinessTests {
     @Test("带右键菜单渲染：选中集里有折叠在 a1 下的 a1x，目标集合照样不读折叠子树")
     func renderingWithARowMenuNeverReadsCollapsedSubtrees() {
         let log = TreeChildrenReadLog()
-        var builderCalls = 0
         let renderer = ImageRenderer(
             content: Tree(
                 TreeCountingNode.roots(log: log),
@@ -971,13 +970,11 @@ struct TreeLazinessTests {
                 Text(verbatim: node.id)
             }
             .rowContextMenu { targets in
-                let _ = builderCalls += 1
                 Text(verbatim: targets.sorted().joined(separator: ","))
             }
             .frame(width: 260)
         )
         #expect(renderer.cgImage != nil, "没渲染出来，下面的计数无意义")
-        #expect(builderCalls > 0, "菜单 builder 一次都没被求值——目标集合那条路径没走到，下面的计数无意义")
         #expect(
             log.reads(of: Self.hiddenWhenOnlyAIsExpanded) == 0,
             "求目标集合读了折叠子树：\(log.reads.filter { Self.hiddenWhenOnlyAIsExpanded.contains($0.key) })"
@@ -1021,9 +1018,9 @@ struct TreeContextMenuTests {
         #expect(TreeContextMenu.targets(for: "b", selection: [], visibleIDs: Self.visibleWhenAIsExpanded) == ["b"])
     }
 
-    @Test("渲染时每个已构建行都以正确的目标集合求值菜单 builder（次数不钉死，只要求 ≥ 1）")
-    func everyBuiltRowEvaluatesTheBuilderWithItsTargets() {
-        var calls: [Set<String>: Int] = [:]
+    @Test("渲染不求值菜单 builder：它只在取菜单时才跑")
+    func renderingNeverEvaluatesTheBuilder() {
+        var calls: [Set<String>] = []
         let renderer = ImageRenderer(
             content: Tree(
                 TreeJudgeFixture.roots,
@@ -1035,24 +1032,22 @@ struct TreeContextMenuTests {
                 Text(verbatim: node.id)
             }
             .rowContextMenu { targets in
-                let _ = calls[targets, default: 0] += 1
+                let _ = calls.append(targets)
                 Text(verbatim: Self.title(targets))
             }
             .frame(width: 260)
         )
         #expect(renderer.cgImage != nil, "没渲染出来，下面的判据无意义")
-        let expected: Set<Set<String>> = [["a2", "b"], ["a"], ["a1"], ["c"]]
-        #expect(Set(calls.keys) == expected, "builder 收到的目标集合 \(calls.keys.map(Self.title)) ≠ 期望 \(expected.map(Self.title))")
-        #expect(calls.values.allSatisfy { $0 >= 1 })
+        #expect(calls.isEmpty, "渲染时 builder 被求值了 \(calls.count) 次：\(calls.map(Self.title))")
     }
 
     #if os(macOS)
     private static let regular = TreeRowMetrics.resolve(.regular)
 
-    private static func menuTitles(_ window: HostedWindow, row index: Int) -> [String]? {
+    private static func menuTitles(_ window: HostedWindow, row index: Int, x: CGFloat = 120) -> [String]? {
         let host = window.root
         let y = CGFloat(index) * (Self.regular.rowHeight + Self.regular.rowSpacing) + Self.regular.rowHeight / 2
-        let location = CGPoint(x: 120, y: host.bounds.height - y)
+        let location = CGPoint(x: x, y: host.bounds.height - y)
         guard let event = NSEvent.mouseEvent(
             with: .rightMouseDown, location: location, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
             windowNumber: host.window?.windowNumber ?? 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 1
@@ -1065,23 +1060,71 @@ struct TreeContextMenuTests {
         return nil
     }
 
-    @Test("托管窗口：对行所在点取到的菜单，就是这一行的目标集合", arguments: TreeHostedAppearance.allCases)
-    func hostedMenuAtARowCarriesThatRowsTargets(appearance: TreeHostedAppearance) {
-        let log = TreeHostedLog()
-        let window = HostedWindow(
+    private static func window(_ log: TreeHostedLog, appearance: TreeHostedAppearance) -> HostedWindow {
+        HostedWindow(
             TreeHostedHarness(
                 log: log, style: appearance.style, expanded: ["a"], selection: Self.selection, menu: .targetTitles
             ),
             size: CGSize(width: 260, height: 320),
             scheme: .light
         )
+    }
+
+    private static func expectedTitle(_ id: String, selection: Set<String> = Self.selection) -> String {
+        Self.title(TreeContextMenu.targets(for: id, selection: selection, visibleIDs: Self.visibleWhenAIsExpanded))
+    }
+
+    @Test("托管窗口：渲染不求值 builder；对行所在点取到的菜单，就是这一行的目标集合", arguments: TreeHostedAppearance.allCases)
+    func hostedMenuAtARowCarriesThatRowsTargets(appearance: TreeHostedAppearance) {
+        let log = TreeHostedLog()
+        let window = Self.window(log, appearance: appearance)
         defer { window.close() }
+        #expect(log.menuBuilds.isEmpty, "\(appearance)：托管窗口渲染时 builder 被求值了 \(log.menuBuilds.count) 次")
         let rows = TreeJudgeFixture.rows(expanded: ["a"]).map(\.id)
         for (index, id) in rows.enumerated() {
-            let expected = Self.title(TreeContextMenu.targets(
-                for: id, selection: Self.selection, visibleIDs: Self.visibleWhenAIsExpanded
-            ))
-            #expect(Self.menuTitles(window, row: index) == [expected], "\(appearance)：行 \(id)（第 \(index) 行）")
+            #expect(
+                Self.menuTitles(window, row: index) == [Self.expectedTitle(id)],
+                "\(appearance)：行 \(id)（第 \(index) 行）"
+            )
+        }
+        #expect(!log.menuBuilds.isEmpty, "\(appearance)：取了菜单却没记到 builder 求值——计数探针失效，上面的 0 次无意义")
+    }
+
+    @Test("托管窗口：取过一次菜单后改选中，再取同一行的菜单，目标集合跟着新选中走", arguments: TreeHostedAppearance.allCases)
+    func hostedMenuFollowsSelectionChanges(appearance: TreeHostedAppearance) {
+        let log = TreeHostedLog()
+        let window = Self.window(log, appearance: appearance)
+        defer { window.close() }
+        #expect(Self.menuTitles(window, row: 3) == [Self.expectedTitle("b")], "\(appearance)：改选中前 b 行")
+        #expect(Self.menuTitles(window, row: 4) == [Self.expectedTitle("c")], "\(appearance)：改选中前 c 行")
+        let y = 4 * (Self.regular.rowHeight + Self.regular.rowSpacing) + Self.regular.rowHeight / 2
+        window.sendMouse(.leftMouseDown, at: CGPoint(x: 120, y: y))
+        window.sendMouse(.leftMouseUp, at: CGPoint(x: 120, y: y))
+        window.settle()
+        let reselected: Set<String> = ["c", "outside"]
+        #expect(
+            log.selection == reselected,
+            "\(appearance)：点 c 行应把本树内的单选替换为 c（树外 ID 保留），实得 \(log.selection)——下面的判据无意义"
+        )
+        for (index, id) in [(3, "b"), (4, "c"), (2, "a2")] {
+            #expect(
+                Self.menuTitles(window, row: index) == [Self.expectedTitle(id, selection: reselected)],
+                "\(appearance)：改选中后 \(id) 行的菜单仍是旧目标集合"
+            )
+        }
+    }
+
+    @Test("托管窗口：第 2 层行的缩进区也取到该行的菜单（右键区是整行）", arguments: TreeHostedAppearance.allCases)
+    func hostedMenuCoversTheIndentation(appearance: TreeHostedAppearance) {
+        let log = TreeHostedLog()
+        let window = Self.window(log, appearance: appearance)
+        defer { window.close() }
+        let indentX = CoreSpacing.xs + Self.regular.indentation / 2
+        for (index, id) in [(1, "a1"), (2, "a2")] {
+            #expect(
+                Self.menuTitles(window, row: index, x: indentX) == [Self.expectedTitle(id)],
+                "\(appearance)：\(id) 行缩进区（x = \(indentX)）"
+            )
         }
     }
     #endif
@@ -1116,6 +1159,47 @@ struct TreeContextMenuTests {
         return Self.contextMenuInteractions(in: window.root)
     }
 
+    private static func contextMenuInteractionList(in view: UIView) -> [UIContextMenuInteraction] {
+        view.interactions.compactMap { $0 as? UIContextMenuInteraction }
+            + view.subviews.flatMap { Self.contextMenuInteractionList(in: $0) }
+    }
+
+    @Test("托管窗口：渲染不求值 builder；沿纵向逐点向菜单交互要配置，builder 收到的恰是各行的目标集合")
+    func requestingEachRowsMenuEvaluatesTheBuilderWithItsTargets() {
+        var calls: [Set<String>] = []
+        let window = HostedWindow(
+            Tree(
+                TreeJudgeFixture.roots,
+                children: \.children,
+                expanded: .constant(["a"]),
+                selection: .constant(Self.selection),
+                selectionMode: .multiple
+            ) { node in
+                Text(verbatim: node.id)
+            }
+            .rowContextMenu { targets in
+                let _ = calls.append(targets)
+                Button(Self.title(targets)) {}
+            },
+            size: CGSize(width: 260, height: 400),
+            scheme: .light
+        )
+        defer { window.close() }
+        #expect(calls.isEmpty, "托管窗口渲染时 builder 被求值了 \(calls.count) 次：\(calls.map(Self.title))")
+        let interactions = Self.contextMenuInteractionList(in: window.root)
+        #expect(!interactions.isEmpty, "挂了菜单却探不到 UIContextMenuInteraction——下面的判据无意义")
+        for interaction in interactions {
+            guard let view = interaction.view else { continue }
+            for y in stride(from: CGFloat(0), to: window.root.bounds.height, by: 4) {
+                _ = interaction.delegate?.contextMenuInteraction(
+                    interaction, configurationForMenuAtLocation: window.root.convert(CGPoint(x: 120, y: y), to: view)
+                )
+            }
+        }
+        let expected: Set<Set<String>> = [["a2", "b"], ["a"], ["a1"], ["c"]]
+        #expect(Set(calls) == expected, "builder 收到的目标集合 \(calls.map(Self.title)) ≠ 期望 \(expected.map(Self.title))")
+    }
+
     @Test("未调用 rowContextMenu 时视图树里没有 UIContextMenuInteraction；调用了才有（正向对照，证明探针看得见）")
     func noMenuIsAttachedUnlessRequested() {
         #expect(Self.interactions(menu: .set) > 0, "挂了菜单却探不到 UIContextMenuInteraction——探针失效，下一条判据无意义")
@@ -1140,6 +1224,7 @@ final class TreeHostedLog {
     var selection: Set<String> = []
     var checked: Set<String> = []
     var animations: [Animation?] = []
+    var menuBuilds: [Set<String>] = []
 }
 
 struct TreeHostedHarness: View {
@@ -1170,13 +1255,13 @@ struct TreeHostedHarness: View {
     var body: some View {
         self.tree
             .treeStyle(self.style)
-        .transaction { transaction in self.log.animations.append(transaction.animation) }
-        .onChange(of: self.expanded) { self.log.expanded = self.expanded }
-        .onChange(of: self.selection) { self.log.selection = self.selection }
-        .onChange(of: self.checked) { self.log.checked = self.checked }
-        .frame(maxHeight: .infinity, alignment: .top)
-        // 托管窗口不是 key window：不加这句，行上的 onTapGesture 收不到合成点击（Button / Toggle 不受影响）。
-        .allowsWindowActivationEvents(true)
+            .transaction { transaction in self.log.animations.append(transaction.animation) }
+            .onChange(of: self.expanded) { self.log.expanded = self.expanded }
+            .onChange(of: self.selection) { self.log.selection = self.selection }
+            .onChange(of: self.checked) { self.log.checked = self.checked }
+            .frame(maxHeight: .infinity, alignment: .top)
+            // 托管窗口不是 key window：不加这句，行上的 onTapGesture 收不到合成点击（Button / Toggle 不受影响）。
+            .allowsWindowActivationEvents(true)
     }
 }
 
@@ -1185,9 +1270,16 @@ enum TreeHostedCheckBoxes {
     case shown
 }
 
-enum TreeHostedMenu {
+nonisolated enum TreeHostedMenu: CaseIterable, CustomTestStringConvertible, Sendable {
     case none
     case targetTitles
+
+    var testDescription: String {
+        switch self {
+        case .none: "无菜单"
+        case .targetTitles: "设了 rowContextMenu"
+        }
+    }
 }
 
 extension TreeHostedHarness {
@@ -1207,6 +1299,7 @@ extension TreeHostedHarness {
             tree
         case .targetTitles:
             tree.rowContextMenu { targets in
+                let _ = self.log.menuBuilds.append(targets)
                 Button(TreeContextMenuTests.title(targets)) {}
             }
         }
@@ -1257,10 +1350,13 @@ struct TreeHostedWiringTests {
         appearance: TreeHostedAppearance,
         motion: MotionPresentation = .animated,
         expanded: Set<String> = [],
-        showsCheckBoxes: TreeHostedCheckBoxes = .hidden
+        showsCheckBoxes: TreeHostedCheckBoxes = .hidden,
+        menu: TreeHostedMenu = .none
     ) -> HostedWindow {
         HostedWindow(
-            TreeHostedHarness(log: log, style: appearance.style, expanded: expanded, showsCheckBoxes: showsCheckBoxes)
+            TreeHostedHarness(
+                log: log, style: appearance.style, expanded: expanded, showsCheckBoxes: showsCheckBoxes, menu: menu
+            )
                 .environment(\.coreMotionPresentationOverride, motion),
             size: CGSize(width: 260, height: 320),
             scheme: .light
@@ -1316,15 +1412,18 @@ struct TreeHostedWiringTests {
         #expect(log.selection == ["b"], "\(appearance)：首键落在初始焦点 a，↓ 到 b，Space 应当选中 b，实得 \(log.selection)")
     }
 
-    @Test("点行内容选中该行（单选）；再点另一行替换", arguments: TreeHostedAppearance.allCases)
-    func clickingARowSelectsIt(appearance: TreeHostedAppearance) {
+    @Test(
+        "点行内容选中该行（单选）；再点另一行替换；设了右键菜单也一样",
+        arguments: TreeHostedAppearance.allCases, TreeHostedMenu.allCases
+    )
+    func clickingARowSelectsIt(appearance: TreeHostedAppearance, menu: TreeHostedMenu) {
         let log = TreeHostedLog()
-        let window = Self.window(log, appearance: appearance)
+        let window = Self.window(log, appearance: appearance, menu: menu)
         defer { window.close() }
         Self.click(window, at: CGPoint(x: 120, y: Self.centerY(ofRow: 1)))
-        #expect(log.selection == ["b"], "\(appearance)：点 b 行内容应选中 b，实得 \(log.selection)")
+        #expect(log.selection == ["b"], "\(appearance) \(menu)：点 b 行内容应选中 b，实得 \(log.selection)")
         Self.click(window, at: CGPoint(x: 120, y: Self.centerY(ofRow: 2)))
-        #expect(log.selection == ["c"], "\(appearance)：再点 c 行应替换为 c，实得 \(log.selection)")
+        #expect(log.selection == ["c"], "\(appearance) \(menu)：再点 c 行应替换为 c，实得 \(log.selection)")
     }
 
     @Test("点第 2 层行的缩进区也选中该行（命中区是整行）", arguments: TreeHostedAppearance.allCases)

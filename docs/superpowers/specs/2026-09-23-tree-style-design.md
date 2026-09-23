@@ -329,7 +329,7 @@ public extension Tree {
 ```swift
 public extension Tree {
     /// 为整行挂右键菜单。菜单作用于目标集合：右键行在选中集合里时为「选中集合中当前可见的行」，
-    /// 否则只是右键的那一行。builder 会在每个已构建的行上随 body 求值，闭包里不要做重活。
+    /// 否则只是右键的那一行。builder 只在取菜单时求值（渲染行时不求值），在视图更新期执行，必须是纯的。
     ///
     /// - Parameter menu: 以目标 ID 集合生成菜单项。
     /// - Returns: 挂好菜单的同一棵树。
@@ -341,6 +341,10 @@ public extension Tree {
   `Tree<Data, ID, RowContent>` 三个泛型 ⇒ `Tree<[Node], String, Text>` 这类显式写法与
   `Tree.expandedIDs(…)` 的两个重载**全不受影响**。
 - **未设置时不挂 `.contextMenu`**（`if let` 分支，不挂空菜单）。
+- **builder 延迟求值**：行上挂 `.contextMenu { TreeDeferredMenu(targets:make:) }`，小视图的 `body` 里才调 builder
+  ⇒ 渲染时 0 次，取菜单时才跑（PR 3 实测：直接写 `.contextMenu { menu(targets) }` 时 `ImageRenderer` 与托管窗口
+  下每行都求值；换成延迟包装后两者都是 0 次）。取过一次菜单后改选中再取，目标集合跟着新选中走，不陈旧
+  （把包装视图变异成「恒等」的 `Equatable` 时判据打红，证明判据看得见缓存）。
 - 菜单项 `AnyView` 擦除只发生在菜单 builder 上，不在行上；P3 实测菜单项自身 body 在右键前调用 0 次。
 - **受影响调用点核实**（源码读）：
   - `App/Sources/ComponentData.swift` 里逐字 `Tree<[GalleryTreeNode], String, Text>.expandedIDs` —— 不受影响；
@@ -362,11 +366,14 @@ targets(for id, selection, visibleIDs) =
 - 纯函数 `TreeContextMenu.targets(for:selection:visibleIDs:) -> Set<ID>` 定义语义（判据对它写）。
   视图侧**每次 body 预算一次** `selectedVisible = selection ∩ visibleIDs`（`visibleIDs` 取自容器 body 里
   已经算好的可见行），所有行共用；行上只做 `selectedVisible.contains(id) ? selectedVisible : [id]`——
-  右键行必然可见，故与纯函数等价，且不逐行重做交集。**不遍历树**（P3 实测 builder 随 body
-  逐行求值，这里若求整树 ID 就把惰性毁了）。
+  右键行必然可见，故与纯函数等价，且不逐行重做交集。**不遍历树**（交集在容器 body 里算，
+  这里若求整树 ID 就把惰性毁了）。
 - **不把其他树共享 selection 里的 ID 传出**：交集天然滤掉。
 - **被折叠隐藏的选中项不入目标**（对齐 Finder：折叠的文件夹里之前选中的项不参与右键操作）；文档注释写明。
-- 右键**不改**选中、焦点、交互来源（对齐 Finder / Xcode；VS Code 会给右键行画焦点框，本轮不做）。
+- 右键**不改**选中、焦点、交互来源。
+- ⚠️ **已知缺口（`#438`）**：macOS 右键时不给目标行画指示环。原写「对齐 Finder / Xcode」，为假：Finder / Xcode
+  （`NSOutlineView`）右键时都画 contextual-menu 高亮环，VS Code 也画。多选时右键未选中行，菜单只作用于该行而
+  高亮仍在原选中上，破坏性菜单项读不出作用对象。`.contextMenu` 无打开回调，候选机制见 `#438`。
 - 挂在组件的行外层（与命中区同一层）⇒ 覆盖整行（含缩进区），与外观无关，换外观不丢菜单。
 
 不选「配置能力」：菜单内容是调用方的数据操作，不是外观。不选「环境值 + modifier」：
@@ -615,7 +622,7 @@ Reduce Motion 台账：Tree 仍登记 `gated`；chevron 旋转、展开曲线两
 | 判据 | 形式 |
 |---|---|
 | 目标集合 | 纯函数 `targets(for:selection:visibleIDs:)`：右键行在选中集里 → 选中 ∩ 可见；不在 → 单元素；selection 含树外 ID → 不传出；selection 含被折叠隐藏的本树 ID → 不传出 |
-| 接线 | 渲染时捕获 builder 的实参（P3 实测 builder 随 body 求值）：每个已构建行**收到的目标集合都正确**、每行调用次数 **≥ 1**（P3 实测每行 2 次，次数是 SwiftUI 的实现细节，不钉死） |
+| 接线 | builder 延迟求值后改为：渲染（`ImageRenderer`，双腿）builder **0 次**；macOS 托管窗口对行所在点取 `NSView.menu(for:)` 得到该行目标集合、改选中后再取不陈旧、第 2 层缩进区也取得到；iOS 托管窗口沿纵向逐点向 `UIContextMenuInteraction` 要配置，builder 收到的恰是各行目标集合 |
 | 未设置不挂菜单 | **运行时探针**：macOS 托管窗口里对行所在点取 `NSView.menu(for:)`（合成右键事件），或读该行 AX 元素的动作列表是否含 `AXShowMenu`；未设置时应无菜单 / 无该动作。⚠️ **实现前先验证探针可区分**：对「正确实现」与「无条件挂空 `.contextMenu`」这两份代码各跑一次，读数不同才采用；读数相同 ⇒ 换探针或登记为真 HID 项，不写一条恒绿的判据 |
 | 不遍历树 | 沿用 `TreeLazinessTests` 的 `children` 读取计数：带菜单渲染时折叠子树读取次数仍为 0 |
 | 右键不改状态 | 纯函数层无状态写入；视图层登记为真 HID 项 |
@@ -786,7 +793,8 @@ iOS 上：同一份代码行距 44（§1.3），其余一致。
   target 里测**——PR 2 前置探针补这一格；若 `.treeStyle(.navigator)` 或三元写法在 `any TreeStyle` 版本下不过，
   回到本 spec 重议 D2，不带着错误前提实现。
 - **R5** `onHover` 的接线（尤其 iPadOS 指针）不在 CI；合成 `mouseMoved` 在非 key 托管窗口是否触发未知。
-- **R6** 右键菜单 builder 随 body 逐行求值（P3 实测）——调用方在闭包里做重活会拖慢滚动；只能靠文档。
+- **R6** 右键菜单 builder 在视图更新期执行（原写「随 body 逐行求值」，PR 3 起延迟到取菜单时，渲染 0 次，见 §4）——
+  调用方若在里面写状态，写入发生在视图更新期；只能靠文档（「必须是纯的」）。
 - **R7** `#423`（搜索高亮）改同一批文件，且要往行里加命中高亮；本 issue 的行宿主重构后 `#423` 需要 rebase，
   命中高亮应落在 `label` 内（调用方内容侧）还是行配置新字段，由 `#423` 定。
 - **R8** 本 spec 的全部探针只在 macOS 跑过；iOS 腿上 `LazyVStack` / `ImageRenderer` / `contextMenu` 的行为是推断。
@@ -794,7 +802,7 @@ iOS 上：同一份代码行距 44（§1.3），其余一致。
 ### 未决（可后续加法，不阻塞本轮）
 
 - 行配置加「树是否有焦点」（失焦选中色）、「整棵树是否被悬停」（参考线仅悬停显示）、活动参考线。
-- 双击激活（`onActivate` 的指针入口）；右键行的焦点框。
+- 双击激活（`onActivate` 的指针入口）；右键行的指示环（`#438`）。
 - 键盘焦点跟随滚动（需要滚动容器协作，另开 issue）。
 - `TreeStyle` 升协议（第三方外观、`showLine` 肘线）——兼容路径见 §2.1，改判走修订回路。
 - `CheckBox` 自身读 `controlSize`（含 iOS 触控下限裁决）——另议，Tree 的 internal 注入届时删除。

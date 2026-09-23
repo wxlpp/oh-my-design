@@ -222,7 +222,8 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
 public extension Tree {
     /// 为整行（含缩进区）挂右键菜单。菜单作用于目标集合：右键的行已选中时，为选中集合里
     /// 当前可见的行（被折叠隐藏的选中项、不属于本树的 ID 都不在内）；否则只是右键的那一行。
-    /// 唤起菜单不改变选中与焦点。builder 会在每个已构建的行上随 body 求值，闭包里不要做重活。
+    /// 唤起菜单不改变选中与焦点。builder 只在取菜单时求值（渲染行时不求值），在视图更新期执行：
+    /// 必须是纯的，不要在里面写状态。直接在 `Tree` 上调用，放在其它 modifier 之前。
     ///
     /// - Parameter menu: 以目标 ID 集合生成菜单项。
     /// - Returns: 挂好菜单的同一棵树。
@@ -469,10 +470,19 @@ struct TreeRowMenu<ID: Hashable>: ViewModifier {
 
     func body(content: Content) -> some View {
         if let menu = self.menu {
-            content.contextMenu { menu(self.targets) }
+            content.contextMenu { TreeDeferredMenu(targets: self.targets, make: menu) }
         } else {
             content
         }
+    }
+}
+
+struct TreeDeferredMenu<ID: Hashable>: View {
+    let targets: Set<ID>
+    let make: (Set<ID>) -> AnyView
+
+    var body: some View {
+        self.make(self.targets)
     }
 }
 

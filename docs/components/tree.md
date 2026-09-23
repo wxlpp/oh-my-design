@@ -267,11 +267,20 @@ Tree(roots, children: \.children, expanded: $expanded, selection: $selection, se
 - **目标集合**：右键的行**已选中**时，是「选中集合 ∩ 当前可见行」；否则**只是右键的那一行**（不并进已有选中）。
   「可见」指展开之后的行序列，不是视口内可见。因此被折叠隐藏的选中项、不属于本树的 ID
   （几棵树共用一个 `selection` 时）都不会传给菜单——对齐 Finder：折叠的文件夹里之前选中的项不参与右键操作。
-- **唤起菜单不改变**选中、焦点与交互来源（对齐 Finder / Xcode；VS Code 会给右键行画焦点框，本组件不画）。
+- **唤起菜单不改变**选中、焦点与交互来源。
+- ⚠️ **已知缺口（`#438`）：macOS 右键时不给目标行画指示环。** Finder / Xcode（`NSOutlineView`）右键时会给被点的行
+  画 contextual-menu 高亮环，VS Code 也画；本组件不画，不是有意对齐。后果：多选时右键一个**未选中**的行，
+  菜单只作用于这一行，屏幕上却仍高亮原选中——`Delete 1 item` 读不出删的是哪个。SwiftUI `.contextMenu`
+  没有打开 / 关闭回调，行宿主拿不到「正在给我弹菜单」，候选机制与成本见该 issue。
 - **整行都是右键区**（含缩进区）：菜单挂在行宿主上、`contentShape` 之后，与点选区同一层，换外观不丢菜单。
 - **不调用就不挂**：没有 `rowContextMenu` 时行上不挂 `.contextMenu`（不是挂一个空菜单）。
-- builder 会在每个已构建的行上**随 body 求值**（SwiftUI 的 `.contextMenu` 就是这样求值的），闭包里不要做重活；
-  求值次数是 SwiftUI 的实现细节。选中 ∩ 可见行每次 body 只算一次，所有行共用，不遍历整树。
+- builder **只在取菜单时求值**，渲染行时不求值：行上挂的是一个小视图，它的 `body` 才调 builder。
+  直接写 `.contextMenu { menu(targets) }` 时 builder 随每行的 body 求值（`ImageRenderer` 与托管窗口实测每行都会跑）。
+  builder 在视图更新期执行，**必须是纯的**，不要在里面写状态。选中 ∩ 可见行每次 body 只算一次，所有行共用，不遍历整树。
+- **直接在 `Tree` 上调用，放在其它 modifier 之前**（它返回 `Tree`，放在 modifier 之后编译不过）。
+  ⚠️ 不要写 `flag ? tree.rowContextMenu { … } : tree` 这类按条件开关菜单：设与不设走行宿主里
+  `TreeRowMenu` 的两个条件分支，切换即换分支，行内容里的 `@State` 会被重置。要按条件禁用，
+  让 builder 按条件返回不同的菜单项。
 - 菜单内容是调用方的数据操作，不是外观——所以它是 `Tree` 上的 builder 方法，不在 `TreeStyle` 里，
   也不是环境值（环境值要擦除 `ID`，闭包里就拿不到强类型集合）。拖放仍不在范围内。
 
@@ -357,8 +366,12 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
 - **悬停命中区**：`.navigator` 行在 `.onHover` 之前挂了 `.contentShape(Rectangle())`，意在让从行右侧空白 / 缩进区进入也点亮（空闲态底色是 `Color.clear`）；真指针下从这两处进入是否点亮，**未验证**。
 - iPadOS 指针下 `onHover` 是否触发。
 - **右键菜单的真实唤起路径**（`#429`）：真右键 / 双指点按 / Control-点按（macOS）、长按（iOS）真的弹出菜单，
-  且**唤起后选中、焦点、交互来源都不变**。判据只对行所在点调 `NSView.menu(for:)`——那是菜单的构建，不是唤起；
-  没有经 `sendEvent` 合成 `rightMouseDown`（会进入菜单的模态追踪）。
+  且**唤起后选中、焦点、交互来源都不变**。判据只对行所在点调 `NSView.menu(for:)`——那是菜单的构建，不是唤起。
+  经 `sendEvent` 合成 `rightMouseDown` 会进入菜单的模态追踪，可用 `NSMenu.didBeginTrackingNotification` +
+  异步 `cancelTracking()` 退出（合成右键确实弹出了该行的菜单，选中与展开未变）；⚠️ 但在 `swift test` 进程里
+  这样做，该测试返回后**测试进程以退出码 0 整体退出**，后面的测试一条都不跑（退出栈在
+  `swift_task_asyncMainDrainQueue` → `exit`）；在通知里同步 `cancelTracking()` 则追踪不退出、进程挂住。
+  ⇒ 没有采用为判据，这一项仍只在真 HID 清单里。
 - **两种外观下无障碍取值相同**的运行时读数：托管窗口的 `NSHostingView` 读不到无障碍子树（KVC 读
   `accessibilityChildren` 只有根 `AXGroup`）。现有的网是源码判据：`accessibilityValue` / `accessibilityAddTraits` /
   `onTapGesture` / `contentShape` 只挂在行宿主上、两种外观类型里一处都没有。
@@ -378,10 +391,19 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
 
 `#429` 起的右键菜单判据（`TreeContextMenuTests`）：
 - 纯函数（双腿）：右键已选中的行 → 选中 ∩ 可见行，折叠隐藏的本树 ID 与树外 ID 都不传出；右键未选中的行 → 只有这一行。
-- 渲染（双腿，`ImageRenderer`）：每个已构建行都以正确的目标集合求值 builder（只要求 ≥ 1 次，不钉死次数）。
-- 托管窗口（**仅 macOS**，两种外观）：对每一行所在点取 `NSView.menu(for:)`，得到的菜单就是这一行的目标集合。
+- 渲染不求值 builder（双腿，`ImageRenderer`）：渲染后 builder 调用 0 次。它单独看会被「根本没挂菜单」骗绿，
+  所以两条腿各有一条同时判「挂上了、目标对」的托管判据（下两条）。
+- 托管窗口（**仅 macOS**，两种外观）：渲染后 builder 0 次；对每一行所在点取 `NSView.menu(for:)`，得到的菜单就是
+  这一行的目标集合（取过后 builder 计数非 0，证明计数探针有效）；第 2 层行 `a1` / `a2` 的**缩进区**也取到该行的菜单；
+  取过一次菜单后点另一行改选中，再取，目标集合跟着新选中走（不陈旧）。
+  ⚠️ 缩进区一条只在 `.automatic` 下能判出「菜单挂在 `contentShape` 之前」：`.navigator` 行自己带
+  `contentShape`，那样挂照样覆盖整行。
   ⚠️ 它**不判**「唤起菜单不改选中」：把「构建菜单时顺手选中该行」写进 builder 包装，这条照样绿
-  （构建期的状态写入没有落到绑定上）⇒ 该项只在上面的真 HID 清单里。
+  （builder 改为延迟求值后复测仍绿）⇒ 该项只在上面的真 HID 清单里。
+- 托管窗口（**仅 iOS**）：渲染后 builder 0 次；沿纵向逐点向 `UIContextMenuInteraction` 的 delegate 要菜单配置，
+  builder 收到的集合恰是各行的目标集合。托管窗口里整棵树只有 1 个菜单交互，按位置分派到行。
+  ⚠️ iOS 腿没有「改选中后不陈旧」的判据（那条要点击改选中，只在 macOS 托管窗口里做）。
+- 托管窗口点选（**仅 macOS**）：`clickingARowSelectsIt` 对「无菜单 / 设了菜单」参数化，设了菜单后点选照样工作。
 - **「不调用就不挂」只在 iOS 腿有判据**：视图树里没有 `UIContextMenuInteraction`，调用了才有（正向对照在同一条里）。
   ⚠️ macOS 腿上**没有**这条判据：`menu(for:)` 对「不挂」与「挂了空菜单」都返回 `nil`，两者分不开；
   AX 动作列表也读不到（同上一条，`NSHostingView` 读不到无障碍子树）。
