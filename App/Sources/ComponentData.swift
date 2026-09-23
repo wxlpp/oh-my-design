@@ -2265,9 +2265,106 @@ private struct TreePreview: View {
                     Text(verbatim: node.name).coreFont(.callout)
                 }
             }
+            VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                Text(verbatim: "导航器 / navigator（.treeStyle(.navigator) + .controlSize(.small)，VS Code Explorer 式）")
+                    .coreFont(.footnote).foregroundStyle(Color.contentSecondary)
+                ExplorerTreePreview()
+            }
             Text(verbatim: "expanded=\(self.expanded.sorted()) selection=\(self.selection.sorted()) checked=\(self.checked.sorted()) activated=\(self.activated)")
                 .coreFont(.caption)
                 .foregroundStyle(Color.contentSubtle)
+        }
+    }
+}
+
+private struct GalleryFileNode: Identifiable {
+    enum GitStatus { case modified, untracked }
+
+    let id: String
+    let name: String
+    let children: [GalleryFileNode]?
+    var git: GitStatus?
+}
+
+private struct ExplorerTreePreview: View {
+    static let roots: [GalleryFileNode] = [
+        GalleryFileNode(id: "Sources", name: "Sources", children: [
+            GalleryFileNode(id: "Sources/Tree", name: "Tree", children: [
+                GalleryFileNode(id: "Sources/Tree/Tree.swift", name: "Tree.swift", children: nil, git: .modified),
+                GalleryFileNode(id: "Sources/Tree/TreeCore.swift", name: "TreeCore.swift", children: nil),
+                GalleryFileNode(id: "Sources/Tree/TreeStyle.swift", name: "TreeStyle.swift", children: nil, git: .untracked),
+            ]),
+            GalleryFileNode(id: "Sources/Resources", name: "Resources", children: [
+                GalleryFileNode(id: "Sources/Resources/Localizable.strings", name: "Localizable.strings", children: nil),
+            ]),
+        ]),
+        GalleryFileNode(id: "docs", name: "docs", children: [
+            GalleryFileNode(id: "docs/tree.md", name: "tree.md", children: nil, git: .modified),
+            GalleryFileNode(id: "docs/component-registry.json", name: "component-registry.json", children: nil),
+        ]),
+        GalleryFileNode(id: "Package.swift", name: "Package.swift", children: nil),
+        GalleryFileNode(id: "README.md", name: "README.md", children: nil),
+    ]
+
+    @State private var expanded: Set<String> = Tree<[GalleryFileNode], String, Text>.expandedIDs(
+        ExplorerTreePreview.roots, id: \.id, children: \.children, toDepth: 3
+    )
+    @State private var selection: Set<String> = ["Sources/Tree/TreeStyle.swift"]
+
+    var body: some View {
+        Tree(
+            Self.roots,
+            children: \.children,
+            expanded: self.$expanded,
+            selection: self.$selection,
+            selectionMode: .multiple
+        ) { node in
+            HStack(spacing: CoreSpacing.xs) {
+                Label {
+                    Text(verbatim: node.name)
+                        .foregroundStyle(Self.tint(for: node.git) ?? Color.contentPrimary)
+                        .lineLimit(1)
+                } icon: {
+                    Image(systemName: Self.icon(for: node))
+                        .foregroundStyle(Color.contentSecondary)
+                }
+                .coreFont(.callout)
+                Spacer(minLength: 0)
+                if let git = node.git {
+                    Text(verbatim: Self.letter(for: git))
+                        .coreFont(.caption)
+                        .foregroundStyle(Self.tint(for: git) ?? Color.contentSecondary)
+                }
+            }
+        }
+        .treeStyle(.navigator)
+        .controlSize(.small)
+        .padding(.vertical, CoreSpacing.xs)
+        .surface(.content)
+    }
+
+    private static func icon(for node: GalleryFileNode) -> String {
+        guard node.children == nil else { return "folder" }
+        switch (node.name as NSString).pathExtension {
+        case "swift": return "swift"
+        case "md": return "doc.richtext"
+        case "json": return "curlybraces"
+        default: return "doc"
+        }
+    }
+
+    private static func letter(for status: GalleryFileNode.GitStatus) -> String {
+        switch status {
+        case .modified: "M"
+        case .untracked: "U"
+        }
+    }
+
+    private static func tint(for status: GalleryFileNode.GitStatus?) -> Color? {
+        switch status {
+        case .modified: .warning
+        case .untracked: .success
+        case nil: nil
         }
     }
 }

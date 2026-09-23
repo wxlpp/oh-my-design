@@ -53,6 +53,56 @@ enum TreeJudgeFixture {
     }
 }
 
+// MARK: - 位图 / Pixels
+
+@MainActor
+struct TreePixels {
+    let bytes: [UInt8]?
+    let width: Int
+    let height: Int
+    let scale: CGFloat
+
+    static func render(
+        _ view: some View,
+        scheme: ColorScheme = .light,
+        width: CGFloat = 260,
+        scale: CGFloat = 2,
+        background: Color = Color.surfaceCanvas
+    ) -> TreePixels {
+        let renderer = ImageRenderer(
+            content: view
+                .frame(width: width)
+                .background(background)
+                .environment(\.colorScheme, scheme)
+        )
+        renderer.scale = scale
+        _ = renderer.cgImage
+        guard let image = renderer.cgImage,
+              let space = CGColorSpace(name: CGColorSpace.sRGB)
+        else { return TreePixels(bytes: nil, width: 0, height: 0, scale: scale) }
+        let bytesPerRow = image.width * 4
+        var bytes = [UInt8](repeating: 0, count: bytesPerRow * image.height)
+        guard let context = CGContext(
+            data: &bytes, width: image.width, height: image.height,
+            bitsPerComponent: 8, bytesPerRow: bytesPerRow, space: space,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return TreePixels(bytes: nil, width: image.width, height: image.height, scale: scale) }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        return TreePixels(bytes: bytes, width: image.width, height: image.height, scale: scale)
+    }
+
+    func rgb(x: Int, y: Int) -> (Int, Int, Int)? {
+        guard let bytes = self.bytes, x >= 0, y >= 0, x < self.width, y < self.height else { return nil }
+        let i = (y * self.width + x) * 4
+        return (Int(bytes[i]), Int(bytes[i + 1]), Int(bytes[i + 2]))
+    }
+
+    func deviates(x: Int, y: Int, from reference: (Int, Int, Int), by threshold: Int) -> Bool {
+        guard let pixel = self.rgb(x: x, y: y) else { return false }
+        return max(abs(pixel.0 - reference.0), abs(pixel.1 - reference.1), abs(pixel.2 - reference.2)) > threshold
+    }
+}
+
 // MARK: - 展平
 
 @Suite("Tree 展平：根算第 1 层、父指针、分支标记")
@@ -914,79 +964,195 @@ struct TreeLazinessTests {
 final class TreeHostedLog {
     var expanded: Set<String> = []
     var selection: Set<String> = []
+    var checked: Set<String> = []
     var animations: [Animation?] = []
 }
 
 struct TreeHostedHarness: View {
     let log: TreeHostedLog
-    @State private var expanded: Set<String> = []
+    let style: TreeStyle
+    let showsCheckBoxes: TreeHostedCheckBoxes
+    @State private var expanded: Set<String>
     @State private var selection: Set<String> = []
+    @State private var checked: Set<String> = []
+
+    init(
+        log: TreeHostedLog,
+        style: TreeStyle,
+        expanded: Set<String> = [],
+        showsCheckBoxes: TreeHostedCheckBoxes = .hidden
+    ) {
+        self.log = log
+        self.style = style
+        self.showsCheckBoxes = showsCheckBoxes
+        self._expanded = State(initialValue: expanded)
+    }
 
     var body: some View {
-        Tree(TreeJudgeFixture.roots, children: \.children, expanded: self.$expanded, selection: self.$selection) { node in
+        Tree(
+            TreeJudgeFixture.roots,
+            children: \.children,
+            expanded: self.$expanded,
+            selection: self.$selection,
+            checked: self.showsCheckBoxes == .shown ? self.$checked : nil
+        ) { node in
             Text(verbatim: node.id)
         }
+        .treeStyle(self.style)
         .transaction { transaction in self.log.animations.append(transaction.animation) }
         .onChange(of: self.expanded) { self.log.expanded = self.expanded }
         .onChange(of: self.selection) { self.log.selection = self.selection }
+        .onChange(of: self.checked) { self.log.checked = self.checked }
         .frame(maxHeight: .infinity, alignment: .top)
+        // 托管窗口不是 key window：不加这句，行上的 onTapGesture 收不到合成点击（Button / Toggle 不受影响）。
+        .allowsWindowActivationEvents(true)
     }
 }
 
-@Suite("Tree 视图接线（macOS 托管窗口 + 合成事件）：按键经 onKeyPress 到归约，展开曲线取自环境动效档")
+enum TreeHostedCheckBoxes {
+    case hidden
+    case shown
+}
+
+nonisolated enum TreeHostedAppearance: CaseIterable, CustomTestStringConvertible, Sendable {
+    case automatic
+    case navigator
+
+    var testDescription: String {
+        switch self {
+        case .automatic: ".automatic"
+        case .navigator: ".navigator"
+        }
+    }
+
+    @MainActor var style: TreeStyle {
+        switch self {
+        case .automatic: .automatic
+        case .navigator: .navigator
+        }
+    }
+}
+
+@Suite("Tree 视图接线（macOS 托管窗口 + 合成事件）：按键经 onKeyPress 到归约，展开曲线取自环境动效档；两种外观逐条同一结论")
 @MainActor
 struct TreeHostedWiringTests {
-    private static let chevronOfA = CGPoint(x: CoreSpacing.xs + 12, y: 22)
+    private static let regular = TreeRowMetrics.resolve(.regular)
+    private static let pitch = Self.regular.rowHeight + Self.regular.rowSpacing
+    private static let chevronOfA = CGPoint(
+        x: CoreSpacing.xs + Self.regular.disclosureWidth / 2, y: Self.regular.rowHeight / 2
+    )
     private static let leftArrow = String(Character(UnicodeScalar(NSLeftArrowFunctionKey)!))
     private static let downArrow = String(Character(UnicodeScalar(NSDownArrowFunctionKey)!))
 
-    private static func window(_ log: TreeHostedLog, motion: MotionPresentation = .animated) -> HostedWindow {
+    private static func centerY(ofRow index: Int) -> CGFloat {
+        CGFloat(index) * Self.pitch + Self.regular.rowHeight / 2
+    }
+
+    private static func checkBoxX(level: Int) -> CGFloat {
+        CoreSpacing.xs + CGFloat(level - 1) * Self.regular.indentation + Self.regular.disclosureWidth
+            + CoreSpacing.xs + Self.regular.checkBoxGlyph / 2
+    }
+
+    private static func window(
+        _ log: TreeHostedLog,
+        appearance: TreeHostedAppearance,
+        motion: MotionPresentation = .animated,
+        expanded: Set<String> = [],
+        showsCheckBoxes: TreeHostedCheckBoxes = .hidden
+    ) -> HostedWindow {
         HostedWindow(
-            TreeHostedHarness(log: log).environment(\.coreMotionPresentationOverride, motion),
-            size: CGSize(width: 260, height: 200),
+            TreeHostedHarness(log: log, style: appearance.style, expanded: expanded, showsCheckBoxes: showsCheckBoxes)
+                .environment(\.coreMotionPresentationOverride, motion),
+            size: CGSize(width: 260, height: 320),
             scheme: .light
         )
     }
 
-    @Test("点 chevron 与按 ← 的展开事务都带环境动效档对应的曲线", arguments: MotionPresentation.allCases)
-    func expansionTransactionsFollowTheEnvironment(motion: MotionPresentation) {
+    private static func click(_ window: HostedWindow, at point: CGPoint) {
+        window.sendMouse(.leftMouseDown, at: point)
+        window.sendMouse(.leftMouseUp, at: point)
+        window.settle()
+    }
+
+    @Test(
+        "点 chevron 与按 ← 的展开事务都带环境动效档对应的曲线",
+        arguments: TreeHostedAppearance.allCases, MotionPresentation.allCases
+    )
+    func expansionTransactionsFollowTheEnvironment(appearance: TreeHostedAppearance, motion: MotionPresentation) {
         let log = TreeHostedLog()
-        let window = Self.window(log, motion: motion)
+        let window = Self.window(log, appearance: appearance, motion: motion)
         defer { window.close() }
         let expected = CoreMotionToken.treeExpansion(for: motion)
 
         log.animations = []
-        window.sendMouse(.leftMouseDown, at: Self.chevronOfA)
-        window.sendMouse(.leftMouseUp, at: Self.chevronOfA)
-        window.settle()
-        #expect(log.expanded == ["a"], "点 chevron 没有展开 a——点击没走到 setExpansion，下面的曲线判据无意义")
+        Self.click(window, at: Self.chevronOfA)
+        #expect(log.expanded == ["a"], "\(appearance)：点 chevron 没有展开 a——点击没走到 setExpansion，下面的曲线判据无意义")
+        #expect(log.selection.isEmpty, "\(appearance)：点 chevron 同时选中了行 \(log.selection)——chevron 的点击漏到了行的点选手势")
         let pointer = log.animations.compactMap { $0 }
 
         log.animations = []
         window.sendKey(keyCode: 123, characters: Self.leftArrow)
         window.settle()
-        #expect(log.expanded.isEmpty, "← 没有折叠 a——按键没经 onKeyPress 走到归约，下面的曲线判据无意义")
+        #expect(log.expanded.isEmpty, "\(appearance)：← 没有折叠 a——按键没经 onKeyPress 走到归约，下面的曲线判据无意义")
         let keyboard = log.animations.compactMap { $0 }
 
         for (path, animations) in [("点 chevron", pointer), ("按 ←", keyboard)] {
             if let expected {
-                #expect(!animations.isEmpty, "\(path)：\(motion) 下展开事务没带曲线")
-                #expect(animations.allSatisfy { $0 == expected }, "\(path)：\(motion) 下曲线应为 \(expected)，实得 \(animations)")
+                #expect(!animations.isEmpty, "\(appearance) \(path)：\(motion) 下展开事务没带曲线")
+                #expect(animations.allSatisfy { $0 == expected }, "\(appearance) \(path)：\(motion) 下曲线应为 \(expected)，实得 \(animations)")
             } else {
-                #expect(animations.isEmpty, "\(path)：hidden 下展开仍在补间，实得 \(animations)")
+                #expect(animations.isEmpty, "\(appearance) \(path)：hidden 下展开仍在补间，实得 \(animations)")
             }
         }
     }
 
-    @Test("按键把归约结果写回宿主绑定：首键解析初始焦点，↓ 移焦，Space 选中")
-    func keysWriteTheReducedStateBack() {
+    @Test("按键把归约结果写回宿主绑定：首键解析初始焦点，↓ 移焦，Space 选中", arguments: TreeHostedAppearance.allCases)
+    func keysWriteTheReducedStateBack(appearance: TreeHostedAppearance) {
         let log = TreeHostedLog()
-        let window = Self.window(log)
+        let window = Self.window(log, appearance: appearance)
         defer { window.close() }
         window.sendKey(keyCode: 125, characters: Self.downArrow)
         window.sendKey(keyCode: 49, characters: " ")
         window.settle()
-        #expect(log.selection == ["b"], "首键落在初始焦点 a，↓ 到 b，Space 应当选中 b，实得 \(log.selection)")
+        #expect(log.selection == ["b"], "\(appearance)：首键落在初始焦点 a，↓ 到 b，Space 应当选中 b，实得 \(log.selection)")
+    }
+
+    @Test("点行内容选中该行（单选）；再点另一行替换", arguments: TreeHostedAppearance.allCases)
+    func clickingARowSelectsIt(appearance: TreeHostedAppearance) {
+        let log = TreeHostedLog()
+        let window = Self.window(log, appearance: appearance)
+        defer { window.close() }
+        Self.click(window, at: CGPoint(x: 120, y: Self.centerY(ofRow: 1)))
+        #expect(log.selection == ["b"], "\(appearance)：点 b 行内容应选中 b，实得 \(log.selection)")
+        Self.click(window, at: CGPoint(x: 120, y: Self.centerY(ofRow: 2)))
+        #expect(log.selection == ["c"], "\(appearance)：再点 c 行应替换为 c，实得 \(log.selection)")
+    }
+
+    @Test("点第 2 层行的缩进区也选中该行（命中区是整行）", arguments: TreeHostedAppearance.allCases)
+    func clickingTheIndentationSelectsTheRow(appearance: TreeHostedAppearance) {
+        let log = TreeHostedLog()
+        log.expanded = ["a"]
+        let window = Self.window(log, appearance: appearance, expanded: ["a"])
+        defer { window.close() }
+        let indentX = CoreSpacing.xs + Self.regular.indentation / 2
+        Self.click(window, at: CGPoint(x: indentX, y: Self.centerY(ofRow: 1)))
+        #expect(log.selection == ["a1"], "\(appearance)：点 a1 行缩进区（x = \(indentX)）应选中 a1，实得 \(log.selection)")
+        #expect(log.expanded == ["a"], "\(appearance)：点缩进区不该改展开态，实得 \(log.expanded)")
+    }
+
+    @Test("点复选框勾选：叶行勾自己，父行级联全部叶后代；不动行选中", arguments: TreeHostedAppearance.allCases)
+    func clickingCheckBoxesWritesTheCheckedSet(appearance: TreeHostedAppearance) {
+        let log = TreeHostedLog()
+        let window = Self.window(log, appearance: appearance, showsCheckBoxes: .shown)
+        defer { window.close() }
+        Self.click(window, at: CGPoint(x: Self.checkBoxX(level: 1), y: Self.centerY(ofRow: 1)))
+        #expect(log.checked == ["b"], "\(appearance)：点 b 的复选框应勾上 b，实得 \(log.checked)")
+        Self.click(window, at: CGPoint(x: Self.checkBoxX(level: 1), y: Self.centerY(ofRow: 0)))
+        #expect(
+            log.checked == ["b", "a1x", "a1y", "a2"],
+            "\(appearance)：点父行 a 的复选框应级联勾上 a 的全部叶后代，实得 \(log.checked)"
+        )
+        #expect(log.selection.isEmpty, "\(appearance)：点复选框不该改行选中，实得 \(log.selection)")
     }
 }
 #endif
@@ -1119,7 +1285,7 @@ struct TreeRenderTests {
         Self.expectVisiblyDifferent(off.bytes, on.bytes, "off 与 on 画得一样")
     }
 
-    private static func row(focus: String?, showsFocusRing: Bool) -> some View {
+    private static func row(focus: String?, showsFocusIndicator: Bool) -> some View {
         let context = TreeContext<[TreeJudgeNode], String, Text>(
             id: \.id,
             children: \.children,
@@ -1128,21 +1294,21 @@ struct TreeRenderTests {
             checked: nil,
             focus: focus,
             metrics: TreeRowMetrics.resolve(.regular),
-            showsFocusRing: showsFocusRing,
+            showsFocusIndicator: showsFocusIndicator,
             select: { _ in },
             setExpansion: { _, _ in },
             notePointerCheck: {},
             content: { Text(verbatim: $0.id) }
         )
-        return TreeRowView(element: TreeJudgeFixture.node("b"), level: 1, hasChildren: false, context: context)
+        return TreeRowHost(element: TreeJudgeFixture.node("b"), level: 1, hasChildren: false, context: context)
             .padding(8)
     }
 
     @Test("焦点行在点击交互后不画焦点环，键盘交互后才画")
     func focusRingIsDrawnOnlyAfterKeyboardInteraction() {
-        let unfocused = Self.pixels(Self.row(focus: nil, showsFocusRing: true))
-        let pointer = Self.pixels(Self.row(focus: "b", showsFocusRing: false))
-        let keyboard = Self.pixels(Self.row(focus: "b", showsFocusRing: true))
+        let unfocused = Self.pixels(Self.row(focus: nil, showsFocusIndicator: true))
+        let pointer = Self.pixels(Self.row(focus: "b", showsFocusIndicator: false))
+        let keyboard = Self.pixels(Self.row(focus: "b", showsFocusIndicator: true))
         Self.expectVisiblyDifferent(unfocused.bytes, keyboard.bytes, "键盘交互后焦点行没画焦点环——下面那条相等判据会空转")
         expectBitmapsEquivalent(
             unfocused.bytes, pointer.bytes, maxChannelDelta: Self.noiseTolerance, "点击选中后焦点行画出了焦点环"
@@ -1394,3 +1560,418 @@ struct TreeDensityTests {
         #expect(step == Self.expected(size).indentation, "\(size)：父子色块左缘差 \(step)pt，应为 \(Self.expected(size).indentation)pt")
     }
 }
+
+// MARK: - 外观配置 / Appearance
+
+@MainActor
+enum TreeRowFixture {
+    static func configuration<Label: View>(
+        label: Label,
+        level: Int = 1,
+        hasChildren: Bool = false,
+        isSelected: Bool = false,
+        showsFocusIndicator: Bool = false,
+        isHovered: Bool = false,
+        metrics: TreeRowMetrics = TreeRowMetrics.resolve(.regular)
+    ) -> TreeRowConfiguration<Label> {
+        TreeRowConfiguration(
+            label: label,
+            disclosure: TreeDisclosureControl(hasChildren: hasChildren, isExpanded: false, metrics: metrics) {},
+            checkBox: nil,
+            level: level,
+            hasChildren: hasChildren,
+            isExpanded: false,
+            isSelected: isSelected,
+            showsFocusIndicator: showsFocusIndicator,
+            isHovered: isHovered,
+            metrics: metrics
+        )
+    }
+
+    static func navigator(
+        level: Int = 1,
+        isSelected: Bool = false,
+        showsFocusIndicator: Bool = false,
+        isHovered: Bool = false
+    ) -> some View {
+        NavigatorTreeRow(configuration: Self.configuration(
+            label: Text(verbatim: "row"),
+            level: level,
+            isSelected: isSelected,
+            showsFocusIndicator: showsFocusIndicator,
+            isHovered: isHovered
+        ))
+    }
+}
+
+@Suite("Tree 外观配置：.navigator 的整行选中 / 悬停 / 焦点指示 / 中性色 chevron；行配置不带闭包")
+@MainActor
+struct TreeStyleRenderTests {
+    private static let minimumSignalDelta = 8
+    private static let minimumHoverDelta = 4
+    private static let minimumLadderStep = 16
+    private static let noiseTolerance = 2
+
+    private static func expectVisiblyDifferent(
+        _ a: TreePixels,
+        _ b: TreePixels,
+        _ comment: String,
+        minimum: Int = Self.minimumSignalDelta,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) {
+        guard let metrics = bitmapDifferenceMetrics(a.bytes, b.bytes) else {
+            #expect(
+                Bool(false),
+                Comment(rawValue: bitmapExpectationMessage("两张位图未渲染或长度不同。" + comment, a.bytes, b.bytes)),
+                sourceLocation: sourceLocation
+            )
+            return
+        }
+        #expect(
+            metrics.maxChannelDelta > minimum,
+            Comment(rawValue: bitmapExpectationMessage(
+                "逐通道最大偏差 \(metrics.maxChannelDelta) ≤ \(minimum)，不算画得不同。" + comment,
+                a.bytes, b.bytes
+            )),
+            sourceLocation: sourceLocation
+        )
+    }
+
+    @Test(".navigator 悬停与未悬停画得不同", arguments: [ColorScheme.light, .dark])
+    func navigatorDrawsTheHover(_ scheme: ColorScheme) {
+        let idle = TreePixels.render(TreeRowFixture.navigator(), scheme: scheme)
+        let hovered = TreePixels.render(TreeRowFixture.navigator(isHovered: true), scheme: scheme)
+        Self.expectVisiblyDifferent(idle, hovered, "\(scheme)：悬停没有任何视觉呈现", minimum: Self.minimumHoverDelta)
+    }
+
+    private static func backgroundSample(
+        _ scheme: ColorScheme, accent: Color?, isSelected: Bool = false, isHovered: Bool = false
+    ) -> (Int, Int, Int)? {
+        let row = TreeRowFixture.navigator(isSelected: isSelected, isHovered: isHovered)
+        let pixels = if let accent {
+            TreePixels.render(row.coreAccent(accent), scheme: scheme)
+        } else {
+            TreePixels.render(row, scheme: scheme)
+        }
+        return pixels.rgb(x: pixels.width - 8, y: pixels.height / 2)
+    }
+
+    private static func channelDistance(_ a: (Int, Int, Int), _ b: (Int, Int, Int)) -> Int {
+        max(abs(a.0 - b.0), abs(a.1 - b.1), abs(a.2 - b.2))
+    }
+
+    @Test(
+        ".navigator 三档阶梯：选中与悬停逐通道差 ≥ 16，且选中偏离底色多于悬停（默认墨色与宿主蓝两种 coreAccent）",
+        arguments: [ColorScheme.light, .dark], [false, true]
+    )
+    func selectionIsStrongerThanHover(_ scheme: ColorScheme, hostAccent: Bool) {
+        let accent: Color? = hostAccent ? Color.dataAccent : nil
+        let name = "\(scheme) / \(hostAccent ? "宿主蓝" : "默认墨色")"
+        guard let idle = Self.backgroundSample(scheme, accent: accent),
+              let hovered = Self.backgroundSample(scheme, accent: accent, isHovered: true),
+              let selected = Self.backgroundSample(scheme, accent: accent, isSelected: true)
+        else {
+            Issue.record("\(name)：没渲染出来")
+            return
+        }
+        let step = Self.channelDistance(selected, hovered)
+        #expect(
+            step >= Self.minimumLadderStep,
+            "\(name)：选中 \(selected) 与悬停 \(hovered) 逐通道最大差 \(step) < \(Self.minimumLadderStep)，两态分不清"
+        )
+        let selectedOffset = Self.channelDistance(selected, idle)
+        let hoveredOffset = Self.channelDistance(hovered, idle)
+        #expect(
+            selectedOffset > hoveredOffset,
+            "\(name)：选中偏离底色 \(selectedOffset) 不大于悬停 \(hoveredOffset)（底色 \(idle)）——阶梯倒置"
+        )
+    }
+
+    @Test(".navigator 选中优先于悬停：选中 + 悬停 = 仅选中", arguments: [ColorScheme.light, .dark])
+    func selectionWinsOverHover(_ scheme: ColorScheme) {
+        let selected = TreePixels.render(TreeRowFixture.navigator(isSelected: true), scheme: scheme)
+        let both = TreePixels.render(TreeRowFixture.navigator(isSelected: true, isHovered: true), scheme: scheme)
+        expectBitmapsEqual(both.bytes, selected.bytes, "\(scheme)：悬停在选中行上改变了画面——选中底色应当压过悬停")
+    }
+
+    @Test(".navigator 的焦点指示只在行配置要求时画")
+    func navigatorDrawsTheFocusIndicatorOnlyWhenAsked() {
+        let plain = TreePixels.render(TreeRowFixture.navigator())
+        let focused = TreePixels.render(TreeRowFixture.navigator(showsFocusIndicator: true))
+        Self.expectVisiblyDifferent(plain, focused, "行配置要求画焦点指示，.navigator 没画")
+    }
+
+    private static func thirdLevel(_ style: TreeStyle, selected: Bool) -> TreePixels {
+        TreePixels.render(
+            Tree(
+                TreeJudgeFixture.roots, id: \.id, children: \.children,
+                expanded: .constant(["a", "a1"]), selection: .constant(selected ? ["a1x"] : [])
+            ) { node in
+                Text(verbatim: node.id)
+            }
+            .treeStyle(style)
+        )
+    }
+
+    @Test("选中底色：.navigator 铺满缩进区，.automatic 起于缩进之后")
+    func navigatorSelectionCoversTheIndentation() {
+        let metrics = TreeRowMetrics.resolve(.regular)
+        let row = 2
+        let y = Int(((CGFloat(row) * (metrics.rowHeight + metrics.rowSpacing)) + metrics.rowHeight / 2) * 2)
+        let x = Int((CoreSpacing.xs + metrics.indentation / 2) * 2)
+        for (style, name, covers) in [(TreeStyle.navigator, ".navigator", true), (.automatic, ".automatic", false)] {
+            let plain = Self.thirdLevel(style, selected: false)
+            let selected = Self.thirdLevel(style, selected: true)
+            guard let reference = plain.rgb(x: x, y: y) else {
+                Issue.record("\(name)：没渲染出来")
+                continue
+            }
+            let tinted = selected.deviates(x: x, y: y, from: reference, by: Self.noiseTolerance)
+            #expect(
+                tinted == covers,
+                "\(name)：第 3 层选中行的缩进区（\(x / 2), \(y / 2)）\(tinted ? "被" : "没被")选中底色覆盖，应\(covers ? "" : "不")覆盖"
+            )
+        }
+    }
+
+    private static func collapsedParent(_ style: TreeStyle, tint: Color) -> TreePixels {
+        TreePixels.render(
+            Tree(
+                [TreeJudgeNode(id: "p", children: [TreeJudgeNode(id: "c", children: nil)])],
+                id: \.id, children: \.children, expanded: .constant([]), selection: .constant([])
+            ) { _ in
+                EmptyView()
+            }
+            .treeStyle(style)
+            .tint(tint)
+        )
+    }
+
+    @Test("chevron 着色：.automatic 跟随宿主 tint，.navigator 固定中性色")
+    func navigatorChevronIgnoresTheHostTint() {
+        Self.expectVisiblyDifferent(
+            Self.collapsedParent(.automatic, tint: .red), Self.collapsedParent(.automatic, tint: .blue),
+            ".automatic 换 tint 后 chevron 没变——下面那条相等判据会空转"
+        )
+        expectBitmapsEquivalent(
+            Self.collapsedParent(.navigator, tint: .red).bytes, Self.collapsedParent(.navigator, tint: .blue).bytes,
+            maxChannelDelta: Self.noiseTolerance,
+            ".navigator 的 chevron 跟着宿主 tint 变了——应固定为 contentSecondary"
+        )
+    }
+
+    @Test("行配置不含函数类型字段——行为留在组件内，外观拿不到")
+    func rowConfigurationCarriesNoClosures() {
+        let configuration = TreeRowFixture.configuration(label: Text(verbatim: "row"))
+        let fields = Mirror(reflecting: configuration).children.map {
+            (name: $0.label ?? "?", type: String(describing: type(of: $0.value)))
+        }
+        #expect(fields.count >= 10, "字段数 \(fields.count) 少于行配置应有的 10 个——反射没读到结构")
+        let closures = fields.filter { $0.type.contains("->") }
+        #expect(closures.isEmpty, "行配置带了函数类型字段：\(closures)")
+    }
+}
+
+// MARK: - 缩进参考线 / Indent guides
+
+@Suite("Tree .navigator 缩进参考线：对齐 chevron 中心、跨行连续、根数 = 层级 - 1、RTL 镜像")
+@MainActor
+struct TreeGuideLineTests {
+    private static let scale: CGFloat = 2
+    private static let white = (255, 255, 255)
+    private static let threshold = 2
+
+    private static func render(_ roots: [TreeJudgeNode], expanded: Set<String>, size: ControlSize) -> TreePixels {
+        TreePixels.render(
+            Tree(roots, id: \.id, children: \.children, expanded: .constant(expanded), selection: .constant([])) { _ in
+                Color.clear.frame(width: 10, height: 10)
+            }
+            .treeStyle(.navigator)
+            .controlSize(size),
+            scale: Self.scale,
+            background: .white
+        )
+    }
+
+    private static func deviatingColumns(_ pixels: TreePixels, y: Int) -> [Int] {
+        (0..<pixels.width).filter { pixels.deviates(x: $0, y: y, from: Self.white, by: Self.threshold) }
+    }
+
+    private static func clusters(_ columns: [Int]) -> [[Int]] {
+        var out: [[Int]] = []
+        for column in columns {
+            if let last = out.last?.last, column == last + 1 {
+                out[out.count - 1].append(column)
+            } else {
+                out.append([column])
+            }
+        }
+        return out
+    }
+
+    private static func rowTop(_ index: Int, _ metrics: TreeRowMetrics) -> CGFloat {
+        CGFloat(index) * (metrics.rowHeight + metrics.rowSpacing)
+    }
+
+    @Test("第 1 层 chevron 字形的水平中心与其子行参考线同列（≤ 1 pt）", arguments: [ControlSize.small, .regular])
+    func guideIsCenteredUnderTheParentChevron(size: ControlSize) {
+        let metrics = TreeRowMetrics.resolve(size)
+        let pixels = Self.render(
+            [TreeJudgeNode(id: "p", children: [TreeJudgeNode(id: "c", children: nil)])], expanded: ["p"], size: size
+        )
+        var chevron: [Int] = []
+        for y in 0..<Int(metrics.rowHeight * Self.scale) {
+            chevron += Self.deviatingColumns(pixels, y: y)
+        }
+        let childMid = Int((Self.rowTop(1, metrics) + metrics.rowHeight / 2) * Self.scale)
+        let guide = Self.deviatingColumns(pixels, y: childMid)
+        guard let low = chevron.min(), let high = chevron.max(), !guide.isEmpty else {
+            Issue.record("\(size)：没找到 chevron（\(chevron.count) 列）或参考线（\(guide.count) 列）")
+            return
+        }
+        let chevronCenter = CGFloat(low + high + 1) / 2 / Self.scale
+        let guideCenter = CGFloat(guide.reduce(0, +)) / CGFloat(guide.count) / Self.scale + 0.5 / Self.scale
+        #expect(
+            abs(chevronCenter - guideCenter) <= 1,
+            "\(size)：父行 chevron 中心 \(chevronCenter)pt，子行参考线 \(guideCenter)pt（列 \(guide)）"
+        )
+    }
+
+    @Test("参考线从父行下缘连到最后一个子行下缘，行间距处不断开（.regular 有 2 pt 行间距）")
+    func guideIsContinuousAcrossRows() {
+        let metrics = TreeRowMetrics.resolve(.regular)
+        #expect(metrics.rowSpacing > 0, "该档没有行间距，本条判据测不到断口")
+        let pixels = Self.render(
+            [TreeJudgeNode(id: "p", children: [
+                TreeJudgeNode(id: "c1", children: nil),
+                TreeJudgeNode(id: "c2", children: nil),
+            ])],
+            expanded: ["p"],
+            size: .regular
+        )
+        let guide = Self.deviatingColumns(pixels, y: Int((Self.rowTop(1, metrics) + metrics.rowHeight / 2) * Self.scale))
+        guard !guide.isEmpty else {
+            Issue.record("子行上没找到参考线")
+            return
+        }
+        let from = Int(metrics.rowHeight * Self.scale)
+        let to = Int((Self.rowTop(2, metrics) + metrics.rowHeight) * Self.scale)
+        let gaps = (from..<to).filter { y in
+            !guide.contains { pixels.deviates(x: $0, y: y, from: Self.white, by: Self.threshold) }
+        }
+        #expect(gaps.isEmpty, "参考线列 \(guide) 在这些像素行断开：\(gaps)（范围 \(from)..<\(to)）")
+    }
+
+    @Test("第 3 层行上恰有 2 根参考线，第 1 层行上没有", arguments: [ControlSize.small, .regular])
+    func guideCountIsLevelMinusOne(size: ControlSize) {
+        let metrics = TreeRowMetrics.resolve(size)
+        let pixels = Self.render(TreeJudgeFixture.roots, expanded: ["a", "a1"], size: size)
+        let thirdLevel = Int((Self.rowTop(2, metrics) + metrics.rowHeight / 2) * Self.scale)
+        let leafRoot = Int((Self.rowTop(5, metrics) + metrics.rowHeight / 2) * Self.scale)
+        let thirdClusters = Self.clusters(Self.deviatingColumns(pixels, y: thirdLevel))
+        let rootClusters = Self.clusters(Self.deviatingColumns(pixels, y: leafRoot))
+        #expect(thirdClusters.count == 2, "\(size)：第 3 层叶行 a1x 上应有 2 根参考线，实得 \(thirdClusters.count) 簇 \(thirdClusters)")
+        #expect(rootClusters.isEmpty, "\(size)：第 1 层叶行 b 上不应有参考线，实得 \(rootClusters)")
+    }
+
+    private static func swatchTree(_ direction: LayoutDirection) -> TreePixels {
+        TreePixels.render(
+            Tree(TreeJudgeFixture.roots, id: \.id, children: \.children, expanded: .constant(["a", "a1"]), selection: .constant([])) { _ in
+                Rectangle().fill(Color(red: 1, green: 0, blue: 0)).frame(width: 10, height: 10)
+            }
+            .treeStyle(.navigator)
+            .environment(\.layoutDirection, direction),
+            scale: Self.scale,
+            background: .white
+        )
+    }
+
+    @Test("RTL 的画面是 LTR 的水平镜像（参考线随书写方向翻转；容 1 px 亚像素错位）")
+    func guidesMirrorUnderRightToLeft() {
+        let ltr = Self.swatchTree(.leftToRight)
+        let rtl = Self.swatchTree(.rightToLeft)
+        guard ltr.bytes != nil, rtl.bytes != nil, ltr.width == rtl.width, ltr.height == rtl.height else {
+            Issue.record("LTR / RTL 没渲染出来或尺寸不同：\(ltr.width)×\(ltr.height) vs \(rtl.width)×\(rtl.height)")
+            return
+        }
+        var mismatches: [(x: Int, y: Int)] = []
+        for y in 0..<ltr.height {
+            for x in 0..<ltr.width {
+                guard let mirrored = ltr.rgb(x: ltr.width - 1 - x, y: y) else { continue }
+                let matched = (-1...1).contains { dx in
+                    guard let candidate = rtl.rgb(x: x + dx, y: y) else { return false }
+                    return max(
+                        abs(candidate.0 - mirrored.0), abs(candidate.1 - mirrored.1), abs(candidate.2 - mirrored.2)
+                    ) <= Self.mirrorTolerance
+                }
+                if !matched { mismatches.append((x, y)) }
+            }
+        }
+        #expect(
+            mismatches.isEmpty,
+            "RTL 有 \(mismatches.count) 个像素在 ±1 px 内找不到 LTR 镜像的对应（前 10 个：\(mismatches.prefix(10))）——参考线或行内元素没跟着书写方向翻转"
+        )
+    }
+
+    private static let mirrorTolerance = 8
+}
+
+// MARK: - 悬停 / Hover
+
+#if os(macOS)
+@MainActor
+final class TreeHoverTransactionLog {
+    var animations: [Animation?] = []
+}
+
+struct TreeHoverProbeHarness: View {
+    static let switchHeight: CGFloat = 30
+
+    let log: TreeHoverTransactionLog
+    @State private var isHovered = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Button {
+                self.isHovered.toggle()
+            } label: {
+                Color.clear.frame(maxWidth: .infinity).frame(height: Self.switchHeight).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            NavigatorTreeRow(configuration: TreeRowFixture.configuration(
+                label: Text(verbatim: self.isHovered ? "hovered" : "idle")
+                    .transaction { transaction in self.log.animations.append(transaction.animation) },
+                isHovered: self.isHovered
+            ))
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+}
+
+@Suite("Tree .navigator 悬停切换即时生效：行内容收到的事务不带动画（三档动效）")
+@MainActor
+struct TreeHoverTests {
+    @Test("翻转悬停时，行内容层的事务 animation 为 nil", arguments: MotionPresentation.allCases)
+    func hoverFlipCarriesNoAnimation(motion: MotionPresentation) {
+        let log = TreeHoverTransactionLog()
+        let window = HostedWindow(
+            TreeHoverProbeHarness(log: log).environment(\.coreMotionPresentationOverride, motion),
+            size: CGSize(width: 260, height: 100),
+            scheme: .light
+        )
+        defer { window.close() }
+        let flip = CGPoint(x: 130, y: TreeHoverProbeHarness.switchHeight / 2)
+        for target in [true, false] {
+            log.animations = []
+            window.sendMouse(.leftMouseDown, at: flip)
+            window.sendMouse(.leftMouseUp, at: flip)
+            window.settle()
+            #expect(!log.animations.isEmpty, "\(motion)：悬停 → \(target) 后行内容没收到事务——探针没接上，下面的判据无意义")
+            #expect(
+                log.animations.allSatisfy { $0 == nil },
+                "\(motion)：悬停 → \(target) 带了动画 \(log.animations.compactMap { $0 })"
+            )
+        }
+    }
+}
+#endif

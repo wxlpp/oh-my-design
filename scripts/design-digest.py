@@ -40,8 +40,9 @@ FLOORS = {
     # #407：motion 新节 4（press / selection / reveal / scroll）、enums +1（CoreMotionToken）、
     # enumcases +4（同上四档）、viewext +1（View.coreAnimation）。
     # #422：components +1（Tree）、enums +1（TreeSelectionMode）、enumcases +2（single / multiple）。
+    # #429：viewext +1（View.treeStyle）、others +1（TreeStyle，封闭 struct，不是协议也不是枚举）。
     "colors": 122, "components": 90, "enums": 46, "enumcases": 157,
-    "protocols": 6, "viewext": 46, "styleext": 15, "others": 28,
+    "protocols": 6, "viewext": 47, "styleext": 15, "others": 29,
 }
 
 # 组件判定：conformance 列表里出现这些名字之一，或以 Style 结尾。

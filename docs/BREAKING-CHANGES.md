@@ -29,6 +29,8 @@
 | `Tree<Data, ID, RowContent>` | 递归层级树组件：`init(_:id:children:expanded:selection:selectionMode:checked:onActivate:content:)`，另有 `Data.Element: Identifiable` 时省略 `id:` 的便利 init |
 | `TreeSelectionMode` | 行选择模式枚举：`.single` / `.multiple`（`nonisolated`、`Hashable`、`Sendable`、`CaseIterable`） |
 | `Tree.expandedIDs(_:id:children:toDepth:)` | `nonisolated` 静态函数，预算「默认展开到第 N 层」的集合（**根为第 1 层**）；两个同名重载：主类型上一个，`where RowContent == EmptyView` 的扩展上一个（调用处可写 `Tree.expandedIDs(...)` 不带泛型） |
+| `TreeStyle`（`#429`） | `Tree` 的行外观预设，**封闭配置**（`public struct`，无公开 init / 属性 / `Equatable`）：`nonisolated` 静态成员 `.automatic`（默认）/ `.navigator`（整行选中、悬停、缩进参考线、中性色 chevron） |
+| `View.treeStyle(_:)`（`#429`） | 为子树中的所有 `Tree` 设置行外观。**只写 `.treeStyle(.navigator)` 形态**；不要写 `TreeStyle.navigator`、不要把 `TreeStyle` 存成属性——将来升协议时这两种写法编译不过 |
 
 模块 `Localizable.strings` 新增两个 key：`"Expand"` / `"Collapse"`（chevron 的无障碍标签，说的是动作）。
 `"Expanded"` / `"Collapsed"` 此前已由 `CoreDisclosureGroupStyle` 登记，本次复用。
@@ -42,6 +44,12 @@
 （或 `.mini` / `.large` / `.extraLarge`）时，Tree 的行距、缩进、chevron 与复选框字形随档位变化
 （macOS `.small` 行距 22；iOS 各档行距保底 44）；默认 `.regular` 与此前逐项相同。推导表见 tree.md「外观」。
 `CheckBoxToggleStyle` 的公开行为不变。
+
+**行为（`#429`）：命中区扩到整行。** 此前点选区在缩进之内，点缩进区不选中；现在缩进区也选中该行。
+默认外观 `.automatic` 的像素不变（与此前逐像素对照过），**RTL 下展开态的 chevron 除外**（见下条修正）。
+
+**修正（`#429`）：RTL 下展开态的 chevron 朝上。** `#422` 在 RTL 下把旋转角取成 -90°，与系统对字形和旋转的
+RTL 镜像叠加后展开态画成朝上；现在两种书写方向都转 90°，RTL 下展开态朝下。
 
 行为契约（两套独立状态、键盘表、Reduce Motion 取值、已知缺口 `#427` / `#428`）见
 [tree.md](components/tree.md)。

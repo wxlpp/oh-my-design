@@ -12,6 +12,7 @@ import SwiftUI
 /// （含系统的 mixed 态），父节点自身**永不进** `checked` 集合。
 ///
 /// 行距、缩进、chevron 与复选框字形跟随环境 `controlSize`；iOS 上行距不低于 44 pt。
+/// 行外观由 `.treeStyle(_:)` 选择（`.automatic` / `.navigator`）；整行（含缩进区）都是点选区。
 ///
 /// ⚠️ **不是原生外观**：本组件走递归 `DisclosureGroup(isExpanded:)`，从系统拿到的是
 /// 展开态接口与嵌套能力；chevron、缩进、行选中底色与无障碍播报全部自绘。
@@ -191,7 +192,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             checked: self.checked,
             focus: self.focus,
             metrics: metrics,
-            showsFocusRing: TreeFocusing.showsRing(
+            showsFocusIndicator: TreeFocusing.showsRing(
                 containerFocused: self.isFocused, lastInteraction: self.lastInteraction
             ),
             select: { id in self.select(id, rows: rows) },
@@ -280,7 +281,7 @@ struct TreeContext<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     let checked: Binding<Set<ID>>?
     let focus: ID?
     let metrics: TreeRowMetrics
-    let showsFocusRing: Bool
+    let showsFocusIndicator: Bool
     let select: (ID) -> Void
     let setExpansion: (ID, TreeExpansionTarget) -> Void
     let notePointerCheck: () -> Void
@@ -320,10 +321,10 @@ struct TreeBranch<Data: RandomAccessCollection, ID: Hashable, RowContent: View>:
                     TreeBranch(data: kids, level: self.level + 1, context: self.context)
                         .modifier(TreeNestedStyle())
                 } label: {
-                    TreeRowView(element: element, level: self.level, hasChildren: true, context: self.context)
+                    TreeRowHost(element: element, level: self.level, hasChildren: true, context: self.context)
                 }
             } else {
-                TreeRowView(element: element, level: self.level, hasChildren: false, context: self.context)
+                TreeRowHost(element: element, level: self.level, hasChildren: false, context: self.context)
             }
         }
     }
@@ -361,61 +362,65 @@ struct TreeDisclosureGroupStyle: DisclosureGroupStyle {
     }
 }
 
-// MARK: - 行 / Row
+// MARK: - 行宿主 / Row host
 
-struct TreeRowView<Data: RandomAccessCollection, ID: Hashable, RowContent: View>: View {
+struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>: View {
     let element: Data.Element
     let level: Int
     let hasChildren: Bool
     let context: TreeContext<Data, ID, RowContent>
 
-    @Environment(\.coreAccent) private var resolvedAccent
+    @Environment(\.treeStyle) private var style
+    @State private var isHovered = false
 
     var body: some View {
         let elementID = self.element[keyPath: self.context.id]
         let isExpanded = self.context.expanded.contains(elementID)
         let isSelected = self.context.selection.contains(elementID)
-        let isFocused = self.context.showsFocusRing && self.context.focus == elementID
-        return HStack(spacing: CoreSpacing.xs) {
-            TreeDisclosureControl(hasChildren: self.hasChildren, isExpanded: isExpanded, metrics: self.context.metrics) {
+        let configuration = TreeRowConfiguration(
+            label: self.context.content(self.element),
+            disclosure: TreeDisclosureControl(
+                hasChildren: self.hasChildren, isExpanded: isExpanded, metrics: self.context.metrics
+            ) {
                 self.context.setExpansion(elementID, isExpanded ? .collapsed : .expanded)
-            }
-            if let checked = self.context.checked {
-                self.checkBox(checked)
-            }
-            self.context.content(self.element)
-        }
-        .padding(.horizontal, CoreSpacing.xs)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(minHeight: self.context.metrics.rowHeight)
-        .background(
-            CoreShape.rounded(CoreRadius.small)
-                .fill(isSelected ? Color.accentSubtleBackground(from: self.resolvedAccent) : Color.clear)
+            },
+            checkBox: self.context.checked.map { self.checkBox($0) },
+            level: self.level,
+            hasChildren: self.hasChildren,
+            isExpanded: isExpanded,
+            isSelected: isSelected,
+            showsFocusIndicator: self.context.showsFocusIndicator && self.context.focus == elementID,
+            isHovered: self.isHovered,
+            metrics: self.context.metrics
         )
-        .contentShape(Rectangle())
-        .padding(.leading, CGFloat(self.level - 1) * self.context.metrics.indentation)
-        .onTapGesture { self.context.select(elementID) }
-        .focusRing(visible: isFocused, cornerRadius: CoreRadius.small)
-        .accessibilityValue(self.expansionValue(isExpanded: isExpanded))
-        .accessibilityAddTraits(TreeRowAccessibility.traits(isSelected: isSelected))
+        return self.row(configuration)
+            .frame(minHeight: self.context.metrics.rowHeight)
+            .contentShape(Rectangle())
+            .onTapGesture { self.context.select(elementID) }
+            .accessibilityValue(self.expansionValue(isExpanded: isExpanded))
+            .accessibilityAddTraits(TreeRowAccessibility.traits(isSelected: isSelected))
     }
 
     @ViewBuilder
-    private func checkBox(_ checked: Binding<Set<ID>>) -> some View {
+    private func row(_ configuration: TreeRowConfiguration<RowContent>) -> some View {
+        switch self.style.appearance {
+        case .automatic:
+            AutomaticTreeRow(configuration: configuration)
+                .onAppear { self.isHovered = false }
+        case .navigator:
+            NavigatorTreeRow(configuration: configuration)
+                .contentShape(Rectangle())
+                .onHover { hovering in self.isHovered = hovering }
+        }
+    }
+
+    private func checkBox(_ checked: Binding<Set<ID>>) -> TreeRowCheckBox {
         let leaves = TreeFlatten.descendantLeafIDs(
             of: self.element, id: self.context.id, children: self.context.children
         )
-        Toggle(
+        return TreeRowCheckBox(
             sources: leaves.map { self.context.checkState(of: $0, in: checked) },
-            isOn: \.self
-        ) {
-            EmptyView()
-        }
-        .toggleStyle(CheckBoxToggleStyle())
-        .labelsHidden()
-        .environment(
-            \.checkBoxLayout,
-            CheckBoxLayout(glyph: self.context.metrics.checkBoxGlyph, minHeight: self.context.metrics.rowHeight)
+            metrics: self.context.metrics
         )
     }
 
@@ -428,16 +433,46 @@ struct TreeRowView<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     }
 }
 
+// MARK: - 复选框 / Check box
+
+struct TreeRowCheckBox: View {
+    private let sources: [Binding<Bool>]
+    let metrics: TreeRowMetrics
+
+    init(sources: [Binding<Bool>], metrics: TreeRowMetrics) {
+        self.sources = sources
+        self.metrics = metrics
+    }
+
+    var body: some View {
+        Toggle(sources: self.sources, isOn: \.self) {
+            EmptyView()
+        }
+        .toggleStyle(CheckBoxToggleStyle())
+        .labelsHidden()
+        .environment(
+            \.checkBoxLayout,
+            CheckBoxLayout(glyph: self.metrics.checkBoxGlyph, minHeight: self.metrics.rowHeight)
+        )
+    }
+}
+
 // MARK: - 展开控件 / Disclosure control
 
 struct TreeDisclosureControl: View {
     let hasChildren: Bool
     let isExpanded: Bool
     let metrics: TreeRowMetrics
-    let toggle: () -> Void
+    private let toggle: () -> Void
 
     @Environment(\.coreMotionPresentation) private var motionPresentation
-    @Environment(\.layoutDirection) private var layoutDirection
+
+    init(hasChildren: Bool, isExpanded: Bool, metrics: TreeRowMetrics, toggle: @escaping () -> Void) {
+        self.hasChildren = hasChildren
+        self.isExpanded = isExpanded
+        self.metrics = metrics
+        self.toggle = toggle
+    }
 
     var body: some View {
         let isExpanded = self.isExpanded
@@ -469,8 +504,7 @@ struct TreeDisclosureControl: View {
     }
 
     private func chevronRotation(isExpanded: Bool) -> Double {
-        guard isExpanded else { return 0 }
-        return self.layoutDirection == .rightToLeft ? -90 : 90
+        isExpanded ? 90 : 0
     }
 }
 
@@ -544,6 +578,21 @@ private struct TreePreviewGallery: View {
                 ) { node in
                     Text(verbatim: node.name)
                 }
+            }
+            VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                Text(verbatim: "导航器 / navigator + .controlSize(.small)")
+                    .coreFont(.footnote)
+                    .foregroundStyle(.secondary)
+                Tree(
+                    TreePreviewData.roots,
+                    children: \.children,
+                    expanded: self.$expanded,
+                    selection: self.$selection
+                ) { node in
+                    Label(node.name, systemImage: node.children == nil ? "doc" : "folder")
+                }
+                .treeStyle(.navigator)
+                .controlSize(.small)
             }
         }
         .padding()

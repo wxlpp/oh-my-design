@@ -657,6 +657,10 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
   - `.single` — 单选：选中一个未选行时，替换已选集合里属于本树的全部 ID（含被折叠而不可见的）。 不属于本树数据的 ID 原样保留；再选同一行取消（允许空选）。
   - `.multiple` — 多选：逐行切换选中态。
 
+### `Components/Tree/TreeStyle.swift`
+
+- *struct* **`TreeStyle`** — `Tree` 的行外观预设：`.automatic`（默认）或 `.navigator`。
+
 ### `Environment/EnergyPolicy.swift`
 
 - *enum* **`RenderPolicy`** — 一层常驻渲染件在当前能耗状态下的渲染策略。
@@ -965,7 +969,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 
 # Modifier / Transition 入口点
 
-共 46 个（按 `Host.member` 去重，含参重载算一条）。
+共 47 个（按 `Host.member` 去重，含参重载算一条）。
 
 | target | 入口 | 说明 |
 |---|---|---|
@@ -979,6 +983,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | `OhMyDesign` | `.segmentedControlStyle` on `View` | 为子树中的所有 `SegmentedControl` 设置外观（对齐 `View.bannerStyle(_:)`）。 |
 | `OhMyDesign` | `.skeletonShimmer` on `View` | 骨架屏 shimmer 扫光叠加。 |
 | `OhMyDesign` | `.toastHost` on `View` | 在当前 view 子树挂载一个 scene-scoped `ToastHost`，并在 `edge` 方向以 `safeAreaInset` 渲染当前队列的首条 toast。 |
+| `OhMyDesign` | `.treeStyle` on `View` | 为子树中的所有 `Tree` 设置行外观。 |
 | `OhMyDesign` | `.anchoredBadge` on `View` | 在宿主的一个角上叠加红点 / 计数 / 短文案徽标，不改变宿主布局尺寸。 |
 | `OhMyDesign` | `.bordered` on `View` | 叠加一圈描边 / Add a border.  - Parameters: - style: 描边样式，任意 `ShapeStyle`（含 `Color` 与渐变）。 |
 | `OhMyDesign` | `.coreFont` on `View` | 施加 OhMyDesign 排版 token（直接取系统文本样式，随 Dynamic Type 缩放）。 |
@@ -1063,7 +1068,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | enums | 46 | 46 |
 | enumcases | 157 | 157 |
 | protocols | 6 | 6 |
-| viewext | 46 | 46 |
+| viewext | 47 | 47 |
 | styleext | 15 | 15 |
-| others | 28 | 28 |
+| others | 29 | 29 |
 
