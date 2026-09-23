@@ -12,17 +12,19 @@ import AppKit
 @MainActor
 private enum ControlRender {
     static let schemes: [ColorScheme] = [.light, .dark]
+    static let canvasWidth = 360
+    static let scale = 2
 
     static func image(_ view: some View, scheme: ColorScheme) -> CGImage? {
         let renderer = ImageRenderer(
             content: view
                 .padding(8)
-                .frame(width: 360)
+                .frame(width: CGFloat(Self.canvasWidth))
                 .background(Color.surfaceCanvas)
                 .environment(\.colorScheme, scheme)
                 .dynamicTypeSize(.large)
         )
-        renderer.scale = 2
+        renderer.scale = CGFloat(Self.scale)
         _ = renderer.cgImage
         return renderer.cgImage
     }
@@ -63,6 +65,67 @@ private enum ControlRender {
 }
 
 private let sampleInvalid = FieldValidation.invalid("Something is wrong.")
+
+// MARK: - 原生输入框占位块 / Native text field placeholder
+
+// ImageRenderer 画不出原生 TextField，只画一块纯黄占位；该块偶发整块移 1px（实测 1192 / 1512 字节、
+// 最大偏差 255 / 225），所以占位块只比位置（±1px），块外照常比位图。
+private struct NativePlaceholderBounds: Equatable, CustomStringConvertible {
+    let minX: Int, maxX: Int, minY: Int, maxY: Int
+
+    var description: String { "x \(self.minX)...\(self.maxX) y \(self.minY)...\(self.maxY)" }
+
+    static func find(in bytes: [UInt8], width: Int) -> Self? {
+        var minX = Int.max, maxX = -1, minY = Int.max, maxY = -1
+        for index in stride(from: 0, to: bytes.count, by: 4)
+        where bytes[index] >= 250 && (198...210).contains(bytes[index + 1]) && bytes[index + 2] <= 8 {
+            let x = index / 4 % width, y = index / 4 / width
+            minX = min(minX, x)
+            maxX = max(maxX, x)
+            minY = min(minY, y)
+            maxY = max(maxY, y)
+        }
+        return maxX < 0 ? nil : Self(minX: minX, maxX: maxX, minY: minY, maxY: maxY)
+    }
+
+    func isWithinOnePixel(of other: Self) -> Bool {
+        abs(self.minX - other.minX) <= 1 && abs(self.maxX - other.maxX) <= 1
+            && abs(self.minY - other.minY) <= 1 && abs(self.maxY - other.maxY) <= 1
+    }
+
+    func blanking(_ bytes: [UInt8], width: Int, union other: Self) -> [UInt8] {
+        var result = bytes
+        let height = bytes.count / 4 / width
+        for y in max(0, min(self.minY, other.minY) - 1)...min(height - 1, max(self.maxY, other.maxY) + 1) {
+            for x in max(0, min(self.minX, other.minX) - 1)...min(width - 1, max(self.maxX, other.maxX) + 1) {
+                let index = (y * width + x) * 4
+                result.replaceSubrange(index..<index + 4, with: [0, 0, 0, 0])
+            }
+        }
+        return result
+    }
+}
+
+private func expectEquivalentAroundNativePlaceholder(
+    _ a: [UInt8]?, _ b: [UInt8]?, _ comment: String, sourceLocation: SourceLocation = #_sourceLocation
+) {
+    let width = ControlRender.canvasWidth * ControlRender.scale
+    guard let a, let b else {
+        expectBitmapsEquivalent(a, b, maxChannelDelta: 1, comment, sourceLocation: sourceLocation)
+        return
+    }
+    let placeholders = (NativePlaceholderBounds.find(in: a, width: width), NativePlaceholderBounds.find(in: b, width: width))
+    guard let lhs = placeholders.0, let rhs = placeholders.1 else {
+        #expect(placeholders.0 == nil && placeholders.1 == nil, "\(comment)：只有一侧有原生输入框占位块 \(placeholders)", sourceLocation: sourceLocation)
+        expectBitmapsEquivalent(a, b, maxChannelDelta: 1, comment, sourceLocation: sourceLocation)
+        return
+    }
+    #expect(lhs.isWithinOnePixel(of: rhs), "\(comment)：原生输入框位置 / 尺寸不同（\(lhs) vs \(rhs)）", sourceLocation: sourceLocation)
+    expectBitmapsEquivalent(
+        lhs.blanking(a, width: width, union: rhs), rhs.blanking(b, width: width, union: lhs),
+        maxChannelDelta: 1, "\(comment)（原生输入框占位块以外）", sourceLocation: sourceLocation
+    )
+}
 
 // MARK: - 控件样本 / Control samples
 
@@ -144,10 +207,9 @@ struct FieldValidationControlsAppearanceTests {
     @Test("valid 与改动前实现（92d224b 原样拷贝）在光栅化噪声内逐像素一致（light / dark，两条腿都跑）", arguments: FieldControlSample.allCases)
     func validMatchesLegacyPixels(_ sample: FieldControlSample) {
         for scheme in ControlRender.schemes {
-            expectBitmapsEquivalent(
+            expectEquivalentAroundNativePlaceholder(
                 ControlRender.pixels(sample.current, scheme: scheme),
                 ControlRender.pixels(sample.legacy, scheme: scheme),
-                maxChannelDelta: 1,
                 "\(sample) \(scheme)：valid 外观与旧实现不同"
             )
         }
@@ -156,10 +218,9 @@ struct FieldValidationControlsAppearanceTests {
     @Test("显式 .fieldValidation(.valid) 与旧实现在光栅化噪声内逐像素一致", arguments: FieldControlSample.allCases)
     func explicitValidMatchesLegacyPixels(_ sample: FieldControlSample) {
         for scheme in ControlRender.schemes {
-            expectBitmapsEquivalent(
+            expectEquivalentAroundNativePlaceholder(
                 ControlRender.pixels(sample.current.fieldValidation(.valid), scheme: scheme),
                 ControlRender.pixels(sample.legacy, scheme: scheme),
-                maxChannelDelta: 1,
                 "\(sample) \(scheme)"
             )
         }
@@ -171,10 +232,9 @@ struct FieldValidationControlsAppearanceTests {
     )
     func disabledInvalidMatchesLegacyDisabled(_ sample: FieldControlSample) {
         for scheme in ControlRender.schemes {
-            expectBitmapsEquivalent(
+            expectEquivalentAroundNativePlaceholder(
                 ControlRender.pixels(sample.current.fieldValidation(sampleInvalid).disabled(true), scheme: scheme),
                 ControlRender.pixels(sample.legacyDisabled, scheme: scheme),
-                maxChannelDelta: 1,
                 "\(sample) \(scheme)：disabled + invalid 仍画出了 invalid 外观"
             )
         }
