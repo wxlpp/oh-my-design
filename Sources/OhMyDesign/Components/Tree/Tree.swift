@@ -406,8 +406,10 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         switch self.style.appearance {
         case .automatic:
             AutomaticTreeRow(configuration: configuration)
+                .onAppear { self.isHovered = false }
         case .navigator:
             NavigatorTreeRow(configuration: configuration)
+                .contentShape(Rectangle())
                 .onHover { hovering in self.isHovered = hovering }
         }
     }

@@ -86,7 +86,7 @@ public extension Color {
 
 // MARK: - 派生公式（单一来源）/ Derivation, single source
 
-/// accent 族四个派生态的**唯一**公式来源。静态 token 与 `ButtonRoleStyleRole`
+/// accent 族派生态的**唯一**公式来源。静态 token 与 `ButtonRoleStyleRole`
 /// 都调这里——两处各写一遍必然漂，而漂了不会有任何东西报错。
 extension Color {
     static func accentHover(from base: Color) -> Color {

@@ -326,6 +326,7 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
   托管窗口里合成悬停不可行（`mouseMoved` / `mouseEntered` 经 `sendEvent` 或直接调 `NSHostingView` 的方法，
   `onHover` 回调都是 0 次）⇒ 两条都没有自动判据。剩下的网只有源码判据：`.onHover` 只在行宿主内、
   容器 `Tree` 没有名字含 `hover` 的成员变量——**按名字匹配**，把容器状态起名 `pointerRow` 就漏。
+- **悬停命中区**：`.navigator` 行在 `.onHover` 之前挂了 `.contentShape(Rectangle())`，意在让从行右侧空白 / 缩进区进入也点亮（空闲态底色是 `Color.clear`）；真指针下从这两处进入是否点亮，**未验证**。
 - iPadOS 指针下 `onHover` 是否触发。
 - **两种外观下无障碍取值相同**的运行时读数：托管窗口的 `NSHostingView` 读不到无障碍子树（KVC 读
   `accessibilityChildren` 只有根 `AXGroup`）。现有的网是源码判据：`accessibilityValue` / `accessibilityAddTraits` /
