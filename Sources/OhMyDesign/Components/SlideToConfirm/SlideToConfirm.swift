@@ -76,14 +76,59 @@ nonisolated struct SlideToConfirmGeometry: Sendable, Hashable {
 
 // MARK: - 手势认领 / Gesture arbitration
 
+nonisolated enum SlideToConfirmPanPhase: Sendable, Hashable {
+    case began
+    case changed
+    case ended
+    case cancelled
+    case failed
+    case other
+}
+
 nonisolated enum SlideToConfirmPanArbitration {
+    enum Event: Sendable, Hashable {
+        case drag(translation: CGFloat, startX: CGFloat)
+        case release(translation: CGFloat)
+        case interrupt
+    }
+
     // 横向位移占主导才认领这次触摸；纵向起手让给外层滚动视图（不吸收、不开会话）。
     static func claims(_ movement: CGPoint) -> Bool {
         abs(movement.x) > abs(movement.y)
     }
+
+    // 只收一次触摸序列里的第一根手指：后落的手指会改写按下点，抬起先落的那根后还能从指示器外滑满。
+    static func admits(isPossible: Bool, trackedTouches: Int) -> Bool {
+        isPossible && trackedTouches == 0
+    }
+
+    // 位移与当前位置都在控件本地空间：起点 = 当前位置 − 位移。被取消 / 失败的手势只打断，绝不按松手判定。
+    static func event(phase: SlideToConfirmPanPhase, movement: CGPoint, localX: CGFloat) -> Event? {
+        switch phase {
+        case .began, .changed: .drag(translation: movement.x, startX: localX - movement.x)
+        case .ended: .release(translation: movement.x)
+        case .cancelled, .failed: .interrupt
+        case .other: nil
+        }
+    }
 }
 
 #if os(iOS)
+extension SlideToConfirmPanPhase {
+    init(_ state: UIGestureRecognizer.State) {
+        switch state {
+        case .began: self = .began
+        case .changed: self = .changed
+        case .ended: self = .ended
+        case .cancelled: self = .cancelled
+        case .failed: self = .failed
+        default: self = .other
+        }
+    }
+
+    var endsTouchSequence: Bool { self == .ended || self == .cancelled || self == .failed }
+}
+
 // SwiftUI 的 `DragGesture`（含 `simultaneousGesture`）一挂上就吞掉起手于轨道的纵向滑动，外层 `ScrollView` 滚不动；
 // UIKit 的平移识别器能在起手时按方向放弃，把触摸还给滚动视图。
 struct SlideToConfirmPan: UIGestureRecognizerRepresentable {
@@ -93,22 +138,23 @@ struct SlideToConfirmPan: UIGestureRecognizerRepresentable {
     let cancelled: @MainActor () -> Void
 
     // 平移识别器在认领时把位移清零、位置也已越过起手点 ⇒ 按下点自己记，位移与起点都从它算。
+    // 按下点存窗口坐标，动作时再换回控件本地空间：`scaleEffect` 等变换下位移与几何同一量纲。
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var touchDown: CGPoint?
 
         func gestureRecognizer(_ recognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-            self.touchDown = touch.location(in: recognizer.view)
+            guard SlideToConfirmPanArbitration.admits(
+                isPossible: recognizer.state == .possible,
+                trackedTouches: recognizer.numberOfTouches
+            ) else { return false }
+            self.touchDown = touch.location(in: nil)
             return true
         }
 
-        func movement(of recognizer: UIGestureRecognizer) -> CGPoint {
-            let now = recognizer.location(in: recognizer.view)
-            let down = self.touchDown ?? now
-            return CGPoint(x: now.x - down.x, y: now.y - down.y)
-        }
-
         func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
-            SlideToConfirmPanArbitration.claims(self.movement(of: recognizer))
+            guard let down = self.touchDown else { return false }
+            let now = recognizer.location(in: nil)
+            return SlideToConfirmPanArbitration.claims(CGPoint(x: now.x - down.x, y: now.y - down.y))
         }
     }
 
@@ -118,6 +164,7 @@ struct SlideToConfirmPan: UIGestureRecognizerRepresentable {
 
     func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
         let pan = UIPanGestureRecognizer()
+        pan.maximumNumberOfTouches = 1
         pan.delegate = context.coordinator
         pan.isEnabled = self.isEnabled
         return pan
@@ -128,16 +175,16 @@ struct SlideToConfirmPan: UIGestureRecognizerRepresentable {
     }
 
     func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context: Context) {
-        let translation = context.coordinator.movement(of: recognizer).x
-        switch recognizer.state {
-        case .began, .changed:
-            self.changed(translation, context.converter.localLocation.x - translation)
-        case .ended:
-            self.ended(translation)
-        case .cancelled, .failed:
-            self.cancelled()
-        default:
-            break
+        let phase = SlideToConfirmPanPhase(recognizer.state)
+        let now = context.converter.localLocation
+        let down = context.coordinator.touchDown.map { context.converter.convert(globalPoint: $0, to: .local) } ?? now
+        if phase.endsTouchSequence { context.coordinator.touchDown = nil }
+        let movement = CGPoint(x: now.x - down.x, y: now.y - down.y)
+        switch SlideToConfirmPanArbitration.event(phase: phase, movement: movement, localX: now.x) {
+        case .drag(let translation, let startX): self.changed(translation, startX)
+        case .release(let translation): self.ended(translation)
+        case .interrupt: self.cancelled()
+        case nil: break
         }
     }
 }

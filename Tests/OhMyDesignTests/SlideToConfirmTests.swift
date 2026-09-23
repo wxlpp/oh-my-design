@@ -164,6 +164,52 @@ struct SlideToConfirmTests {
         #expect(yielded.filter { SlideToConfirmPanArbitration.claims($0) }.isEmpty, "纵向占主导或不分胜负却认领了 ⇒ 外层 ScrollView 滚不动")
     }
 
+    @Test("识别器状态 → core 事件：起止与方向；取消 / 失败只打断、绝不按松手判定；其他状态不产事件")
+    func panPhaseMapsToCoreEvents() {
+        typealias Arbitration = SlideToConfirmPanArbitration
+        let movements: [CGPoint] = [CGPoint(x: 294, y: 0), CGPoint(x: -40, y: 3), .zero, CGPoint(x: 400, y: -12)]
+        let localX: CGFloat = 348
+        for movement in movements {
+            for phase in [SlideToConfirmPanPhase.began, .changed] {
+                let event = Arbitration.event(phase: phase, movement: movement, localX: localX)
+                #expect(
+                    event == .drag(translation: movement.x, startX: localX - movement.x),
+                    "\(phase) 位移 \(movement.x) 实得 \(String(describing: event)) —— 起点应为当前位置 − 位移 = \(localX - movement.x)"
+                )
+            }
+            let ended = Arbitration.event(phase: .ended, movement: movement, localX: localX)
+            #expect(ended == .release(translation: movement.x), "ended 实得 \(String(describing: ended))")
+            for phase in [SlideToConfirmPanPhase.cancelled, .failed] {
+                let event = Arbitration.event(phase: phase, movement: movement, localX: localX)
+                #expect(event == .interrupt, "\(phase) 位移 \(movement.x) 实得 \(String(describing: event)) —— 被取消的滑满会被当成确认")
+            }
+            let other = Arbitration.event(phase: .other, movement: movement, localX: localX)
+            #expect(other == nil, "possible 等其他状态产生了事件 \(String(describing: other))")
+        }
+    }
+
+    @Test("识别器只收一次触摸序列里的第一根手指")
+    func panAdmitsOnlyTheFirstTouch() {
+        #expect(SlideToConfirmPanArbitration.admits(isPossible: true, trackedTouches: 0), "空闲识别器上的第一根手指被拒")
+        let rejected = [(true, 1), (true, 2), (false, 0), (false, 1)].filter {
+            SlideToConfirmPanArbitration.admits(isPossible: $0.0, trackedTouches: $0.1)
+        }
+        #expect(rejected.isEmpty, "这些 (isPossible, 已跟踪触摸数) 下仍收新触摸：\(rejected) —— 第二根手指会改写按下点")
+    }
+
+    @Test("有效会话被打断后，下一段起点不在指示器上的拖动重新裁决为只吸收")
+    func interruptedLiveSessionIsRejudgedOnNextDrag() {
+        var core = SlideToConfirmCore()
+        core.drag(40, startX: Self.onKnob, geometry: Self.geometry)
+        #expect(core.session?.live == true)
+        core.interrupt()
+        core.drag(Self.geometry.travel, startX: 120, geometry: Self.geometry)
+        #expect(core.session?.live == false, "打断后的新拖动沿用了旧裁决：session 实得 \(String(describing: core.session))")
+        #expect(core.knobOffset(in: Self.geometry) == 0, "起点在轨道空白处的新拖动推动了指示器")
+        let release = core.release(Self.sample(Self.geometry.travel), geometry: Self.geometry)
+        #expect(release == .ignored, "起点在轨道空白处的新拖动松手实得 \(release)")
+    }
+
     @Test("起点不在指示器上的会话只吸收：不位移、松手不触发、不给触觉、不改动效键")
     func sessionStartingOffTheKnobIsAbsorbed() {
         var core = SlideToConfirmCore()

@@ -357,25 +357,44 @@ struct SlideToConfirmRunnerTests {
             """,
             """
                     func gestureRecognizer(_ recognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-                        self.touchDown = touch.location(in: recognizer.view)
+                        guard SlideToConfirmPanArbitration.admits(
+                            isPossible: recognizer.state == .possible,
+                            trackedTouches: recognizer.numberOfTouches
+                        ) else { return false }
+                        self.touchDown = touch.location(in: nil)
                         return true
                     }
             """,
             """
                     func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
-                        SlideToConfirmPanArbitration.claims(self.movement(of: recognizer))
+                        guard let down = self.touchDown else { return false }
+                        let now = recognizer.location(in: nil)
+                        return SlideToConfirmPanArbitration.claims(CGPoint(x: now.x - down.x, y: now.y - down.y))
                     }
             """,
             """
-                    let translation = context.coordinator.movement(of: recognizer).x
-                    switch recognizer.state {
-                    case .began, .changed:
-                        self.changed(translation, context.converter.localLocation.x - translation)
-                    case .ended:
-                        self.ended(translation)
-                    case .cancelled, .failed:
-                        self.cancelled()
+                    let phase = SlideToConfirmPanPhase(recognizer.state)
+                    let now = context.converter.localLocation
+                    let down = context.coordinator.touchDown.map { context.converter.convert(globalPoint: $0, to: .local) } ?? now
+                    if phase.endsTouchSequence { context.coordinator.touchDown = nil }
+                    let movement = CGPoint(x: now.x - down.x, y: now.y - down.y)
+                    switch SlideToConfirmPanArbitration.event(phase: phase, movement: movement, localX: now.x) {
+                    case .drag(let translation, let startX): self.changed(translation, startX)
+                    case .release(let translation): self.ended(translation)
+                    case .interrupt: self.cancelled()
+                    case nil: break
+                    }
             """,
+            """
+                    case .began: self = .began
+                    case .changed: self = .changed
+                    case .ended: self = .ended
+                    case .cancelled: self = .cancelled
+                    case .failed: self = .failed
+                    default: self = .other
+            """,
+            "var endsTouchSequence: Bool { self == .ended || self == .cancelled || self == .failed }",
+            "pan.maximumNumberOfTouches = 1",
             "pan.delegate = context.coordinator",
             "recognizer.isEnabled = self.isEnabled",
             ".contentShape(Capsule(style: .continuous))",
@@ -411,6 +430,8 @@ struct SlideToConfirmRunnerTests {
             """
             视图接线缺 \(missing.count) 处，期望 0：\(missing) —— 缺 GestureState / updating ⇒ 被打断的手势不回位；\
             iOS 平移识别器不经 claims 认领 ⇒ 轨道上起手的纵向滑动被吞、页面滚不动；不从按下点算位移 ⇒ 认领前的那段位移丢失、起点落在指示器外；\
+            识别器收第二根手指或不限一指 ⇒ 按下点被改写、质心跳变，指示器外起手也能滑满；按下点不在序列结束时清空 ⇒ 下一次触摸读到陈旧起点；\
+            按下点不经 converter 换回本地空间 ⇒ scaleEffect 下位移与全程量纲不一；状态不经 event 映射 ⇒ 取消 / 失败可能被当成松手；\
             onChanged 不带起点 / 方向系数 ⇒ 轨道空白处也能推动指示器、RTL 下方向反了；isEnabled 读 core ⇒ 执行中横滑漏给系统返回手势；\
             缺 animation(reveal) ⇒ 回弹 / 回位不走 bounce 为 0 的 token；\
             缺 onEnded ⇒ 松手不判定；缺 onChange(dragging) ⇒ 打断不转交；缺 onDisappear ⇒ 离屏不取消；\
