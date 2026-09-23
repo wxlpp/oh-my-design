@@ -1,8 +1,8 @@
 ---
 name: motion-foundations
-status: in-progress
+status: completed
 created: 2026-09-22T14:24:50Z
-updated: 2026-09-22T23:04:37Z
+updated: 2026-09-23T01:31:20Z
 progress: 100%
 prd: .claude/prds/motion-foundations.md
 github: https://github.com/wxlpp/oh-my-design/issues/406
