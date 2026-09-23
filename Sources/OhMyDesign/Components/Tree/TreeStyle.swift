@@ -112,8 +112,8 @@ struct NavigatorTreeRow<Label: View>: View {
     }
 
     private var fill: Color {
-        if self.configuration.isSelected { return Color.accentSubtleBackground(from: self.resolvedAccent) }
-        if self.configuration.isHovered { return Color.tertiaryFill }
+        if self.configuration.isSelected { return Color.accentSelectedRowBackground(from: self.resolvedAccent) }
+        if self.configuration.isHovered { return Color.quaternaryFill }
         return Color.clear
     }
 }

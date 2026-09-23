@@ -188,8 +188,9 @@ public extension View {
   RTL 下系统已把字形镜像成朝左、并镜像了旋转方向，所以旋转角**两种书写方向都是 90°**。
   ⚠️ `#422` 原写 RTL 下 -90°，实测画出来展开态朝**上**（`#429` 的 RTL 镜像判据首跑即抓到），已改。
 - 行：最小高度为该档行高（上表，iOS 过 44 下限）。
-- 选中底色 `accentSubtleBackground(from: coreAccent)`，从**环境 `coreAccent`** 派生
-  （与 `TagGroup` 选中态同一条通路），`.coreAccent(_:)` 换色即跟随。
+- 选中底色从**环境 `coreAccent`** 派生（与 `TagGroup` 选中态同一条通路），`.coreAccent(_:)` 换色即跟随：
+  `.automatic` 取 `accentSubtleBackground(from: coreAccent)`（× 0.08），`.navigator` 取
+  `accentSelectedRowBackground(from: coreAccent)`（× 0.16，理由见下节「三档阶梯」）。
 - **命中区是整行**（含缩进区）：点缩进区也选中该行。两种外观相同。
 
 ### 外观配置：`.treeStyle(_:)`
@@ -198,8 +199,8 @@ public extension View {
 
 | 部位 | `.automatic`（默认） | `.navigator`（VS Code Explorer 式） |
 |---|---|---|
-| 选中 | 圆角 `CoreRadius.small` 选中块，起于缩进之后 | **整行**底色（含缩进区），直角 |
-| 悬停 | 无 | 整行底色 `Color.tertiaryFill`；选中优先于悬停 |
+| 选中 | 圆角 `CoreRadius.small` 选中块，起于缩进之后 | **整行**底色（含缩进区），直角，`accentSelectedRowBackground(from: coreAccent)` |
+| 悬停 | 无 | 整行底色 `Color.quaternaryFill`；选中优先于悬停 |
 | 焦点指示 | 焦点环（`focusRing`，圆角 small） | `CoreBorderWidth.thin` 内描边，取 `coreAccent` |
 | 缩进参考线 | 无 | 每个祖先层一根 `CoreBorderWidth.hairline` 竖线，色 `Color.borderDefault`，x 对齐该层 chevron 中心；向上溢出一个行间距，使行与行之间连成一条 |
 | chevron 着色 | 取 `.tint`（默认即强调色） | 固定 `Color.contentSecondary`，不随宿主 `.tint` |
@@ -217,13 +218,33 @@ Tree(roots, children: \.children, expanded: $expanded, selection: $selection) { 
   这两种写法届时编译不过（兼容表见 spec `docs/superpowers/specs/2026-09-23-tree-style-design.md` §2.1）。
 - 外观只决定**怎么画**：键盘、选择归约、三态勾选、焦点归约、无障碍取值、命中区都在组件的行宿主上，
   换外观不影响行为。
-- 取值偏离 spec 的两处（实测驱动）：悬停 spec 原写 `surfaceCanvasSubtle`——macOS 上它与 `surfaceCanvas` 同值，
-  悬停不可见，改 `tertiaryFill`；参考线 spec 原写 `borderSubtle`——α 0.027，白底上几乎不可见，改 `borderDefault`。
+- 取值偏离 spec 的三处（实测驱动）：悬停 spec 原写 `surfaceCanvasSubtle`——macOS 上它与 `surfaceCanvas` 同值，
+  悬停不可见，改 `quaternaryFill`；选中 spec 原写 `accentSubtleBackground`（× 0.08）——与悬停分不清，改 × 0.16；
+  参考线 spec 原写 `borderSubtle`——α 0.027，白底上几乎不可见，改 `borderDefault`。
+
+#### `.navigator` 的三档阶梯：底色 < 悬停 < 选中
+
+悬停与选中必须一眼分得清，且选中必须比悬停**更**偏离底色。× 0.08 的选中在 iOS 暗色下（0 → 20）比
+`tertiaryFill` 悬停（0 → 28）还暗——阶梯倒置；iOS 亮色下两者只差 4。实测（`surfaceCanvas` 底上逐通道读数，
+选中取默认墨色 `coreAccent`；括号内为宿主换成系统蓝时的选中读数）：
+
+| | 底色 | 悬停 `quaternaryFill` | 选中 × 0.16 | 选中（宿主蓝） |
+|---|---|---|---|---|
+| macOS 亮 | 255 | 248 | 214 | (214, 236, 255) |
+| macOS 暗 | 30 | 36 | 66 | (25, 48, 66) |
+| iOS 亮 | (242, 242, 247) | (232, 232, 237) | (203, 203, 207) | (203, 225, 248) |
+| iOS 暗 | 0 | (21, 21, 23) | 41 | (0, 23, 41) |
+
+⚠️ macOS 上悬停只比底色偏 6–7 个灰阶，是刻意取的「最轻一档」——悬停是冗余反馈（指针本身已经指明位置），
+不应与选中抢眼。判据 `selectionIsStrongerThanHover`（双腿，明 / 暗 × 默认墨色 / 宿主蓝）：选中与悬停逐通道差
+≥ 16，且选中偏离底色多于悬停。
 
 ### 悬停
 
 - 只有 `.navigator` 画悬停；**状态在行级**（行宿主的 `@State` + `.onHover`，与 `ListRow` 同一形态），
   不放容器——容器级状态会让指针每跨一行就重算整棵树。
+- `.onHover` **只在 `.navigator` 分支挂**：`.automatic` 不画悬停，挂了只会给每一行白付一个指针追踪区域、
+  每次进出白写一次 `@State`。代价是切换外观时行的视图结构跟着变（外观本来就不会逐帧切换）。
 - **即时生效、无补间**，三档 `MotionPresentation` 一致，没有需要按 Reduce Motion 分支的动效。
 - macOS 鼠标触发；iPadOS 指针下预期同样触发（未实测）；iPhone 纯触控下永不触发。
 
@@ -298,6 +319,9 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
 - 焦点环是否真的画在屏幕上（渲染判据只判行宿主 `TreeRowHost` 收到 `showsFocusIndicator` 后画不画）；
 - 点 chevron / 点复选框把交互来源置回 pointer 的调用点（归约函数本身有判据）。
 - ⚠️ **未验证**：`Tab` 进入后环直接出现在已选行 / 首行——本次改动后没有跑真 HID。
+- **非 key 窗口里的首击**（`#429` 托管窗口实测，待真 HID 复核）：chevron（`Button`）与复选框（`Toggle`）
+  在非 key 窗口里首击即生效，行上的 `onTapGesture` 首击**不**生效——同一次点击，点 chevron 展开了、点行内容却不选中。
+  真 HID 下要确认的是：窗口未激活时第一次点行，是只激活窗口还是同时选中；两种外观应当一致。
 - **悬停的接线**（`#429`）：`.onHover` 真的把状态写进行宿主、以及「悬停只让进出的两行重算、不重算整棵树」。
   托管窗口里合成悬停不可行（`mouseMoved` / `mouseEntered` 经 `sendEvent` 或直接调 `NSHostingView` 的方法，
   `onHover` 回调都是 0 次）⇒ 两条都没有自动判据。剩下的网只有源码判据：`.onHover` 只在行宿主内、
@@ -312,14 +336,17 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
   **点复选框勾选（叶行 + 父行级联）**，每条都对 `.automatic` / `.navigator` 参数化，结论逐条相同。
   ⚠️ 托管窗口不是 key window，行上的 `onTapGesture` 收不到合成点击（`Button` / `Toggle` 能收到）——
   harness 加了 `.allowsWindowActivationEvents(true)` 才收到。这是托管窗口的限制，不是组件行为。
-- `TreeStyleRenderTests`（双腿）：`.navigator` 画悬停、选中压过悬停、焦点指示按需画、选中底色铺满缩进区
-  （`.automatic` 不铺）、chevron 不随宿主 `.tint`；行配置不含函数类型字段。
+- `TreeStyleRenderTests`（双腿）：`.navigator` 画悬停、选中压过悬停、**选中强于悬停的三档阶梯**
+  （`selectionIsStrongerThanHover`）、焦点指示按需画、选中底色铺满缩进区（`.automatic` 不铺）、
+  chevron 不随宿主 `.tint`；行配置不含函数类型字段。展开控件的动作闭包与复选框的绑定都是 `private`，
+  外观拿到部件也调不到——这一条由编译器保证，不靠判据。
 - `TreeGuideLineTests`（双腿）：参考线对齐父行 chevron 中心（≤ 1 pt，`.small` / `.regular`）、跨行连续、
   第 3 层恰有 2 根、RTL 是 LTR 的镜像（容 1 px 亚像素错位）。
 - `TreeHoverTests`（macOS）：翻转悬停时行内容收到的事务不带动画（三档动效）。
-- `TreeHoverMotionGuard`（源码）：行宿主与 `.navigator` 行内不出现 `animation(` / `coreAnimation(` / `withAnimation`
-  （按名禁调用，不看实参——局部别名绕不过去；`CoreMotionToken.x.animation(for:)` 这类取 token 的调用也会被拦，
-  这是刻意的）；`.onHover` 只在行宿主内；容器无悬停状态；行为 / 无障碍只挂在行宿主上。
+- `TreeHoverMotionGuard`（源码）：行宿主与 `.navigator` 行内不出现 `animation(` / `coreAnimation(` / `withAnimation` /
+  `transaction` / `withTransaction`（按名禁调用，不看实参——局部别名绕不过去；`CoreMotionToken.x.animation(for:)`
+  这类取 token 的调用也会被拦，这是刻意的）；`.onHover` 只在行宿主的 `case .navigator` 分支内；容器无悬停状态；
+  行为 / 无障碍只挂在行宿主上。
 
 ## 判定法
 
@@ -328,11 +355,14 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
 `docs/component-registry.json` 的 `Tree` 条目 `notes` 里。
 
 `#429` 加了 `TreeStyle` 但**不改判**（J-2 计数仍 16），`notes` 末段逐条写了三点：
-1. 步骤 3 ⇒ 公约不要求扩展点；`TreeStyle` 是**装饰预设**（封闭配置，调用方只能在两个预设里选），不在 A–D
-   扩展点形态的射程内。它是否仍应按扩展点处置，公约没有成文，登记为 `docs/contract-defects.md` 的 `D-429-1`。
-2. 两外观的差异逐项落在 `#422` 步骤 2 的装饰档原文（选中块 / 缩进引导线 / 尺寸 / 同槽画法变化）；
-   **悬停高亮不在那份名单里**，按补充规则 1 单独论证，**落在灰区**（它随「指针在本行」变化，而公约没有区分
-   组件状态与宿主输入状态），并入 `D-429-1` 待裁。
+1. 本轮按「**不是扩展点**」的读法处置（`TreeStyle` 是封闭配置，调用方只能在两个预设里选）；
+   它是否与形态 D2（公开配置枚举）同形、因而应按扩展点处置，**待 `D-429-1` 裁定**（`docs/contract-defects.md`）。
+2. 两外观的差异里，**落在 `#422` 步骤 2 装饰档原文**（连线 / 选中块 / 尺寸 / 缩进引导线）的只有：
+   整行选中 vs 圆角选中块（选中块）、缩进参考线（缩进引导线）、密度（尺寸）。
+   **不在那份原文里**、按补充规则 1 单独论证的有三项，**都落在灰区、并入 `D-429-1` 待裁**：
+   悬停高亮（随「指针在本行」变化，公约没有区分组件状态与宿主输入状态）；chevron 着色（`.navigator` 固定中性色、
+   `.automatic` 取 `.tint`——是同一部件的上色，不改变部件承载的展开态）；焦点指示形态（`.automatic` 圆角焦点环、
+   `.navigator` 直角内描边——两者承载同一个焦点状态，只是画法不同）。
 3. 将来要让第三方扩展：升协议 + `where Self ==` 静态成员，modifier 取 `any TreeStyle`；届时走修订回路，J-2 计数 16 → 17。
 
 ## 使用示例 / Usage

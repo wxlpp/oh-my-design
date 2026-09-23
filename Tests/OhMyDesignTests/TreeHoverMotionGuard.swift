@@ -5,13 +5,16 @@ import Testing
 
 // MARK: - Tree 悬停的源码纪律 / Tree hover source discipline
 
-@Suite("Tree 悬停源码纪律：行宿主与 .navigator 行内不出现任何补间调用；悬停状态只在行级")
+@Suite("Tree 悬停源码纪律：行宿主与 .navigator 行内不出现任何补间调用；悬停状态只在行级、只在 .navigator 下追踪")
 struct TreeHoverMotionGuard {
     nonisolated static let rowHostType = "TreeRowHost"
     nonisolated static let navigatorRowType = "NavigatorTreeRow"
     nonisolated static let containerType = "Tree"
     nonisolated static let automaticRowType = "AutomaticTreeRow"
-    nonisolated static let motionCalls: Set<String> = ["animation", "coreAnimation", "withAnimation"]
+    nonisolated static let motionCalls: Set<String> = [
+        "animation", "coreAnimation", "withAnimation", "transaction", "withTransaction",
+    ]
+    nonisolated static let navigatorCase = ".navigator"
     nonisolated static let hoverCalls: Set<String> = ["onHover", "onContinuousHover"]
 
     nonisolated static var treeDirectory: URL {
@@ -42,7 +45,7 @@ struct TreeHoverMotionGuard {
         }
     }
 
-    @Test("行宿主与 .navigator 行内不得出现 animation( / coreAnimation( / withAnimation——悬停高亮即时生效，按名禁调用")
+    @Test("行宿主与 .navigator 行内不得出现 animation( / coreAnimation( / withAnimation / transaction / withTransaction——悬停高亮即时生效，按名禁调用")
     func rowHostAndNavigatorRowNeverAnimate() throws {
         let scan = try Self.scan()
         let hits = scan.calls.filter {
@@ -51,13 +54,15 @@ struct TreeHoverMotionGuard {
         #expect(hits.isEmpty, "悬停所在的层出现了补间调用：\(hits.map(\.description))")
     }
 
-    @Test("悬停只由行宿主追踪：onHover 至少一处且全部在行宿主内")
+    @Test("悬停只由行宿主追踪、只在 .navigator 分支挂：onHover 至少一处，全部在行宿主内的 case .navigator 下")
     func hoverIsTrackedOnlyByTheRowHost() throws {
         let scan = try Self.scan()
         let hover = scan.calls.filter { Self.hoverCalls.contains($0.name) }
         #expect(!hover.isEmpty, "Components/Tree 里没有任何 onHover——.navigator 的悬停没有接线")
         let elsewhere = hover.filter { $0.owner != Self.rowHostType }
         #expect(elsewhere.isEmpty, "onHover 出现在行宿主之外：\(elsewhere.map(\.description))")
+        let unconditional = hover.filter { !($0.switchCase ?? "").contains(Self.navigatorCase) }
+        #expect(unconditional.isEmpty, "onHover 不在 case .navigator 分支内——.automatic 不画悬停，却也在追踪指针：\(unconditional.map(\.description))")
     }
 
     @Test("无障碍取值与点选手势只挂在行宿主上（外观之外），两种外观因此共用同一份")
@@ -89,8 +94,9 @@ nonisolated struct TreeHoverCall: Sendable, CustomStringConvertible {
     let file: String
     let owner: String
     let name: String
+    let switchCase: String?
 
-    var description: String { "\(self.file) · \(self.owner) · \(self.name)(" }
+    var description: String { "\(self.file) · \(self.owner) · \(self.switchCase ?? "-") · \(self.name)(" }
 }
 
 nonisolated struct TreeHoverScan: Sendable {
@@ -105,6 +111,16 @@ private nonisolated final class TreeHoverCollector: SyntaxVisitor {
     private(set) var calls: [TreeHoverCall] = []
     private(set) var memberVariables: [String: [String]] = [:]
     private var owners: [String] = []
+    private var switchCases: [String] = []
+
+    override func visit(_ node: SwitchCaseSyntax) -> SyntaxVisitorContinueKind {
+        self.switchCases.append(node.label.trimmedDescription)
+        return .visitChildren
+    }
+
+    override func visitPost(_ node: SwitchCaseSyntax) {
+        self.switchCases.removeLast()
+    }
 
     override func visit(_ node: StructDeclSyntax) -> SyntaxVisitorContinueKind {
         self.declaredTypes.insert(node.name.text)
@@ -142,7 +158,9 @@ private nonisolated final class TreeHoverCollector: SyntaxVisitor {
             name = nil
         }
         if let name {
-            self.calls.append(TreeHoverCall(file: self.file, owner: self.owners.last ?? "<file>", name: name))
+            self.calls.append(TreeHoverCall(
+                file: self.file, owner: self.owners.last ?? "<file>", name: name, switchCase: self.switchCases.last
+            ))
         }
         return .visitChildren
     }

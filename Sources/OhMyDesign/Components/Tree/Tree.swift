@@ -397,7 +397,6 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             .frame(minHeight: self.context.metrics.rowHeight)
             .contentShape(Rectangle())
             .onTapGesture { self.context.select(elementID) }
-            .onHover { hovering in self.isHovered = hovering }
             .accessibilityValue(self.expansionValue(isExpanded: isExpanded))
             .accessibilityAddTraits(TreeRowAccessibility.traits(isSelected: isSelected))
     }
@@ -409,6 +408,7 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             AutomaticTreeRow(configuration: configuration)
         case .navigator:
             NavigatorTreeRow(configuration: configuration)
+                .onHover { hovering in self.isHovered = hovering }
         }
     }
 
@@ -434,8 +434,13 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
 // MARK: - 复选框 / Check box
 
 struct TreeRowCheckBox: View {
-    let sources: [Binding<Bool>]
+    private let sources: [Binding<Bool>]
     let metrics: TreeRowMetrics
+
+    init(sources: [Binding<Bool>], metrics: TreeRowMetrics) {
+        self.sources = sources
+        self.metrics = metrics
+    }
 
     var body: some View {
         Toggle(sources: self.sources, isOn: \.self) {
@@ -456,9 +461,16 @@ struct TreeDisclosureControl: View {
     let hasChildren: Bool
     let isExpanded: Bool
     let metrics: TreeRowMetrics
-    let toggle: () -> Void
+    private let toggle: () -> Void
 
     @Environment(\.coreMotionPresentation) private var motionPresentation
+
+    init(hasChildren: Bool, isExpanded: Bool, metrics: TreeRowMetrics, toggle: @escaping () -> Void) {
+        self.hasChildren = hasChildren
+        self.isExpanded = isExpanded
+        self.metrics = metrics
+        self.toggle = toggle
+    }
 
     var body: some View {
         let isExpanded = self.isExpanded

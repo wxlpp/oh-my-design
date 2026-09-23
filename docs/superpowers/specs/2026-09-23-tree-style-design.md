@@ -282,8 +282,8 @@ public extension Tree {
 
 | 部位 | 画法 |
 |---|---|
-| 选中 | 整行底色（含缩进区），直角；`accentSubtleBackground(from: coreAccent)` |
-| 悬停 | 整行底色 `Color.surfaceCanvasSubtle`（与 `ListRow` 悬停同一 token，源码读）；选中优先于悬停。⚠️ **PR 2 实测改为 `Color.tertiaryFill`**：macOS 上 `surfaceCanvasSubtle` 与 `surfaceCanvas` 同值（`controlBackgroundColor` / `windowBackgroundColor`），悬停与未悬停位图 Δ=0 |
+| 选中 | 整行底色（含缩进区），直角；`accentSubtleBackground(from: coreAccent)`。⚠️ **PR 2 实测改为 `accentSelectedRowBackground(from: coreAccent)`（× 0.16）**：× 0.08 与悬停分不清（macOS 亮 234 vs 悬停 243），iOS 暗色下比 `tertiaryFill` 悬停还暗（20 vs 28，阶梯倒置）；定案「底色 < 悬停 < 选中」三档阶梯，四格读数见 `docs/components/tree.md`《三档阶梯》 |
+| 悬停 | 整行底色 `Color.surfaceCanvasSubtle`（与 `ListRow` 悬停同一 token，源码读）；选中优先于悬停。⚠️ **PR 2 实测改为 `Color.quaternaryFill`**（三档阶梯的最轻一档）：macOS 上 `surfaceCanvasSubtle` 与 `surfaceCanvas` 同值（`controlBackgroundColor` / `windowBackgroundColor`），悬停与未悬停位图 Δ=0 |
 | 焦点 | `CoreBorderWidth.thin` 内描边，取 `coreAccent` |
 | 缩进参考线 | 对每个祖先层 `k = 1 … level-1` 画一根 `CoreBorderWidth.hairline` 竖线，色 `Color.borderSubtle`；x 坐标 = **第 k 层 chevron 的中心**，即 `CoreSpacing.xs + (k-1) × indentation + disclosureWidth / 2`（行内横向 padding 计入）；上下各外溢 `rowSpacing / 2`，使 `.regular` 的 2pt 行间距处也连续。⚠️ **PR 2 实测改两处**：色改 `Color.borderDefault`（`borderSubtle` α 0.027，白底 255→248，几乎不可见）；外溢改为**只向上溢出整个 `rowSpacing`**（上下各半时父行与首个子行之间留 `rowSpacing / 2` 的断口，§7.5「从父行下缘连续」判不过） |
 | chevron | `.tint(Color.contentSecondary)`（VS Code 的 twistie 是前景色，不是强调色） |

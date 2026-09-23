@@ -1087,6 +1087,7 @@ struct TreeHostedWiringTests {
         log.animations = []
         Self.click(window, at: Self.chevronOfA)
         #expect(log.expanded == ["a"], "\(appearance)：点 chevron 没有展开 a——点击没走到 setExpansion，下面的曲线判据无意义")
+        #expect(log.selection.isEmpty, "\(appearance)：点 chevron 同时选中了行 \(log.selection)——chevron 的点击漏到了行的点选手势")
         let pointer = log.animations.compactMap { $0 }
 
         log.animations = []
@@ -1607,12 +1608,15 @@ enum TreeRowFixture {
 @MainActor
 struct TreeStyleRenderTests {
     private static let minimumSignalDelta = 8
+    private static let minimumHoverDelta = 4
+    private static let minimumLadderStep = 16
     private static let noiseTolerance = 2
 
     private static func expectVisiblyDifferent(
         _ a: TreePixels,
         _ b: TreePixels,
         _ comment: String,
+        minimum: Int = Self.minimumSignalDelta,
         sourceLocation: SourceLocation = #_sourceLocation
     ) {
         guard let metrics = bitmapDifferenceMetrics(a.bytes, b.bytes) else {
@@ -1624,9 +1628,9 @@ struct TreeStyleRenderTests {
             return
         }
         #expect(
-            metrics.maxChannelDelta > Self.minimumSignalDelta,
+            metrics.maxChannelDelta > minimum,
             Comment(rawValue: bitmapExpectationMessage(
-                "逐通道最大偏差 \(metrics.maxChannelDelta) ≤ \(Self.minimumSignalDelta)，不算画得不同。" + comment,
+                "逐通道最大偏差 \(metrics.maxChannelDelta) ≤ \(minimum)，不算画得不同。" + comment,
                 a.bytes, b.bytes
             )),
             sourceLocation: sourceLocation
@@ -1637,7 +1641,50 @@ struct TreeStyleRenderTests {
     func navigatorDrawsTheHover(_ scheme: ColorScheme) {
         let idle = TreePixels.render(TreeRowFixture.navigator(), scheme: scheme)
         let hovered = TreePixels.render(TreeRowFixture.navigator(isHovered: true), scheme: scheme)
-        Self.expectVisiblyDifferent(idle, hovered, "\(scheme)：悬停没有任何视觉呈现")
+        Self.expectVisiblyDifferent(idle, hovered, "\(scheme)：悬停没有任何视觉呈现", minimum: Self.minimumHoverDelta)
+    }
+
+    private static func backgroundSample(
+        _ scheme: ColorScheme, accent: Color?, isSelected: Bool = false, isHovered: Bool = false
+    ) -> (Int, Int, Int)? {
+        let row = TreeRowFixture.navigator(isSelected: isSelected, isHovered: isHovered)
+        let pixels = if let accent {
+            TreePixels.render(row.coreAccent(accent), scheme: scheme)
+        } else {
+            TreePixels.render(row, scheme: scheme)
+        }
+        return pixels.rgb(x: pixels.width - 8, y: pixels.height / 2)
+    }
+
+    private static func channelDistance(_ a: (Int, Int, Int), _ b: (Int, Int, Int)) -> Int {
+        max(abs(a.0 - b.0), abs(a.1 - b.1), abs(a.2 - b.2))
+    }
+
+    @Test(
+        ".navigator 三档阶梯：选中与悬停逐通道差 ≥ 16，且选中偏离底色多于悬停（默认墨色与宿主蓝两种 coreAccent）",
+        arguments: [ColorScheme.light, .dark], [false, true]
+    )
+    func selectionIsStrongerThanHover(_ scheme: ColorScheme, hostAccent: Bool) {
+        let accent: Color? = hostAccent ? Color.dataAccent : nil
+        let name = "\(scheme) / \(hostAccent ? "宿主蓝" : "默认墨色")"
+        guard let idle = Self.backgroundSample(scheme, accent: accent),
+              let hovered = Self.backgroundSample(scheme, accent: accent, isHovered: true),
+              let selected = Self.backgroundSample(scheme, accent: accent, isSelected: true)
+        else {
+            Issue.record("\(name)：没渲染出来")
+            return
+        }
+        let step = Self.channelDistance(selected, hovered)
+        #expect(
+            step >= Self.minimumLadderStep,
+            "\(name)：选中 \(selected) 与悬停 \(hovered) 逐通道最大差 \(step) < \(Self.minimumLadderStep)，两态分不清"
+        )
+        let selectedOffset = Self.channelDistance(selected, idle)
+        let hoveredOffset = Self.channelDistance(hovered, idle)
+        #expect(
+            selectedOffset > hoveredOffset,
+            "\(name)：选中偏离底色 \(selectedOffset) 不大于悬停 \(hoveredOffset)（底色 \(idle)）——阶梯倒置"
+        )
     }
 
     @Test(".navigator 选中优先于悬停：选中 + 悬停 = 仅选中", arguments: [ColorScheme.light, .dark])
