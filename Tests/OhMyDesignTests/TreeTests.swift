@@ -1127,6 +1127,7 @@ struct TreeRenderTests {
             selection: [],
             checked: nil,
             focus: focus,
+            metrics: TreeRowMetrics.resolve(.regular),
             showsFocusRing: showsFocusRing,
             select: { _ in },
             setExpansion: { _, _ in },
@@ -1153,5 +1154,243 @@ struct TreeRenderTests {
         let withBox = Self.pixels(Self.tree(expanded: [], checked: []))
         let withoutBox = Self.pixels(Self.tree(expanded: []))
         Self.expectVisiblyDifferent(withoutBox.bytes, withBox.bytes, "传不传 checked 画得一样——复选框没接上")
+    }
+}
+
+// MARK: - 密度
+
+@Suite("Tree 密度：行度量从 controlSize 推导，渲染行距 / 缩进 / 行间距逐档跟随")
+@MainActor
+struct TreeDensityTests {
+    private struct Expected {
+        let rowHeight: CGFloat
+        let disclosureWidth: CGFloat
+        let indentation: CGFloat
+        let chevronSize: CGFloat
+        let rowSpacing: CGFloat
+        let checkBoxGlyph: CGFloat
+    }
+
+    private static let table: [ControlSize: Expected] = [
+        .mini: Expected(rowHeight: 20, disclosureWidth: 20, indentation: 10, chevronSize: 10, rowSpacing: 0, checkBoxGlyph: 12),
+        .small: Expected(rowHeight: 22, disclosureWidth: 22, indentation: 11, chevronSize: 12, rowSpacing: 0, checkBoxGlyph: 14),
+        .regular: Expected(rowHeight: 44, disclosureWidth: 24, indentation: 12, chevronSize: 14, rowSpacing: 2, checkBoxGlyph: 16),
+        .large: Expected(rowHeight: 50, disclosureWidth: 28, indentation: 14, chevronSize: 16, rowSpacing: 2, checkBoxGlyph: 20),
+        .extraLarge: Expected(rowHeight: 56, disclosureWidth: 32, indentation: 16, chevronSize: 18, rowSpacing: 2, checkBoxGlyph: 24),
+    ]
+
+    #if os(iOS)
+    private static let platformFloor: CGFloat = 44
+    #else
+    private static let platformFloor: CGFloat = 0
+    #endif
+
+    private static func expected(_ size: ControlSize) -> Expected {
+        guard let hit = Self.table[size] else {
+            fatalError("推导表里没有 \(size)——ControlSize 新增了一档而判据没跟上")
+        }
+        return hit
+    }
+
+    private static func pitch(_ size: ControlSize) -> CGFloat {
+        max(Self.expected(size).rowHeight, Self.platformFloor)
+    }
+
+    @Test("推导表五档逐项取值（不含平台下限）", arguments: ControlSize.allCases)
+    func metricsMatchTheTable(size: ControlSize) {
+        let metrics = TreeRowMetrics.resolve(size, platformFloor: 0)
+        let want = Self.expected(size)
+        #expect(metrics.rowHeight == want.rowHeight, "\(size) 行高")
+        #expect(metrics.disclosureWidth == want.disclosureWidth, "\(size) 展开槽宽")
+        #expect(metrics.indentation == want.indentation, "\(size) 缩进步长")
+        #expect(metrics.chevronSize == want.chevronSize, "\(size) chevron 字号")
+        #expect(metrics.rowSpacing == want.rowSpacing, "\(size) 行间距")
+        #expect(metrics.checkBoxGlyph == want.checkBoxGlyph, "\(size) 复选框字形")
+    }
+
+    @Test(".regular 一档逐项等于 #422 写死的取值——默认外观在默认档位下不变")
+    func regularEqualsTheShippedConstants() {
+        let metrics = TreeRowMetrics.resolve(.regular, platformFloor: 0)
+        #expect(metrics.rowHeight == CoreControlMetrics.height(for: .regular))
+        #expect(metrics.disclosureWidth == CoreControlMetrics.iconSize(for: .regular) + CoreSpacing.sm)
+        #expect(metrics.indentation == CoreSpacing.md)
+        #expect(metrics.chevronSize == CoreControlMetrics.iconSize(for: .small))
+        #expect(metrics.rowSpacing == CoreSpacing.xxs)
+        #expect(metrics.checkBoxGlyph == CoreControlMetrics.iconSize(for: .regular))
+    }
+
+    @Test("五档单调不减：档位越大，每个量都不变小")
+    func metricsAreMonotonic() {
+        let all = ControlSize.allCases.map { TreeRowMetrics.resolve($0, platformFloor: 0) }
+        for (lhs, rhs) in zip(all, all.dropFirst()) {
+            #expect(lhs.rowHeight <= rhs.rowHeight)
+            #expect(lhs.disclosureWidth <= rhs.disclosureWidth)
+            #expect(lhs.indentation <= rhs.indentation)
+            #expect(lhs.chevronSize <= rhs.chevronSize)
+            #expect(lhs.rowSpacing <= rhs.rowSpacing)
+            #expect(lhs.checkBoxGlyph <= rhs.checkBoxGlyph)
+        }
+    }
+
+    @Test("平台下限只抬行高，不动其余各量")
+    func platformFloorRaisesOnlyTheRowHeight() {
+        let bare = TreeRowMetrics.resolve(.small, platformFloor: 0)
+        let floored = TreeRowMetrics.resolve(.small, platformFloor: 44)
+        #expect(floored.rowHeight == 44)
+        #expect(floored.disclosureWidth == bare.disclosureWidth)
+        #expect(floored.indentation == bare.indentation)
+        #expect(floored.chevronSize == bare.chevronSize)
+        #expect(floored.rowSpacing == bare.rowSpacing)
+        #expect(floored.checkBoxGlyph == bare.checkBoxGlyph)
+    }
+
+    // MARK: - 渲染
+
+    private static let leaf = [TreeJudgeNode(id: "leaf", children: nil)]
+    private static let parent = [TreeJudgeNode(id: "p", children: [TreeJudgeNode(id: "c", children: nil)])]
+
+    private static func tree(
+        _ roots: [TreeJudgeNode],
+        expanded: Set<String> = [],
+        checked: Set<String>? = nil,
+        size: ControlSize
+    ) -> some View {
+        Tree(
+            roots,
+            children: \.children,
+            expanded: .constant(expanded),
+            selection: .constant([]),
+            checked: checked.map { Binding.constant($0) }
+        ) { node in
+            Text(verbatim: node.id)
+        }
+        .controlSize(size)
+    }
+
+    private static func swatchTree(size: ControlSize) -> some View {
+        Tree(
+            Self.parent,
+            children: \.children,
+            expanded: .constant(["p"]),
+            selection: .constant([])
+        ) { _ in
+            Rectangle().fill(Color(red: 1, green: 0, blue: 0)).frame(width: 10, height: 10)
+        }
+        .tint(Color(white: 0.5))
+        .controlSize(size)
+    }
+
+    private static func renderedHeight(_ view: some View) -> CGFloat {
+        let renderer = ImageRenderer(content: view.frame(width: 260))
+        renderer.scale = 1
+        guard let image = renderer.cgImage else { return 0 }
+        return CGFloat(image.height)
+    }
+
+    @Test("叶行渲染行距逐档等于推导表（iOS 过 44 下限）", arguments: ControlSize.allCases)
+    func leafRowPitchFollowsControlSize(size: ControlSize) {
+        let height = Self.renderedHeight(Self.tree(Self.leaf, size: size))
+        #expect(height == Self.pitch(size), "\(size)：叶行渲染高 \(height)pt，应为 \(Self.pitch(size))pt")
+    }
+
+    @Test("带复选框的叶行渲染行距逐档等于推导表——复选框不把密集行撑回 44", arguments: ControlSize.allCases)
+    func checkBoxRowPitchFollowsControlSize(size: ControlSize) {
+        let height = Self.renderedHeight(Self.tree(Self.leaf, checked: [], size: size))
+        #expect(height == Self.pitch(size), "\(size)：带复选框的叶行渲染高 \(height)pt，应为 \(Self.pitch(size))pt")
+    }
+
+    @Test("父行（有 chevron）折叠态渲染行距逐档等于推导表——chevron 命中槽不把密集行撑回 44", arguments: ControlSize.allCases)
+    func parentRowPitchFollowsControlSize(size: ControlSize) {
+        let height = Self.renderedHeight(Self.tree(Self.parent, size: size))
+        #expect(height == Self.pitch(size), "\(size)：父行渲染高 \(height)pt，应为 \(Self.pitch(size))pt")
+    }
+
+    @Test("展开的两层树：总高 = 两个行距 + 一个行间距（嵌套层的行间距同样跟随档位）", arguments: [ControlSize.small, .regular])
+    func nestedRowSpacingFollowsControlSize(size: ControlSize) {
+        let height = Self.renderedHeight(Self.tree(Self.parent, expanded: ["p"], size: size))
+        let want = 2 * Self.pitch(size) + Self.expected(size).rowSpacing
+        #expect(height == want, "\(size)：两层树渲染高 \(height)pt，应为 \(want)pt")
+    }
+
+    @Test(".small 下两个根叶子 + 一个展开的两子父节点：总高 = 5 × 行距，根层与嵌套层都不插行间距")
+    func rootAndNestedSiblingsStackWithoutGapsWhenDense() {
+        let roots = [
+            TreeJudgeNode(id: "a", children: nil),
+            TreeJudgeNode(id: "b", children: nil),
+            TreeJudgeNode(id: "p", children: [
+                TreeJudgeNode(id: "c1", children: nil),
+                TreeJudgeNode(id: "c2", children: nil),
+            ]),
+        ]
+        #expect(Self.expected(.small).rowSpacing == 0)
+        let height = Self.renderedHeight(Self.tree(roots, expanded: ["p"], size: .small))
+        let want = 5 * Self.pitch(.small)
+        #expect(height == want, ".small：五行树渲染高 \(height)pt，应为 \(want)pt")
+    }
+
+    #if os(macOS)
+    @Test("调用方放进行内容的 CheckBox 不吃 Tree 的密集布局：.small 下该行仍被撑到 44")
+    func callerCheckBoxKeepsRegularMinHeight() {
+        let view = Tree(
+            Self.leaf,
+            children: \.children,
+            expanded: .constant([]),
+            selection: .constant([])
+        ) { _ in
+            Toggle(isOn: .constant(false)) { EmptyView() }
+                .toggleStyle(CheckBoxToggleStyle())
+                .labelsHidden()
+        }
+        .controlSize(.small)
+        let height = Self.renderedHeight(view)
+        #expect(height == 44, ".small：行内容里的调用方 CheckBox 行高 \(height)pt，应为 44pt")
+    }
+    #endif
+
+    @Test("父子两行色块左缘的列差等于该档的缩进步长", arguments: [ControlSize.small, .regular])
+    func indentationFollowsControlSize(size: ControlSize) {
+        let scale: CGFloat = 2
+        let renderer = ImageRenderer(
+            content: Self.swatchTree(size: size)
+                .frame(width: 260)
+                .background(Color.white)
+                .environment(\.colorScheme, .light)
+        )
+        renderer.scale = scale
+        guard let image = renderer.cgImage,
+              let space = CGColorSpace(name: CGColorSpace.sRGB)
+        else {
+            Issue.record("\(size)：没渲染出来")
+            return
+        }
+        let bytesPerRow = image.width * 4
+        var bytes = [UInt8](repeating: 0, count: bytesPerRow * image.height)
+        guard let context = CGContext(
+            data: &bytes, width: image.width, height: image.height,
+            bitsPerComponent: 8, bytesPerRow: bytesPerRow, space: space,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            Issue.record("\(size)：取不到位图")
+            return
+        }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        var leftEdges: [Int] = []
+        var inSwatch = false
+        for y in 0..<image.height {
+            var left: Int?
+            for x in 0..<image.width {
+                let i = y * bytesPerRow + x * 4
+                if bytes[i] > 200, bytes[i + 1] < 60, bytes[i + 2] < 60 {
+                    left = x
+                    break
+                }
+            }
+            if let left, !inSwatch { leftEdges.append(left) }
+            inSwatch = left != nil
+        }
+        #expect(leftEdges.count == 2, "\(size)：应找到父子两块色块，实得 \(leftEdges.count) 块")
+        guard leftEdges.count == 2 else { return }
+        let step = CGFloat(abs(leftEdges[1] - leftEdges[0])) / scale
+        #expect(step == Self.expected(size).indentation, "\(size)：父子色块左缘差 \(step)pt，应为 \(Self.expected(size).indentation)pt")
     }
 }

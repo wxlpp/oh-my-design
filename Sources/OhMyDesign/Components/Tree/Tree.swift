@@ -11,6 +11,8 @@ import SwiftUI
 /// 复选框只落在叶节点上——父行的勾选态由 `Toggle(sources:isOn:)` 从后代绑定派生
 /// （含系统的 mixed 态），父节点自身**永不进** `checked` 集合。
 ///
+/// 行距、缩进、chevron 与复选框字形跟随环境 `controlSize`；iOS 上行距不低于 44 pt。
+///
 /// ⚠️ **不是原生外观**：本组件走递归 `DisclosureGroup(isExpanded:)`，从系统拿到的是
 /// 展开态接口与嵌套能力；chevron、缩进、行选中底色与无障碍播报全部自绘。
 public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>: View {
@@ -57,11 +59,13 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     @State private var pointerClaimsFocus = false
     @FocusState private var isFocused: Bool
     @Environment(\.coreMotionPresentation) private var motionPresentation
+    @Environment(\.controlSize) private var controlSize
 
     public var body: some View {
         let rows = self.visibleRows
-        return VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
-            TreeBranch(data: self.data, level: 1, context: self.context(rows: rows))
+        let metrics = TreeRowMetrics.resolve(self.controlSize)
+        return VStack(alignment: .leading, spacing: metrics.rowSpacing) {
+            TreeBranch(data: self.data, level: 1, context: self.context(rows: rows, metrics: metrics))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .modifier(TreeNestedStyle())
@@ -178,7 +182,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         TreeFlatten.ancestorIDs(of: hidden, in: self.data, id: self.id, children: self.children)
     }
 
-    private func context(rows: [TreeRow<ID>]) -> TreeContext<Data, ID, RowContent> {
+    private func context(rows: [TreeRow<ID>], metrics: TreeRowMetrics) -> TreeContext<Data, ID, RowContent> {
         TreeContext(
             id: self.id,
             children: self.children,
@@ -186,6 +190,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             selection: self.selection,
             checked: self.checked,
             focus: self.focus,
+            metrics: metrics,
             showsFocusRing: TreeFocusing.showsRing(
                 containerFocused: self.isFocused, lastInteraction: self.lastInteraction
             ),
@@ -274,6 +279,7 @@ struct TreeContext<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     let selection: Set<ID>
     let checked: Binding<Set<ID>>?
     let focus: ID?
+    let metrics: TreeRowMetrics
     let showsFocusRing: Bool
     let select: (ID) -> Void
     let setExpansion: (ID, TreeExpansionTarget) -> Void
@@ -342,8 +348,10 @@ struct TreeNestedStyle: ViewModifier {
 // MARK: - TreeDisclosureGroupStyle
 
 struct TreeDisclosureGroupStyle: DisclosureGroupStyle {
+    @Environment(\.controlSize) private var controlSize
+
     func makeBody(configuration: Configuration) -> some View {
-        VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
+        VStack(alignment: .leading, spacing: TreeRowMetrics.resolve(self.controlSize).rowSpacing) {
             configuration.label
             if configuration.isExpanded {
                 configuration.content
@@ -369,7 +377,7 @@ struct TreeRowView<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         let isSelected = self.context.selection.contains(elementID)
         let isFocused = self.context.showsFocusRing && self.context.focus == elementID
         return HStack(spacing: CoreSpacing.xs) {
-            TreeDisclosureControl(hasChildren: self.hasChildren, isExpanded: isExpanded) {
+            TreeDisclosureControl(hasChildren: self.hasChildren, isExpanded: isExpanded, metrics: self.context.metrics) {
                 self.context.setExpansion(elementID, isExpanded ? .collapsed : .expanded)
             }
             if let checked = self.context.checked {
@@ -379,13 +387,13 @@ struct TreeRowView<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         }
         .padding(.horizontal, CoreSpacing.xs)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(minHeight: CoreControlMetrics.height(for: .regular))
+        .frame(minHeight: self.context.metrics.rowHeight)
         .background(
             CoreShape.rounded(CoreRadius.small)
                 .fill(isSelected ? Color.accentSubtleBackground(from: self.resolvedAccent) : Color.clear)
         )
         .contentShape(Rectangle())
-        .padding(.leading, CGFloat(self.level - 1) * CoreSpacing.md)
+        .padding(.leading, CGFloat(self.level - 1) * self.context.metrics.indentation)
         .onTapGesture { self.context.select(elementID) }
         .focusRing(visible: isFocused, cornerRadius: CoreRadius.small)
         .accessibilityValue(self.expansionValue(isExpanded: isExpanded))
@@ -405,6 +413,10 @@ struct TreeRowView<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         }
         .toggleStyle(CheckBoxToggleStyle())
         .labelsHidden()
+        .environment(
+            \.checkBoxLayout,
+            CheckBoxLayout(glyph: self.context.metrics.checkBoxGlyph, minHeight: self.context.metrics.rowHeight)
+        )
     }
 
     private func expansionValue(isExpanded: Bool) -> Text {
@@ -421,6 +433,7 @@ struct TreeRowView<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
 struct TreeDisclosureControl: View {
     let hasChildren: Bool
     let isExpanded: Bool
+    let metrics: TreeRowMetrics
     let toggle: () -> Void
 
     @Environment(\.coreMotionPresentation) private var motionPresentation
@@ -430,28 +443,28 @@ struct TreeDisclosureControl: View {
         let isExpanded = self.isExpanded
         if self.hasChildren {
             Button(action: self.toggle) {
-                Self.chevron
+                self.chevron
                     .rotationEffect(.degrees(self.chevronRotation(isExpanded: isExpanded)))
                     .animation(
                         CoreMotionToken.reveal.transformAnimation(for: self.motionPresentation),
                         value: isExpanded
                     )
-                    .modifier(TreeDisclosureSlot())
+                    .modifier(TreeDisclosureSlot(metrics: self.metrics))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(
                 Text(LocalizedStringKey(TreeRowAccessibility.chevronLabelKey(isExpanded: isExpanded)), bundle: .module)
             )
         } else {
-            Self.chevron
+            self.chevron
                 .hidden()
-                .modifier(TreeDisclosureSlot())
+                .modifier(TreeDisclosureSlot(metrics: self.metrics))
         }
     }
 
-    private static var chevron: some View {
+    private var chevron: some View {
         Image(systemName: "chevron.forward")
-            .font(.system(size: CoreControlMetrics.iconSize(for: .small)))
+            .font(.system(size: self.metrics.chevronSize))
             .foregroundStyle(.tint)
     }
 
@@ -462,12 +475,11 @@ struct TreeDisclosureControl: View {
 }
 
 struct TreeDisclosureSlot: ViewModifier {
+    let metrics: TreeRowMetrics
+
     func body(content: Content) -> some View {
         content
-            .frame(
-                width: CoreControlMetrics.iconSize(for: .regular) + CoreSpacing.sm,
-                height: CoreControlMetrics.height(for: .regular)
-            )
+            .frame(width: self.metrics.disclosureWidth, height: self.metrics.rowHeight)
             .contentShape(Rectangle())
     }
 }
