@@ -35,10 +35,11 @@ public struct TagInput: View {
 
     public var body: some View {
         FlowLayout(spacing: CoreSpacing.sm) {
-            ForEach(Array(self.tags.enumerated()), id: \.offset) { index, tag in
-                Tag(tag, color: self.tagColor, removable: true) {
-                    self.tags = Self.removingTag(at: index, from: self.tags)
+            ForEach(Self.chips(for: self.tags)) { chip in
+                Tag(chip.value, color: self.tagColor, removable: true) {
+                    self.tags = Self.removingTag(at: chip.index, from: self.tags)
                 }
+                .transition(self.motionPresentation.collectionItemTransition)
             }
 
             TextField(self.placeholder, text: self.$draft)
@@ -55,6 +56,7 @@ public struct TagInput: View {
                     self.handleDraftChange(newValue)
                 }
         }
+        .animation(CoreMotionToken.reveal.transformAnimation(for: self.motionPresentation), value: self.tags)
         .overlay(alignment: .bottom) {
             if FieldAppearance.resolve(isEnabled: self.isEnabled, validation: self.validation, isFocused: false) == .invalid {
                 Rectangle()
@@ -119,6 +121,19 @@ public struct TagInput: View {
         return result
     }
 
+    static func chips(for tags: [String]) -> [TagInputChip] {
+        var occurrences: [String: Int] = [:]
+        var chips: [TagInputChip] = []
+        chips.reserveCapacity(tags.count)
+        for index in tags.indices {
+            let value = tags[index]
+            let occurrence = occurrences[value, default: 0]
+            occurrences[value] = occurrence + 1
+            chips.append(TagInputChip(value: value, occurrence: occurrence, index: index))
+        }
+        return chips
+    }
+
     // MARK: - Tokens
 
     private static var separator: Character { "," }
@@ -136,6 +151,23 @@ public struct TagInput: View {
     @State private var draft: String = ""
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.fieldValidation) private var validation
+    @Environment(\.coreMotionPresentation) private var motionPresentation
+}
+
+// MARK: - chip 身份 / Chip identity
+
+// `index` 只用来定位删除目标，不参与 `id`——把它放进身份，删中间项就会让其后每一项换身份。
+struct TagInputChip: Identifiable, Hashable {
+    struct ID: Hashable {
+        let value: String
+        let occurrence: Int
+    }
+
+    let value: String
+    let occurrence: Int
+    let index: Int
+
+    var id: ID { ID(value: self.value, occurrence: self.occurrence) }
 }
 
 // MARK: - Preview

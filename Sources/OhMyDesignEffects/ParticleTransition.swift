@@ -14,7 +14,7 @@ public struct ParticleTransition: Transition {
     /// 默认粒子数。
     public nonisolated static let defaultCount: Int = 18
 
-    /// ## ⚠️⚠️ `hasMotion` 取 `true`，这是一次**有代价**的定案，代价照录
+    /// 声明本转场含运动（`hasMotion` 取 `true`）；Reduce Motion 降级由 `ParticleTransitionChrome` 的早退负责，框架不替换。
     public nonisolated static let properties: TransitionProperties = TransitionProperties(hasMotion: true)
 
     public init(count: Int = ParticleTransition.defaultCount, colors: [Color] = []) {

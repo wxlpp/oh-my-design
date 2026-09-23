@@ -61,6 +61,51 @@ TagGroup(items, selection: $selection, color: .contentPrimary) { Text($0.name) }
 - 选中外观只作用于标签自身的底与描边，不向调用方的 label 子树传递——label 里嵌套的独立 `Tag` 保持自己的外观。
 - 按下 0.7 不透明度。
 
+## 动效（#409）
+
+- **选中态切换**：走 `.coreAnimation(.selection, value: selection)`（`CoreMotionToken.selection`，0.22 s）。
+  两种呈现裁决下都**保留**动画——选中只换底色与描边色，尺寸与包围盒不变，纯色插值不是位移类动效，
+  按 HIG 无需在 Reduce Motion 下关掉。判据
+  `TagMotionInFlightTests.tagGroupSelectionInterpolatesWithoutGeometryChange` 在 macOS 托管窗口里逐帧
+  采样，既要求两种呈现下都拍到中间帧，也要求中间帧的变化像素**不越出最终变化区**（越出即意味着有几何位移）。
+  ⚠️ 实现上是两个 chrome 子树的**交叉淡变**（`Tag` 的选中 / 未选 chrome 是 `if let` 两个分支），
+  不是单个 fill 的颜色插值；实测两种写法都能拍到中间帧，因此没有为了「可插值」而改写 `Tag`。
+- **标签增删**：`data` 变化时走 `CollectionItemTransition` + `CoreMotionToken.reveal`，
+  经 `transformAnimation(for:)` ⇒ **Reduce Motion 下为 `nil`**，标签直接出现 / 消失、`FlowLayout` 不做补间重排
+  （理由与 `tag-input.md`「增删动效」一节相同：重排是位移，只有 `nil` 能做到零位移）。
+- **静息外观不随呈现裁决变化**：五档 `controlSize` × 选中与否 × light / dark 下，注入
+  `.animated` / `.resting` / `.hidden` 三种裁决的位图在光栅化噪声内相同（判据
+  `TagStaticAppearanceTests.tagGroupIgnoresPresentationWhenSettled`，Δ ≤ 1、差异 ≤ 0.2%，
+  噪声来自同进程连渲次序，理由写在该判据的 `expectSettledMatch` 文档注释里）。
+- ⚠️ **`data` 与 `selection` 在同一次更新里一起变时**，两条 `animation` 链里内层那条（按 `data` 的 ID
+  列表触发）说了算：Reduce Motion 下它是 `nil`，于是**选中态的淡变也被一起吞掉**（实测 macOS 托管窗口
+  0.5 s 采样：`.animated` 下 22 / 52 帧是中间帧，`.resting` 下 0 / 42）。这一格没有机器判据、
+  也不打算加——两种结果（淡变 / 直接到位）都在 HIG 允许范围内，登记在此免得下次被当成 bug 排查。
+
+### `FlowLayout` 逐项重排实测
+
+240pt 宽的 `TagGroup`，6 个标签的 label 各是一块**唯一色相**的色卡（`Tag` 的 `foregroundStyle`
+管不到 `Color` 视图，所以色卡能逐项定位），排成 5 + 1 两行；删掉第 2 个（行 1 上的绿色）后，
+macOS 托管窗口 16 ms 采样一次、逐帧按色相取每一项的左上角（@2x 像素）。**代表性一次**的读数：
+
+| 项 | 起点 → 终点 | 中间位置 |
+|---|---|---|
+| 红（未动） | (8,4) → (8,4) | — |
+| 蓝 | (100,4) → (54,4) | 98 → 83 → 69 → 62 → 58 → 56 → 55 |
+| 黄 | (146,4) → (100,4) | 144 → 129 → 115 → 108 → 104 → 102 → 101 |
+| 品红 | (192,4) → (146,4) | 190 → 175 → 161 → 154 → 150 → 148 → 147 |
+| 青（**跨行上移**） | (8,26) → (192,4) | (19,25) → (84,17) → (136,11) → (165,8) → (179,6) → (186,5) → (190,5) |
+| 绿（退场） | 墨迹 260 → 0 | 256 → 131 → 32 |
+
+`.resting` 下：第一帧（t ≈ 0.016 s）起每一项就已在终位，退场墨迹 260 直接归零，**任何一项都没有
+中间位置**。
+
+⚠️ **承重的是「互异中间位置的个数」，不是上表这些具体数值**——逐帧取到哪些位置随负载变化、
+不可复现。判据 `TagReflowTrajectoryTests` 钉的是：完整动效下每个移动过的存活项 ≥ 2 个互异中间位置、
+跨行那一项的 x 与 y **同时**插值（≥ 2 个 x 与 y 都不同于起点的位置）、退场墨迹至少有一档落在
+(0, 起始值) 之间；Reduce Motion 下这三项全为 0。
+⚠️ 采样给不出数学意义上的连续性，只能给出「经过了多个中间位置」。
+
 ## 无障碍与触控
 
 - `single` / `multiple` 下每个标签是按钮，带 `.isButton`，已选时加 `.isSelected`（VoiceOver 读「已选」），

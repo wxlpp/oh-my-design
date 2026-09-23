@@ -23,6 +23,12 @@ Apple HIG 风格按钮样式 / Apple HIG-styled button styles.
 
 `ButtonRoleStyleRole`: primary / secondary / tertiary / warning / danger。
 
+**按压反馈**（#407）：`.solidButton` / `.lightButton` / `.circularGlass`（经 `TelegramGlassButtonModifier`）按下时缩到
+`CoreButtonMetrics.pressedScale`（0.94），曲线 `CoreMotionToken.press`（`.snappy`，0.16 s）；Reduce Motion 下不缩放，
+改为按下透明度 0.7，与样式自带的按下透明度（`.lightButton` / `.circularGlass` 0.9、`.solidButton` 0.92）取较小值、不叠乘
+（禁用的 `.circularGlass` 整体 0.4；禁用按钮拿不到按下态）。`.borderless()` 只变色，曲线同为 `CoreMotionToken.press`
+（#407 前是默认时长的 `.easeInOut`）。
+
 ## 预览 / Preview
 
 运行 `scripts/run-snapshots.sh`（默认模式）后，预览图落地 `docs/snapshots/`——但前提是该组件已在 `App/Sources/Previews.swift` 注册（导出文件名形如 `OhMyDesignPreview_<组件名>.png`）；组件源码内自带的 `#Preview` 仅用于开发期本地预览，或经 `KEEP_LIBRARY_SNAPSHOTS=1 scripts/run-snapshots.sh` 导出到本地 scratch 目录做逐组件视觉核对（不写入 docs/snapshots，见 `.claude/epics/semi-mobile-components/phase0-decisions.md` §3）。

@@ -998,7 +998,7 @@ Task 6 的 2 条 + Task 7 的 12 条」——即 #53 在压测收口时把「委
 `53-survey.md` 证据行 24。基线 OhMyDesign `18f92fc`（`git diff --stat 18f92fc HEAD -- Sources/`
 输出为空，源码事实与基线逐字一致）。
 
-**① 源码事实**：`TelegramGlassButtonModifier`。四个公开存储属性——`shape: S`（任意 InsettableShape）、`isPressed: Bool`、`border: Color?`、`pressFeedback: Bool`；body 逐层：第 1 层轮廓由调用方 shape 给；第 3 层描边色是公开 border（逐字 `self.border ?? Color.white.opacity(CoreButtonMetrics.glassBorderOpacity)`，仓内 CoreMenuButton 传 .borderSubtle 换掉默认半透明白）；第 4 层按压反馈可由公开 pressFeedback 整个关掉（逐字 `.scaleEffect(self.pressFeedback && self.isPressed ? CoreButtonMetrics.pressedScale : 1)`）。⚠️ 原文此处还写「底色由调用方 backgroundStyle 注入」——现状 body 是固定的 `.fill(.background)`，该句已不成立（`#337` 实测）。
+**① 源码事实**：`TelegramGlassButtonModifier`。四个公开存储属性——`shape: S`（任意 InsettableShape）、`isPressed: Bool`、`border: Color?`、`pressFeedback: Bool`；body 逐层：第 1 层轮廓由调用方 shape 给；第 3 层描边色是公开 border（逐字 `self.border ?? Color.white.opacity(CoreButtonMetrics.glassBorderOpacity)`，仓内 CoreMenuButton 传 .borderSubtle 换掉默认半透明白）；第 4 层按压反馈可由公开 pressFeedback 整个关掉（逐字 `isPressed: self.pressFeedback && self.isPressed,`）。⚠️ 原文此处还写「底色由调用方 backgroundStyle 注入」——现状 body 是固定的 `.fill(.background)`，该句已不成立（`#337` 实测）。
 
 **② (A) 诚实枚举**：候选 1 = **实心填充按钮容器**（来源：Material Design 3 filled button、Apple .borderedProminent），豁免路径：皮肤变体走通；作用域 ① 落空（被点名的 Solid/Light/CircularGlass 三个 ButtonStyle 均不在 71 条登记表内）。 候选 2 = **描边/tonal 容器**（来源：Material 3 outlined/tonal button、Ant Design default 与 dashed 按钮），豁免路径：皮肤变体走通；作用域 ① 同样落空。 候选 3 = **无容器的纯文字按钮**（来源：Material text button、Apple .plain），豁免路径：皮肤变体未走通（去掉全部容器层）；作用域 ③ 落空。
 

@@ -11,7 +11,7 @@ public struct BlurTransition: Transition {
     /// 默认模糊半径。
     public nonisolated static let defaultRadius: CGFloat = 12
 
-    /// 显式退出框架在 Reduce Motion 下的 opacity 替换（协议默认值是 `true`）。
+    /// 声明本转场无运动（协议默认值是 `true`）。
     public nonisolated static let properties = TransitionProperties(hasMotion: false)
 
     public init(radius: CGFloat = BlurTransition.defaultRadius) {

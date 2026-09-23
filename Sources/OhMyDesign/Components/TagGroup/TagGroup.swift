@@ -57,6 +57,7 @@ public struct TagGroup<Data: RandomAccessCollection, ID: Hashable, Label: View>:
 
     @Binding private var selection: Set<ID>
     @Environment(\.coreAccent) private var resolvedAccent
+    @Environment(\.coreMotionPresentation) private var motionPresentation
 
     public var body: some View {
         #if DEBUG
@@ -65,8 +66,14 @@ public struct TagGroup<Data: RandomAccessCollection, ID: Hashable, Label: View>:
         FlowLayout(spacing: self.spacing) {
             ForEach(self.data, id: self.id) { element in
                 self.item(element)
+                    .transition(self.motionPresentation.collectionItemTransition)
             }
         }
+        .animation(
+            CoreMotionToken.reveal.transformAnimation(for: self.motionPresentation),
+            value: self.data.map { $0[keyPath: self.id] }
+        )
+        .coreAnimation(.selection, value: self.selection)
     }
 
     @ViewBuilder

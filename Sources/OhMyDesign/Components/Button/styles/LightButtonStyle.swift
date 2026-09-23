@@ -20,10 +20,12 @@ public struct LightButtonStyle: ButtonStyle {
                 shape: Capsule(style: .continuous),
                 fill: Color.surfaceInteractive,
                 border: Color.borderSubtle,
-                isPressed: isPressed
+                isPressed: isPressed,
+                pressedOpacity: Self.pressedOpacity
             )
-            .opacity(isPressed ? 0.9 : 1)
     }
+
+    static let pressedOpacity: Double = 0.9
 
     @Environment(\.coreAccent) private var coreAccent
     @Environment(\.isEnabled) private var isEnabled

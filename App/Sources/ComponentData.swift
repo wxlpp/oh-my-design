@@ -558,6 +558,11 @@ private struct TagGroupPreview: View {
     @State private var withDisabled: Set<String> = ["Go"]
     @State private var accented: Set<String> = ["Design"]
     @State private var sized: Set<String> = ["On"]
+    @State private var mutable: [TagGroupPreviewItem] = ["Alpha", "Bravo", "Charlie", "Delta"].map(TagGroupPreviewItem.init(id:))
+    @State private var mutableSelection: Set<String> = ["Bravo"]
+    // 单调递增，不用 count —— 「加、删中间、再加」会让 count + 1 撞出两个同名 ID，
+    // 而 TagGroup 的契约要求 data 内 ID 唯一。
+    @State private var mutableSerial = 0
 
     private let ranges = ["Daily", "Weekly", "Monthly", "Yearly"].map(TagGroupPreviewItem.init(id:))
     private let languages = ["Swift", "Kotlin", "Rust", "TypeScript", "Python"].map(TagGroupPreviewItem.init(id:))
@@ -596,6 +601,30 @@ private struct TagGroupPreview: View {
                     Text($0.id)
                 }
                 .coreAccent(.blue)
+            }
+            self.row("增删转场") {
+                TagGroup(self.mutable, selection: self.$mutableSelection, color: .contentPrimary) {
+                    Text($0.id)
+                }
+                HStack(spacing: CoreSpacing.sm) {
+                    Button {
+                        self.mutableSerial += 1
+                        self.mutable.append(TagGroupPreviewItem(id: "tag\(self.mutableSerial)"))
+                    } label: {
+                        Text(verbatim: "Append")
+                    }
+                    .buttonStyle(.light())
+                    .accessibilityIdentifier("tag-group-append")
+
+                    Button {
+                        guard self.mutable.count > 1 else { return }
+                        self.mutable.remove(at: self.mutable.count / 2)
+                    } label: {
+                        Text(verbatim: "Remove middle")
+                    }
+                    .buttonStyle(.light())
+                    .accessibilityIdentifier("tag-group-remove-middle")
+                }
             }
             ForEach(sizeLadder, id: \.0) { label, size in
                 SizeLadderRow(label: label) {
@@ -734,8 +763,21 @@ private struct SizeSystemPreview: View {
 }
 
 private struct AnchoredBadgePreview: View {
+    @State private var count = 9
+
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.xxl) {
+            HStack(spacing: CoreSpacing.xxl) {
+                Image(systemName: "bell.fill")
+                    .font(.title)
+                    .foregroundStyle(Color.contentSecondary)
+                    .anchoredBadge(.count(self.count, max: 999))
+                Button("−1") { self.count -= 1 }
+                Button("+1") { self.count += 1 }
+                Button("9") { self.count = 9 }
+                Button("99") { self.count = 99 }
+            }
+            .buttonStyle(.light())
             HStack(spacing: CoreSpacing.xxl) {
                 self.avatar("Evan", side: CoreSpacing.xxxxl)
                     .anchoredBadge(.dot, hostShape: .circle)
@@ -1309,27 +1351,71 @@ private struct PinCodePreview: View {
 
 private struct RadioGroupPreview: View {
     @State private var selection = "pro"
+    @State private var accepted = false
+
+    private let options = [
+        RadioOption(value: "basic", title: "Basic"),
+        RadioOption(value: "pro", title: "Pro"),
+        RadioOption(value: "enterprise", title: "Enterprise"),
+    ]
+
     var body: some View {
-        RadioGroup(
-            selection: self.$selection,
-            options: [
-                RadioOption(value: "basic", title: "Basic"),
-                RadioOption(value: "pro", title: "Pro"),
-                RadioOption(value: "enterprise", title: "Enterprise"),
-            ]
-        )
+        VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+            RadioGroup(selection: self.$selection, options: self.options)
+            Toggle("Accept terms", isOn: self.$accepted)
+                .toggleStyle(CheckBoxToggleStyle())
+            Separator()
+            Toggle("Disabled, on", isOn: .constant(true))
+                .toggleStyle(CheckBoxToggleStyle())
+                .disabled(true)
+            Toggle("Disabled, off", isOn: .constant(false))
+                .toggleStyle(CheckBoxToggleStyle())
+                .disabled(true)
+            RadioGroup(selection: .constant("pro"), options: self.options)
+                .disabled(true)
+        }
     }
 }
 
 private struct TagInputPreview: View {
     @State private var tags: [String] = ["bug", "enhancement"]
+    @State private var mutable: [String] = ["alpha", "bravo", "charlie", "delta", "echo"]
+    @State private var mutableSerial = 0
     var body: some View {
         // Phase 3 / #173 视觉复查发现：默认 tagColor（.contentSecondary）经 Tag 的
         // `.opacity(0.12)` 背景公式，在暗色纯黑画布上对比度接近不可辨——这是 Tag 既有
         // 公式对中性色的固有表现，不是本次改动引入的缺陷（组件默认值本身不在本任务改动
         // 范围内）。画廊演示改用更有辨识度的 .blue，让暗色变体清晰可读；调用方仍可自由
         // 传入任意颜色，含中性色。
-        TagInput(tags: self.$tags, placeholder: "Add tag", tagColor: .blue)
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            TagInput(tags: self.$tags, placeholder: "Add tag", tagColor: .blue)
+
+            VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                Text(verbatim: "增删转场（稳定 chip 身份）")
+                    .coreFont(.caption)
+                    .foregroundStyle(Color.contentSecondary)
+                TagInput(tags: self.$mutable, placeholder: "Add tag", tagColor: .blue)
+                HStack(spacing: CoreSpacing.sm) {
+                    Button {
+                        self.mutableSerial += 1
+                        self.mutable.append("tag\(self.mutableSerial)")
+                    } label: {
+                        Text(verbatim: "Append")
+                    }
+                    .buttonStyle(.light())
+                    .accessibilityIdentifier("tag-input-append")
+
+                    Button {
+                        guard self.mutable.count > 1 else { return }
+                        self.mutable.remove(at: self.mutable.count / 2)
+                    } label: {
+                        Text(verbatim: "Remove middle")
+                    }
+                    .buttonStyle(.light())
+                    .accessibilityIdentifier("tag-input-remove-middle")
+                }
+            }
+        }
     }
 }
 

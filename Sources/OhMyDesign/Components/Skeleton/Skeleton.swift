@@ -35,7 +35,7 @@ public struct Skeleton<Placeholder: View, Content: View>: View {
             }
         }
         .transition(.opacity)
-        .animation(.default, value: self.isLoading)
+        .coreAnimation(.reveal, value: self.isLoading)
     }
 
     let isLoading: Bool
@@ -164,10 +164,10 @@ public extension View {
 }
 
 private struct SkeletonShimmerModifier: ViewModifier {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.coreMotionPresentation) private var motionPresentation
 
     func body(content: Content) -> some View {
-        if self.reduceMotion {
+        if self.motionPresentation != .animated {
             content
         } else {
             content

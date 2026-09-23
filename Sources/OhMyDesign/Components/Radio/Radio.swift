@@ -25,6 +25,7 @@ public struct RadioGroup<SelectionValue: Hashable & Sendable>: View {
     @Binding private var selection: SelectionValue
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.fieldValidation) private var validation
+    @Environment(\.coreMotionPresentation) private var motionPresentation
     private let options: [RadioOption<SelectionValue>]
     private let axis: Axis
     private let spacing: CGFloat
@@ -71,13 +72,14 @@ public struct RadioGroup<SelectionValue: Hashable & Sendable>: View {
         HStack(alignment: .top, spacing: CoreSpacing.sm) {
             self.indicator(selected: selected, appearance: appearance)
                 .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
+                .contentTransition(self.motionPresentation.symbolReplacement)
                 .accessibilityHidden(true)
             Text(option.title)
         }
         .opacity(appearance.controlOpacity)
         .frame(minHeight: CoreControlMetrics.height(for: .regular))
         .contentShape(Rectangle())
-        .animation(.easeOut(duration: 0.25), value: selected)
+        .coreAnimation(.selection, value: selected)
         .onTapGesture {
             self.selection = option.value
         }

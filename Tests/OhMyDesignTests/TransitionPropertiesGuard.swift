@@ -48,6 +48,7 @@ struct TransitionPropertiesGuard {
         "MaskRevealTransition",
         "ParticleTransition",
         "BlurTransition", "FilmExposureTransition", "SnapshotTransition", "FlickerTransition",
+        "CollectionItemTransition",
     ]
 
     // MARK: - 扫描器（纯函数，fixture 直接喂字符串）
@@ -124,8 +125,7 @@ struct TransitionPropertiesGuard {
         #expect(scanned.subtracting(Self.roster).isEmpty, """
         源码里有 `Transition` 实现不在 `TransitionPropertiesGuard.roster` 上：
         \(scanned.subtracting(Self.roster).sorted())
-        ⇒ 同轮要做三件事：①登记进 `roster`；②在
-        `Tests/OhMyDesignEffectsTests/TransitionPropertiesRosterTests.swift` 里写下
+        ⇒ 同轮要做三件事：①登记进 `roster`；②在该 target 对应的测试里写下
         `<类型名>.properties.hasMotion` 的运行时判据；③在类型文档里裁定 `hasMotion`
         取值并写清它与内层 RM 门控的先后关系。
         """)
@@ -135,31 +135,35 @@ struct TransitionPropertiesGuard {
         """)
     }
 
-    @Test("每个 Transition 都在效果测试 target 里有一条运行时 hasMotion 判据")
+    static let runtimeExpectationRoots = ["Tests/OhMyDesignEffectsTests", "Tests/OhMyDesignTests"]
+
+    @Test("每个 Transition 都在某个测试 target 里有一条运行时 hasMotion 判据")
     func everyTransitionHasARuntimeExpectation() throws {
         let scanned = try Self.scanAllRoots().conformers
-        let testsRoot = GuardScanRoots.repoRoot.appendingPathComponent("Tests/OhMyDesignEffectsTests")
-        let files = GuardScanRoots.swiftFiles(in: testsRoot)
-        #expect(!files.isEmpty, "\(testsRoot.path) 下没有任何 .swift 文件 —— 本条判据无法工作")
         var asserted: Set<String> = []
-        for url in files {
-            let source = try String(contentsOf: url, encoding: .utf8)
-            let tree = SwiftParser.Parser.parse(source: source)
-            if tree.hasError {
-                Issue.record("解析出错：\(GuardScanRoots.relativePath(url)) —— swift-syntax major 可能与工具链不配套")
+        for root in Self.runtimeExpectationRoots {
+            let testsRoot = GuardScanRoots.repoRoot.appendingPathComponent(root)
+            let files = GuardScanRoots.swiftFiles(in: testsRoot)
+            #expect(!files.isEmpty, "\(testsRoot.path) 下没有任何 .swift 文件 —— 本条判据无法工作")
+            for url in files {
+                let source = try String(contentsOf: url, encoding: .utf8)
+                let tree = SwiftParser.Parser.parse(source: source)
+                if tree.hasError {
+                    Issue.record("解析出错：\(GuardScanRoots.relativePath(url)) —— swift-syntax major 可能与工具链不配套")
+                }
+                asserted.formUnion(Self.assertedTypes(tree: tree))
             }
-            asserted.formUnion(Self.assertedTypes(tree: tree))
         }
 
         #expect(asserted.count >= 12, """
-        只在 `Tests/OhMyDesignEffectsTests/` 里采到 \(asserted.count) 个
+        在 \(Self.runtimeExpectationRoots) 里只采到 \(asserted.count) 个
         `#expect`/`#require` 里的 `<类型>.properties.hasMotion` 读取（应 ≥ 12）—— 疑似失效。
         采到的是：\(asserted.sorted())
         """)
 
         let missing = scanned.subtracting(asserted)
         #expect(missing.isEmpty, """
-        这些 `Transition` 在 `Tests/OhMyDesignEffectsTests/` 里找不到任何
+        这些 `Transition` 在 \(Self.runtimeExpectationRoots) 里找不到任何
         **写在 `#expect` / `#require` 里**的 `<类型名>.properties.hasMotion` 读取：\(missing.sorted())
         ⇒ 它们的 `hasMotion` 取值今天没有任何东西钉着，把值改掉不会有判据红。
         处置：在 `TransitionPropertiesRosterTests.swift` 的花名册里补一条。

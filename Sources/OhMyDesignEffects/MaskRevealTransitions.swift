@@ -23,7 +23,7 @@ public struct MaskRevealTransition: Transition {
     /// `glare` 的默认方向：左上 → 右下的斜掠。
     public nonisolated static let defaultGlareAngle: Angle = .degrees(35)
 
-    /// 保留框架在 Reduce Motion 下的 opacity 替换（`hasMotion` 取 `true`）。
+    /// 声明本簇含运动（`hasMotion` 取 `true`）；Reduce Motion 降级由 `MaskReveal.plan` 负责，框架不替换。
     public nonisolated static let properties: TransitionProperties = TransitionProperties(hasMotion: true)
 
     /// 把相位与几何族交给 `MaskRevealChrome` 渲染——六个公开入口点的唯一路径。

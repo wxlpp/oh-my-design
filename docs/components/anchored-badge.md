@@ -22,7 +22,7 @@
 | `.count(Int, max: Int = 99)` | 数字；超过 `max` 显示 `"\(max)+"`（`.count(120, max: 99)` → `99+`）。`max < 1` 按 1 处理 | 计数 `≤ 0` |
 | `.text(LocalizedStringKey)` | 短文案 | 空键 `""` |
 
-不显示时 overlay 里不渲染任何视图，宿主的可访问值也不被改动。
+不显示时 overlay 里只剩一层 `Color.clear`（`#408` 起外层 `GeometryReader` 常驻，理由见《动效》），不画任何像素；宿主的可访问值也不被改动。
 
 ### 文本分类
 
@@ -61,6 +61,27 @@ ScrollView(.horizontal) {
     .padding(.horizontal, CoreSpacing.lg)
 }
 ```
+
+## 动效（#408）
+
+- **计数变化**：`.contentTransition(.numericText(value:))`，喂进去的就是当前计数，**方向由框架按插值中的
+  取值自己判**——增加向上滚、减少向下滚。⚠️ 不要改成 `.numericText(countsDown:)`：那个形态要求方向在数字
+  变化的**同一次事务**里就给出，而 `onChange` 比 body 晚一拍 ⇒ 得在 modifier 里镜像一层显示值，代价是计数
+  晚一帧落地，而且镜像的状态变化不在动画触发集里、滚动动画整个不播（实测）。现在计数与文字同出于
+  `case .count` 的那一次绑定，中间没有状态。
+- **出现 / 消失**：缩放（`0.6 → 1`）+ 淡变，走 `CoreMotionToken.reveal`。
+  ⚠️ 转场挂在**徽标本身**、而不是挂在填满宿主的那层 `GeometryReader` 上：挂在外层时缩放锚点落在宿主中心
+  （徽标会从宿主中间飞出来），而且圆形宿主上实测让徽标的亚像素光栅位置偏 0.5pt（逐通道差到 196、369 字节），
+  与改动前的实现对不上。为此显示 / 不显示的条件判断下移到 `ZStack` 内部，外层 `GeometryReader` 常驻。
+- `.dot` 与 `.text` 不加内容过渡：红点没有数字；`.text` 是调用方的 `LocalizedStringKey`，滚动读不出方向。
+- **两处动画驱动，各管一件事**（刻意分开，别并成一个）：
+  出现 / 消失由 `.coreAnimation(.reveal, value: content.isVisible)` 驱动（RM 下退为同时长 `easeInOut`，用于淡变）；
+  计数变化由施在胶囊上的 `.animation(CoreMotionToken.reveal.transformAnimation(for:), value: count)` 驱动
+  （RM 下为 `nil`）。并成一个 `value: content` 时，RM 下胶囊宽度会随位数变化被插值——那是横向位移，
+  实测端点包络外像素 17–28，不该在 RM 下发生。反过来把计数那一处提到外层，它的 `nil` 会压掉出现 / 消失的淡变
+  （实测退场一帧都不播）⇒ 计数那一处必须**贴在胶囊上**，作用域只覆盖它自己。
+- **Reduce Motion**：计数改为 `ContentTransition.identity`（直接替换，不滚动不模糊）且宽度不补间，
+  出现 / 消失改纯淡变。框架不替调用方降级这几条（`#407` FR-1 逐帧实测），全部由本 modifier 显式分支。
 
 ## 无障碍
 

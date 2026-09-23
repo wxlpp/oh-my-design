@@ -184,22 +184,14 @@ bounds 中心，已经揭示的采样点会掉进缝里 ⇒ 最后 15% 一次闪
 「位移 / 旋转类降级为淡入淡出」）。⚠️ **不是 no-op**：转场承载的是"这块内容出现 /
 消失了"这个信息，抹掉它会让开启该偏好的用户看到界面瞬间跳变。
 
-⚠️⚠️ **上一版这里写「裁决点是 `MaskReveal.plan(…)` 这一个纯函数」——那句话在运行时
-是假的，照录更正**（终审 I-5）。实际上有**两道闸，框架那道在前**：
+**裁决点是 `MaskReveal.plan(kind:progress:isReduced:)` 这一个纯函数**（刻意 `internal`：一旦
+`public`，裸 `Bool` 参数会命中 `BoolExemptionGuard`）。本簇显式声明 `hasMotion == true`；
+⚠️ 本节原写「两道闸、框架那道真正生效：RM 打开时框架直接把整条转场换成 `.opacity`，`plan`
+永远看不到 `isReduced == true`」，**实测为假**（#407）（iOS 26.4 模拟器系统 RM 开、macOS 26 环境注入 RM；`hasMotion == true` 的转场经 `if` 分支插入 / 移除，`withAnimation` 与隐式 `.animation(_:value:)` 两种驱动下都照常位移，`body` 照常收到 `.willAppear` / `.didDisappear`；取证见 `.claude/epics/motion-foundations/407-plan.md`）。⇒ 生产路径上做降级的就是 `plan`。
 
-| 闸 | 谁 | 何时生效 |
-|---|---|---|
-| **第一道（真正生效的那道）** | SwiftUI，看 `MaskRevealTransition.properties.hasMotion` | 本簇显式声明 `hasMotion == true`；Apple 文档逐字「*that transition will be replaced by opacity when Reduce Motion is enabled*」⇒ RM 打开时框架**直接把整条转场换成 `.opacity`**，`MaskRevealTransition.body` 根本不被调用 |
-| 第二道（兜底） | `MaskReveal.plan(kind:progress:isReduced:)`（刻意 `internal`：一旦 `public`，裸 `Bool` 参数会命中 `BoolExemptionGuard`） | 只在框架**没有**替换时才轮得到 |
-
-⇒ 经 `.transition(.iris)` 这条正常路径，`plan` **永远看不到 `isReduced == true`**。
-两道闸的结论是**同一个观感**（纯淡入淡出），因此用户看到的东西与本节开头描述的一致。
-
-内层那条路径**显式裁定为保留**（防御 `hasMotion` 将来被改判、`AnyTransition` 包装、
-以及别的平台 / 版本上替换时机不同）。
-`MaskRevealSourceGuard.reduceMotionIsOnlyConsumedByThePlan` 钉的是**内层这道闸**
+`MaskRevealSourceGuard.reduceMotionIsOnlyConsumedByThePlan` 钉的是这道闸
 不被绕过；`MaskRevealTransitionBodyTests.transitionDeclaresItHasMotion` 钉住
-`properties` 是显式声明（`true` 与 SDK 默认值相同，不显式写出来下一个人就看不见框架闸）。
+`properties` 是显式声明（`true` 与 SDK 默认值相同，与本簇确含运动的事实一致）。
 
 ## 退化输入
 

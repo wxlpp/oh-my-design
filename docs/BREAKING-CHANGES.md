@@ -20,6 +20,90 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.11.0`）——Issue #409：TagGroup / TagInput 增删与选中动画
+
+**行为变更（无签名破坏）。** 公开符号的签名一个都没变；`Tag` 一字未动。
+
+| 位置 | 之前 | 现在 |
+|---|---|---|
+| `TagInput` 的 chip 身份 | `ForEach(Array(tags.enumerated()), id: \.offset)` —— 删中间项时消失的恒是**末位** id、下标 ≥ 删除位置的每个 id 被重新绑定到邻居的值 ⇒ 退场动画落在最后一个 chip、中间几个原地换 label | 「标签值 + 该值的出现序号」—— 值唯一时消失的身份正是被点的那一项，没有任何身份换值 |
+| `TagInput` chip 增删 | 无动画，瞬间增删 | 缩放 0.86 + 淡变进出，存活标签连续重排（`CoreMotionToken.reveal`，0.25 s `.smooth`） |
+| `TagGroup` 标签增删 | 无动画 | 同上 |
+| `TagGroup` 选中态切换 | 无动画，底色 / 描边瞬变 | 0.22 s 交叉淡变（`CoreMotionToken.selection`） |
+
+**Reduce Motion 开启时**：两处增删的驱动曲线为 `nil` ⇒ 直接出现 / 消失，`FlowLayout` 不做补间重排，
+转场只剩淡变（缩放在每一相恒为 1）。`TagGroup` 的**选中态切换照常淡变**——只有颜色插值、包围盒不变，
+不属于要降级的位移 / 缩放类动效。
+
+**下游可能受影响的两处**（都不是编译期破坏）：
+
+- 数组里有**重复值**时：删掉某个重复值的**任一次**出现，`ForEach` 的身份集合只少一个
+  `(值, 最大序号)`、没有任何新增（排在前面的同值身份被原样复用）⇒ 数据结果正确，但**退场动画播在
+  该值的最后一次出现上**，不一定是用户点的那一个。异值标签不受影响。
+  ⚠️ 「身份完全稳定」只在**输入数组里值唯一**时成立——`allowDuplicates: false`（默认）只约束
+  提交路径，外部绑定照样可以写进重复值。
+- `TagGroup` 的 `data` 在下游被频繁整体替换（例如每次搜索都换一批标签）时，现在会播增删动画；
+  不想要动画的调用点可注入 `.environment(\.coreMotionPresentationOverride, .hidden)`。
+## 未发布（相对 `v0.11.0`）——Issue #408：原生符号 / 数字动效接入小件
+
+**行为变更（无签名破坏）。** 公开符号的签名一个都没变；静息外观也不变——`anchoredBadge` 取了
+**八种内容 / 宿主外形组合**（红点、`count` 的 9 / 99 / 截断、`text`、不显示各一种矩形宿主，
+另加红点与 `count` 各一种圆形宿主；**不是**八种内容 × 两种外形的全矩阵），CheckBox / RadioGroup
+取 enabled / disabled / invalid，都与改动前的实现逐像素对照过。变的是「状态切换时怎么动」：
+
+| 位置 | 之前 | 现在 |
+|---|---|---|
+| `anchoredBadge(.count(_))` 计数变化 | 数字直接突变 | `.contentTransition(.numericText(value:))` 纵向滚动，方向由框架按当前计数自己判（增加向上、减少向下） |
+| `anchoredBadge` 徽标出现 / 消失 | 直接出现 / 消失 | 缩放（0.6 → 1）+ 淡变，走 `CoreMotionToken.reveal`；转场挂在徽标本身，锚点是徽标中心 |
+| `CheckBoxToggleStyle` 勾选切换 | 两张 `Image`（`square` / `checkmark.square.fill`）交叉淡变 | 一张 `Image` + `.contentTransition(.symbolEffect(.replace))`，勾以描画方式出现 |
+| `RadioGroup` 选中切换 | 同一张 `Image` 换 `systemName` + 交叉淡变 | 同上，加 `.contentTransition(.symbolEffect(.replace))` |
+
+⚠️ `RadioGroup` 在 **invalid 且选中态发生变化**时符号替换播不出来：invalid + 选中走
+`.symbolRenderingMode(.palette)`（实心点 `contentPrimary` / 圆环 `statusDangerForeground`，`#374` 的取舍），
+与单色分支是两个 `if` 分支、视图身份不同。有意保留该分支——把它并成「始终 `.palette` + 两层同色」时，
+`circle.inset.filled` 实测有 1 LSB 的取值差、`checkmark.square.fill` 的勾会被同色实心层吃掉（逐通道差到 191）。
+
+**Reduce Motion 开启时**（静息外观不变；只影响开启了「减弱动态效果」的用户）：
+
+| 位置 | RM 开的行为 |
+|---|---|
+| 计数变化 | `ContentTransition.identity`：数字直接替换，不滚动、不模糊；胶囊宽度也**不补间**（位数变化时直接跳到新宽度——补间等于横向位移，不该在 RM 下发生） |
+| 徽标出现 / 消失 | 纯淡变，不缩放 |
+| CheckBox / RadioGroup 指示符 | `ContentTransition.identity`：直接换图，不描画 |
+
+## 未发布（相对 `v0.11.0`）——Issue #407：动效 token 与 Reduce Motion 纪律
+
+**行为变更（无签名破坏）。** 公开符号的签名一个都没变；新增 `CoreMotionToken`、`EnvironmentValues.coreMotionPresentation`、
+`EnvironmentValues.coreMotionPresentationOverride`（`nil` ⇒ 跟随系统）、`View.coreAnimation(_:value:)`。核心库所有过渡曲线改经 `CoreMotionToken` 取，下列时长 / 曲线随之变化：
+
+| 位置 | 之前 | 现在 |
+|---|---|---|
+| `.pressableRow` / `.pressableCard` 按下 | `.easeOut(duration: 0.15)` | `CoreMotionToken.press`（`.snappy`，0.16 s） |
+| `.borderless()` 按下变色 | `.easeInOut`（默认时长） | `CoreMotionToken.press` |
+| `SegmentedControl` 切换 | `.easeInOut(duration: 0.18)` | `CoreMotionToken.selection`（`.snappy`，0.22 s） |
+| `UnderlinedTabBar` 把选中项滚到中间 | `.snappy(duration: 0.2)` | `CoreMotionToken.selection`（`.snappy`，0.22 s） |
+| `CheckBox` / `RadioGroup` 选中切换 | `.easeOut(duration: 0.25)` | `CoreMotionToken.selection` |
+| `FormField` 校验消息 / 说明切换 | `.easeInOut(duration: 0.2)` | `CoreMotionToken.reveal`（`.smooth`，0.25 s） |
+| `.disclosureGroupStyle(.core)` 展开 | `.snappy`（默认时长） | `CoreMotionToken.reveal` |
+| `Carousel` 翻页（自动轮播与点页点） | `withAnimation`（`.default`） | `CoreMotionToken.scroll` |
+| `Toast` 进出 | `.easeInOut(duration: 0.25)` | `CoreMotionToken.reveal`（时长不变，曲线换成 `.smooth`） |
+| `Skeleton` 占位 ↔ 内容、`.spinning(_:)` 出现 / 消失 | `.animation(.default, …)` | `CoreMotionToken.reveal` |
+
+按钮背景、`TelegramGlassButtonModifier`、`AsyncButton`、`UnderlinedTabBar` 选中切换的曲线原本就是
+`CoreMotionToken` 对应档位的值，不变。
+
+**Reduce Motion 开启时的新行为**（静息外观不变；只影响开启了「减弱动态效果」的用户）：
+
+| 位置 | 之前（RM 开） | 现在（RM 开） |
+|---|---|---|
+| `.solidButton` / `.lightButton` / `.circularGlass` / `TelegramGlassButtonModifier` / Toast 操作按钮 按下 | 缩到 0.94 | 不缩放，按下透明度 0.7（与样式自带的 0.9 / 0.92 取较小值，不叠乘） |
+| `Toast` 进出 / 退场 | 滑入滑出、退场位移 60pt、HUD 缩放 0.92 | 原地淡入淡出；滑动松手后停在松手位置淡出；HUD 不缩放 |
+| `SegmentedControl` 滑块、`UnderlinedTabBar` 下划线 | 滑到新位置 | 原地淡变，不途经中间 |
+| `.disclosureGroupStyle(.core)` chevron | 旋转补间 | 直接到位 |
+| `.spinning(_:presentation: .topBar)` 顶条 | 循环扫动 | 静止居中 |
+| `Carousel` 点页点、`UnderlinedTabBar` 滚到选中项 | 滚动补间 | 直接到位 |
+| 上面所有淡变类动画 | 各自的曲线 | 同时长 `easeInOut` |
+
 ## `0.11.0`（2026-09-22）——Issue #399：浮层与层级（Toast / `floatingGlass` / `.surface`）
 
 **视觉变更（无签名破坏）。** 公开符号的签名一个都没变；以下是默认外观的变化：

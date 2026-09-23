@@ -187,3 +187,7 @@ nonisolated func useSettingsRowMetrics() -> [CGFloat] {
 //   ⇒ 模块内以这些 token 作初值的 `nonisolated` 静态存储属性仍会
 //     `error: main actor-isolated default value in a nonisolated context`——初值求值
 //     发生在**模块内**。
+
+nonisolated func readCoreMotionToken() -> (TimeInterval, Animation?) {
+    (CoreMotionToken.reveal.duration, CoreMotionToken.scroll.animation(for: .resting))
+}
