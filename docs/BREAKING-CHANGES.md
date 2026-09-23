@@ -26,7 +26,7 @@
 
 | 符号 | 说明 |
 |---|---|
-| `Tree<Data, ID, RowContent>` | 递归层级树组件：`init(_:id:children:expanded:selection:selectionMode:checked:onActivate:content:)`，另有 `Data.Element: Identifiable` 时省略 `id:` 的便利 init |
+| `Tree<Data, ID, RowContent>` | 层级树组件：`init(_:id:children:expanded:selection:selectionMode:checked:onActivate:content:)`，另有 `Data.Element: Identifiable` 时省略 `id:` 的便利 init |
 | `TreeSelectionMode` | 行选择模式枚举：`.single` / `.multiple`（`nonisolated`、`Hashable`、`Sendable`、`CaseIterable`） |
 | `Tree.expandedIDs(_:id:children:toDepth:)` | `nonisolated` 静态函数，预算「默认展开到第 N 层」的集合（**根为第 1 层**）；两个同名重载：主类型上一个，`where RowContent == EmptyView` 的扩展上一个（调用处可写 `Tree.expandedIDs(...)` 不带泛型） |
 | `TreeStyle`（`#429`） | `Tree` 的行外观预设，**封闭配置**（`public struct`，无公开 init / 属性 / `Equatable`）：`nonisolated` 静态成员 `.automatic`（默认）/ `.navigator`（整行选中、悬停、缩进参考线、中性色 chevron） |
@@ -51,6 +51,14 @@
 
 **修正（`#429`）：RTL 下展开态的 chevron 朝上。** `#422` 在 RTL 下把旋转角取成 -90°，与系统对字形和旋转的
 RTL 镜像叠加后展开态画成朝上；现在两种书写方向都转 90°，RTL 下展开态朝下。
+
+**行为（`#429`）：展平渲染 + `LazyVStack`，行不再是 `DisclosureGroup` 的 label。** 可见行按深度优先展平成一列，
+放在 `ScrollView` 里时只构建视口附近的行。静态外观与此前逐像素相同（两条腿、128 格矩阵、偏差 0）。
+无障碍树有四处变化（iOS `axe describe-ui` 前后对照，详见 tree.md「无障碍与触控」）：
+视口外的行**不再出现在无障碍树里**，滚进视口才出现；每棵树多一个匿名分组容器；父行复选框的元素类型从
+`Button` 变为 `CheckBox`（与叶行一致）；放在 `ScrollView` 里时行内容里 `Label` 的图标成为独立的图像元素。
+其余元素的类型、label、value、位置不变。**下游要改什么：不用改**（公开 API 不变）；依赖「整棵树的行都在无障碍树里」
+的 UI 测试需先把目标行滚进视口。
 
 行为契约（两套独立状态、键盘表、Reduce Motion 取值、已知缺口 `#427` / `#428`）见
 [tree.md](components/tree.md)。

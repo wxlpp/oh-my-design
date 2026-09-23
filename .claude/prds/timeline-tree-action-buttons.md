@@ -143,7 +143,15 @@ Timeline 不吸收 Steps 的向导行为，Steps 不因本 epic 改动。两者�
 
 **FR-2 新增 `Tree`（受控展开）**
 
-用户已定案：**自己递归 + 每节点展开绑定**（而非包 `OutlineGroup`）。
+用户已定案：**每节点展开绑定；渲染按可见行展平**（而非包 `OutlineGroup`）。
+
+⚠️ **`#429` 修订（推翻 FR-2a 选定的路径 A「递归 `DisclosureGroup(isExpanded:)`」）**：`#422` 落地后，
+行布局、缩进、chevron、展开态播报已全部自绘，路径 A 相对「完全自定义」剩下的收益只有 `DisclosureGroup` 的
+内容插入过渡一项；而递归结构下一个根节点的整棵可见子树是 `LazyVStack` 的**一个**子项，惰性容器对单根大目录
+收益为零（实测 201 行全部构建）。展平后同一夹具只构建视口附近的 7 行，静态外观逐像素不变。无障碍树的变化
+（视口外的行不再在树里、父行复选框改报 `CheckBox`）见 `docs/components/tree.md`「无障碍与触控」。
+理由全文见 `docs/superpowers/specs/2026-09-23-tree-style-design.md` §5。
+下面「自己递归」一段是 FR-2a 之前的原始论证，保留作历史。
 
 ⚠️ **理由要写准**（上一版把两个独立选择绑在了一起，首轮评审指出）：
 被排除的只是 `OutlineGroup(_:children:content:)` 这条路径——官方文档明写
