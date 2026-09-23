@@ -628,6 +628,18 @@ struct TreeAccessibilityTests {
         let missing = keys.filter { !text.contains("\"\($0)\" = ") }
         #expect(missing.isEmpty, "Localizable.strings 里缺这些 key：\(missing)")
     }
+
+    @Test("单击会切换展开的父行带本地化提示；叶行与 .select 下不带", arguments: TreeRowClickBehavior.allCases)
+    func clickTogglingParentRowsCarryAHint(behavior: TreeRowClickBehavior) throws {
+        let parent = TreeRowAccessibility.rowHintKey(hasChildren: true, clickBehavior: behavior)
+        #expect(parent == (behavior == .selectAndToggleExpansion ? "Activate to expand or collapse" : nil), "\(behavior)：实得 \(String(describing: parent))")
+        #expect(TreeRowAccessibility.rowHintKey(hasChildren: false, clickBehavior: behavior) == nil, "\(behavior)：叶行带了提示")
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let url = repoRoot.appendingPathComponent("Sources/OhMyDesign/Resources/en.lproj/Localizable.strings")
+        let text = try String(contentsOf: url, encoding: .utf8)
+        #expect(text.contains("\"\(TreeRowAccessibility.clickTogglesHintKey)\" = "), "提示 key 没登记进 Localizable.strings")
+    }
 }
 
 // MARK: - 动效台账交叉核对
@@ -799,6 +811,174 @@ struct TreeInteractionReducerTests {
         #expect(TreeInteractionReducer.rowsChanged(state: focused, from: old, to: collapsedA1).focus == "a1")
         #expect(TreeInteractionReducer.rowsChanged(state: Self.state(focus: nil), from: old, to: collapsedA).focus == nil)
         #expect(TreeFocusing.ancestors(of: "a1x", in: old) == ["a1", "a"])
+    }
+}
+
+// MARK: - 单击父行的行为
+
+@Suite("Tree 单击行为：.select 只走点选归约；.selectAndToggleExpansion 在父行上另外取反展开态，两份状态各算各的")
+struct TreeRowClickBehaviorTests {
+    private static func click(
+        _ id: String,
+        _ behavior: TreeRowClickBehavior,
+        selection: Set<String> = [],
+        expanded: Set<String> = [],
+        mode: TreeSelectionMode = .single,
+        motion: MotionPresentation = .animated
+    ) -> TreeInteractionOutcome<String> {
+        TreeInteractionReducer.pointerClick(
+            id,
+            behavior: behavior,
+            state: TreeInteractionState(focus: nil, lastInteraction: .keyboard, selection: selection, expanded: expanded),
+            rows: TreeJudgeFixture.rows(expanded: expanded),
+            mode: mode,
+            motion: motion,
+            treeIDs: { TreeJudgeFixture.treeIDs }
+        )
+    }
+
+    @Test("两个取值两两不等，默认的 .select 排在第一")
+    func behaviorsAreDistinct() {
+        let all = TreeRowClickBehavior.allCases
+        #expect(all == [.select, .selectAndToggleExpansion], "取值集合变了：\(all)")
+        #expect(all[0] != all[1])
+    }
+
+    @Test(".select：单击父行只选中，展开态不动、不带动效档——与 #422 起的点选归约逐字段相同", arguments: TreeSelectionMode.allCases)
+    func selectOnlyLeavesTheExpansionAlone(mode: TreeSelectionMode) {
+        let before = TreeInteractionState<String>(focus: nil, lastInteraction: .keyboard, selection: [], expanded: [])
+        let outcome = Self.click("a", .select, mode: mode)
+        let legacy = TreeInteractionReducer.pointerSelect(
+            "a", state: before, rowIDs: Set(TreeJudgeFixture.rows(expanded: []).map(\.id)), mode: mode,
+            treeIDs: { TreeJudgeFixture.treeIDs }
+        )
+        #expect(outcome.state == legacy, "\(mode)：.select 与既有点选归约不同：\(outcome.state) vs \(legacy)")
+        #expect(outcome.state.expanded.isEmpty, "\(mode)：.select 下单击父行改了展开态")
+        #expect(outcome.expansionMotion == nil, "\(mode)：没改展开态却带了动效档")
+    }
+
+    @Test(".selectAndToggleExpansion：单击折叠的父行 = 选中 + 展开；再点已展开的父行折叠", arguments: TreeSelectionMode.allCases)
+    func toggleBehaviorFlipsTheParentExpansion(mode: TreeSelectionMode) {
+        let opened = Self.click("a", .selectAndToggleExpansion, mode: mode)
+        #expect(opened.state.selection == ["a"], "\(mode)：没选中 a，实得 \(opened.state.selection)")
+        #expect(opened.state.expanded == ["a"], "\(mode)：没展开 a，实得 \(opened.state.expanded)")
+        #expect(opened.state.focus == "a")
+        #expect(opened.state.lastInteraction == .pointer)
+        let closed = Self.click("a", .selectAndToggleExpansion, selection: ["b"], expanded: ["a", "c"], mode: mode)
+        #expect(closed.state.expanded == ["c"], "\(mode)：已展开的 a 应折叠、c 不动，实得 \(closed.state.expanded)")
+        let expectedSelection: Set<String> = mode == .single ? ["a"] : ["a", "b"]
+        #expect(closed.state.selection == expectedSelection, "\(mode)：选中应按既有归约，实得 \(closed.state.selection)")
+    }
+
+    @Test("再点已选中的父行：单选保持选中（VS Code 式），多选按逐行切换移出；展开态两种模式下都照样取反", arguments: TreeSelectionMode.allCases)
+    func selectionAndExpansionAreIndependent(mode: TreeSelectionMode) {
+        let expectedSelection: Set<String> = mode == .single ? ["a"] : []
+        let outcome = Self.click("a", .selectAndToggleExpansion, selection: ["a"], expanded: ["a"], mode: mode)
+        #expect(outcome.state.selection == expectedSelection, "\(mode)：再点已选中的 a，选中应为 \(expectedSelection)，实得 \(outcome.state.selection)")
+        #expect(outcome.state.expanded.isEmpty, "\(mode)：再点已展开的 a 应折叠，实得 \(outcome.state.expanded)")
+        let reopened = Self.click("a", .selectAndToggleExpansion, selection: ["a"], expanded: [], mode: mode)
+        #expect(reopened.state.selection == expectedSelection, "\(mode)：再点已选中且折叠的 a，选中应为 \(expectedSelection)，实得 \(reopened.state.selection)")
+        #expect(reopened.state.expanded == ["a"], "\(mode)：再点已选中且折叠的 a 应展开，实得 \(reopened.state.expanded)")
+        #expect(reopened.expansionMotion == .animated)
+    }
+
+    @Test("单选再点已选中的父行 = 替换：本树里的其它 ID 被清掉，不属于本树的 ID 原样保留")
+    func singleReclickReplacesWithinTheTree() {
+        let outcome = Self.click("a", .selectAndToggleExpansion, selection: ["a", "b", "outside"], expanded: ["a"])
+        #expect(outcome.state.selection == ["a", "outside"], "实得 \(outcome.state.selection)")
+    }
+
+    @Test("保持选中只作用于「父行 + .selectAndToggleExpansion + 单选」：叶行、.select 下再点已选中的行仍取消选中", arguments: TreeRowClickBehavior.allCases)
+    func reclickElsewhereStillDeselects(behavior: TreeRowClickBehavior) {
+        let leaf = Self.click("b", behavior, selection: ["b"])
+        #expect(leaf.state.selection.isEmpty, "\(behavior)：再点已选中的叶行 b 应取消选中，实得 \(leaf.state.selection)")
+        guard behavior == .select else { return }
+        let parent = Self.click("a", behavior, selection: ["a"], expanded: ["a"])
+        #expect(parent.state.selection.isEmpty, ".select：再点已选中的父行 a 应取消选中，实得 \(parent.state.selection)")
+        #expect(parent.state.expanded == ["a"])
+    }
+
+    @Test("点 chevron 按归约当时的展开态取反；不在可见行里的 ID 原样返回")
+    func chevronToggleReadsTheCurrentState() {
+        let rows = TreeJudgeFixture.rows(expanded: ["a"])
+        let collapsed = TreeInteractionState<String>(focus: "b", lastInteraction: .keyboard, selection: ["b"], expanded: [])
+        let opened = TreeInteractionReducer.pointerToggle("a", state: collapsed, rows: rows, motion: .animated)
+        #expect(opened.state.expanded == ["a"], "实得 \(opened.state.expanded)")
+        #expect(opened.state.selection == ["b"])
+        #expect(opened.state.lastInteraction == .pointer)
+        #expect(opened.expansionMotion == .animated)
+        let expanded = TreeInteractionState<String>(focus: nil, lastInteraction: .keyboard, selection: [], expanded: ["a"])
+        let closed = TreeInteractionReducer.pointerToggle("a", state: expanded, rows: rows, motion: .animated)
+        #expect(closed.state.expanded.isEmpty, "实得 \(closed.state.expanded)")
+        let hidden = TreeInteractionReducer.pointerToggle(
+            "a1", state: collapsed, rows: TreeJudgeFixture.rows(expanded: []), motion: .animated
+        )
+        #expect(hidden.state == collapsed, "a 折叠着时 a1 不可见，点它的 chevron 却改了状态：\(hidden.state)")
+        #expect(hidden.expansionMotion == nil)
+    }
+
+    @Test(".selectAndToggleExpansion：叶行只选中，展开态不动、不带动效档")
+    func leafRowsOnlySelect() {
+        let outcome = Self.click("b", .selectAndToggleExpansion, expanded: ["a"])
+        #expect(outcome.state.selection == ["b"])
+        #expect(outcome.state.expanded == ["a"], "点叶行改了展开态：\(outcome.state.expanded)")
+        #expect(outcome.expansionMotion == nil)
+    }
+
+    @Test("点到不在可见行里的 ID（例如折叠动画里正在淡出的行）：状态原样返回，焦点 / 交互来源 / 选中 / 展开都不动", arguments: TreeRowClickBehavior.allCases)
+    func clicksOutsideTheVisibleRowsDoNothing(behavior: TreeRowClickBehavior) {
+        let before = TreeInteractionState<String>(focus: "b", lastInteraction: .keyboard, selection: ["b"], expanded: [])
+        let outcome = TreeInteractionReducer.pointerClick(
+            "a1", behavior: behavior, state: before, rows: TreeJudgeFixture.rows(expanded: []), mode: .single,
+            motion: .animated, treeIDs: { TreeJudgeFixture.treeIDs }
+        )
+        #expect(outcome.state == before, "\(behavior)：a 折叠着时 a1 不可见，点它却改了状态：\(outcome.state)")
+        #expect(outcome.expansionMotion == nil)
+    }
+
+    @Test("单击父行展开 / 折叠带出环境动效档（与点 chevron、← / → 同一条动效路径）", arguments: MotionPresentation.allCases)
+    func toggleCarriesTheEnvironmentMotion(motion: MotionPresentation) {
+        let opened = Self.click("a", .selectAndToggleExpansion, motion: motion)
+        #expect(opened.expansionMotion == motion, "展开时动效档应为 \(motion)，实得 \(String(describing: opened.expansionMotion))")
+        let closed = Self.click("a", .selectAndToggleExpansion, expanded: ["a"], motion: motion)
+        #expect(closed.expansionMotion == motion)
+    }
+
+    @Test("搜索期间：单击父行的折叠 / 展开只写 overlay，持久化集合不变（与 #423 的点 chevron 同一定案）")
+    func searchToggleWritesTheOverlayOnly() {
+        let persisted: Set<String> = ["c"]
+        let expansion = TreeSearchFixture.expansion(persisted: persisted, query: "y")
+        let rows = TreeSearchFixture.rows(persisted: persisted, query: "y")
+        let state = TreeInteractionState(focus: nil, lastInteraction: .keyboard, selection: [], expansion: expansion)
+        #expect(state.expanded.contains("a"), "前提：a 是命中 a1y 的祖先，搜索期间自动展开")
+
+        let collapsed = TreeInteractionReducer.pointerClick(
+            "a", behavior: .selectAndToggleExpansion, state: state, rows: rows, mode: .multiple, motion: .animated,
+            treeIDs: { TreeJudgeFixture.treeIDs }
+        )
+        #expect(!collapsed.state.expanded.contains("a"), "没有折叠自动展开的 a")
+        #expect(collapsed.state.expansion.persisted == persisted, "搜索期间单击父行写进了持久化集合：\(collapsed.state.expansion.persisted.sorted())")
+        #expect(TreeSearch.session(from: collapsed.state.expansion, query: "y")?.collapsed == ["a"], "折叠没有记进 overlay")
+        #expect(collapsed.state.selection == ["a"])
+    }
+
+    @Test("多选单击父行不求整树 ID；单选才求（切换展开不额外遍历）")
+    func toggleDoesNotWalkTheTree() {
+        var evaluations = 0
+        let treeIDs = {
+            evaluations += 1
+            return TreeJudgeFixture.treeIDs
+        }
+        let state = TreeInteractionState<String>(focus: nil, lastInteraction: .pointer, selection: [], expanded: [])
+        let rows = TreeJudgeFixture.rows(expanded: [])
+        _ = TreeInteractionReducer.pointerClick(
+            "a", behavior: .selectAndToggleExpansion, state: state, rows: rows, mode: .multiple, motion: .animated, treeIDs: treeIDs
+        )
+        #expect(evaluations == 0, "多选单击父行求了整树 ID")
+        _ = TreeInteractionReducer.pointerClick(
+            "a", behavior: .selectAndToggleExpansion, state: state, rows: rows, mode: .single, motion: .animated, treeIDs: treeIDs
+        )
+        #expect(evaluations == 1)
     }
 }
 
@@ -1310,6 +1490,7 @@ final class TreeHostedLog {
     var checked: Set<String> = []
     var animations: [Animation?] = []
     var menuBuilds: [Set<String>] = []
+    var buttonTaps: [String] = []
 }
 
 struct TreeHostedHarness: View {
@@ -1317,6 +1498,8 @@ struct TreeHostedHarness: View {
     let style: TreeStyle
     let showsCheckBoxes: TreeHostedCheckBoxes
     let menu: TreeHostedMenu
+    let clickBehavior: TreeRowClickBehavior?
+    let rowContent: TreeHostedRowContent
     @State private var expanded: Set<String>
     @State private var selection: Set<String>
     @State private var checked: Set<String> = []
@@ -1327,12 +1510,16 @@ struct TreeHostedHarness: View {
         expanded: Set<String> = [],
         selection: Set<String> = [],
         showsCheckBoxes: TreeHostedCheckBoxes = .hidden,
-        menu: TreeHostedMenu = .none
+        menu: TreeHostedMenu = .none,
+        clickBehavior: TreeRowClickBehavior? = nil,
+        rowContent: TreeHostedRowContent = .text
     ) {
         self.log = log
         self.style = style
         self.showsCheckBoxes = showsCheckBoxes
         self.menu = menu
+        self.clickBehavior = clickBehavior
+        self.rowContent = rowContent
         self._expanded = State(initialValue: expanded)
         self._selection = State(initialValue: selection)
     }
@@ -1355,6 +1542,11 @@ enum TreeHostedCheckBoxes {
     case shown
 }
 
+enum TreeHostedRowContent {
+    case text
+    case button
+}
+
 nonisolated enum TreeHostedMenu: CaseIterable, CustomTestStringConvertible, Sendable {
     case none
     case targetTitles
@@ -1370,15 +1562,28 @@ nonisolated enum TreeHostedMenu: CaseIterable, CustomTestStringConvertible, Send
 extension TreeHostedHarness {
     @ViewBuilder
     private var tree: some View {
-        let tree = Tree(
+        let plain = Tree(
             TreeJudgeFixture.roots,
             children: \.children,
             expanded: self.$expanded,
             selection: self.$selection,
             checked: self.showsCheckBoxes == .shown ? self.$checked : nil
         ) { node in
-            Text(verbatim: node.id)
+            switch self.rowContent {
+            case .text:
+                Text(verbatim: node.id)
+            case .button:
+                Button {
+                    self.log.buttonTaps.append(node.id)
+                } label: {
+                    Text(verbatim: node.id)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
         }
+        let tree = self.clickBehavior.map { plain.rowClickBehavior($0) } ?? plain
         switch self.menu {
         case .none:
             tree
@@ -1436,11 +1641,13 @@ struct TreeHostedWiringTests {
         motion: MotionPresentation = .animated,
         expanded: Set<String> = [],
         showsCheckBoxes: TreeHostedCheckBoxes = .hidden,
-        menu: TreeHostedMenu = .none
+        menu: TreeHostedMenu = .none,
+        clickBehavior: TreeRowClickBehavior? = nil
     ) -> HostedWindow {
         HostedWindow(
             TreeHostedHarness(
-                log: log, style: appearance.style, expanded: expanded, showsCheckBoxes: showsCheckBoxes, menu: menu
+                log: log, style: appearance.style, expanded: expanded, showsCheckBoxes: showsCheckBoxes, menu: menu,
+                clickBehavior: clickBehavior
             )
                 .environment(\.coreMotionPresentationOverride, motion),
             size: CGSize(width: 260, height: 320),
@@ -1536,6 +1743,97 @@ struct TreeHostedWiringTests {
             "\(appearance)：点父行 a 的复选框应级联勾上 a 的全部叶后代，实得 \(log.checked)"
         )
         #expect(log.selection.isEmpty, "\(appearance)：点复选框不该改行选中，实得 \(log.selection)")
+    }
+
+    @Test(
+        "单击父行：不调用 / .select 只选中不展开；.selectAndToggleExpansion 选中并展开，再点保持选中并折叠、第三击保持选中并展开",
+        arguments: TreeHostedAppearance.allCases
+    )
+    func clickingAParentRowFollowsTheBehavior(appearance: TreeHostedAppearance) {
+        for behavior in [nil, TreeRowClickBehavior.select] {
+            let log = TreeHostedLog()
+            let window = Self.window(log, appearance: appearance, clickBehavior: behavior)
+            defer { window.close() }
+            Self.click(window, at: CGPoint(x: 120, y: Self.centerY(ofRow: 0)))
+            let label = behavior.map { "\($0)" } ?? "不调用"
+            #expect(log.selection == ["a"], "\(appearance) \(label)：点 a 行内容应选中 a，实得 \(log.selection)")
+            #expect(log.expanded.isEmpty, "\(appearance) \(label)：只选中的行为下单击父行展开了 \(log.expanded)")
+        }
+
+        let log = TreeHostedLog()
+        let window = Self.window(log, appearance: appearance, clickBehavior: .selectAndToggleExpansion)
+        defer { window.close() }
+        Self.click(window, at: CGPoint(x: 120, y: Self.centerY(ofRow: 0)))
+        #expect(log.selection == ["a"], "\(appearance)：点 a 行内容应选中 a，实得 \(log.selection)")
+        #expect(log.expanded == ["a"], "\(appearance)：点 a 行内容应展开 a，实得 \(log.expanded)")
+        Self.click(window, at: CGPoint(x: 120, y: Self.centerY(ofRow: 0)))
+        #expect(log.selection == ["a"], "\(appearance)：再点已选中的 a 应保持选中，实得 \(log.selection)")
+        #expect(log.expanded.isEmpty, "\(appearance)：再点 a 应折叠，实得 \(log.expanded)")
+        Self.click(window, at: CGPoint(x: 120, y: Self.centerY(ofRow: 0)))
+        #expect(log.selection == ["a"], "\(appearance)：再点已选中且折叠的 a 应保持选中，实得 \(log.selection)")
+        #expect(log.expanded == ["a"], "\(appearance)：再点已选中且折叠的 a 应展开，实得 \(log.expanded)")
+    }
+
+    @Test(
+        ".selectAndToggleExpansion 下单击父行的展开事务带环境动效档对应的曲线",
+        arguments: TreeHostedAppearance.allCases, MotionPresentation.allCases
+    )
+    func clickToggleTransactionsFollowTheEnvironment(appearance: TreeHostedAppearance, motion: MotionPresentation) {
+        let log = TreeHostedLog()
+        let window = Self.window(log, appearance: appearance, motion: motion, clickBehavior: .selectAndToggleExpansion)
+        defer { window.close() }
+        log.animations = []
+        Self.click(window, at: CGPoint(x: 120, y: Self.centerY(ofRow: 0)))
+        #expect(log.expanded == ["a"], "\(appearance)：单击 a 没有展开——下面的曲线判据无意义")
+        let animations = log.animations.compactMap { $0 }
+        if let expected = CoreMotionToken.treeExpansion(for: motion) {
+            #expect(!animations.isEmpty, "\(appearance)：\(motion) 下单击父行的展开事务没带曲线")
+            #expect(animations.allSatisfy { $0 == expected }, "\(appearance)：\(motion) 下曲线应为 \(expected)，实得 \(animations)")
+        } else {
+            #expect(animations.isEmpty, "\(appearance)：hidden 下展开仍在补间，实得 \(animations)")
+        }
+    }
+
+    @Test(
+        ".selectAndToggleExpansion 下：点 chevron 只切换一次展开、不选中；点复选框只勾选；点叶行只选中",
+        arguments: TreeHostedAppearance.allCases
+    )
+    func toggleBehaviorLeavesChevronCheckBoxAndLeavesAlone(appearance: TreeHostedAppearance) {
+        let log = TreeHostedLog()
+        let window = Self.window(log, appearance: appearance, showsCheckBoxes: .shown, clickBehavior: .selectAndToggleExpansion)
+        defer { window.close() }
+        Self.click(window, at: Self.chevronOfA)
+        #expect(log.expanded == ["a"], "\(appearance)：点 chevron 应恰好展开 a 一次（行上的点击若也切换，就被切回去了），实得 \(log.expanded)")
+        #expect(log.selection.isEmpty, "\(appearance)：点 chevron 选中了行 \(log.selection)")
+
+        Self.click(window, at: CGPoint(x: Self.checkBoxX(level: 1), y: Self.centerY(ofRow: 0)))
+        #expect(log.checked == ["a1x", "a1y", "a2"], "\(appearance)：点父行 a 的复选框应级联勾上叶后代，实得 \(log.checked)")
+        #expect(log.expanded == ["a"], "\(appearance)：点复选框改了展开态：\(log.expanded)")
+        #expect(log.selection.isEmpty, "\(appearance)：点复选框改了行选中：\(log.selection)")
+
+        Self.click(window, at: CGPoint(x: 120, y: Self.centerY(ofRow: 3)))
+        #expect(log.selection == ["b"], "\(appearance)：点叶行 b 应选中 b，实得 \(log.selection)")
+        #expect(log.expanded == ["a"], "\(appearance)：点叶行改了展开态：\(log.expanded)")
+        Self.click(window, at: CGPoint(x: 120, y: Self.centerY(ofRow: 3)))
+        #expect(log.selection.isEmpty, "\(appearance)：再点已选中的叶行 b 应取消选中，实得 \(log.selection)")
+    }
+
+    @Test(
+        ".selectAndToggleExpansion 下：行内容里调用方自己的 Button 先接到点击，行既不选中也不切换展开",
+        arguments: TreeHostedAppearance.allCases
+    )
+    func rowContentButtonsTakeTheClick(appearance: TreeHostedAppearance) {
+        let log = TreeHostedLog()
+        let window = HostedWindow(
+            TreeHostedHarness(log: log, style: appearance.style, clickBehavior: .selectAndToggleExpansion, rowContent: .button),
+            size: CGSize(width: 260, height: 320),
+            scheme: .light
+        )
+        defer { window.close() }
+        Self.click(window, at: CGPoint(x: 120, y: Self.centerY(ofRow: 0)))
+        #expect(log.buttonTaps == ["a"], "\(appearance)：点击没落到行内容里的 Button 上——下面两条判据无意义，实得 \(log.buttonTaps)")
+        #expect(log.selection.isEmpty, "\(appearance)：点行内容里的 Button 选中了行 \(log.selection)")
+        #expect(log.expanded.isEmpty, "\(appearance)：点行内容里的 Button 切换了展开 \(log.expanded)")
     }
 }
 #endif
@@ -1679,8 +1977,9 @@ struct TreeRenderTests {
             focus: focus,
             metrics: TreeRowMetrics.resolve(.regular),
             showsFocusIndicator: showsFocusIndicator,
-            select: { _ in },
-            setExpansion: { _, _ in },
+            clickBehavior: .select,
+            click: { _ in },
+            toggleExpansion: { _ in },
             notePointerCheck: {},
             rowMenu: nil,
             selectedVisible: [],

@@ -3,6 +3,7 @@
 "%@ of %@" = "%@ of %@";
 "%@, %@" = "%@, %@";
 "%@, required" = "%@, required";
+"Activate to expand or collapse" = "Activate to expand or collapse";
 "Alert" = "Alert";
 "Applies to filtered results only" = "Applies to filtered results only";
 "Collapse" = "Collapse";
