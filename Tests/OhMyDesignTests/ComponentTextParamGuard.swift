@@ -24,6 +24,8 @@ struct ComponentTextParamGuard {
         "ToastHost.show#title",
         "Tree.searchFilter#query",
         "Tree.searchFilter#text",
+        "Tree.searchMatches#query",
+        "Tree.searchMatches#text",
         "View.spray#symbol",
     ]
 

@@ -261,7 +261,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | `Color.neutralAccentHover` | → `Color.grey6` |
 | `Color.neutralAccentPressed` | → `Color.grey7` |
 | `Color.neutralAccentDisabled` | → `Color.grey2` |
-| `Color.searchMatchBackground` | 搜索命中片段的底色：系统黄淡染，与选中底色（强调色派生）分开，选中行上仍看得出命中。 |
+| `Color.searchMatchBackground` | 搜索命中片段的底色：系统黄淡染（亮色 35%、暗色 20%），与选中底色（强调色派生）分开，选中行上仍看得出命中。 |
 | `Color.selectionBackground` | 常规选中态背景：低调的强调色淡染。 |
 | `Color.selectionBackgroundEmphasis` | 强调选中态背景：实心 `accent`，与 `contentOnAccent` 前景配对（该前景随主题反转，不再是白字）。 |
 | `Color.hoverBackground` | 中性 hover 底色。 |

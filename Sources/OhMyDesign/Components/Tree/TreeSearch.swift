@@ -10,17 +10,23 @@ nonisolated enum TreeSearchMatcher {
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    static func firstRange(of needle: String, in text: String, from start: String.Index) -> Range<String.Index>? {
+        guard start < text.endIndex,
+              let hit = text.range(of: needle, options: Self.options, range: start..<text.endIndex),
+              !hit.isEmpty
+        else { return nil }
+        return hit
+    }
+
     static func matches(_ text: String, normalizedQuery query: String) -> Bool {
-        text.range(of: query, options: Self.options) != nil
+        Self.firstRange(of: query, in: text, from: text.startIndex) != nil
     }
 
     static func ranges(of query: String, in text: String) -> [Range<String.Index>] {
         guard let needle = Self.normalized(query) else { return [] }
         var out: [Range<String.Index>] = []
         var cursor = text.startIndex
-        while cursor < text.endIndex,
-              let hit = text.range(of: needle, options: Self.options, range: cursor..<text.endIndex),
-              !hit.isEmpty {
+        while let hit = Self.firstRange(of: needle, in: text, from: cursor) {
             out.append(hit)
             cursor = hit.upperBound
         }
@@ -127,8 +133,9 @@ nonisolated enum TreeSearch {
 public extension Text {
     /// 以原文显示 `content`（不本地化），并高亮其中与 `query` 匹配的片段：加粗 + `Color.searchMatchBackground` 底色。
     ///
-    /// 匹配规则与 `Tree.searchFilter(_:text:)` 相同（去首尾空白后，不区分大小写 / 变音符 / 全半角的子串）；
-    /// 传同一个搜索词与同一段文案时，高亮的片段就是该行被过滤留下的原因。`query` 为空时与 `Text(verbatim:)` 相同。
+    /// 匹配规则与 `Tree.searchFilter(_:text:)`、`Tree.searchMatches(_:id:children:query:text:)` 相同
+    /// （去首尾空白后，不区分大小写 / 变音符 / 全半角的子串，片段逐个不重叠）；只有传入与过滤相同的搜索词、相同的文案时，
+    /// 高亮的片段才是该行被过滤留下的原因。`query` 为空时与 `Text(verbatim:)` 相同。
     ///
     /// - Parameters:
     ///   - content: 要显示的原文，通常是节点文案。

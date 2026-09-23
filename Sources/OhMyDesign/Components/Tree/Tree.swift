@@ -260,9 +260,11 @@ public extension Tree {
     ///
     /// 匹配规则：`query` 去首尾空白后，在 `text` 给出的文案里做不区分大小写 / 变音符 / 全半角的子串匹配；
     /// 去空白后为空即不在搜索，树与不调用本方法时相同。搜索期间的展开 / 折叠只作用于本次搜索，
-    /// 不写 `expanded` 绑定；清空搜索词即回到搜索前的展开态。键盘、全选、右键菜单与焦点都只作用于留下的可见行；
-    /// 父行复选框只级联留下的叶后代。命中片段的高亮用 `Text(verbatim:highlighting:)` 画在行内容里。
-    /// 直接在 `Tree` 上调用，放在其它 modifier 之前。
+    /// 不写 `expanded` 绑定；清空搜索词即丢弃这些临时展开，按调用方当前的 `expanded` 显示。
+    /// 键盘、全选、右键菜单与焦点只作用于过滤后的可见行。父行复选框的三态仍按它**全部**叶后代显示，
+    /// 点击只勾选 / 取消被过滤留下的叶后代（含因折叠未显示的）。无命中时不显示任何行，由调用方显示空态；
+    /// 命中数用 `Tree.searchMatches(_:id:children:query:text:)` 求。命中片段的高亮用 `Text(verbatim:highlighting:)`
+    /// 画在行内容里。直接在 `Tree` 上调用，放在其它 modifier 之前。
     ///
     /// - Parameters:
     ///   - query: 当前搜索词，由调用方持有。
@@ -272,6 +274,26 @@ public extension Tree {
         var tree = self
         tree.search = TreeSearchSpec(query: query, text: text)
         return tree
+    }
+
+    /// 求搜索词**直接命中**的节点 ID（不含只因是命中的祖先 / 后代而留下的节点），与 `searchFilter(_:text:)`
+    /// 同一个实现，供调用方算命中数、显示空态或播报结果数。搜索词去首尾空白后为空时返回空集。
+    ///
+    /// - Parameters:
+    ///   - data: 根节点集合。
+    ///   - id: 从元素取稳定 ID 的 key path。
+    ///   - children: 从元素取子节点的 key path。
+    ///   - query: 当前搜索词。
+    ///   - text: 从元素取用于匹配的文案，与传给 `searchFilter(_:text:)` 的相同。
+    /// - Returns: 文案命中的节点 ID 集合。
+    nonisolated static func searchMatches(
+        _ data: Data,
+        id: KeyPath<Data.Element, ID>,
+        children: KeyPath<Data.Element, Data?>,
+        query: String,
+        text: (Data.Element) -> String
+    ) -> Set<ID> {
+        TreeSearch.result(data, id: id, children: children, query: query, text: text).matches
     }
 }
 
@@ -349,6 +371,26 @@ public extension Tree where RowContent == EmptyView {
         toDepth depth: Int
     ) -> Set<ID> {
         TreeFlatten.expandedIDs(data, id: id, children: children, toDepth: depth)
+    }
+
+    /// 同 `searchMatches(_:id:children:query:text:)`，但不必写出无关的行内容泛型：
+    /// `Tree.searchMatches(roots, id: \.id, children: \.children, query: query, text: \.name).count`。
+    ///
+    /// - Parameters:
+    ///   - data: 根节点集合。
+    ///   - id: 从元素取稳定 ID 的 key path。
+    ///   - children: 从元素取子节点的 key path。
+    ///   - query: 当前搜索词。
+    ///   - text: 从元素取用于匹配的文案。
+    /// - Returns: 文案命中的节点 ID 集合。
+    nonisolated static func searchMatches(
+        _ data: Data,
+        id: KeyPath<Data.Element, ID>,
+        children: KeyPath<Data.Element, Data?>,
+        query: String,
+        text: (Data.Element) -> String
+    ) -> Set<ID> {
+        TreeSearch.result(data, id: id, children: children, query: query, text: text).matches
     }
 }
 
@@ -471,10 +513,25 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
 
     private func checkBox(_ checked: Binding<Set<ID>>) -> TreeRowCheckBox {
         let leaves = TreeFlatten.descendantLeafIDs(
+            of: self.element, id: self.context.id, children: self.context.children
+        )
+        guard let hint = TreeRowAccessibility.checkBoxHintKey(
+            hasChildren: self.hasChildren, isSearching: self.context.included != nil
+        ) else {
+            return TreeRowCheckBox(
+                sources: leaves.map { self.context.checkState(of: $0, in: checked) },
+                hint: nil,
+                metrics: self.context.metrics
+            )
+        }
+        let retained = TreeFlatten.descendantLeafIDs(
             of: self.element, id: self.context.id, children: self.context.children, within: self.context.included
         )
         return TreeRowCheckBox(
-            sources: leaves.map { self.context.checkState(of: $0, in: checked) },
+            sources: TreeCheckBindings.scoped(
+                display: leaves, scope: retained, in: checked, onWrite: self.context.notePointerCheck
+            ),
+            hint: hint,
             metrics: self.context.metrics
         )
     }
@@ -516,10 +573,12 @@ struct TreeDeferredMenu<ID: Hashable>: View {
 
 struct TreeRowCheckBox: View {
     private let sources: [Binding<Bool>]
+    private let hint: String?
     let metrics: TreeRowMetrics
 
-    init(sources: [Binding<Bool>], metrics: TreeRowMetrics) {
+    init(sources: [Binding<Bool>], hint: String? = nil, metrics: TreeRowMetrics) {
         self.sources = sources
+        self.hint = hint
         self.metrics = metrics
     }
 
@@ -529,10 +588,38 @@ struct TreeRowCheckBox: View {
         }
         .toggleStyle(CheckBoxToggleStyle())
         .labelsHidden()
+        .accessibilityHint(Text(LocalizedStringKey(self.hint ?? ""), bundle: .module), isEnabled: self.hint != nil)
         .environment(
             \.checkBoxLayout,
             CheckBoxLayout(glyph: self.metrics.checkBoxGlyph, minHeight: self.metrics.rowHeight)
         )
+    }
+}
+
+// MARK: - 搜索期间的父行复选框 / Parent check box under search
+
+enum TreeCheckBindings {
+    // 恰两路来源让系统派生 off / mixed / on。动作只挂一路（两路都挂则一次点击翻转两次），且挂在「全勾」那一路：
+    // 三种态下系统写入的新值都与它的现值相反，即使系统只写值有变化的来源也写得到它。
+    static func scoped<ID: Hashable>(
+        display leaves: [ID],
+        scope retained: [ID],
+        in checked: Binding<Set<ID>>,
+        onWrite: @escaping () -> Void
+    ) -> [Binding<Bool>] {
+        [
+            Binding(
+                get: { TreeChecking.indicatorSources(ofLeaves: leaves, in: checked.wrappedValue)[0] },
+                set: { _ in }
+            ),
+            Binding(
+                get: { TreeChecking.indicatorSources(ofLeaves: leaves, in: checked.wrappedValue)[1] },
+                set: { _ in
+                    onWrite()
+                    checked.wrappedValue = TreeChecking.toggling(scope: retained, in: checked.wrappedValue)
+                }
+            ),
+        ]
     }
 }
 

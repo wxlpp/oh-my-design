@@ -135,6 +135,10 @@ struct QuotedEvidenceGuard {
         ("docs/components/tree.md", "Tests/OhMyDesignTests/TreeSearchTests.swift", "TreeSearchTruthTableTests"),
         ("docs/components/tree.md", "Tests/OhMyDesignTests/TreeSearchTests.swift", "TreeSearchRenderTests"),
         ("docs/components/tree.md", "Tests/OhMyDesignTests/TreeSearchTests.swift", "TreeSearchHostedTests"),
+        ("docs/components/tree.md", "Tests/OhMyDesignTests/TreeSearchTests.swift", "TreeSearchCheckScopeTests"),
+        ("docs/components/tree.md", "Tests/OhMyDesignTests/TreeSearchTests.swift", "TreeSearchEmptyResultTests"),
+        ("docs/components/tree.md", "Sources/OhMyDesign/Components/Tree/Tree.swift", "nonisolated static func searchMatches("),
+        ("docs/components/tree.md", "Sources/OhMyDesign/Resources/en.lproj/Localizable.strings", "\"Applies to filtered results only\""),
         // ---- docs/superpowers/ ----
         ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Button/styles/SolidButtonStyle.swift", "? self.role.resolvedOnColor("),
         ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Button/styles/CoreBorderlessButtonStyle.swift", "onTapGesture(count: 1, perform: configuration.trigger)"),

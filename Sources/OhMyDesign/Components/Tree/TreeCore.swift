@@ -258,6 +258,15 @@ nonisolated enum TreeChecking {
     ) -> Set<ID> {
         isChecked ? checked.union(leaves) : checked.subtracting(leaves)
     }
+
+    static func indicatorSources<ID: Hashable>(ofLeaves leaves: [ID], in checked: Set<ID>) -> [Bool] {
+        [leaves.contains(where: checked.contains), !leaves.isEmpty && leaves.allSatisfy(checked.contains)]
+    }
+
+    static func toggling<ID: Hashable>(scope leaves: [ID], in checked: Set<ID>) -> Set<ID> {
+        let allChecked = !leaves.isEmpty && leaves.allSatisfy(checked.contains)
+        return Self.applying(!allChecked, toLeaves: leaves, in: checked)
+    }
 }
 
 // MARK: - 行选中归约 / Row-selection reducer
@@ -349,6 +358,7 @@ nonisolated enum TreeRowAccessibility {
     static let collapsedKey = "Collapsed"
     static let expandActionKey = "Expand"
     static let collapseActionKey = "Collapse"
+    static let searchScopeHintKey = "Applies to filtered results only"
 
     static func expansionValueKey(isExpanded: Bool) -> String {
         isExpanded ? Self.expandedKey : Self.collapsedKey
@@ -356,6 +366,10 @@ nonisolated enum TreeRowAccessibility {
 
     static func chevronLabelKey(isExpanded: Bool) -> String {
         isExpanded ? Self.collapseActionKey : Self.expandActionKey
+    }
+
+    static func checkBoxHintKey(hasChildren: Bool, isSearching: Bool) -> String? {
+        hasChildren && isSearching ? Self.searchScopeHintKey : nil
     }
 
     static func traits(isSelected: Bool) -> AccessibilityTraits {

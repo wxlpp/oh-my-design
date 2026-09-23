@@ -1,4 +1,9 @@
 import SwiftUI
+#if canImport(UIKit)
+    import UIKit
+#else
+    import AppKit
+#endif
 
 // MARK: - Interaction Colors / 交互颜色
 
@@ -51,8 +56,20 @@ public extension Color {
 
     // MARK: - 搜索命中 / Search match
 
-    /// 搜索命中片段的底色：系统黄淡染，与选中底色（强调色派生）分开，选中行上仍看得出命中。
-    static var searchMatchBackground: Color { Color.systemYellow.opacity(0.35) }
+    /// 搜索命中片段的底色：系统黄淡染（亮色 35%、暗色 20%），与选中底色（强调色派生）分开，选中行上仍看得出命中。
+    /// 暗色取更淡的一档，是为了不压低叠在上面的彩色文字（如 git 状态色）的对比度。
+    static var searchMatchBackground: Color {
+        #if canImport(UIKit)
+            Color(uiColor: UIColor { traits in
+                UIColor.systemYellow.withAlphaComponent(traits.userInterfaceStyle == .dark ? 0.2 : 0.35)
+            })
+        #else
+            Color(nsColor: NSColor(name: nil) { appearance in
+                let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+                return NSColor.systemYellow.withAlphaComponent(isDark ? 0.2 : 0.35)
+            })
+        #endif
+    }
 
     /// 常规选中态背景：低调的强调色淡染。
     static var selectionBackground: Color {

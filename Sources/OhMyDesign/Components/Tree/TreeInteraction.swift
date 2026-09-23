@@ -50,7 +50,8 @@ nonisolated enum TreeInteractionReducer {
         guard let focused = TreeFocusing.effective(
             state.focus, visibleRows: rows, selection: state.selection, ancestors: ancestors
         ) else {
-            return TreeInteractionOutcome(state: state, result: .ignored)
+            next.focus = nil
+            return TreeInteractionOutcome(state: next, result: .ignored)
         }
         next.focus = focused
         let action = TreeKeyboard.action(

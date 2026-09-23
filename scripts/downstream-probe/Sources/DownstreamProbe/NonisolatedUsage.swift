@@ -191,3 +191,24 @@ nonisolated func useSettingsRowMetrics() -> [CGFloat] {
 nonisolated func readCoreMotionToken() -> (TimeInterval, Animation?) {
     (CoreMotionToken.reveal.duration, CoreMotionToken.scroll.animation(for: .resting))
 }
+
+// Issue #423：`Tree.searchMatches` 是 `nonisolated public static`，下游在非 MainActor 语境算命中数
+// （空态 / 结果数播报）。两个重载都要可达：写出行内容泛型的、与免写泛型的。
+private struct NonisolatedProbeTreeNode {
+    let id: String
+    let name: String
+    let children: [NonisolatedProbeTreeNode]?
+}
+
+nonisolated func countTreeSearchMatches(_ query: String) -> Int {
+    let roots = [
+        NonisolatedProbeTreeNode(id: "root", name: "Root", children: [
+            NonisolatedProbeTreeNode(id: "leaf", name: "Leaf", children: nil),
+        ]),
+    ]
+    let inferred = Tree.searchMatches(roots, id: \.id, children: \.children, query: query, text: \.name)
+    let spelled = Tree<[NonisolatedProbeTreeNode], String, Text>.searchMatches(
+        roots, id: \.id, children: \.children, query: query, text: { $0.name }
+    )
+    return inferred.union(spelled).count
+}

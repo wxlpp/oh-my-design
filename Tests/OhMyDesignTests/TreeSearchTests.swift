@@ -66,6 +66,41 @@ struct TreeSearchMatcherTests {
     func widthInsensitive() {
         #expect(TreeSearchMatcher.ranges(of: "ＡＢ", in: "xab").count == 1)
     }
+
+    @Test("组合与分解形式视为同一串，高亮片段取原文里的那一段、不改写原文")
+    func composedAndDecomposedAreEquivalent() {
+        let composed = "\u{D55C}"
+        let decomposed = "\u{1112}\u{1161}\u{11AB}"
+        #expect(TreeSearchMatcher.matches("x\(decomposed)y", normalizedQuery: composed), "组合形式的搜索词没有命中分解形式的文案")
+        #expect(TreeSearchMatcher.matches("x\(composed)y", normalizedQuery: decomposed), "分解形式的搜索词没有命中组合形式的文案")
+        let text = "x\(decomposed)y"
+        let hits = TreeSearchMatcher.ranges(of: composed, in: text)
+        #expect(hits.count == 1)
+        #expect(hits.first.map { text[$0].unicodeScalars.count } == 3, "片段应当是原文里分解形式的 3 个标量")
+        let latin = "Cafe\u{301}"
+        #expect(TreeSearchMatcher.ranges(of: "caf\u{E9}", in: latin).map { String(latin[$0]) } == [latin])
+    }
+
+    @Test("公开入口 Tree.searchMatches 与过滤同一份结果；高亮片段非空当且仅当该节点命中")
+    func publicEntryIsTheFilterImplementation() {
+        for query in ["y", "c", "A1", " b ", "", "   ", "zz"] {
+            let matches = Tree.searchMatches(
+                TreeJudgeFixture.roots, id: \.id, children: \.children, query: query, text: \.id
+            )
+            #expect(matches == TreeSearchFixture.result(query).matches, "\(query)：公开入口与过滤的命中集合不同")
+            let spelled = Tree<[TreeJudgeNode], String, Text>.searchMatches(
+                TreeJudgeFixture.roots, id: \.id, children: \.children, query: query, text: \.id
+            )
+            #expect(spelled == matches, "\(query)：写出行内容泛型的重载与免写泛型的重载结果不同")
+            for id in TreeJudgeFixture.treeIDs {
+                #expect(
+                    TreeSearchMatcher.ranges(of: query, in: id).isEmpty == !matches.contains(id),
+                    "\(query) / \(id)：高亮与命中判断不一致"
+                )
+            }
+        }
+        #expect(Tree.searchMatches(TreeJudgeFixture.roots, id: \.id, children: \.children, query: "a1", text: \.id).count == 3)
+    }
 }
 
 // MARK: - 留下的集合 / Retained set
@@ -140,7 +175,7 @@ struct TreeSearchResultTests {
 
 @Suite("Tree 搜索真值表：展开只落 overlay、清空恢复、全选只作用于可见节点、焦点回退到最近可见祖先")
 struct TreeSearchTruthTableTests {
-    private static func press(
+    static func press(
         _ key: TreeKey,
         _ modifiers: EventModifiers = [],
         state: TreeInteractionState<String>,
@@ -241,20 +276,45 @@ struct TreeSearchTruthTableTests {
         #expect(outcome.state.selection == ["a", "a1", "a1x", "a1y"], "全选越出了过滤后的可见行：\(outcome.state.selection.sorted())")
     }
 
-    @Test("第 6 行：搜索期间父行复选框只级联留下的叶后代，看不见的叶子不被勾上")
+    @Test("第 6 行：搜索期间父行复选框的动作范围是留下的叶后代，看不见的叶子不被勾上")
     func checkCascadeUnderSearchIsScopedToRetainedLeaves() {
         let included = TreeSearchFixture.result("y").included
         let leaves = TreeFlatten.descendantLeafIDs(
             of: TreeJudgeFixture.node("a"), id: \TreeJudgeNode.id, children: \TreeJudgeNode.children, within: included
         )
-        #expect(leaves == ["a1y"], "搜索期间 a 的级联来源应当只有留下的 a1y，实得 \(leaves)")
-        let checked = TreeChecking.applying(true, toLeaves: leaves, in: [])
-        #expect(!checked.contains("a1x") && !checked.contains("a2"), "级联静默勾上了被过滤掉的叶子：\(checked.sorted())")
+        #expect(leaves == ["a1y"], "搜索期间 a 的动作范围应当只有留下的 a1y，实得 \(leaves)")
+        let checked = TreeChecking.toggling(scope: leaves, in: [])
+        #expect(checked == ["a1y"], "级联静默勾上了被过滤掉的叶子：\(checked.sorted())")
 
         let unfiltered = TreeFlatten.descendantLeafIDs(
             of: TreeJudgeFixture.node("a"), id: \TreeJudgeNode.id, children: \TreeJudgeNode.children, within: nil
         )
         #expect(unfiltered == ["a1x", "a1y", "a2"], "不在搜索时仍级联全部叶后代")
+    }
+
+    @Test("保留节点 ≠ 可见行：搜折叠文件夹自己的名字，全选只选它这一行，复选框作用于它留下的全部叶后代")
+    func retainedLeavesAreNotVisibleRows() {
+        let rows = TreeSearchFixture.rows(persisted: [], query: "a1")
+        let collapsed = TreeSearchTruthTableTests.press(
+            .left,
+            state: TreeInteractionState(
+                focus: "a1", lastInteraction: .keyboard, selection: [],
+                expansion: TreeSearchFixture.expansion(persisted: [], query: "a1")
+            ),
+            rows: rows
+        )
+        let session = TreeSearch.session(from: collapsed.state.expansion, query: "a1")
+        let visible = TreeSearchFixture.rows(persisted: [], query: "a1", session: session)
+        #expect(visible.map(\.id) == ["a", "a1"], "前提：a1 在 overlay 里折叠后只剩 a / a1 两行，实得 \(visible.map(\.id))")
+        let all = Self.press(.character("a"), .command, state: collapsed.state, rows: visible)
+        #expect(all.state.selection == ["a", "a1"], "全选应当只作用于可见行")
+
+        let included = TreeSearchFixture.result("a1").included
+        let retained = TreeFlatten.descendantLeafIDs(
+            of: TreeJudgeFixture.node("a1"), id: \TreeJudgeNode.id, children: \TreeJudgeNode.children, within: included
+        )
+        #expect(retained == ["a1x", "a1y"], "a1 折叠着，它的复选框仍应作用于留下的 a1x / a1y")
+        #expect(TreeChecking.toggling(scope: retained, in: []) == ["a1x", "a1y"])
     }
 
     @Test("第 7 行：焦点行被过滤掉时移到最近的仍可见祖先，无祖先则移到首个可见行")
@@ -314,6 +374,166 @@ struct TreeSearchTruthTableTests {
             )
             #expect(outcome.expansionMotion == motion)
         }
+    }
+}
+
+// MARK: - 搜索期间的父行复选框 / Parent check box under search
+
+@Suite("Tree 搜索期间父行复选框：三态按全部叶后代显示，点击按「留下的叶子是否全勾」翻转、只动留下的叶子")
+struct TreeSearchCheckScopeTests {
+    private static func allLeaves(_ id: String) -> [String] {
+        TreeFlatten.descendantLeafIDs(of: TreeJudgeFixture.node(id), id: \TreeJudgeNode.id, children: \TreeJudgeNode.children)
+    }
+
+    private static func retained(_ id: String, query: String) -> [String] {
+        TreeFlatten.descendantLeafIDs(
+            of: TreeJudgeFixture.node(id), id: \TreeJudgeNode.id, children: \TreeJudgeNode.children,
+            within: TreeSearchFixture.result(query).included
+        )
+    }
+
+    @Test("显示：两路来源 = [任一叶子已勾, 全部叶子已勾]，按全部叶后代算——看不见的叶子未勾时不显示为全勾")
+    func indicatorCountsEveryLeaf() {
+        let leaves = Self.allLeaves("a")
+        #expect(TreeChecking.indicatorSources(ofLeaves: leaves, in: []) == [false, false])
+        #expect(TreeChecking.indicatorSources(ofLeaves: leaves, in: ["a1y"]) == [true, false], "a1y 勾、a1x / a2 未勾应当是 mixed")
+        #expect(TreeChecking.indicatorSources(ofLeaves: leaves, in: ["a1x", "a1y", "a2"]) == [true, true])
+        #expect(TreeChecking.indicatorSources(ofLeaves: [String](), in: ["a"]) == [false, false])
+    }
+
+    nonisolated struct Click: Sendable, CustomTestStringConvertible {
+        let initial: Set<String>
+        let first: Set<String>
+        let second: Set<String>
+        let reason: String
+
+        var testDescription: String { self.reason }
+    }
+
+    nonisolated static let clicks: [Click] = [
+        Click(initial: [], first: ["a1y"], second: [], reason: "隐藏叶子初始未勾：勾上留下的 a1y，再点取消"),
+        Click(initial: ["a1x"], first: ["a1x", "a1y"], second: ["a1x"], reason: "隐藏叶子初始已勾：显示 mixed，点击只勾 a1y；再点只取消 a1y，a1x 不动"),
+        Click(initial: ["a1y"], first: [], second: ["a1y"], reason: "留下的叶子已全勾、隐藏的未勾（显示 mixed）：点击取消 a1y"),
+        Click(initial: ["a1x", "a1y", "a2"], first: ["a1x", "a2"], second: ["a1x", "a1y", "a2"], reason: "全部已勾：点击只取消留下的 a1y"),
+    ]
+
+    @Test("动作：按留下的叶子是否全勾翻转，范围外的勾选值不变，父 ID 不进 checked", arguments: Self.clicks)
+    func togglingFollowsTheRetainedLeaves(_ click: Click) {
+        let scope = Self.retained("a", query: "y")
+        #expect(scope == ["a1y"])
+        let first = TreeChecking.toggling(scope: scope, in: click.initial)
+        #expect(first == click.first, "\(click.reason)：第一次点击实得 \(first.sorted())")
+        let second = TreeChecking.toggling(scope: scope, in: first)
+        #expect(second == click.second, "\(click.reason)：第二次点击实得 \(second.sorted())")
+        #expect(!first.contains("a") && !second.contains("a"))
+    }
+
+    @Test("行宿主用的两路绑定：读数按全部叶子，写任一值都按留下的叶子翻转且只写一次；写第一路不动", arguments: Self.clicks)
+    func scopedBindingsWriteOnlyThroughTheSecondSource(_ click: Click) {
+        var box = click.initial
+        var writes = 0
+        let checked = Binding(get: { box }, set: { box = $0 })
+        let sources = TreeCheckBindings.scoped(
+            display: Self.allLeaves("a"), scope: Self.retained("a", query: "y"), in: checked, onWrite: { writes += 1 }
+        )
+        #expect(sources.map(\.wrappedValue) == TreeChecking.indicatorSources(ofLeaves: Self.allLeaves("a"), in: click.initial))
+        sources[0].wrappedValue.toggle()
+        #expect(box == click.initial, "第一路的写入改了 checked")
+        sources[1].wrappedValue = Bool.random()
+        #expect(box == click.first, "\(click.reason)：实得 \(box.sorted())")
+        #expect(writes == 1)
+    }
+
+    @Test("清空或换搜索词只改变动作范围，三态读数不变")
+    func queryChangesDoNotChangeTheIndicator() {
+        let checked: Set<String> = ["a1y"]
+        let before = TreeChecking.indicatorSources(ofLeaves: Self.allLeaves("a"), in: checked)
+        #expect(before == [true, false])
+        #expect(Self.retained("a", query: "y") == ["a1y"])
+        #expect(Self.retained("a", query: "a2") == ["a2"])
+        #expect(Self.retained("a", query: "a") == ["a1x", "a1y", "a2"])
+    }
+
+    @Test("搜索期间父行复选框带「仅作用于过滤结果」的本地化提示；叶行与不搜索时不带")
+    func hintIsScopedToParentRowsUnderSearch() throws {
+        #expect(TreeRowAccessibility.checkBoxHintKey(hasChildren: true, isSearching: true) == "Applies to filtered results only")
+        #expect(TreeRowAccessibility.checkBoxHintKey(hasChildren: false, isSearching: true) == nil)
+        #expect(TreeRowAccessibility.checkBoxHintKey(hasChildren: true, isSearching: false) == nil)
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let url = repoRoot.appendingPathComponent("Sources/OhMyDesign/Resources/en.lproj/Localizable.strings")
+        let text = try String(contentsOf: url, encoding: .utf8)
+        #expect(text.contains("\"\(TreeRowAccessibility.searchScopeHintKey)\" = "), "提示 key 没登记进 Localizable.strings")
+    }
+}
+
+// MARK: - 无结果 / Zero results
+
+@Suite("Tree 搜索无结果：行焦点置空，导航 / 激活 / 全选不操作隐藏行，结果重现后按初始焦点规则恢复")
+struct TreeSearchEmptyResultTests {
+    @Test("可见行变为空：焦点置空，选中与展开不变")
+    func focusClearsWhenNothingIsVisible() {
+        let before = TreeSearchFixture.rows(persisted: ["a"], query: "a")
+        let empty = TreeSearchFixture.rows(persisted: ["a"], query: "zz")
+        #expect(empty.isEmpty)
+        let state = TreeInteractionState(
+            focus: "a1", lastInteraction: .keyboard, selection: ["a1", "b"],
+            expansion: TreeSearchFixture.expansion(persisted: ["a"], query: "zz")
+        )
+        let next = TreeInteractionReducer.rowsChanged(state: state, from: before, to: empty)
+        #expect(next.focus == nil, "无结果时焦点仍指着隐藏行 \(String(describing: next.focus))")
+        #expect(next.selection == ["a1", "b"])
+        #expect(next.expansion == state.expansion)
+    }
+
+    @Test("无可见行时按键全部交回系统、不改选中与展开、不激活", arguments: [
+        TreeKey.up, .down, .left, .right, .home, .end, .space, .enter, .character("a"),
+    ])
+    func keysDoNothingWithoutVisibleRows(_ key: TreeKey) {
+        let state = TreeInteractionState(
+            focus: "a1", lastInteraction: .pointer, selection: ["a1"],
+            expansion: TreeSearchFixture.expansion(persisted: ["a"], query: "zz")
+        )
+        let modifiers: EventModifiers = key == .character("a") ? .command : []
+        let outcome = TreeSearchTruthTableTests.press(key, modifiers, state: state, rows: [])
+        #expect(outcome.result == .ignored)
+        #expect(outcome.activated == nil)
+        #expect(outcome.state.selection == ["a1"])
+        #expect(outcome.state.expansion == state.expansion)
+        #expect(outcome.state.focus == nil)
+    }
+
+    @Test("空数据源与纯空白搜索词：没有行、按键交回系统；纯空白不算在搜索")
+    func emptySourceAndBlankQuery() {
+        let rows = TreeFlatten.rows([TreeJudgeNode](), id: \TreeJudgeNode.id, children: \TreeJudgeNode.children, expanded: [])
+        let outcome = TreeSearchTruthTableTests.press(
+            .down, state: TreeInteractionState(focus: nil, lastInteraction: .keyboard, selection: [], expanded: []), rows: rows
+        )
+        #expect(outcome.result == .ignored)
+        #expect(TreeSearchFixture.result("   ").included.isEmpty)
+        #expect(TreeSearchFixture.rows(persisted: [], query: "   ").map(\.id) == ["a", "b", "c"])
+    }
+
+    @Test("结果重现：焦点保持为空，下一次键盘进入按初始焦点规则落在首个已选可见行（否则首行）")
+    func focusRestoresByTheInitialRule() {
+        let empty = TreeSearchFixture.rows(persisted: [], query: "zz")
+        let back = TreeSearchFixture.rows(persisted: [], query: "a1")
+        let cleared = TreeInteractionState(
+            focus: nil, lastInteraction: .keyboard, selection: ["a1x", "b"],
+            expansion: TreeSearchFixture.expansion(persisted: [], query: "a1")
+        )
+        let reappeared = TreeInteractionReducer.rowsChanged(state: cleared, from: empty, to: back)
+        #expect(reappeared.focus == nil)
+        let entered = TreeInteractionReducer.focusEntered(
+            via: .keyboard, state: reappeared, rows: back, ancestors: TreeJudgeFixture.ancestors(of:)
+        )
+        #expect(entered.focus == "a1x", "应当落在首个已选可见行 a1x，实得 \(String(describing: entered.focus))")
+        var unselected = reappeared
+        unselected.selection = ["b"]
+        let first = TreeInteractionReducer.focusEntered(
+            via: .keyboard, state: unselected, rows: back, ancestors: TreeJudgeFixture.ancestors(of:)
+        )
+        #expect(first.focus == "a", "没有已选可见行时应当落在首行")
     }
 }
 
@@ -415,6 +635,26 @@ struct TreeSearchRenderTests {
         #expect(render("y").height < plain.height, "\(appearance)：有搜索词时画面没变矮——正向对照失效，上一条相等判据无意义")
     }
 
+    @Test("搜索期间父行三态按全部叶后代画：看不见的叶子未勾时画 mixed，与全部勾上时不同", arguments: TreeSearchAppearance.allCases)
+    func parentIndicatorUnderSearchCountsHiddenLeaves(appearance: TreeSearchAppearance) {
+        func render(_ checked: Set<String>) -> TreePixels {
+            TreePixels.render(
+                Tree(
+                    TreeJudgeFixture.roots, children: \.children, expanded: .constant([]), selection: .constant([]),
+                    checked: .constant(checked)
+                ) { node in
+                    Text(verbatim: node.id)
+                }
+                .searchFilter("y", text: \.id)
+                .treeStyle(appearance.style)
+            )
+        }
+        Self.expectVisiblyDifferent(
+            render(["a1y"]), render(["a1x", "a1y", "a2"]),
+            "\(appearance)：留下的 a1y 勾上、隐藏的 a1x / a2 未勾时，a / a1 画成了全勾——三态只算了留下的叶子"
+        )
+    }
+
     @Test("Text(verbatim:highlighting:) 命中时画得与普通 Text 不同；未命中 / 空词时与普通 Text 等价", arguments: [ColorScheme.light, .dark])
     func highlightedTextDrawsTheMatch(_ scheme: ColorScheme) {
         func render(_ text: Text) -> TreePixels {
@@ -433,21 +673,53 @@ struct TreeSearchRenderTests {
         )
     }
 
-    @Test("命中高亮在两种外观的行里都画得出来，且底色不是选中底色", arguments: TreeSearchAppearance.allCases)
-    func highlightShowsInBothAppearances(appearance: TreeSearchAppearance) {
-        func render(highlight: String, selection: Set<String>) -> TreePixels {
+    nonisolated enum SelectedRowHost: CaseIterable, CustomTestStringConvertible, Sendable {
+        case automatic
+        case navigator
+        case navigatorYellowAccent
+
+        var testDescription: String {
+            switch self {
+            case .automatic: ".automatic"
+            case .navigator: ".navigator"
+            case .navigatorYellowAccent: ".navigator + coreAccent(systemYellow)"
+            }
+        }
+
+        @MainActor var style: TreeStyle {
+            switch self {
+            case .automatic: .automatic
+            case .navigator, .navigatorYellowAccent: .navigator
+            }
+        }
+
+        @MainActor var accent: Color {
+            switch self {
+            case .automatic, .navigator: .inkPrimary
+            case .navigatorYellowAccent: .systemYellow
+            }
+        }
+    }
+
+    @Test("选中行上的命中片段：加粗 + 底色与只加粗画得不同——底色没被选中底色吞掉", arguments: SelectedRowHost.allCases, [ColorScheme.light, .dark])
+    func highlightBackgroundSurvivesSelection(host: SelectedRowHost, scheme: ColorScheme) {
+        func render(_ label: @escaping (String) -> Text) -> TreePixels {
             TreePixels.render(
-                Tree(TreeJudgeFixture.roots, children: \.children, expanded: .constant([]), selection: .constant(selection)) { node in
-                    Text(verbatim: node.id, highlighting: highlight)
+                Tree(TreeJudgeFixture.roots, children: \.children, expanded: .constant([]), selection: .constant(["b"])) { node in
+                    label(node.id)
                 }
-                .treeStyle(appearance.style)
+                .treeStyle(host.style)
+                .coreAccent(host.accent),
+                scheme: scheme
             )
         }
-        Self.expectVisiblyDifferent(render(highlight: "", selection: []), render(highlight: "b", selection: []), "\(appearance)：行里的命中片段没画出来")
-        Self.expectVisiblyDifferent(
-            render(highlight: "", selection: ["b"]), render(highlight: "b", selection: ["b"]),
-            "\(appearance)：选中行上的命中片段被选中底色吞掉了"
-        )
+        let boldOnly = render { id in
+            var text = AttributedString(id)
+            if id == "b", let range = text.range(of: "b") { text[range].inlinePresentationIntent = .stronglyEmphasized }
+            return Text(text)
+        }
+        let highlighted = render { id in Text(verbatim: id, highlighting: "b") }
+        Self.expectVisiblyDifferent(boldOnly, highlighted, "\(host) / \(scheme)：选中行上的命中片段只剩加粗，底色被选中底色吞掉了")
     }
 
     @Test("命中片段除了加粗还有底色：与只加粗的同一段文字画得不同", arguments: [ColorScheme.light, .dark])
@@ -458,6 +730,18 @@ struct TreeSearchRenderTests {
         let bold = TreePixels.render(Text(boldOnly).padding(4), scheme: scheme, width: 120)
         let hit = TreePixels.render(Text(verbatim: "Colors", highlighting: "lor").padding(4), scheme: scheme, width: 120)
         Self.expectVisiblyDifferent(bold, hit, "\(scheme)：命中片段只有加粗、没有底色")
+    }
+
+    @Test("命中底色的不透明度：亮色 0.35、暗色 0.20（暗色更淡，不压低叠在上面的彩色文字）")
+    func matchBackgroundOpacityPerScheme() {
+        var light = EnvironmentValues()
+        light.colorScheme = .light
+        var dark = EnvironmentValues()
+        dark.colorScheme = .dark
+        let lightAlpha = Color.searchMatchBackground.resolve(in: light).opacity
+        let darkAlpha = Color.searchMatchBackground.resolve(in: dark).opacity
+        #expect(abs(lightAlpha - 0.35) < 0.01, "亮色实得 \(lightAlpha)")
+        #expect(abs(darkAlpha - 0.2) < 0.01, "暗色实得 \(darkAlpha)")
     }
 
     @Test("高亮片段落在命中的字上：左半命中与右半命中画出来不同")
@@ -585,9 +869,13 @@ struct TreeSearchHostedTests {
         #expect(model.selection == ["a", "a1", "a1x", "a1y"], "\(appearance)：全选越出了过滤后的可见行：\(model.selection.sorted())")
     }
 
-    @Test("第 6 行：搜索期间点父行复选框只勾留下的叶子", arguments: TreeHostedAppearance.allCases)
-    func checkCascadeUnderSearch(appearance: TreeHostedAppearance) {
+    @Test(
+        "第 6 行：搜索期间连点两次父行复选框，按留下的叶子是否全勾翻转、只动留下的叶子",
+        arguments: TreeHostedAppearance.allCases, TreeSearchCheckScopeTests.clicks
+    )
+    func checkCascadeUnderSearch(appearance: TreeHostedAppearance, click: TreeSearchCheckScopeTests.Click) {
         let model = TreeSearchHostedModel(query: "y")
+        model.checked = click.initial
         let window = Self.window(model, appearance: appearance, showsCheckBoxes: .shown)
         defer { window.close() }
         let x = CoreSpacing.xs + Self.regular.disclosureWidth + CoreSpacing.xs + Self.regular.checkBoxGlyph / 2
@@ -595,7 +883,28 @@ struct TreeSearchHostedTests {
         window.sendMouse(.leftMouseDown, at: point)
         window.sendMouse(.leftMouseUp, at: point)
         window.settle()
-        #expect(model.checked == ["a1y"], "\(appearance)：搜索 y 时点 a 的复选框应当只勾 a1y，实得 \(model.checked.sorted())")
+        #expect(model.checked == click.first, "\(appearance) / \(click.reason)：第一次点击实得 \(model.checked.sorted())")
+        window.sendMouse(.leftMouseDown, at: point)
+        window.sendMouse(.leftMouseUp, at: point)
+        window.settle()
+        #expect(model.checked == click.second, "\(appearance) / \(click.reason)：第二次点击实得 \(model.checked.sorted())")
+        #expect(model.selection.isEmpty, "\(appearance)：点复选框改了行选中")
+    }
+
+    @Test("换词与清空只改变显示与动作范围，本身不写 checked / selection / expanded", arguments: TreeHostedAppearance.allCases)
+    func changingTheQueryWritesNothing(appearance: TreeHostedAppearance) {
+        let model = TreeSearchHostedModel(query: "", expanded: ["c"])
+        model.checked = ["a1x"]
+        model.selection = ["a2", "b"]
+        let window = Self.window(model, appearance: appearance, showsCheckBoxes: .shown)
+        defer { window.close() }
+        for query in ["y", "c", "zz", "a", ""] {
+            model.query = query
+            window.settle()
+            #expect(model.checked == ["a1x"], "\(appearance) / \(query)：换词写了 checked：\(model.checked.sorted())")
+            #expect(model.selection == ["a2", "b"], "\(appearance) / \(query)：换词写了 selection：\(model.selection.sorted())")
+            #expect(model.expanded == ["c"], "\(appearance) / \(query)：换词写了 expanded：\(model.expanded.sorted())")
+        }
     }
 
     @Test("第 7 行：焦点行被搜索过滤掉后，下一键从最近的可见祖先出发", arguments: TreeHostedAppearance.allCases)
