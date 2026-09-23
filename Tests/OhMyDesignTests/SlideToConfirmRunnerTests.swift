@@ -27,7 +27,7 @@ struct SlideToConfirmRunnerTests {
         presentation: MotionPresentation = .animated,
         action: StatefulSuspension
     ) -> Bool {
-        runner.dragChanged(translation)
+        runner.dragChanged(translation, startX: SlideToConfirmTests.onKnob, geometry: Self.geometry)
         return runner.release(
             Self.sample(translation, predicted: predicted),
             geometry: Self.geometry,
@@ -89,14 +89,14 @@ struct SlideToConfirmRunnerTests {
 
         #expect(!Self.slide(runner, to: travel / 2, predicted: Self.geometry.width * 4, action: action), "快速甩到一半松手触发了")
         #expect(!Self.slide(runner, to: -travel, predicted: -Self.geometry.width * 4, action: action), "反向拖动触发了")
-        runner.dragChanged(travel + 40)
+        runner.dragChanged(travel + 40, startX: SlideToConfirmTests.onKnob, geometry: Self.geometry)
         let draggedBack = runner.release(
             Self.sample(8), geometry: Self.geometry, presentation: .animated, action: { try await action.suspend() }
         )
         #expect(!draggedBack, "先拖过尽头再拖回来松手触发了")
         #expect(!Self.slide(runner, to: travel - 0.5, action: action), "阈值前 0.5 pt 松手触发了")
 
-        runner.dragChanged(travel + 40)
+        runner.dragChanged(travel + 40, startX: SlideToConfirmTests.onKnob, geometry: Self.geometry)
         runner.interrupt()
         #expect(runner.core.knobOffset(in: Self.geometry) == 0, "被打断后指示器没回起点")
 
@@ -215,6 +215,43 @@ struct SlideToConfirmRunnerTests {
         #expect(action.arrivals == 1)
     }
 
+    @Test("起点在轨道空白处的滑动经真实编排路径不触发、不起 Task")
+    func slideStartingOffTheKnobNeverRuns() {
+        let action = StatefulSuspension(.passThrough)
+        let runner = Self.runner(sleeper: StatefulSuspension(.passThrough))
+        runner.dragChanged(Self.geometry.travel, startX: 120, geometry: Self.geometry)
+        #expect(runner.core.knobOffset(in: Self.geometry) == 0, "起点在轨道空白处的拖动推动了指示器")
+        let released = runner.release(
+            Self.sample(Self.geometry.travel), geometry: Self.geometry, presentation: .animated, action: { try await action.suspend() }
+        )
+        #expect(!released, "起点在轨道空白处、滑满全程的松手触发了")
+        #expect(runner.task == nil)
+        #expect(action.arrivals == 0)
+    }
+
+    @Test("执行中在尽头指示器上开始的拖动：开闸后才松手也不触发——不排队")
+    func sessionStartedDuringRunDoesNotQueue() async throws {
+        let action = StatefulSuspension(.cooperative)
+        let sleeper = StatefulSuspension(.passThrough)
+        let runner = Self.runner(sleeper: sleeper)
+        let travel = Self.geometry.travel
+
+        #expect(Self.slide(runner, to: travel, action: action))
+        try #require(await action.waitForArrivals(1), "action 没被调起")
+        runner.dragChanged(-20, startX: travel + SlideToConfirmTests.onKnob, geometry: Self.geometry)
+        action.release()
+        await runner.task?.value
+        #expect(runner.core.acceptsInput, "action 返回、回位走完后门闩应打开")
+
+        runner.dragChanged(travel, startX: travel + SlideToConfirmTests.onKnob, geometry: Self.geometry)
+        let late = runner.release(
+            Self.sample(travel), geometry: Self.geometry, presentation: .animated, action: { try await action.suspend() }
+        )
+        #expect(!late, "执行中开始的会话在开闸后松手又触发了一次")
+        if late { return }
+        #expect(action.arrivals == 1, "action 被调起 \(action.arrivals) 次，期望 1")
+    }
+
     @Test("Reduce Motion：回位不停留，action 返回即开闸")
     func reduceMotionSkipsReturnDwell() async throws {
         let action = StatefulSuspension(.cooperative)
@@ -240,7 +277,7 @@ struct SlideToConfirmRunnerTests {
         let rebound = try #require(runner.core.feedback, "回弹没有触觉事件")
         #expect(rebound.kind == .rebound)
 
-        runner.dragChanged(Self.geometry.travel)
+        runner.dragChanged(Self.geometry.travel, startX: SlideToConfirmTests.onKnob, geometry: Self.geometry)
         runner.interrupt()
         #expect(runner.core.feedback == rebound, "被打断产生了触觉事件")
 
@@ -270,20 +307,31 @@ struct SlideToConfirmRunnerTests {
         let required = [
             "@GestureState private var dragging = false",
             ".updating(self.$dragging) { _, state, _ in state = true }",
-            ".onChanged { value in self.runner.dragChanged(value.translation.width) }",
             """
-                        .onEnded { value in
-                            self.runner.release(
-                                SlideToConfirmDragSample(
-                                    translation: value.translation.width,
-                                    predictedEndTranslation: value.predictedEndTranslation.width
-                                ),
-                                geometry: geometry,
-                                presentation: self.motionPresentation,
-                                action: self.action
-                            )
-                        }
+                .onChanged { value in
+                    self.runner.dragChanged(
+                        value.translation.width * geometry.directionSign,
+                        startX: geometry.logicalX(value.startLocation.x),
+                        geometry: geometry
+                    )
+                }
             """,
+            """
+                .onEnded { value in
+                    self.runner.release(
+                        geometry.sample(
+                            translation: value.translation.width,
+                            predictedEndTranslation: value.predictedEndTranslation.width
+                        ),
+                        geometry: geometry,
+                        presentation: self.motionPresentation,
+                        action: self.action
+                    )
+                },
+            isEnabled: self.isEnabled
+            """,
+            ".contentShape(Capsule(style: .continuous))",
+            ".animation(CoreMotionToken.reveal.transformAnimation(for: self.motionPresentation), value: core.motionKey)",
             """
                     .onChange(of: self.dragging) { _, active in
                         if !active { self.runner.interrupt() }
@@ -301,6 +349,7 @@ struct SlideToConfirmRunnerTests {
                         } label: {
                             self.label
                         }
+                        .accessibilityHint(Text("Double-tap to confirm", bundle: .module))
                         .disabled(!core.acceptsInput)
                         .accessibilityValue(core.phase.accessibilityValueText ?? Text(verbatim: ""))
                     }
@@ -313,6 +362,8 @@ struct SlideToConfirmRunnerTests {
             missing.isEmpty,
             """
             视图接线缺 \(missing.count) 处，期望 0：\(missing) —— 缺 GestureState / updating ⇒ 被打断的手势不回位；\
+            onChanged 不带起点 / 方向系数 ⇒ 轨道空白处也能推动指示器、RTL 下方向反了；isEnabled 读 core ⇒ 执行中横滑漏给系统返回手势；\
+            缺 animation(reveal) ⇒ 回弹 / 回位不走 bounce 为 0 的 token；\
             缺 onEnded ⇒ 松手不判定；缺 onChange(dragging) ⇒ 打断不转交；缺 onDisappear ⇒ 离屏不取消；\
             缺 accessibilityRepresentation ⇒ 辅助技术没有替代路径，或它不走同一道门闩、不带禁用 / 状态
             """

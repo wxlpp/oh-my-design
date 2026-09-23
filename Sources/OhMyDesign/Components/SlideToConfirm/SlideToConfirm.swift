@@ -11,9 +11,34 @@ nonisolated struct SlideToConfirmGeometry: Sendable, Hashable {
     let width: CGFloat
     let knob: CGFloat
     let spacing: CGFloat
+    var layoutDirection: LayoutDirection = .leftToRight
 
-    static func standard(width: CGFloat, controlSize: ControlSize) -> Self {
-        Self(width: width, knob: CoreControlMetrics.height(for: controlSize), spacing: CoreSpacing.xs)
+    static func standard(width: CGFloat, controlSize: ControlSize, layoutDirection: LayoutDirection) -> Self {
+        Self(
+            width: width,
+            knob: CoreControlMetrics.height(for: controlSize),
+            spacing: CoreSpacing.xs,
+            layoutDirection: layoutDirection
+        )
+    }
+
+    // RTL 下 `.offset(x:)` 会被镜像，`DragGesture` 的位移与位置却按物理方向计 ⇒ 只换算手势这一侧。
+    var directionSign: CGFloat { self.layoutDirection == .rightToLeft ? -1 : 1 }
+
+    func sample(translation: CGFloat, predictedEndTranslation: CGFloat) -> SlideToConfirmDragSample {
+        SlideToConfirmDragSample(
+            translation: translation * self.directionSign,
+            predictedEndTranslation: predictedEndTranslation * self.directionSign
+        )
+    }
+
+    func logicalX(_ physicalX: CGFloat) -> CGFloat {
+        self.layoutDirection == .rightToLeft ? self.width - physicalX : physicalX
+    }
+
+    // 指示器连同两侧间距都算命中区。
+    func knobContains(logicalX x: CGFloat, atOffset offset: CGFloat) -> Bool {
+        x >= offset && x <= offset + self.knob + 2 * self.spacing
     }
 
     var trackHeight: CGFloat { self.knob + 2 * self.spacing }
@@ -121,9 +146,17 @@ struct SlideToConfirmCore: Sendable, Hashable {
         let kind: Kind
     }
 
+    // 会话在第一次拖动变化时裁决、整段不变：起点不在指示器上或门闩关着 ⇒ 只吸收、不位移、松手不触发。
+    // `active` 在 `@GestureState` 复位（`interrupt`）时置假，但裁决留到 `release` 才消费——两者先后不定。
+    struct DragSession: Sendable, Hashable {
+        let live: Bool
+        var active = true
+    }
+
     private(set) var phase: Phase = .idle
     private(set) var feedback: SlideToConfirmFeedbackEvent?
     private(set) var announcement: Announcement?
+    private(set) var session: DragSession?
     private var translation: CGFloat?
     private var settles = 0
     private var gate = SlideToConfirmGate()
@@ -140,14 +173,20 @@ struct SlideToConfirmCore: Sendable, Hashable {
         }
     }
 
-    mutating func drag(_ translation: CGFloat) {
-        guard self.acceptsInput else { return }
+    mutating func drag(_ translation: CGFloat, startX: CGFloat, geometry: SlideToConfirmGeometry) {
+        if self.session?.active != true {
+            let onKnob = geometry.knobContains(logicalX: startX, atOffset: self.knobOffset(in: geometry))
+            self.session = DragSession(live: onKnob && self.acceptsInput)
+        }
+        guard self.session?.live == true, self.acceptsInput else { return }
         self.translation = translation
     }
 
     mutating func release(_ sample: SlideToConfirmDragSample, geometry: SlideToConfirmGeometry) -> Release {
+        let live = self.session?.live == true
+        self.session = nil
         self.translation = nil
-        guard self.acceptsInput else { return .ignored }
+        guard live, self.acceptsInput else { return .ignored }
         if geometry.confirms(sample), let run = self.gate.admit() {
             self.phase = .executing
             self.announce(.started)
@@ -160,6 +199,7 @@ struct SlideToConfirmCore: Sendable, Hashable {
     }
 
     mutating func interrupt() {
+        self.session?.active = false
         guard self.translation != nil else { return }
         self.translation = nil
         self.settles += 1
@@ -167,6 +207,7 @@ struct SlideToConfirmCore: Sendable, Hashable {
 
     mutating func activate() -> Int? {
         guard let run = self.gate.admit() else { return nil }
+        if let session = self.session { self.session = DragSession(live: false, active: session.active) }
         self.translation = nil
         self.phase = .executing
         self.announce(.started)
@@ -223,8 +264,8 @@ final class SlideToConfirmRunner {
         self.sleep = sleep
     }
 
-    func dragChanged(_ translation: CGFloat) {
-        self.core.drag(translation)
+    func dragChanged(_ translation: CGFloat, startX: CGFloat, geometry: SlideToConfirmGeometry) {
+        self.core.drag(translation, startX: startX, geometry: geometry)
     }
 
     @discardableResult
@@ -281,7 +322,11 @@ final class SlideToConfirmRunner {
 ///
 /// 按住指示器拖到轨道尽头松手才执行 `action`：阈值是纯距离，**不**因甩得快而放宽。
 /// 执行期间指示器停在尽头、内部换成进度指示；`action` 返回（含抛错、取消）后指示器回到起点。
-/// 从确认到回位走完之间，手势与无障碍激活都被忽略——一次滑动只对应一次执行。
+/// 从确认到回位走完之间，手势与无障碍激活都被忽略——一次滑动只对应一次执行；
+/// 这期间开始的拖动整段作废，回位走完后才松手也不会触发。
+/// 从右到左的布局下轨道镜像：指示器从右端出发、向左滑到尽头。
+///
+/// 视图离屏（例如导航返回）会取消 `action` 所在的任务；不可中断的工作请在 `action` 内另起非结构化 `Task`。
 ///
 /// 对辅助技术整体暴露为一个普通按钮：激活即执行同一个 `action`，执行中为禁用并带「Loading」状态。
 /// 强调色读 `View.coreAccent(_:on:)`；尺寸读 `controlSize`。
@@ -297,6 +342,7 @@ public struct SlideToConfirm<Label: View>: View {
     @Environment(\.coreAccentOn) private var resolvedOn
     @Environment(\.self) private var environment
     @Environment(\.locale) private var locale
+    @Environment(\.layoutDirection) private var layoutDirection
     @Environment(\.slideToConfirmAnnouncementPoster) private var poster
 
     private let action: @MainActor @Sendable () async throws -> Void
@@ -326,7 +372,11 @@ public struct SlideToConfirm<Label: View>: View {
 
     public var body: some View {
         let core = self.runner.core
-        let geometry = SlideToConfirmGeometry.standard(width: self.width, controlSize: self.controlSize)
+        let geometry = SlideToConfirmGeometry.standard(
+            width: self.width,
+            controlSize: self.controlSize,
+            layoutDirection: self.layoutDirection
+        )
         let offset = core.knobOffset(in: geometry)
         return ZStack(alignment: .leading) {
             Capsule(style: .continuous)
@@ -342,26 +392,34 @@ public struct SlideToConfirm<Label: View>: View {
             self.knob(geometry: geometry, executing: core.phase == .executing)
                 .padding(geometry.spacing)
                 .offset(x: offset)
-                .gesture(
-                    DragGesture()
-                        .updating(self.$dragging) { _, state, _ in state = true }
-                        .onChanged { value in self.runner.dragChanged(value.translation.width) }
-                        .onEnded { value in
-                            self.runner.release(
-                                SlideToConfirmDragSample(
-                                    translation: value.translation.width,
-                                    predictedEndTranslation: value.predictedEndTranslation.width
-                                ),
-                                geometry: geometry,
-                                presentation: self.motionPresentation,
-                                action: self.action
-                            )
-                        },
-                    isEnabled: core.acceptsInput && self.isEnabled
-                )
         }
         .frame(height: geometry.trackHeight)
-        .environment(\.layoutDirection, .leftToRight)
+        .contentShape(Capsule(style: .continuous))
+        // 挂在整条轨道上：起点不在指示器上的横滑也被吸收，不漏给系统返回手势。
+        // 执行 / 回位期间不停用，正确性由 core 的会话裁决与门闩保证。
+        .gesture(
+            DragGesture()
+                .updating(self.$dragging) { _, state, _ in state = true }
+                .onChanged { value in
+                    self.runner.dragChanged(
+                        value.translation.width * geometry.directionSign,
+                        startX: geometry.logicalX(value.startLocation.x),
+                        geometry: geometry
+                    )
+                }
+                .onEnded { value in
+                    self.runner.release(
+                        geometry.sample(
+                            translation: value.translation.width,
+                            predictedEndTranslation: value.predictedEndTranslation.width
+                        ),
+                        geometry: geometry,
+                        presentation: self.motionPresentation,
+                        action: self.action
+                    )
+                },
+            isEnabled: self.isEnabled
+        )
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { self.width = $0 }
         .animation(CoreMotionToken.reveal.transformAnimation(for: self.motionPresentation), value: core.motionKey)
         .sensoryFeedback(trigger: core.feedback) { _, event in event?.kind.sensoryFeedback }
@@ -381,6 +439,7 @@ public struct SlideToConfirm<Label: View>: View {
             } label: {
                 self.label
             }
+            .accessibilityHint(Text("Double-tap to confirm", bundle: .module))
             .disabled(!core.acceptsInput)
             .accessibilityValue(core.phase.accessibilityValueText ?? Text(verbatim: ""))
         }
@@ -394,7 +453,7 @@ public struct SlideToConfirm<Label: View>: View {
             .frame(width: geometry.knob, height: geometry.knob)
             .overlay {
                 ZStack {
-                    Image(systemName: "chevron.right")
+                    Image(systemName: "chevron.forward")
                         .font(.system(size: CoreControlMetrics.iconSize(for: self.controlSize), weight: .semibold))
                         .opacity(executing ? 0 : 1)
                     if executing {

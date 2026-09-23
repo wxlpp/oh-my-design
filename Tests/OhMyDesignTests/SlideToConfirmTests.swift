@@ -8,6 +8,8 @@ import Testing
 @MainActor
 struct SlideToConfirmTests {
     static let geometry = SlideToConfirmGeometry(width: 320, knob: 44, spacing: 4)
+    // 待命时指示器中心的逻辑横坐标（间距 4 + 半径 22）。
+    static let onKnob: CGFloat = 26
 
     private static func sample(_ translation: CGFloat, predicted: CGFloat? = nil) -> SlideToConfirmDragSample {
         SlideToConfirmDragSample(translation: translation, predictedEndTranslation: predicted ?? translation)
@@ -66,7 +68,7 @@ struct SlideToConfirmTests {
     @Test("负例：拖到底后被打断（手势取消）不触发，指示器回起点")
     func interruptionAfterReachingTheEndDoesNotConfirm() {
         var core = SlideToConfirmCore()
-        core.drag(Self.geometry.travel + 30)
+        core.drag(Self.geometry.travel + 30, startX: Self.onKnob, geometry: Self.geometry)
         #expect(core.knobOffset(in: Self.geometry) == Self.geometry.travel)
         core.interrupt()
         #expect(core.phase == .idle, "被打断后阶段实得 \(core.phase)")
@@ -121,8 +123,8 @@ struct SlideToConfirmTests {
         #expect(third != nil)
     }
 
-    @Test("准入只看门闩、不读阶段：把阶段拿走也不影响拒绝")
-    func admissionDoesNotReadPhase() {
+    @Test("回位阶段拒绝准入：无障碍激活与滑到底都被拒，回位走完后才放行")
+    func returningPhaseRejectsAdmission() {
         var core = SlideToConfirmCore()
         guard let run = core.activate() else {
             Issue.record("首次激活应被准入")
@@ -140,19 +142,96 @@ struct SlideToConfirmTests {
         #expect(fresh != nil)
     }
 
+    // MARK: 拖动会话 / Drag session
+
+    @Test("指示器命中区：指示器连同两侧间距，之外都不算")
+    func knobHitArea() {
+        let g = Self.geometry
+        for x in [0, Self.onKnob, 52] as [CGFloat] {
+            #expect(g.knobContains(logicalX: x, atOffset: 0), "x = \(x) 应落在待命指示器上")
+        }
+        for x in [-1, 53, 160, 300] as [CGFloat] {
+            #expect(!g.knobContains(logicalX: x, atOffset: 0), "x = \(x) 不该算落在待命指示器上")
+        }
+        #expect(g.knobContains(logicalX: g.travel + Self.onKnob, atOffset: g.travel))
+    }
+
+    @Test("起点不在指示器上的会话只吸收：不位移、松手不触发、不给触觉、不改动效键")
+    func sessionStartingOffTheKnobIsAbsorbed() {
+        var core = SlideToConfirmCore()
+        let key = core.motionKey
+        core.drag(Self.geometry.travel, startX: 120, geometry: Self.geometry)
+        #expect(core.knobOffset(in: Self.geometry) == 0, "起点在轨道空白处的拖动推动了指示器")
+        let release = core.release(Self.sample(Self.geometry.travel), geometry: Self.geometry)
+        #expect(release == .ignored, "起点在轨道空白处的会话松手实得 \(release)")
+        #expect(core.phase == .idle)
+        #expect(core.feedback == nil, "被吸收的会话产生了触觉")
+        #expect(core.motionKey == key, "被吸收的会话改了动效键")
+
+        core.drag(Self.geometry.travel, startX: Self.onKnob, geometry: Self.geometry)
+        guard case .run = core.release(Self.sample(Self.geometry.travel), geometry: Self.geometry) else {
+            Issue.record("被吸收的会话之后，起点在指示器上的新会话应能触发")
+            return
+        }
+    }
+
+    @Test("门闩关闭期间开始的会话整段作废：开闸后继续拖、再松手也不触发")
+    func sessionStartedWhileGateClosedStaysVoid() {
+        var core = SlideToConfirmCore()
+        guard let run = core.activate() else {
+            Issue.record("首次激活应被准入")
+            return
+        }
+        core.drag(10, startX: Self.geometry.travel + Self.onKnob, geometry: Self.geometry)
+        core.settle(run, outcome: .succeeded)
+        core.finish(run)
+        #expect(core.acceptsInput, "回位走完后门闩应打开")
+        core.drag(Self.geometry.travel, startX: Self.geometry.travel + Self.onKnob, geometry: Self.geometry)
+        #expect(core.knobOffset(in: Self.geometry) == 0, "作废的会话在开闸后推动了指示器")
+        let release = core.release(Self.sample(Self.geometry.travel), geometry: Self.geometry)
+        #expect(release == .ignored, "门闩关闭期间开始的会话在开闸后松手实得 \(release) —— 排队式二次执行")
+    }
+
+    @Test("打断先于松手到达时，松手仍按会话裁决判定")
+    func releaseAfterInterruptStillJudgesTheSession() {
+        var core = SlideToConfirmCore()
+        core.drag(Self.geometry.travel, startX: Self.onKnob, geometry: Self.geometry)
+        core.interrupt()
+        guard case .run = core.release(Self.sample(Self.geometry.travel), geometry: Self.geometry) else {
+            Issue.record("打断先到时，滑到底的松手没有触发")
+            return
+        }
+    }
+
+    // MARK: RTL
+
+    @Test("RTL：手势位移按方向系数换成「朝尽头为正」，起点在右端")
+    func rightToLeftMirrorsTheTrack() {
+        let rtl = SlideToConfirmGeometry(width: 320, knob: 44, spacing: 4, layoutDirection: .rightToLeft)
+        let travel = rtl.travel
+        #expect(rtl.confirms(rtl.sample(translation: -travel, predictedEndTranslation: -travel)), "RTL 下向左滑到底没触发")
+        #expect(!rtl.confirms(rtl.sample(translation: travel, predictedEndTranslation: travel)), "RTL 下向右滑触发了")
+        #expect(rtl.knobContains(logicalX: rtl.logicalX(320 - Self.onKnob), atOffset: 0), "RTL 下右端不是指示器起点")
+        #expect(!rtl.knobContains(logicalX: rtl.logicalX(Self.onKnob), atOffset: 0), "RTL 下左端被当成指示器起点")
+
+        let ltr = Self.geometry
+        #expect(ltr.sample(translation: travel, predictedEndTranslation: 1) == Self.sample(travel, predicted: 1))
+        #expect(ltr.logicalX(Self.onKnob) == Self.onKnob)
+    }
+
     // MARK: 事件 → 状态 / Event-to-state table
 
     @Test("事件表：待命 →(滑到底) 执行 →(返回) 回位 →(回位走完) 待命")
     func eventTable() {
         var core = SlideToConfirmCore()
-        core.drag(Self.geometry.travel)
+        core.drag(Self.geometry.travel, startX: Self.onKnob, geometry: Self.geometry)
         guard case .run(let run) = core.release(Self.sample(Self.geometry.travel), geometry: Self.geometry) else {
             Issue.record("滑到底应被准入")
             return
         }
         #expect(core.phase == .executing)
         #expect(core.knobOffset(in: Self.geometry) == Self.geometry.travel)
-        core.drag(10)
+        core.drag(10, startX: Self.onKnob, geometry: Self.geometry)
         #expect(core.knobOffset(in: Self.geometry) == Self.geometry.travel, "执行阶段拖动改了指示器位置")
         core.settle(run, outcome: .failed)
         #expect(core.phase == .returning(.failed))
@@ -162,10 +241,10 @@ struct SlideToConfirmTests {
         #expect(core.acceptsInput)
     }
 
-    @Test("无障碍激活作废进行中的拖动会话")
+    @Test("无障碍激活作废进行中的拖动会话：开闸后继续拖、再松手也不触发")
     func activationCancelsDragSession() {
         var core = SlideToConfirmCore()
-        core.drag(80)
+        core.drag(80, startX: Self.onKnob, geometry: Self.geometry)
         guard let run = core.activate() else {
             Issue.record("激活应被准入")
             return
@@ -173,19 +252,23 @@ struct SlideToConfirmTests {
         core.settle(run, outcome: .succeeded)
         core.finish(run)
         #expect(core.knobOffset(in: Self.geometry) == 0, "激活前的拖动位移在运行结束后残留了")
+        core.drag(Self.geometry.travel, startX: Self.onKnob, geometry: Self.geometry)
+        #expect(core.knobOffset(in: Self.geometry) == 0, "被激活作废的会话在开闸后推动了指示器")
+        let release = core.release(Self.sample(Self.geometry.travel), geometry: Self.geometry)
+        #expect(release == .ignored, "被激活作废的会话在开闸后松手实得 \(release) —— 排队式二次执行")
     }
 
     @Test("回弹 / 打断 / 阶段变化都改变动效键；拖动变化不改——跟手位移不补间")
     func motionKeyChangesOnlyOnDiscreteEvents() {
         var core = SlideToConfirmCore()
         let start = core.motionKey
-        core.drag(50)
-        core.drag(90)
+        core.drag(50, startX: Self.onKnob, geometry: Self.geometry)
+        core.drag(90, startX: Self.onKnob, geometry: Self.geometry)
         #expect(core.motionKey == start, "拖动变化改了动效键 ⇒ 跟手位移会被补间")
         _ = core.release(Self.sample(90), geometry: Self.geometry)
         let afterRebound = core.motionKey
         #expect(afterRebound != start, "回弹没改动效键 ⇒ 回弹不补间")
-        core.drag(60)
+        core.drag(60, startX: Self.onKnob, geometry: Self.geometry)
         core.interrupt()
         #expect(core.motionKey != afterRebound, "打断没改动效键 ⇒ 打断后的回位不补间")
         let beforeRun = core.motionKey
@@ -194,6 +277,13 @@ struct SlideToConfirmTests {
         #expect(executing != beforeRun)
         core.settle(run, outcome: .succeeded)
         #expect(core.motionKey != executing, "进入回位没改动效键 ⇒ 回位不补间")
+    }
+
+    // 源码接线判据只能核「用的是 reveal」；这里核 reveal 本身是 bounce 为 0 的弹簧。
+    @Test("回弹 / 回位的位移曲线是 bounce 为 0 的弹簧")
+    func displacementCurveHasNoBounce() {
+        let curve = CoreMotionToken.reveal.transformAnimation(for: .animated)
+        #expect(curve == Animation.spring(duration: CoreMotionToken.reveal.duration, bounce: 0), "实得 \(String(describing: curve))")
     }
 
     // MARK: 触觉 / Sensory feedback
@@ -243,6 +333,12 @@ struct SlideToConfirmTests {
         for key in ["Loading", "Success", "Failed"] {
             #expect(Bundle.module.localizedString(forKey: key, value: "__MISSING__", table: nil) != "__MISSING__", "键 \(key) 未注册")
         }
+    }
+
+    @Test("替代 Button 的操作提示：注册进 Localizable.strings，读出来不是「Slide…」")
+    func accessibilityHintIsRegistered() {
+        let resolved = Bundle.module.localizedString(forKey: "Double-tap to confirm", value: "__MISSING__", table: nil)
+        #expect(resolved == "Double-tap to confirm", "键未注册或取值不对：\(resolved)")
     }
 
     @Test("播报经 poster 走真实视图：一轮成功、一轮失败、一轮取消")
@@ -302,11 +398,19 @@ struct SlideToConfirmTests {
     @Test("执行阶段指示器停在尽头：待命与执行两帧的指示器前沿相差约一个全程")
     func executingKnobSitsAtTheEnd() async throws {
         let runner = SlideToConfirmRunner { _ in }
-        let window = HostedWindow(SlideHarness(runner: runner), size: CGSize(width: 320, height: 60), scheme: .light)
+        let window = HostedWindow(
+            SlideHarness(runner: runner).environment(\.coreMotionPresentationOverride, .resting),
+            size: CGSize(width: 320, height: 60),
+            scheme: .light
+        )
         defer { window.close() }
         let idle = try #require(slideKnobLeadingEdge(window.pixels()), "待命帧里找不到指示器")
 
-        let again = HostedWindow(SlideHarness(runner: SlideToConfirmRunner { _ in }), size: CGSize(width: 320, height: 60), scheme: .light)
+        let again = HostedWindow(
+            SlideHarness(runner: SlideToConfirmRunner { _ in }).environment(\.coreMotionPresentationOverride, .resting),
+            size: CGSize(width: 320, height: 60),
+            scheme: .light
+        )
         defer { again.close() }
         expectBitmapsEquivalent(window.pixels().bytes, again.pixels().bytes, maxChannelDelta: 2, "同一待命态两次渲染应在噪声以内相同")
 
@@ -317,6 +421,32 @@ struct SlideToConfirmTests {
         let executing = try #require(slideKnobLeadingEdge(window.pixels()), "执行帧里找不到指示器")
         let moved = CGFloat(executing - idle) / window.pixels().scale
         #expect(abs(moved - Self.geometry.travel) <= 2, "指示器前沿移动 \(moved) pt，期望约 \(Self.geometry.travel)")
+        action.release()
+        await runner.task?.value
+    }
+
+    @Test("RTL 渲染：待命指示器在右端，执行阶段向左移约一个全程")
+    func rightToLeftKnobStartsAtTheRight() async throws {
+        let runner = SlideToConfirmRunner { _ in }
+        let window = HostedWindow(
+            SlideHarness(runner: runner)
+                .environment(\.layoutDirection, .rightToLeft)
+                .environment(\.coreMotionPresentationOverride, .resting),
+            size: CGSize(width: 320, height: 60),
+            scheme: .light
+        )
+        defer { window.close() }
+        let scale = window.pixels().scale
+        let idle = try #require(slideKnobLeadingEdge(window.pixels()), "待命帧里找不到指示器")
+        #expect(CGFloat(idle) / scale > 160, "RTL 下待命指示器前沿在 \(CGFloat(idle) / scale) pt，应在右半边")
+
+        let action = StatefulSuspension(.cooperative)
+        runner.activate(presentation: .resting, action: { try await action.suspend() })
+        try #require(await action.waitForArrivals(1))
+        window.settle()
+        let executing = try #require(slideKnobLeadingEdge(window.pixels()), "执行帧里找不到指示器")
+        let moved = CGFloat(executing - idle) / scale
+        #expect(abs(moved + Self.geometry.travel) <= 2, "RTL 下指示器前沿移动 \(moved) pt，期望约 \(-Self.geometry.travel)")
         action.release()
         await runner.task?.value
     }
@@ -385,7 +515,7 @@ struct SlideToConfirmInFlightTests {
         let action = StatefulSuspension(.cooperative)
         switch scenario {
         case .rebound:
-            runner.dragChanged(geometry.travel * 0.7)
+            runner.dragChanged(geometry.travel * 0.7, startX: SlideToConfirmTests.onKnob, geometry: geometry)
         case .returning:
             runner.activate(presentation: presentation, action: { try await action.suspend() })
             _ = await action.waitForArrivals(1)

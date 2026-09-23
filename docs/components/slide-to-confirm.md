@@ -2,7 +2,7 @@
 
 滑到底才触发的高代价动作确认（删除账户 / 支付这类）。形态是一条胶囊轨道 + 一个圆形指示器：
 按住指示器拖到轨道尽头松手 ⇒ 执行 action；执行期间指示器停在尽头、内部换成进度指示；
-action 返回后指示器回到起点。
+action 返回后指示器回到起点。RTL 下整条轨道镜像：指示器从右端出发、向左滑到尽头。
 
 ## 设计定案 / Design decisions
 
@@ -21,9 +21,16 @@ action 返回后指示器回到起点。
 
 | 阶段 | 指示器位置 | 指示器内容 | 手势 | 无障碍激活 |
 |---|---|---|---|---|
-| **待命**（含拖动中） | 跟手，夹在 `[0, travel]` | 箭头符号 | ✅ | ✅ |
-| **执行** | 停在尽头 | 进度指示 | ❌ | ❌（替代 `Button` 为 disabled） |
-| **回位** | 由尽头回到起点 | 箭头符号 | ❌ | ❌（替代 `Button` 为 disabled） |
+| **待命**（含拖动中） | 跟手，夹在 `[0, travel]` | 箭头符号 | ✅（起点须落在指示器上） | ✅ |
+| **执行** | 停在尽头 | 进度指示 | 挂着但只吸收：会话作废 | ❌（替代 `Button` 为 disabled） |
+| **回位** | 由尽头回到起点 | 箭头符号 | 挂着但只吸收：会话作废 | ❌（替代 `Button` 为 disabled） |
+
+- **拖动手势挂在整条轨道上**，会话在第一次拖动变化时裁决、整段不变：起点落在指示器（含两侧间距）上
+  且门闩开着 ⇒ 有效会话；否则只**吸收**——不位移、松手不触发、不给触觉。吸收的意义是横滑不漏给系统
+  返回手势（iOS 26 的全内容区返回手势会把轨道空白处的右滑当成 pop）。
+- 执行 / 回位期间手势**不停用**（停用了横滑就会落到返回手势上），正确性交给会话裁决与门闩。
+- ⚠️ **门闩关闭期间开始的会话整段作废**：即便 action 返回、回位走完、门闩已开之后才松手，也不触发
+  （对应下表「执行」行的「不排队」）。无障碍激活同样把进行中的会话作废。
 
 - **所有输入路径共用同一道门闩**：拖动松手与无障碍激活都向同一个 `SlideToConfirmGate` 申请运行号；
   门闩**只认运行号**，不读阶段或任何视觉态。门闩在准入时关上，**直到这次运行的 action 返回、
@@ -37,12 +44,13 @@ action 返回后指示器回到起点。
 
 | 当前阶段 | 事件 | 新阶段 | 说明 |
 |---|---|---|---|
-| 待命 | 拖动变化 | 待命 | 位移 = `clamp(translation, 0, travel)`，不补间 |
+| 待命 | 拖动变化 | 待命 | 位移 = `clamp(translation, 0, travel)`，不补间；RTL 下 translation 先乘 −1 |
+| 待命 | 起点不在指示器上的拖动 / 松手 | 待命 | 吸收，不位移、不触发、不给触觉 |
 | 待命 | 松手，位移 ≥ `travel` | 执行 | 准入、发运行号；确认触觉；起 `Task` 跑 action |
 | 待命 | 松手，位移 < `travel`（含反向、甩一半） | 待命 | 弹簧回弹到起点、**不**触发；位移 > 0 时给回弹触觉 |
 | 待命 | 手势被打断（系统取消 / 宿主中途 `.disabled` / 离屏） | 待命 | 回到起点，不触发、不给触觉——被取消的手势没有 `onEnded`，只有 `@GestureState` 复位 |
 | 待命 | 无障碍激活 | 执行 | 同一道门闩；进行中的拖动会话作废 |
-| 执行 | 拖动 / 松手 / 无障碍激活 | 执行 | 门闩关 ⇒ **忽略**，不排队 |
+| 执行 | 拖动 / 松手 / 无障碍激活 | 执行 | 门闩关 ⇒ **忽略**，不排队：这期间开始的拖动会话在开闸后松手也不触发 |
 | 执行 | action 正常返回 | 回位 | 播报 `Success` |
 | 执行 | action 抛非取消错误 | 回位 | 播报 `Failed`；外观与成功相同（本控件没有失败态，见下） |
 | 执行 | action 抛 `CancellationError` | 回位 | **静默**，不当失败 |
@@ -56,10 +64,11 @@ action 返回后指示器回到起点。
   旧分析里「成功态用 `.transition(.scale.combined(with: .opacity))`」**不采**，失败同理不另起一态。
   需要拿到 `Error` 本身时在 action 内 `catch` 处理后再 `throw`。
 - **取消**：`CancellationError` 静默回位，不播报失败（与 `AsyncButton` / `StatefulButton` 一致）。
-- **离屏**：取消在跑的 `Task`，但**不开闸**——取消只是请求，不响应取消的 action 仍在跑，
+- **离屏**（含导航返回）：取消在跑的 `Task`——这一条写在公开文档注释里，接入方不可中断的工作
+  须在 `action` 内另起非结构化 `Task`；但**不开闸**——取消只是请求，不响应取消的 action 仍在跑，
   此时开闸会让回屏后的滑动并发重入（与 `AsyncButton` 在 `Task` 的 `defer` 里才复位同理）。
   action 返回后回位等待随 `Task` 取消立即结束，门闩随之打开。
-- **宿主 `.disabled`**：待命时手势不响应、替代 `Button` 为 disabled（`isEnabled` 环境值自然继承）、
+- **宿主 `.disabled`**：待命时手势不响应（手势的 `isEnabled` 只读宿主环境值）、替代 `Button` 为 disabled（`isEnabled` 环境值自然继承）、
   指示器与文案换成禁用配色；拖动中途被禁用 ⇒ 手势被取消 ⇒ 按「被打断」处理；
   执行中被禁用 ⇒ **不取消** action，照常回位，回到待命后保持禁用。
 - **不引入隐式超时**：action 永不返回，控件就一直停在执行阶段（同 `StatefulButton`）。
@@ -85,8 +94,20 @@ action 返回后指示器回到起点。
   所以状态、名称、禁用语义都写在替代 `Button` 上，不指望从视觉子树继承。
 - 替代表示是**恒定**的同一个 `Button`（不按阶段条件式挂载）⇒ 阶段切换不换元素身份，
   焦点留在原处。
+- **操作提示**：替代 `Button` 带 `accessibilityHint`「Double-tap to confirm」（本地化键已注册）——
+  名称是「Slide…」这类文案，只读名称会误导辅助技术用户去找滑动手势。
 - 进入执行播报 `Loading`；action 返回播报 `Success` / `Failed`；取消与首帧不播。
-- RTL：轨道固定为左 → 右滑动（未做镜像）。
+
+### RTL
+
+- 按 `Rating` / `CoreDisclosureGroupStyle` 的先例做真正的镜像，不再把组件内部钉成 `.leftToRight`；
+  label 继承宿主方向，箭头用 `chevron.forward`（随方向翻转）。
+- 实测（iOS 26.4 模拟器，`-AppleTextDirection YES -NSForceRightToLeftWritingDirection YES`，
+  在手势回调里临时打印）：RTL 下向左拖 160 pt，`translation.width` 读到 **−160**，`location.x` 同向递减
+  ⇒ `DragGesture` 的位移与位置**不镜像**，按物理方向计。所以手势一侧乘方向系数（RTL 为 −1），
+  起点横坐标换成 `width − x`。
+- 与之相反，`.offset(x:)` **会**被镜像：RTL 渲染判据第一版把渲染位移也乘了 −1，执行帧里指示器
+  被推出画面、找不到指示器而判红 ⇒ 渲染侧直接用逻辑位移。
 
 ## API
 
@@ -119,7 +140,13 @@ public init(_ titleKey: LocalizedStringKey, action: @escaping @MainActor @Sendab
   4 倍与 ∞）、反向拖动、阈值前 0.5 / 1 / 4 pt、拖到底后被打断；未量到宽度时不触发。
 - **夹紧**：12 个输入（含 ±∞、NaN）的位移全部落在 `[0, travel]`。
 - **门闩与事件表**：运行号门闩的准入 / 拒绝 / 只认本次运行号；回位阶段的激活与滑到底都被拒；
-  动效键只在离散事件上变（拖动变化不变 ⇒ 跟手不补间）。
+  动效键只在离散事件上变（拖动变化不变 ⇒ 跟手不补间）。「门闩不读阶段」是设计定案，**没有**判据钉着它。
+- **拖动会话**：指示器命中区的边界；起点在轨道空白处的会话不位移、不触发、不给触觉、不改动效键；
+  门闩关闭期间开始的会话、被无障碍激活作废的会话，开闸后继续拖再松手都不触发；
+  打断先于松手到达时松手仍按会话裁决判定。编排层另有两条：起点在空白处滑满全程不起 `Task`；
+  执行中在尽头指示器上开始的拖动、开闸后才松手，action 仍只调起一次。
+- **RTL**：纯函数层——向左滑满全程触发、向右不触发，右端是指示器起点、左端不是；
+  渲染层——RTL 下待命指示器前沿在右半边，执行帧向左移约一个全程（±2 pt）。
 - **编排（走真实 `SlideToConfirmRunner`）**：注入可控挂起的 action 与回位 sleep，
   不靠挂钟：滑到底 → 执行一次 → 回位停留 `reveal.duration` → 开闸；四个负例经编排路径不起 `Task`；
   手势 / 无障碍三种交错只执行一次；回位窗口不可再触发；抛错 → `failed`、取消 → `cancelled`，都开闸；
@@ -131,15 +158,23 @@ public init(_ titleKey: LocalizedStringKey, action: @escaping @MainActor @Sendab
   `Loading, Success, Loading, Failed, Loading`；以执行阶段作首帧出现时不播。
   播报由独立的事件序号驱动，不从阶段差分推出——回位停留为 0（Reduce Motion）时
   「回位 → 待命」在同一次运行里连续发生、中间不渲染，按阶段差分会丢掉 `Success` / `Failed`。
-- **渲染**：执行阶段指示器前沿比待命帧右移约一个全程（±2 pt）；同一待命态两次渲染在噪声以内相同。
+- **渲染**：执行阶段指示器前沿比待命帧右移约一个全程（±2 pt）；同一待命态两次渲染在噪声以内相同
+  （两帧都钉 `coreMotionPresentationOverride = .resting`，不受宿主 Reduce Motion 设置影响）。
+- **位移曲线（两级）**：接线级——源码里必须有
+  `.animation(CoreMotionToken.reveal.transformAnimation(for: self.motionPresentation), value: core.motionKey)`
+  这一行（下方「视图接线」）；值级——`reveal.transformAnimation(for: .animated)` 等于
+  `.spring(duration: 0.25, bounce: 0)`。两级合起来才说明「回弹 / 回位用的是 bounce 为 0 的曲线」：
+  接线级只核用了哪个 token，值级只核那个 token 的取值。
+- **操作提示**：`Double-tap to confirm` 键已注册且取值逐字一致（值级）；替代 `Button` 挂着它（接线级）。
 - **动画进行中（macOS 腿）**：驱动编排器、逐帧量指示器前沿（全帧近黑像素的最小横坐标）：
   回弹与回位两个场景，RM 关时互异中间位置 ≥ 2 且没有任何一帧越出起止区间（容差 1 px），
   RM 开时中间位置为 0。iOS 腿上 `layer.render(in:)` 拍不到进行中的帧，这两条只在 macOS 腿跑。
   ⚠️ 「不越出起止区间」**分不出 `.smooth` 与 `.snappy`**：把 token 换成 `.press`（`.snappy`）后这两条照绿，
   没有观测到越界。它能抓的是明显的过冲，不是「选了哪一族曲线」。
-- **视图接线（源码级）**：`@GestureState` + `updating`、`onChanged`、带预测终点样本的 `onEnded`、
+- **视图接线（源码级）**：`@GestureState` + `updating`、带起点与方向系数的 `onChanged`、
+  带预测终点样本的 `onEnded`、手势 `isEnabled` 只读宿主环境值、整条轨道的 `contentShape`、上面那行 `.animation`、
   `onChange(of: dragging)` 转交打断、`onDisappear`、`accessibilityRepresentation` 里的
-  `Button` + `.disabled` + `accessibilityValue`。单测进程里合成事件驱动不了 SwiftUI 手势，
+  `Button` + `accessibilityHint` + `.disabled` + `accessibilityValue`。单测进程里合成事件驱动不了 SwiftUI 手势，
   无障碍树也观测不到（见 `stateful-button.md`《无障碍》已知缺口二的实测），这一层只能在源码上核。
 
 ### 模拟器实测（一次性，不是回归判据）
@@ -155,22 +190,44 @@ iOS 26.4 模拟器、预览宿主画廊 `slide-to-confirm` 页，`axe swipe` 发
 | 阈值前一点（54 → 336，位移 282 < 294） | `Confirmed 0` |
 | 滑到底（54 → 390），0.3 s 后读 | value `Loading`、`enabled=False` |
 | 同上，约 3 s 后读 | value 空、`enabled=True`、`Confirmed 1` |
-| 执行中在尽头指示器上再横滑 | 仍只 `Confirmed 1` |
+
+轨道整条吸收横滑之后的一轮（同一宿主；把画廊示例的 action 临时拉长到 6 s 以覆盖 axe 每次调用约
+0.6–1 s 的间隔，实测后已还原）：
+
+| 操作 | 读数 |
+|---|---|
+| 轨道空白处（x = 150）向右横滑到屏幕边，连做 3 次 | 页面未 pop，`Confirmed 0` |
+| 对照：同样的横滑落在轨道上方的说明文字上 | 页面被 pop（说明 axe 的横滑确实会触发返回手势） |
+| 滑到底（54 → 395），t = 0.72 s 读 | value `Loading`、`enabled=False` |
+| 执行中：t ≈ 1.6 s 在尽头指示器上向右横滑、t ≈ 2.2 s 向左横滑、t ≈ 2.8 s 在轨道空白处向右横滑；t = 2.84 s 读 | 页面未 pop，仍 `Loading`、`Confirmed 0` |
+| t = 7.18 s 读 | value 空、`enabled=True`、`Confirmed 1`；t = 9.52 s 再读仍为 1 |
+| 甩一半 / 反向 / 阈值前一点（同上表三种） | `Confirmed 0` |
+| 替代元素 | `help` 读到 `Double-tap to confirm` |
+
+宿主 `.disabled`（直达预览 `PREVIEW_COMPONENT_ID=slide-to-confirm`，无导航栈；禁用那一行的 action
+临时改成给计数加 100、实测后还原）：禁用行上从指示器起滑满全程两次，7.5 s 后 `Confirmed 0`；
+对照同样的横滑落在可用行上 ⇒ `Confirmed 1`。
+
+RTL（直达预览，伪语言启动参数）：向右横滑指示器、从轨道空白处向左滑满、从指示器向左甩一半都保持
+`Confirmed 0`；从右端指示器向左滑满 ⇒ `Loading`，截图里执行中的指示器停在左端，约 7 s 后 `Confirmed 1`。
 
 ## 已知缺口（如实登记）
 
-- **手势回调的先后没有机器判据**：「正常松手时 `onEnded` 先于 `@GestureState` 复位触发的
+- **手势回调的先后没有视图层判据**：「正常松手时 `onEnded` 先于 `@GestureState` 复位触发的
   `onChange`」按 SwiftUI 的更新顺序推断，上表的模拟器正例说明这条路径在 iOS 26.4 上走得通；
-  编排层按两种顺序都不出错设计（`release` 不要求拖动会话仍在）。「手势被系统中途取消」
-  没有在模拟器上构造出来，只有编排层判据。
+  core 按两种顺序都能判定（打断只把会话标成已结束，裁决留给松手消费，有纯函数判据）。
+  代价：若打断先到，指示器会先按打断回弹、再因松手进入执行 ⇒ **成功的一滑可能出现视觉回跳**。
+  「手势被系统中途取消」没有在模拟器上构造出来，只有编排层判据。
+- **「执行中开始、开闸后松手」没有真实触摸实测**：会话从尽头开始，要在开闸后仍以「位移 ≥ 全程」松手，
+  直线横滑得从尽头再往前拖一个全程，出了屏幕；只有纯函数与编排层判据。
+- **宿主 `.disabled` 时横滑会漏给返回手势**：手势随宿主禁用而停用，实测在导航栈页面里从禁用行的
+  指示器向右横滑，页面被 pop。action 不会被触发（见上方直达预览那一轮）。
 - **辅助技术实读只到无障碍树**：上表读到了替代元素的角色 / 名称 / 状态 / 禁用；VoiceOver 实际朗读、
   语音控制 / 切换控制下的激活与焦点保持没有实测；硬件键盘可达性**另行验证**，
   不能由 `accessibilityRepresentation` 推出。
-- **RTL 未镜像**：轨道固定左 → 右（`layoutDirection` 在组件内部钉为 `.leftToRight`）。
-  没有核实 `DragGesture` 的位移在 RTL 下是否已被镜像，所以不照参考实现乘方向系数。
-- **轨道空白处的横滑会触发系统返回手势**：拖动手势只挂在指示器上。iOS 26 模拟器上用 `axe swipe`
-  实测，在导航栈页面里从轨道空白处（指示器以外）向右横滑，页面被 pop；执行中发生时离屏会取消
-  正在跑的 action（与 `AsyncButton` 同语义）。是否让整条轨道吸收横向拖动，本 issue 未处置。
+- **轨道以外的横滑仍归系统返回手势**：离屏会取消正在跑的 action（公开文档注释已写明）。
+- **Dynamic Type**：文案 `lineLimit(1)`，AX 字号下长文案会被截断——轨道高度跟 `controlSize` 而不跟字号，
+  这是有意的取舍；完整文案仍是替代按钮的名称，辅助技术读得到。
 - **Reduce Motion 下的淡变**：指示器内箭头 ↔ 进度保留淡变，这是按「包围盒不变的淡变在 RM 下保留」
   的库内先例定的，不是遗漏。
 

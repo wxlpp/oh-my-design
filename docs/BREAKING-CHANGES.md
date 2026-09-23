@@ -32,10 +32,11 @@
 | `SlideToConfirm.init(action:label:)` | 自定义 label |
 | `SlideToConfirm.init(_:action:)`（`Label == Text`） | `LocalizedStringKey` 文案 |
 
-未新增本地化键：执行态与播报复用既有的 `Loading` / `Success` / `Failed`。
+新增本地化键 `Double-tap to confirm`（替代按钮的操作提示）；执行态与播报复用既有的 `Loading` / `Success` / `Failed`。
 
 行为要点（给接入方的提醒，不是对既有行为的改变）：阈值是**纯距离**，没有速度补偿——
-从其他滑动确认实现迁来的用户「甩一下」不会触发；轨道固定左 → 右滑动，RTL 下未做镜像。
+从其他滑动确认实现迁来的用户「甩一下」不会触发；RTL 下轨道镜像（从右往左滑）；
+视图离屏（例如导航返回）会取消 `action` 所在的任务，不可中断的工作请在 `action` 内另起非结构化 `Task`。
 
 ## 未发布（相对 `v0.11.0`）——Issue #417：`StatefulButton` 四态动作按钮
 
