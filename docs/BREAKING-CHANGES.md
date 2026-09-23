@@ -20,6 +20,30 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.11.0`）——Issue #421：CheckBox 增读系统 mixed 态
+
+**行为新增，不是破坏。** 公开符号一个都没变（`CheckBoxToggleStyle` 仍是无参构造、无配置项），
+off / on 两态在 normal / disabled / invalid 三种外观下与改动前的实现**逐像素对照过**。
+新增的是第三个态：`CheckBoxToggleStyle.makeBody` 现在读 `configuration.isMixed`。
+
+| 位置 | 之前 | 现在 |
+|---|---|---|
+| `CheckBoxToggleStyle` 指示符 | **仅按 `configuration.isOn` 二选一**（`square` / `checkmark.square.fill`），不区分 mixed | 三态：`square` / `minus.square.fill` / `checkmark.square.fill`，mixed 压过 `isOn` |
+| mixed 的取色 | （无此态） | `contentPrimary`，与 on 同为「已作用」；off 仍是 `contentSecondary` |
+| `.coreAnimation(.selection, value:)` 的触发值 | `configuration.isOn` | 三态枚举——否则 off ↔ mixed 不补间 |
+
+**下游要改什么：不用改。** 旧调用点（`Toggle(_:isOn:)`）只会产生 on / off，画出来一字未变。
+想要 mixed 的调用点用系统的 `Toggle(sources:isOn:label:)`——它从一组 `Binding<Bool>` 自动派生
+on / mixed / off，本库不新增任何入参（公开 API 无 Bool 入参这条不破）。示例见
+[checkbox.md](components/checkbox.md)。
+
+⚠️ 已经在用 `Toggle(sources:)` 的调用点会**看到外观变化**：那一行原先按 `isOn`（mixed 下
+实测为 `false`）画成空方框，现在画 `minus.square.fill`。点击行为一字未动——实测 mixed 下
+`isOn.toggle()` 把整组绑定写成全 `true`（全选），读数见 [checkbox.md](components/checkbox.md)。
+
+**Reduce Motion 开启时**：三态之间的符号替换与原来两态同路——`ContentTransition.identity`，
+直接换图、不描画。静息外观与 RM 开关无关。
+
 ## 未发布（相对 `v0.11.0`）——Issue #409：TagGroup / TagInput 增删与选中动画
 
 **行为变更（无签名破坏）。** 公开符号的签名一个都没变；`Tag` 一字未动。

@@ -97,6 +97,10 @@ struct QuotedEvidenceGuard {
         // ---- docs/components/orbiting-logos.md ----
         ("docs/components/orbiting-logos.md", "Sources/OhMyDesignEffects/OrbitRing.swift", "static let ringCount: Int = 4"),
         ("docs/components/orbiting-logos.md", "Sources/OhMyDesignEffects/OrbitRing.swift", "seats(particleScale:"),
+        // ---- docs/components/checkbox.md ----
+        ("docs/components/checkbox.md", "Sources/OhMyDesign/Components/CheckBox/CheckBox.swift", "if isMixed { return .mixed }"),
+        ("docs/components/checkbox.md", "Sources/OhMyDesign/Components/CheckBox/CheckBox.swift", "case .mixed: \"minus.square.fill\""),
+        ("docs/components/checkbox.md", "Sources/OhMyDesign/Components/CheckBox/CheckBox.swift", ".contentTransition(self.motionPresentation.symbolReplacement)"),
         // ---- docs/superpowers/ ----
         ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Button/styles/SolidButtonStyle.swift", "? self.role.resolvedOnColor("),
         ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Button/styles/CoreBorderlessButtonStyle.swift", "onTapGesture(count: 1, perform: configuration.trigger)"),
