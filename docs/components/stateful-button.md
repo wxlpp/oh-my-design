@@ -187,7 +187,8 @@ in-flight 采样（macOS 腿，`HostedWindow` + `cacheDisplay` 逐帧取「两�
 
 - `idle → loading`（宽度 / 布局过渡）：animated 臂 > 0（经 `observeControlMotion` 重试），
   resting 臂 == 0。摘掉动效入口、退回 `.coreAnimation`、把无障碍 modifier 改回条件分支、
-  把 `==` 改成恒真，都会让它判红。
+  把 `==` 改成恒真，都会让它判红。它证的是「这次布局过渡有中间帧」，不单独区分宽度补间
+  与配件符号的淡入——两者都会产生两端之外的像素。
 - `loading → success`（符号替换）：resting 臂 == 0，animated 臂 > 0。
   ⚠️ 这条的 animated 臂读数偏低不代表「动得少」：符号替换特效画在 `cacheDisplay` 拍不到的层里，
   摘掉 `.contentTransition` 后读数反而上升（做过判别实验）。
@@ -205,6 +206,8 @@ iOS 腿上 `layer.render(in:)` 取的是模型层、拍不到进行中的帧，�
 - 播报：每次进入 `loading` / `success` / `failure` 都经 `AccessibilityNotification.Announcement`
   主动播一次同一份文案（回 `idle` 与首帧不播）。不依赖「VoiceOver 会不会自动读焦点元素的
   value 变化」——那条没有证据，且焦点不在按钮上时一定读不到。托管模式下调用方写态同样触发。
+  ⚠️ `Announcement` 是全局播报、不看焦点：托管模式下批量改多行的态会连播多次，
+  这种场景不要用本组件。
 - 配件符号 `accessibilityHidden(true)`——它是状态的视觉表示，语义已由 value 承担，
   再读一遍是重复。
 - ⚠️ **已知缺口一**：`loading` 期间按钮**没有**被标成 disabled。这是与 `AsyncButton` 一致的
@@ -221,8 +224,8 @@ iOS 腿上 `layer.render(in:)` 取的是模型层、拍不到进行中的帧，�
   ② 三个键都已注册进 `Localizable.strings`（缺键时读到的是原始 key）；
   ③ 源码级接线判据（态文本接在 `Button` 整体上、由 `StatefulButtonState` 派生、
   配件符号 `accessibilityHidden(true)`）；
-  ④ 播报判据：注入记录型 poster，驱动托管态走一串切换，核播报序列与文案逐项相等
-  （这一条是行为级的，不是源码 grep）。
+  ④ 播报判据：注入记录型 poster，驱动托管态走一串切换，核播报序列与文案逐项相等；
+  另以三个非静息态各作首帧出现，核一次都不播（这两条是行为级的，不是源码 grep）。
   真正的实读验证（含「`idle` 的空 value 对 VoiceOver 是否等同于无 value」）需要 XCUITest
   或人工开 VoiceOver，本 issue 未做。
 

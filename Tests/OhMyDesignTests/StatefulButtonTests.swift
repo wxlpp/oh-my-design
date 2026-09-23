@@ -274,6 +274,24 @@ struct StatefulButtonTests {
         #expect(recorder.posts == expected, "播报序列实得 \(recorder.posts)，期望 \(expected)")
     }
 
+    @Test("以非静息态首帧出现时不播报")
+    func nonIdleFirstFrameIsNotAnnounced() {
+        for initial in [StatefulButtonState.loading, .success, .failure] {
+            let recorder = StatefulAnnouncementRecorder()
+            let poster = FieldAnnouncementPoster { recorder.posts.append($0) }
+            let window = HostedWindow(
+                StatefulHarness(box: StatefulStateBox(initial))
+                    .environment(\.statefulButtonAnnouncementPoster, poster)
+                    .environment(\.locale, Locale(identifier: "en_US")),
+                size: CGSize(width: 240, height: 64),
+                scheme: .light
+            )
+            defer { window.close() }
+            window.settle()
+            #expect(recorder.posts.isEmpty, "以 \(initial) 首帧出现就播报了：\(recorder.posts)")
+        }
+    }
+
     // MARK: 渲染 / Rendering
 
     @Test("四态渲染出四张互异位图 —— 不靠颜色，靠配件符号槽的有无与字形")
