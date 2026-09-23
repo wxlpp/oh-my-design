@@ -1,47 +1,69 @@
 # Timeline 组合式 API（#420）设计 spec
 
-- 日期：2026-09-24
+- 日期：2026-09-24（第 2 版：按 spec 评审 REVISE 补实验、逐条处置）
 - Issue：`wxlpp/oh-my-design#420`（PRD `.claude/prds/timeline-tree-action-buttons.md` FR-1，破坏性变更）
 - 基线：`origin/epic/structure-components` = `f0f03c2`
 - 本文只是设计，**不含实现代码**。「实测」均指 §0 列出的 scratch 探针（不进仓库），其余标「源码读」或「推断」。
 - 实现拆成 4 个可独立合并的 PR（§10）；逐 PR 的 plan 另写。
+- **§12 是拍板清单**。正文按各拍板项的**推荐项**写成；推荐项被否时受影响的章节在各条目里点名。
 
 ## 0. 证据来源与标注口径
 
 | 标签 | 含义 |
 |---|---|
 | **源码读** | 在 `f0f03c2` 上直接读到的源码 / 文档原文 |
-| **实测** | 本次 scratch 探针，macOS 26.3.1 / Swift 6.3 / `swiftc -swift-version 6` 直接编译运行（**未开** `defaultIsolation(MainActor)`）；**只跑了 macOS**，iOS 腿未测 |
+| **实测** | 本次 scratch 探针。macOS 腿：macOS 26.3.1 / Swift 6.3 / `swiftc -swift-version 6` 直接编译运行（P1–P5 **未开** `-default-isolation MainActor`；P6–P8 **开了**）。iOS 腿：iOS 26.4 模拟器 + `axe describe-ui`（P9、P10） |
 | **推断** | 未经实测；进实现期前要么补探针，要么在判据里兜住 |
 
-探针（`scratchpad/420/p1.swift` `p1b.swift` `p1c.swift` `p1d.swift` `p2.swift` `p3.swift` `p4.swift` `p5.swift`）读数：
+探针（`scratchpad/420/` 下 `p1.swift` … `p8b.swift` 与 iOS 工程 `axapp/`）读数：
 
 | # | 问题 | 读数 |
 |---|---|---|
 | P1 | `Group(subviews:)` 对「body 是多个视图的自定义 View」怎么解析 | **展平**：5 个 `Item`（body 各 2 个视图，含 `ForEach` 与 `if` 生成的）解析出 10 个 subview，顺序与声明一致 |
 | P1 | 自定义 `Layout` 能否在一次布局里取到「所有节点里最宽的那个」 | 能：`ImageRenderer` 单次渲染里 `placeSubviews` 算出 `col=40.0`（一个 40pt 宽节点 + 其余 24pt） |
-| P1b / P1d | 对 `Subview` 代理施 `.environment(\.自定义键, 值)`，其 body 里 `@Environment` 读到什么 | **读不到**：`ImageRenderer` 与 `NSHostingView` 两种宿主下 body 都读到默认值（`rowIndex=-1`）；对照组直接对视图施同一环境值，读到了（宽度 1 vs 50） |
-| P1c | 把节点视图以 `AnyView` 存进 `ContainerValues`、由容器取出后再施 `.environment` | 行得通：4 个节点各自读到容器注入的 `row0`…`row3`；顺序 `a, d1, d2, z`（含 `ForEach`） |
-| P1c | 对 `Subview` 施 `.font(.system(size: 60))` 是否生效 | 生效（渲染高 16 → 71）——⇒ P1b 的「读不到」只针对自定义 View 的 body 读 `@Environment`，不是「一切环境修饰都失效」 |
-| P5 | 在 `Group(subviews:)` **之前**对整个 content 施环境值 | 每行都读到（`uniform=pre-resolution`）——统一的值能下发，逐行不同的值不能 |
-| P2 | 自定义 `Layout` 在 RTL 下是否自动镜像 | 是：同一次 `place(at: minX)`，LTR 落在第 0…9 列，RTL 落在第 90…99 列（宽 100） |
-| P3 | `TimelineItem` 四个 init 的重载集是否有歧义；泛型 `@ViewBuilder` 闭包默认值 `= { EmptyView() }`（SE-0347）能否编译 | 四个 init 无歧义，8 种调用形态各落预期 init；**加第五个**「标题 + 节点、无富内容」init 后 `TimelineItem("Deployed") { Text("rich") }` 报 `ambiguous use of 'init'`；默认闭包可编译 |
-| P4 | `onScrollVisibilityChange(threshold:)`：无 `ScrollView` 宿主 / 在 `ScrollView` 内 / 嵌套滚动 | 无宿主：挂载即回调 `true` 一次；在 `ScrollView` 内：首帧只对可见行回调 `true`、其余 `false`，之后**滚入滚出双向回调**；嵌套（纵向页面里的横向 `ScrollView`）：内层项在**外层**把它滚进视口前一直是 `false`，外层滚入后变 `true` |
-| P4 | `.scrollTransition` 的当前相位能否用闭包内日志观测 | **不能**：闭包对三个相位都会被求值，日志里三相都出现，不代表当前相位——本 spec 对它的判断改取官方文档（§6.3），不引这组日志作证据 |
-| P5 | 对 `Subview` 施 `.accessibilityValue` 是否进入无障碍树 | **未测成**：探针里 macOS 无障碍树没有 AX 客户端就不建，`accessibilityChildren()` 为空 ⇒ 这一条是**推断**（§7、R1） |
+| P1b / P1d | 对**解析后**的 `Subview` 代理施 `.environment(\.自定义键, 值)`，其 body 里 `@Environment` 读到什么 | **读不到**：`ImageRenderer` 与 `NSHostingView` 两种宿主下 body 都读到默认值；对照组直接对视图施同一环境值，读到了 |
+| P1c | 把节点视图以 `AnyView` 存进 `ContainerValues`、由容器取出后再施 `.environment` | 行得通：4 个节点各自读到容器注入的 `row0`…`row3` |
+| P1c | 对 `Subview` 施 `.font(.system(size: 60))` 是否生效 | 生效（渲染高 16 → 71）⇒ P1b 只针对自定义 View 的 body 读 `@Environment` |
+| P5 | 在 `Group(subviews:)` **解析之前**对整个 content 施环境值 | 每行 body 都读到。⚠️ 分界是**解析前 / 解析后**，不是「统一 / 逐行」：解析前施的值当然对所有行相同，但**行自己可以拿它和自己的参数算出逐行不同的结果**（P6） |
+| P2 | 自定义 `Layout` 在 RTL 下是否自动镜像 | 是（宽 100：LTR 落第 0…9 列，RTL 落第 90…99 列） |
+| P3 | 四个 init 的重载集是否有歧义；泛型 `@ViewBuilder` 闭包默认值能否编译 | 四个 init 无歧义；加第五个「标题 + 节点、无富内容」init 后 `TimelineItem("Deployed") { Text("rich") }` 报 `ambiguous use of 'init'`；默认闭包可编译 |
+| P4 | `onScrollVisibilityChange(threshold:)`：无 `ScrollView` / 在 `ScrollView` 内 / 嵌套 | 无宿主：挂载即回调 `true` 一次；在 `ScrollView` 内：首帧只对可见行回调 `true`，之后**滚入滚出双向回调**；嵌套：内层项在外层滚入前一直是 `false` |
+| P4 | `.scrollTransition` 的当前相位能否用闭包内日志观测 | 不能（三相都会被求值）——对它的判断改取官方文档（§6.3） |
+| **P6** | **I-1 模型**：容器在解析前下发 `activeStep`，行用自己的 `step` 在自身 body 算阶段、自己产出「节点 + 内容」两个子视图并以 `ContainerValues` 标角色 | ① 4 行（含 `ForEach` 生成的 2 行、`if` 生成的 1 行、中间夹一个 `Text`）各自读到 `activeStep=1`，算出 `completed / inProgress / upcoming / upcoming`；节点里的探针读到行下发的阶段，内容里读到 `nil`（行只给节点施了阶段）。② 解析出 9 个 subview，角色序列 `node#0,content#0,node#1,content#1,node#2,content#2,none#-,node#3,content#3`；同一个容器 `Layout` **单遍**取到 `col=40.0`（40×56 节点），内容一律从 x=52 起，非行 `Text` 按内容列摆放。③ 开了 `-default-isolation MainActor` 后 `LayoutValueKey` 必须标 `nonisolated`（否则报 `main actor-isolated conformance of 'PartKey' to 'LayoutValueKey' cannot be used in nonisolated context`） |
+| **P6** | 调用方施在**行**上的修饰，在两种模型下是否同时作用于节点与内容（macOS `ImageRenderer` 取像素 / 环境读数；`.transition` 用托管窗口在飞采样 P6b） | 见下表 |
+| **P6** | 行被调用方包进 `VStack` | I-1 模型：解析成 1 个无角色子视图，**节点与内容都还在**（竖着叠在内容列里，节点仍读到阶段）——降级但可见。原方案：解析成 1 个非行子视图，**节点静默消失** |
+| **P6** | 行离开 `Timeline` 单独使用 | I-1 模型：节点与内容都渲染（`activeStep=nil` ⇒ 阶段 `nil`）；原方案：只剩内容 |
+| **P7** | n = 300 / 1000 的首次布局与「一行内容变宽」触发的重排耗时（macOS 托管窗口，`-O`，粗测，两轮取后一轮） | 见 §3.8 |
+| **P8** | 入场动效：`onScrollVisibilityChange` + `keyframeAnimator(initialValue: 1)` 首帧是否先画终态（`cacheDisplay` 每 8ms 采一帧，节点 20pt，量黑色像素宽度） | **同步置 trigger**：挂载（无滚动宿主）与滚入两种情形首帧都已是 16pt（≈ 0.86 档），3/3 次无终态闪帧；但 **`ImageRenderer` 静态渲染读到 17pt**（节点被画成缩小态）。**改为下一轮 runloop 再置 trigger**（P8b）：`ImageRenderer` 恢复 20pt，但托管窗口首帧是 20pt、第二帧起 16pt ⇒ **闪一帧**，3/3 次复现。详见 §6.3 |
+| **P9** | iOS 基线：`f0f03c2` 上的 Timeline 画廊（`PREVIEW_COMPONENT_ID=timeline`）无障碍树 | 见 §7.1 |
+| **P10** | iOS 原型：U8 各候选的无障碍树（整树 + `--point` 命中测试） | 见 §7.2 |
+
+P6 修饰对照（行 = `TimelineItem`；节点红 10×10 于 24×24 盒、内容蓝 100×20，白底）：
+
+| 施在行上的修饰 | I-1 模型（行自己画节点） | 原方案（容器画节点） |
+|---|---|---|
+| `.opacity(0.5)` | 节点中心 `(255,156,158)`、内容中心 `(128,195,255)` ⇒ **两者都半透** | 节点 `(255,56,60)` **不变**、内容半透 |
+| `.padding(10)` | 节点盒 24→**44**、列宽 24→**44**、内容高 20→40 ⇒ **各自加内边距**（节点列被撑宽） | 节点 24 不变、内容高 40 |
+| `.background(Color.green)` | 节点盒角点 `(52,199,89)`（绿）⇒ **两者各自铺背景** | 节点角点白 ⇒ 只有内容铺 |
+| `.redacted(reason: .placeholder)` | 节点、内容都读到 `redacted=true` | 节点 `false`、内容 `true` |
+| `.transition(.offset(x: 150))`（插入，`linear(1.2)`） | 节点、内容都随偏移滑入（节点中心在 t=1.2s 才变红） | 内容滑入；**节点走默认淡入**（t=0.1s 起逐帧变红）——调用方的转场碰不到节点 |
+| `.accessibilityHidden(true)`（iOS，P10 `--point`） | 行的全部元素命中测试均落空 ⇒ 整行隐藏 | 内容隐藏；**节点元素仍可命中**（`label='Success' value='In Progress'`）⇒ 隐藏不完整 |
+| `containerValues` 是否在外层修饰后仍存活 | 以上 6 种修饰下解析出的角色序列恒为 `node#0,content#0` | 恒为 `row` |
+
+⚠️ `axe describe-ui` 的**整树**输出**包含** `.accessibilityHidden(true)` 的元素（对照组：普通 `VStack` 里被隐藏的 `Text("Bravo")` 照样列出）；判「隐藏没隐藏」必须用 `--point` 命中测试（同一元素命中落到父级 `Group`）。§7 的隐藏读数全部取自 `--point`。
 
 ## 1. 组合式公开 API（FR-1 主体）
 
-### 1.1 定案一览
+### 1.1 定案一览（按 U1 推荐项「每行 `step` + 容器 `activeStep`」）
 
 | 公开类型 / 成员 | 形态 | 替代什么 |
 |---|---|---|
 | `Timeline<Content: View>` | 容器：`@ViewBuilder content` + `layout:` + 可选 `progress:` | `Timeline(items:layout:)` |
-| `TimelineItem<Node: View, Content: View>` | 行，**是一个 `View`**；`node:` 外观槽 + `content:` 内容槽 + 行内结构件参数（标题 / 时间 / 描述） | 两个 `TimelineItem` init（旧 `TimelineItem` 是数据载体 struct） |
+| `TimelineItem<Node: View, Content: View>` | 行，**是一个 `View`**，**自己画节点**；`node:` 外观槽 + `content:` 内容槽 + 结构件参数（标题 / 时间 / 描述）+ 可选 `step:` | 两个 `TimelineItem` init（旧 `TimelineItem` 是数据载体 struct） |
 | `TimelineLayout` | **不变**（四个 case），加 `nonisolated` | —— |
 | `TimelineProgress`（新） | `public nonisolated enum`：`.notStarted` / `.inProgress(at:)` / `.completed` | —— |
 | `TimelinePhase`（新） | `public nonisolated enum`：`.completed` / `.inProgress` / `.upcoming` | —— |
-| `EnvironmentValues.timelinePhase`（新） | `public` 只读（`internal(set)`），只在 `node:` 槽内有值 | —— |
+| `EnvironmentValues.timelinePhase`（新） | `public` 只读（`internal(set)`），在本行 `node:` 与 `content:` 两个槽内都有值 | —— |
 
 ### 1.2 签名草案
 
@@ -49,7 +71,7 @@
 public struct Timeline<Content: View>: View {
     /// 纯活动流：不带阶段，连线一律 `dividerDefault`（与旧实现同）。
     public init(layout: TimelineLayout = .vertical, @ViewBuilder content: () -> Content)
-    /// 带阶段：各行阶段由 `progress` 与行序推导（§4）。
+    /// 带阶段：各行阶段由 `progress` 与**该行自己的 `step`** 决定（§4）。
     public init(layout: TimelineLayout = .vertical, progress: TimelineProgress, @ViewBuilder content: () -> Content)
     public var body: some View
 }
@@ -59,13 +81,15 @@ public nonisolated enum TimelineLayout: Sendable, Equatable {
 }
 
 public nonisolated enum TimelineProgress: Sendable, Equatable {
+    /// 全部行处于 `.upcoming`。
     case notStarted
-    /// `index` 为 0 起的行序（只数 `TimelineItem`，§1.5）。
+    /// `step` 小于参数的行已完成、等于的行进行中、大于的行未开始。
     case inProgress(at: Int)
+    /// 全部带 `step` 的行已完成。
     case completed
 
-    /// 第 `index` 行的阶段（纯函数，§4 真值表）。
-    public func phase(at index: Int) -> TimelinePhase
+    /// 给定 `step` 的阶段（纯函数，§4 真值表）。
+    public func phase(forStep step: Int) -> TimelinePhase
 }
 
 public nonisolated enum TimelinePhase: Sendable, Equatable, CaseIterable {
@@ -74,14 +98,15 @@ public nonisolated enum TimelinePhase: Sendable, Equatable, CaseIterable {
 
 public struct TimelineItem<Node: View, Content: View>: View {
     // ① 富内容 + 默认圆点
-    public init(status: StatusLevel = .info, @ViewBuilder content: () -> Content) where Node == EmptyView
+    public init(step: Int? = nil, status: StatusLevel = .info, @ViewBuilder content: () -> Content) where Node == EmptyView
     // ② 富内容 + 自定义节点
-    public init(status: StatusLevel = .info, @ViewBuilder node: () -> Node, @ViewBuilder content: () -> Content)
+    public init(step: Int? = nil, status: StatusLevel = .info, @ViewBuilder node: () -> Node, @ViewBuilder content: () -> Content)
     // ③ 结构件（标题 / 时间 / 描述）+ 可选富内容 + 默认圆点
     public init(
         _ title: LocalizedStringKey,
         time: Text? = nil,
         description: LocalizedStringKey? = nil,
+        step: Int? = nil,
         status: StatusLevel = .info,
         @ViewBuilder content: () -> Content = { EmptyView() }
     ) where Node == EmptyView
@@ -90,6 +115,7 @@ public struct TimelineItem<Node: View, Content: View>: View {
         _ title: LocalizedStringKey,
         time: Text? = nil,
         description: LocalizedStringKey? = nil,
+        step: Int? = nil,
         status: StatusLevel = .info,
         @ViewBuilder node: () -> Node,
         @ViewBuilder content: () -> Content
@@ -98,95 +124,115 @@ public struct TimelineItem<Node: View, Content: View>: View {
 }
 
 public extension EnvironmentValues {
-    /// 本行阶段。只在 `TimelineItem` 的 `node:` 槽里有值；纯活动流、`content:` 内、`Timeline` 之外均为 `nil`。
+    /// 本行阶段。在 `Timeline(progress:)` 内、带 `step` 的 `TimelineItem` 的 `node:` / `content:` 里有值；其余为 `nil`。
     var timelinePhase: TimelinePhase? { get }
 }
 ```
 
 要点：
 
-- **保留名字 `TimelineItem` 与 `node:` 标签**（用户拍板点 U2）。理由：① 公约 `docs/component-contract.md` 把
-  `TimelineItem` 的 `node:` 当 D1 外观槽的**范例**（逐字 `@ViewBuilder node: () -> Node,`），
-  `TimelineItem` 的 `content:` 当内容槽范例——新 API 里两句话仍然为真，引文仍逐字存在于源码，
-  `QuotedEvidenceGuard` 那 4 条（`node:` ×2、`nodeContent` ×2）不必动；② 迁移是机械的：
-  `Timeline(items: [ A, B ], layout: x)` → `Timeline(layout: x) { A; B }`，行本身的写法不变。
-  旧代码里把 `TimelineItem` 放进 `[TimelineItem]` 的写法会**编译失败**（新类型是泛型 `View`，
-  `[TimelineItem]` 缺泛型参数），不会静默换义。
-- **去掉 `id:` 参数**：行身份改由 SwiftUI 结构身份 / 调用方 `ForEach` 的 id 决定（`Group(subviews:)`
-  给的 `subview.id`）。旧文档那段「传稳定 `id` 避免误触发动画」随之改写为「用带 id 的 `ForEach`」。
-- **`time: Text?`** 而非 `LocalizedStringKey`：时间是格式化数据，调用方写 `Text(date, style: .relative)` /
-  `Text(date, format: …)`；`Text` 在 `ComponentTextParamGuard` 里属携带文本类型，不需登记 `textParams`。
-  `title` / `description` 走 `LocalizedStringKey`（按类型放行）。结构件的排版：
-  `VStack(alignment: .leading, spacing: CoreSpacing.xxs)`，顺序**标题 → 时间 → 描述 → 富内容**
-  （沿用本仓现有画廊「标题在上、时间在下」的写法；U7），标题 `.coreFont(.callout)` + `contentPrimary`
-  + `.accessibilityAddTraits(.isHeader)`，时间与描述 `.coreFont(.footnote)` + `contentSecondary`。
-- 新 API **无 Bool 入参**；所有公开类型、init、`body` 显式 `public`；两个新枚举与 `TimelineLayout`
-  标 `nonisolated`（后者是放宽隔离，源码兼容），供 §3.7 的 `nonisolated static func` 纯函数与测试直接调用。
-  不新增公开 `static` 存储成员 ⇒ MainActor 棘轮预期无新增豁免（`TimelineProgress` 的 case 在
-  `nonisolated` 类型上）。
-- `timelinePhase` 用手写 `EnvironmentKey` + `public internal(set)`，**不用** `@Entry public var`
-  （后者连 setter 一起公开）。`@Environment(\.timelinePhase)` 只需 `KeyPath`，只读即可用。
+- **保留名字 `TimelineItem` 与 `node:` 标签**（U2 已按证据定案，不再列入拍板：公约 `docs/component-contract.md` 把
+  `TimelineItem` 的 `node:` 当 D1 外观槽范例、逐字 `@ViewBuilder node: () -> Node,`；新 API 下这句仍为真，
+  `QuotedEvidenceGuard` 那 4 条引文不必动；改名只多出改写公约范例与 4 条引文的成本，没有语义收益）。
+  迁移是机械的：`Timeline(items: [ A, B ], layout: x)` → `Timeline(layout: x) { A; B }`。旧代码里的 `[TimelineItem]`
+  会**编译失败**（新类型是泛型 `View`），不会静默换义。
+- **`step: Int? = nil`**：纯活动流不写；带阶段的时间线每行写一个。它是**增补在既有位置之后的默认参数**，不新增重载 ⇒
+  P3 的重载集读数不变（**推断**，PR 2 第一个 commit 先编译验证，与 R10 同一步）。`ForEach` 里写
+  `ForEach(Array(items.enumerated()), id: \.element.id) { i, item in TimelineItem(item.title, step: i) }`。
+- **去掉 `id:` 参数**：行身份由 SwiftUI 结构身份 / 调用方 `ForEach` 的 id 决定。
+- **`time: Text?`** 而非 `LocalizedStringKey`：时间是格式化数据，调用方写 `Text(date, style: .relative)`。
+  ⚠️ 在 `ComponentTextParamGuard` 里 `Text?` 判 **`.notText`**，不是「携带文本」——分类器只认
+  `Tests/OhMyDesignTests/ComponentJudgeScanner.swift` 逐字 `(String|Substring|LocalizedStringKey|LocalizedStringResource)`
+  这四个标识符，`Text` 不在其中 ⇒ 该参数**不进任何桶**，也就无需登记 `textParams`（与第 1 版写的理由不同，结论相同）。
+- `title` / `description` 走 `LocalizedStringKey`（公约 §4 B 类「新增用 `LocalizedStringKey`」）⇒ 进 `localizedByType` 桶，
+  计数 21 → **23**（§8.2）。数据驱动标题的形态是拍板项 U13。
+- 结构件排版：`VStack(alignment: .leading, spacing: CoreSpacing.xxs)`，顺序**标题 → 时间 → 描述 → 富内容**（U7 已按证据定案：
+  沿用现有画廊写法；三个独立子组件视图要多 3 条 registry 与 3 个 README 映射，只承担字体与颜色两个取值），标题 `.coreFont(.callout)` +
+  `contentPrimary` + `.accessibilityAddTraits(.isHeader)`，时间与描述 `.coreFont(.footnote)` + `contentSecondary`。
+- 新 API **无 Bool 入参**；所有公开类型、init、`body` 显式 `public`；两个新枚举与 `TimelineLayout` 标 `nonisolated`。
+  不新增公开 `static` 存储成员 ⇒ MainActor 棘轮预期无新增豁免。内部的 `LayoutValueKey` / `ContainerValues` 键类型须标
+  `nonisolated`（P6 ③）。
+- `timelinePhase` 用手写 `EnvironmentKey` + `public internal(set)`，**不用** `@Entry public var`（后者连 setter 一起公开）。
 
-### 1.3 为什么这样分解：一条实测约束决定了渲染管线
+### 1.3 为什么这样分解：两种渲染管线的实测对照
 
-reui 的做法是 Context 下发 `activeStep`、每项读它自判 `data-completed`（`reference-implementations.md` 第 1 节）。
-SwiftUI 的对应物是「容器用 `Group(subviews:)` 遍历子视图、逐行注入环境值」——**P1b / P1d 实测这条路不通**：
-对 `Subview` 代理施的自定义环境值进不了它的 body。能下发的只有**对所有行统一**的值（P5）。
+**reui 的真实模型**：`.claude/epics/structure-components/reference-implementations.md` 里 `TimelineItem` 的 `step` 是必填项
+（该文件 API 表的 `TimelineItem` 行逐字「**必填**，该 item 的步骤号」），阶段由每项自判
+（逐字 `"data-completed": step <= activeStep || undefined,`）——**容器下发 `activeStep`、每项自带 `step`**，不是行序推导。
+第 1 版把它读成「容器逐行注入」，据 P1b 否决，这是误读：reui 的 Context 下发的是**对所有项统一**的 `activeStep`，
+在 SwiftUI 里对应「解析前施环境值」，P5 / P6 实测可行。
 
-而阶段是**逐行不同**的（取决于行序）。⇒ 定案：
+两条管线（都用同一个容器级 `Layout` 单遍排版，§3）：
 
-1. `TimelineItem` 的 body **只产出一个视图**——它的内容部分（结构件 + 富内容，包在一个 `VStack` 里），
-   并用 `ContainerValues` 把本行的规格交给容器：`status`、`node`（`AnyView?`，`nil` = 默认圆点）。
-2. `Timeline` 用 `Group(subviews: content)` 读出行序列，**节点视图与连线由容器自己构造**
-   （容器构造的是普通视图值，不是 `Subview` 代理，施 `.environment(\.timelinePhase, …)` 能进去，P1c 实测）。
-3. 容器把「节点 ×n、内容 ×n、连线 ×(n−1)」作为**同一个自定义 `Layout`** 的子视图摆放，
-   用 `LayoutValueKey` 标部件角色与行号——列宽、行高、连线端点在**一次**布局里算完（§3）。
+| | **原方案**：容器画节点 | **I-1 方案**（推荐）：行自己画节点 |
+|---|---|---|
+| 行的 body | 只产出内容；节点以 `AnyView?` 存进 `ContainerValues` | 产出**节点 + 内容**两个子视图，各以 `ContainerValues` 标角色（`.node` / `.content`）；节点包在单一容器里（防止调用方多视图节点被展平成多个子视图） |
+| 阶段来源 | 容器按行序算，注入到自己构造的节点视图 | 容器**解析前**下发 `progress`，行用自己的 `step` 算（P6 ①） |
+| 容器 → 行 | 只能到容器构造的节点 | 解析前统一值（`progress`、`layout`） |
+| 行 → 容器 | `containerValues`（status、node） | `containerValues`（角色、`step`、阶段、status）——容器据此配对与算连线着色 |
+| 调用方施在行上的修饰 | **碰不到节点**：`.opacity` / `.background` / `.redacted` / `.transition` / `.accessibilityHidden` 只作用于内容（P6、P10） | **同时作用于节点与内容**（P6、P10）；⚠️ 但**逐子视图各施一次**：`.padding(10)` 让节点盒 24→44、列宽随之变 44（P6） |
+| 行被包进 `VStack` 等容器 | 当非行子视图，**节点静默消失**（P6） | 当非行子视图，节点与内容竖叠在内容列、阶段仍在（P6）——降级但可见 |
+| 行离开 `Timeline` 单用 | 只剩内容 | 节点 + 内容照常渲染，阶段 `nil`（P6） |
+| `timelinePhase` 在 `content:` 里 | 恒 `nil` | 有值（行给两个槽都施） |
+| 行序与阶段的关系 | 行序推导（非行子视图不占序号要额外规则） | 与行序无关，由 `step` 决定；非行子视图天然不参与 |
 
-副作用（写进文档）：`TimelineItem` 离开 `Timeline` 单独使用时**只渲染内容**，没有节点与连线；
-`content:` 里读 `@Environment(\.timelinePhase)` 恒为 `nil`——要按阶段给内容换样式，调用方用
-`progress.phase(at: index)` 自己算（`ForEach` 的下标它手里有）。
+⇒ **第 1 版 §1.3 的定案（容器画节点）撤回**，改取 I-1 方案。原方案下的两条缺陷（I-2）：
 
-### 1.4 渲染管线（内部）
+1. 行上修饰碰不到节点（上表第 5 行）——对 `.transition`、`.redacted`、`.accessibilityHidden` 尤其致命：插入动画节点与内容不同步、
+   骨架屏节点不打码、隐藏一行却留下一个可聚焦的状态元素；
+2. 行被包进 `VStack` / 自定义容器 / 调用方写的 `Group { … }.padding()` 以外的包装后，`containerValues` 对外层容器不可见，
+   **节点静默消失**，无任何报错。
+
+I-1 方案下第 2 条变成「降级可见」；第 1 条消失，但换来一条新代价：**逐子视图语义**（`.padding` 与 `.background` 各施一次、
+`.onTapGesture` 也各挂一次）。文档写明「行上的**布局类**修饰（`.padding` / `.frame`）请施在 `content:` 里」；
+这条不是 bug，是 `Group` 语义在行上的直接投射（SwiftUI 自家 `Group { A; B }.padding()` 同样逐个施）。U1 的拍板把它一并列入。
+
+### 1.4 渲染管线（内部，I-1 方案）
 
 ```
 Timeline.body
-└─ Group(subviews: content.environment(\.timelineLayoutContext, layout))   // 统一值，可下发（P5）
-   └─ subviews → rows: [(subview, spec: TimelineItemSpec?)]              // spec 取自 containerValues
-      ├─ layout == .grouped → VStack(spacing: md) { 每个 subview + 无障碍包装 }（§7）
+└─ Group(subviews: content
+       .environment(\.timelineProgress, progress)        // 解析前，行 body 能读到（P5 / P6）
+       .environment(\.timelineLayoutContext, layout))
+   └─ subviews → parts: [(subview, role: .node / .content / nil, step, phase, status)]   // 取自 containerValues
+      ├─ layout == .grouped → VStack(spacing: md) { 只放 .content 与无角色子视图 }（§3.6）
       └─ 其余 → TimelineStackLayout(layout, metrics) {
-             ForEach(rows) { row in
-               TimelineNodeView(spec, phase)   .layoutValue(TimelinePartKey, .node(i))
-               row.subview                     .layoutValue(TimelinePartKey, .content(i))
-               TimelineConnector(segment: i)   .layoutValue(TimelinePartKey, .connector(i))  // 非末行
-             }
+             ForEach(parts) { part in part.subview.layoutValue(TimelinePartKey, part.role) }
+             ForEach(segments) { seg in TimelineConnector(seg).layoutValue(TimelinePartKey, .connector(seg.id)) }
            }
            // .horizontal 外面仍包 ScrollView(.horizontal, showsIndicators: false)
 ```
 
-`TimelineNodeView` 保留现名，默认画法仍在它的 `private var nodeContent: some View` 里（被引文登记）；
-新增的逐阶段画法（§4.2）也在这里。文件布局：公开类型与 `TimelineNodeView` 留在
-`Sources/OhMyDesign/Components/Timeline/Timeline.swift`（被引文件路径不变），几何与纯函数拆到同目录新文件
-`TimelineStackLayout.swift`。
+- 配对规则：`TimelineStackLayout` 按解析序把「`.node` 紧跟 `.content`」认作一行；孤立的 `.node` / `.content`（调用方把行拆开了）
+  按无角色子视图处理。行的 body 用 `ViewBuilder` 固定产出「节点 → 内容」两个视图，调用方正常使用下恒成对。
+- 连线段由容器构造（普通视图值），端点与着色读相邻两行的 `containerValues`（§3、§4）。
+- `TimelineNodeView` 保留现名，默认画法仍在 `private var nodeContent: some View`（被引文登记），由 `TimelineItem` 的 body 构造。
+  文件布局：公开类型与 `TimelineNodeView` 留在 `Sources/OhMyDesign/Components/Timeline/Timeline.swift`；几何与纯函数拆到同目录新文件
+  `TimelineStackLayout.swift`。
 
-### 1.5 非 `TimelineItem` 的直接子视图（U6）
+### 1.5 非 `TimelineItem` 的直接子视图（U6 已按证据定案）
 
-调用方可能在 `Timeline { … }` 里直接放一个 `Text`（比如活动流里的日期分组标题）。建议处置：
+调用方可能在 `Timeline { … }` 里直接放 `Text`（日期分组标题）、页脚「加载更多」按钮等。**header / footer 一律由非行子视图承担**，
+不设专用参数（S-10）。处置：
 
-- 它**不占行序**（`progress` 的下标只数 `TimelineItem`），没有节点；
-- 按内容部件摆放（`.vertical` 在内容列、`.alternate` 跨满整行居中、`.horizontal` 自成一列、`.grouped` 照常）；
-- 连线**贯穿**：前一个节点到后一个节点之间的连线跨过它。
-
-识别方式：`containerValues` 里没有 `TimelineItemSpec` 即非行。备选是「一律当成无节点的行并计入行序」，
-它会让 `progress` 下标与调用方直觉错位，故不取。
+- 没有节点，不参与阶段（I-1 方案下阶段只看 `step`，「不占行序」无需额外规则）；
+- 摆放：`.vertical` 在内容列；`.alternate` 跨满整行、居中；`.horizontal` 自成一列（内容顶与各列对齐）；`.grouped` 照常；
+- 连线（S-1）：
+  - `.vertical`：连线在节点列、非行子视图在内容列，二者不相交 ⇒ 段照常从前一节点盒下沿画到后一节点盒上沿，**贯穿**；
+  - `.alternate`：非行子视图跨满整行、会压在中轴上 ⇒ 段在它的**上沿截断、下沿续接**（拆成两截，着色与动效仍按同一段算），
+    不从文字底下穿过；
+  - `.horizontal`：非行子视图那一列没有节点，横轴上的连线**贯穿**该列（横轴在内容顶之上，二者不相交）；
+- 识别方式：`containerValues` 里没有角色即非行。备选「一律当无节点的行」已无意义（I-1 方案下没有行序可错位），不取。
 
 ### 1.6 三种参考形态的调用样貌（PRD 成功标准）
 
 ```swift
-// 活动流：头像大于旧 24pt 槽（非正方形同理），不传 progress
+// 活动流：头像大于旧 24pt 槽，不传 progress、不写 step
 Timeline {
+    Text("Today").coreFont(.footnote)            // 非行子视图当分组标题（§1.5）
     ForEach(events) { e in
-        TimelineItem("\(e.actor) \(e.verb)", time: Text(e.date, style: .relative)) {
-            Avatar(e.actor, size: .large)          // 40pt
+        TimelineItem(e.summary, time: Text(e.date, style: .relative)) {
+            Avatar(e.actor, size: .large)        // 40pt
         } content: {}
     }
 }
@@ -204,42 +250,35 @@ Timeline {
 
 // 路线图：带阶段，横向
 Timeline(layout: .horizontal, progress: .inProgress(at: 2)) {
-    TimelineItem("Q1 Alpha")
-    TimelineItem("Q2 Beta")
-    TimelineItem("Q3 GA", description: "Public launch")
-    TimelineItem("Q4 v2")
+    TimelineItem("Q1 Alpha", step: 0)
+    TimelineItem("Q2 Beta", step: 1)
+    TimelineItem("Q3 GA", description: "Public launch", step: 2)
+    TimelineItem("Q4 v2", step: 3)
 }
 ```
 
-（`Avatar` 的实际签名以现有组件为准，此处示意。）三种形态各进 `App/Sources/Previews.swift` 一个 `#Preview`
+（`Avatar` 的实际签名、`e.summary` 这类数据驱动标题的类型以 U13 拍板为准。）三种形态各进 `App/Sources/Previews.swift` 一个 `#Preview`
 与 `ComponentData.swift` 画廊一条（§8）。
 
 ### 1.7 与 `Steps` 的边界
 
 - `Timeline` 展示已发生 / 计划中的事件（活动流可以完全没有阶段）；`Steps` 是向导，恒有「当前步」。
   `Timeline` 不加任何 Steps 的向导行为（无 `currentIndex` 绑定、无点击跳步、无 `.segmentedBar` / `.text` 呈现）。
-- **不共用类型**：`TimelineProgress` / `TimelinePhase` 是 Timeline 自己的公开类型；`Steps` 的阶段
-  是其内部 `enum StepsProgress`（`Sources/OhMyDesign/Components/Steps/Steps.swift` 逐字 `enum StepsProgress: Equatable {`），
-  两者不互相引用、不抽公共基类型。`Steps` 本 issue 不改一个字。
-- **可共用的**：动效 token（`CoreMotionToken.reveal`）与已到达连线的着色通路（`.tint`，Steps 逐字
-  `Rectangle().fill(.tint)`）；两边的连线归属规则**同义**（§4.1 末尾）。
+- **不共用类型**：`Steps` 的阶段是其内部 `enum StepsProgress`（`Sources/OhMyDesign/Components/Steps/Steps.swift` 逐字
+  `enum StepsProgress: Equatable {`），两者不互相引用。`Steps` 本 issue 不改一个字。
+- **可共用的**：动效 token（`CoreMotionToken.reveal`）与已到达连线的着色通路（`.tint`，Steps 逐字 `Rectangle().fill(.tint)`）；
+  两边的连线归属规则**同义**（§4.1）。
 
 ## 2. a：四种布局保留，`TimelineAlternateRowLayout` 的几何判据延续
 
-- 四个 case 不变，`TimelineLayout` 继续是 `Timeline.init` 的参数 ⇒ `ComponentJudgeRules` 的 J-2
-  「`styleEnum` 须接线于本组件公开 `init`」照样满足（宿主名仍是 `Timeline`；泛型参数不影响宿主识别，
-  **推断**，PR 2 跑 J-2 判据兜住）。
-- 旧 `TimelineAlternateRowLayout` 是**逐行**的三栏 `Layout`；新实现把它并进容器级 `TimelineStackLayout`
-  的 `.alternate` 分支（列宽要跨行取最大，逐行 `Layout` 做不到）。
-- 纯函数：
-  - 保留 `nonisolated static func alternateRowMetrics(forRowWidth:)` 与 `alternateSlotWidth(forRowWidth:)`
-    的**签名与语义**（等价于节点列宽取下限 24 的特例）⇒ `TimelineTests` 里现有的 `infinity` / `-infinity` /
-    `nan` / 负数 / `0` / `fixed` / `fixed - 1` / `fixed + 2` 断言**逐条原样继续有效**；
-  - 新增 `alternateRowMetrics(forRowWidth:nodeColumnWidth:)`，旧函数转调它；`nodeColumnWidth` 非有限或
-    小于下限时按下限处理（与 `rowWidth` 同一套防御）。
-- 旧常量 `static let nodeColumnWidth: CGFloat = 24` 的语义从「固定列宽」变成「节点盒下限」，**改名**为
-  `minimumNodeExtent`（PR 1）。它被 registry `notes` 逐字引用（`QuotedEvidenceGuard` 一条）⇒ 同 PR 改写那条
-  引文与 `notes` 那句（§5.2），不删登记项。
+- 四个 case 不变，`TimelineLayout` 继续是 `Timeline.init` 的参数 ⇒ J-2「`styleEnum` 须接线于本组件公开 `init`」照样满足
+  （宿主名仍是 `Timeline`；泛型参数不影响宿主识别，**推断**，PR 2 跑 J-2 判据兜住）。
+- 旧 `TimelineAlternateRowLayout` 是逐行三栏 `Layout`；新实现并进容器级 `TimelineStackLayout` 的 `.alternate` 分支（列宽要跨行取最大）。
+- 纯函数：保留 `nonisolated static func alternateRowMetrics(forRowWidth:)` 与 `alternateSlotWidth(forRowWidth:)` 的签名与语义 ⇒
+  `TimelineTests` 里现有 `infinity` / `-infinity` / `nan` / 负数 / `0` / `fixed` / `fixed - 1` / `fixed + 2` 断言原样有效；
+  新增 `alternateRowMetrics(forRowWidth:nodeColumnWidth:)`，旧函数转调它；`nodeColumnWidth` 非有限或小于下限时按下限处理。
+- 旧常量 `static let nodeColumnWidth: CGFloat = 24` 语义变成「节点盒下限」，**改名** `minimumNodeExtent`（PR 1），
+  registry `notes` 引文同 PR 改写（§5.2）。
 
 ## 3. b：指示器尺寸两维自适应
 
@@ -247,52 +286,48 @@ Timeline(layout: .horizontal, progress: .inProgress(at: 2)) {
 
 | 机制 | 能否跨行取最宽节点 | 行高 / 连线端点 | 一致性 | 结论 |
 |---|---|---|---|---|
-| **自定义 `Layout`（容器级，节点 / 内容 / 连线都是它的子视图）** | 能，`sizeThatFits` 里遍历节点子视图取最大（P1 实测 `col=40`） | 同一遍算出：行高 = f(节点盒高, 内容高)；连线的起止就是相邻节点盒的实际边 | **单遍、确定**；`ImageRenderer` 与真实窗口同一结果；RTL 自动镜像（P2） | **采用** |
-| `alignmentGuide`（自定义 `HorizontalAlignment` 让节点中心对齐） | 不能：只能让中轴对齐，拿不到「最宽」这个数 ⇒ 内容列起点随各行节点宽度参差 | 不管行高 | 单遍 | 否决：只解决一半 |
-| `PreferenceKey` 汇总最宽节点 → `@State` → 环境值回灌 | 能，但要**两遍**（首帧按 24 排、下一帧再排） | 同上两遍 | 首帧跳动；`ImageRenderer` 单次渲染拿不到回灌后的状态（**推断**，状态更新发生在渲染之后） ⇒ 位图判据测到的是首帧 | 否决 |
-| `onGeometryChange` | 同 `PreferenceKey`，异步回调 | 同上 | 同上，且有「写状态 → 重排 → 再回调」自激风险 | 否决 |
+| **自定义 `Layout`（容器级，节点 / 内容 / 连线都是它的子视图）** | 能（P1 `col=40`；P6 在 I-1 方案下同样 `col=40`） | 同一遍算出 | 单遍、确定；RTL 自动镜像（P2） | **采用** |
+| `alignmentGuide` | 不能：只对齐中轴，拿不到最宽值 | 不管行高 | 单遍 | 否决 |
+| `PreferenceKey` → `@State` → 环境值回灌 | 能，但要两遍 | 两遍 | 首帧跳动；`ImageRenderer` 单次渲染拿不到回灌后状态（**推断**） | 否决 |
+| `onGeometryChange` | 同上，异步 | 同上 | 同上，且有自激风险 | 否决 |
+
+⚠️ 单个容器级 `Layout` **在架构上排斥惰性**：`Layout` 协议的 `sizeThatFits` / `placeSubviews` 拿到的是**全部**子视图，
+没有「只实例化可见子视图」的通路（`LazyVStack` 那种惰性不能由第三方 `Layout` 实现）。读数与后果见 §3.8。
 
 ### 3.2 节点盒
 
 - 节点的**提议尺寸是 `24 × 24`**（`minimumNodeExtent`），与旧实现 `.frame(width: 24, height: 24)` 给的提议相同
-  ⇒ `Circle()` 这类弹性视图仍画成 24pt（若改提议 `.unspecified`，`Shape` 的理想尺寸是 10×10，会悄悄缩小——
-  这是 §9.2 的一条计划变异）。
-- 节点**报告**的尺寸 `(w, h)`（非有限值按 24 处理）⇒ 节点盒 `(max(24, w), max(24, h))`；节点在盒内居中。
-- ⇒ 所有 ≤ 24×24 的节点（含默认圆点、SF Symbol 图标、20pt 圆）**盒子与旧实现逐点相同**，这就是 §8.3
-  「像素不变」射程的几何根据。
+  ⇒ `Circle()` 这类弹性视图仍画成 24pt（改提议 `.unspecified` 会让 `Shape` 缩到理想尺寸 10×10，§9.1 计划变异）。
+- 节点**报告**的尺寸 `(w, h)`（非有限值按 24）⇒ 节点盒 `(max(24, w), max(24, h))`；节点在盒内居中。
+- ⇒ 所有 ≤ 24×24 的节点（默认圆点、SF Symbol 图标、20pt 圆）盒子与旧实现逐点相同，这是 §8.3「像素不变」射程的几何根据。
+- ⚠️ 调用方在**行**上施的 `.padding` 会进节点盒（P6：24→44）——§1.3 的逐子视图语义；文档引导把布局修饰写进 `content:`。
 
 ### 3.3 `.vertical`
 
-- 节点列宽 `C = max(24, 各节点盒宽)`；中轴 `x = C / 2`；每个节点盒**中心**落在中轴上、**顶**贴本行顶。
-- 内容 x 起点 `C + CoreSpacing.md`，提议宽 `W − C − md`（`W` 非有限时取内容理想宽）；与旧 `HStack(spacing: md)` 在 `C = 24` 时相同。
-- 行高 `H_i = max(盒高_i + m, 内容高_i + lg)`，末行 `H_last = max(盒高, 内容高)`；
-  `m = CoreSpacing.sm`（节点下方连线的最短可见长度，U9），`lg` 即旧实现内容的 `.padding(.bottom, CoreSpacing.lg)`。
-  - 旧实现行高是 `max(24, 内容高 + lg)`。两式在 `内容高 ≥ 24 + m − lg = 16` 时相等 ⇒ 单行 `.callout` / `.footnote`
-    文本（行高 > 16）都满足；**更矮的内容行是有意的外观变化**（旧实现下连线长度为 0，看不见），登记 BREAKING。
-- 连线段 `i`：x = 中轴，从节点盒_i 的**实际下沿**到下一个节点盒的**实际上沿**（隔着 §1.5 的非行子视图时照样贯穿）。
-  旧实现的起点是常量 `.padding(.top, Timeline.nodeColumnWidth)`，对 ≤ 24 的节点恰等于盒下沿 ⇒ 这类行像素不变；
-  高节点不再被连线穿过。
+- 节点列宽 `C = max(24, 各节点盒宽)`；中轴 `x = C / 2`；每个节点盒中心落在中轴上、顶贴本行顶。
+- 内容 x 起点 `C + CoreSpacing.md`，提议宽 `W − C − md`（`W` 非有限时取内容理想宽）。
+- 行高 `H_i = max(盒高_i + m, 内容高_i + lg)`，末行 `H_last = max(盒高, 内容高)`；`m = CoreSpacing.sm`（U9），`lg` 即旧实现内容的
+  `.padding(.bottom, CoreSpacing.lg)`。两式在 `内容高 ≥ 24 + m − lg = 16` 时与旧式 `max(24, 内容高 + lg)` 相等；更矮的内容行是有意外观变化，登记 BREAKING。
+- 连线段：x = 中轴，从节点盒_i 的**实际下沿**到下一个节点盒的**实际上沿**（隔着非行子视图时贯穿，§1.5）。
 
 ### 3.4 `.alternate`
 
-- 节点列宽 `C` 同上（跨行取最大）；槽宽与中轴走 `alternateRowMetrics(forRowWidth: W, nodeColumnWidth: C)`
-  ⇒ 各行节点中心恒在同一条中轴上（旧文档「节点恒在同一条中轴」的不变量不变）。
-- 行高 `H_i = max(左槽高, 右槽高 [+ lg 由内容自带], 盒高_i + m)`，末行不加 `m`；内容仍按行序奇偶换边。
-- 连线在中轴上，从盒_i 下沿到盒_{i+1} 上沿。
+- 节点列宽 `C` 同上；槽宽与中轴走 `alternateRowMetrics(forRowWidth: W, nodeColumnWidth: C)` ⇒ 各行节点中心恒在同一条中轴上。
+- 行高 `H_i = max(左槽高, 右槽高, 盒高_i + m)`，末行不加 `m`；内容按**行的配对序**奇偶换边（非行子视图不计入奇偶）。
+- 连线在中轴上，从盒_i 下沿到盒_{i+1} 上沿；中间夹非行子视图时按 §1.5 截断、续接。
 
 ### 3.5 `.horizontal`
 
 - 外层仍是 `ScrollView(.horizontal, showsIndicators: false)`。
-- 节点**横轴**：`y_axis = max(各盒高) / 2`；每个盒中心落在横轴上（盒高不同时上下居中于横轴）。
-- 内容顶一律在 `max(各盒高) + CoreSpacing.sm`（各列对齐，不随本列盒高参差）；内容以本列中心为轴居中。
-- 列宽 `max(盒宽_i, 内容理想宽_i)`，列间距 `CoreSpacing.lg`（均同旧实现 `HStack(alignment: .top, spacing: lg)` +
-  `VStack(alignment: .center, spacing: sm)`）⇒ 盒全是 24 时，除连线外与旧实现逐点相同。
-- 连线段 `i`（d）：y = 横轴，从盒_i 的**实际右沿**到盒_{i+1} 的**实际左沿**（RTL 自动镜像，P2）。
+- 横轴 `y_axis = max(各盒高) / 2`；每个盒中心落在横轴上。内容顶一律 `max(各盒高) + CoreSpacing.sm`；内容以本列中心为轴居中。
+- 列宽 `max(盒宽_i, 内容理想宽_i)`，列间距 `CoreSpacing.lg` ⇒ 盒全是 24 时，除连线外与旧实现逐点相同。
+- 连线段：y = 横轴，从盒_i 实际右沿到盒_{i+1} 实际左沿（RTL 自动镜像，P2）。
 
 ### 3.6 `.grouped`
 
-无节点列、无连线；`VStack(alignment: .leading, spacing: CoreSpacing.md)` 摆内容（同旧实现）。
-容器**不构造**节点视图（`node:` 槽照旧静默不生效，存储不丢——现在「存储」就是 `containerValues` 里的那份规格）。
+无节点列、无连线；`VStack(alignment: .leading, spacing: CoreSpacing.md)` 摆**内容子视图与非行子视图**，节点子视图不放进去
+（`node:` 槽照旧静默不生效；行的 body 仍构造节点，只是容器不摆它——**推断**：未摆放的子视图不进渲染树也不进无障碍树，PR 2 以
+§9.2 判据兜住）。
 
 ### 3.7 纯函数面（`nonisolated static`，双腿可测）
 
@@ -303,51 +338,65 @@ Timeline(layout: .horizontal, progress: .inProgress(at: 2)) {
 | `verticalRowHeight(box:content:isLast:)` | → 行高 | 负数按 0 |
 | `alternateRowMetrics(forRowWidth:nodeColumnWidth:)` | 同 §2 | `infinity` / `nan` / 负数（两个参数都防） |
 | `horizontalAxis(boxHeights:)` | → 横轴 y 与内容顶 y | 空数组 → 24 |
-| `connectorSpan(from:to:)` | 两盒相邻边 → 连线长度 | 结果 ≥ 0（盒重叠时为 0，不画负长） |
+| `connectorSpan(from:to:)` | 两盒相邻边 → 连线长度 | 结果 ≥ 0 |
+| `pairParts(roles:)` | 解析序的角色序列 → 行 / 非行分组 | 孤立 `.node` / `.content` → 非行 |
 
-`TimelineStackLayout` 的 `sizeThatFits` / `placeSubviews` 只做「量子视图 → 调纯函数 → 摆放」，
-不持有存储状态（与旧 `TimelineAlternateRowLayout` 同一结构事实：不会冻结在首帧宽度）。
+`TimelineStackLayout` 只做「量子视图 → 调纯函数 → 摆放」，不持有存储状态。
+
+### 3.8 规模与惰性（I-8）
+
+P7 读数（macOS 托管窗口 390×844、`ScrollView` 内、`-O`，两轮取后一轮；「重排」= 改第 0 行文字长度后 `layoutSubtreeIfNeeded` + `display`，
+连测 5 次）。⚠️ 探针的 `Layout` 在 `sizeThatFits` 与 `placeSubviews` 里各把全部子视图量一遍，未用 `Layout` 的 cache；是量级参考，不是基准。
+
+| 管线 | n = 300 首次 | n = 300 重排 | n = 1000 首次 | n = 1000 重排 |
+|---|---|---|---|---|
+| 容器级 `Layout`（I-1 方案） | 80 ms | 16–18 ms | 966 ms | 162–355 ms |
+| `VStack` + 逐行 `HStack`（≈ 旧实现） | 114 ms | 7–11 ms | 1496 ms | 73–166 ms |
+| `LazyVStack` + 逐行 `HStack` | 21 ms | 0.7–2.4 ms | 97 ms | 0.8–11 ms |
+
+- 首次布局与旧实现同量级（都是全量构建）；**重排约为旧实现的 2 倍**——一行内容变宽会让容器重量全部子视图（列宽可能变）。
+  `Text(date, style: .relative)` 每分钟刷新一次，n = 300 下每次约 17 ms，可接受；n = 1000 下 160–355 ms，**会掉帧**。
+- ⇒ **R4 改写**：本设计**架构上排斥惰性**，超长时间线（数百行以上、带相对时间）要惰性只能**另起一条管线**：列宽不再跨行推导，
+  由调用方显式给出 ⇒ 每行可独立排版 ⇒ 可以放进 `LazyVStack`。
+- **留门评估**：给 `Timeline` 预留一个将来加法的 `nodeColumnWidth:` 参数**在签名上可行**（新增默认参数、不破坏现有调用），
+  但**本 issue 不加**：它引出第二条管线（惰性 + 显式列宽）与第二套几何判据，而三种参考形态都在几十行量级。登记进「未决」。
 
 ## 4. c：阶段维度与真值表
 
-### 4.1 阶段取值：容器推导（二选一的结论，U1）
+### 4.1 阶段取值（U1 推荐项：每行 `step` + 容器 `progress`）
 
-取「容器 `progress` + 行序推导」，不取「逐行显式 `phase:`」。理由：
+`StatusLevel` 这一维**保留且正交**：`status` 决定**色相**，阶段决定**形态**与连线着色；活动流（不传 `progress`）没有阶段，外观与旧实现相同。
 
-1. 单调性由构造保证：前缀已完成、至多一行进行中、其余未开始——逐行显式会允许「已完成排在未开始之后」
-   这类无意义组合，连线该怎么着色就没有答案。
-2. 阶段推进动效要的是**一个可插值的标量**（§6.2 的位置 `P`），容器级模型天然给出；逐行模型下每段各自跳变，
-   做不出「沿线依次推进」。
-3. reui 的模型本来就是容器级（`step <= activeStep`），只是它没有「进行中」；本仓补上这一态。
+**阶段真值表**（`s` = 该行的 `step`，`k` = `inProgress(at:)` 的参数）：
 
-`StatusLevel` 这一维**保留且正交**：`status` 决定**色相**，阶段决定**形态**与连线着色；
-活动流（不传 `progress`）没有阶段，外观与旧实现相同。
+| `progress` | 行阶段（`step == nil` 的行一律 `nil`） | 位置 `P`（§6.2） |
+|---|---|---|
+| 不传（纯活动流） | `nil`（不读 `step`） | 不适用 |
+| `.notStarted` | `upcoming` | 首个带 `step` 的行之前（−1，不着色） |
+| `.inProgress(at: k)` | `s < k` → `completed`；`s == k` → `inProgress`；`s > k` → `upcoming` | 见下 |
+| `.completed` | `completed` | 末个带 `step` 的行 |
 
-**阶段真值表**（`n` = `TimelineItem` 个数，`i` = 0 起行序，`k` = `inProgress(at:)` 的参数）：
+**连线段归属**（段 = 解析序中相邻两个**行**之间，跨过非行子视图）：段着色看它**通向的那一行**——后一行 `completed` 或 `inProgress`
+⇒ `.tint`；否则 `dividerDefault`。纯活动流全部 `dividerDefault`（**= 旧实现**）。这与 `Steps` 的连线规则同义
+（`Steps.swift` 逐字 `self.progress(for: index) == .done`，段后一侧已完成才着色），也与 reui 的 `has-[+[data-completed]]` 同义（看下一项）。
+⚠️ 第 1 版写「逐行显式阶段 ⇒ 连线着色无定义」是错的：「看后一行」这条规则对任意阶段组合都有定义；U1 各选项的差别在单调性，
+不在可定义性（§12 U1）。
 
-| `progress` | 第 `i` 行阶段 | 连线段 `i`（行 `i` → 行 `i+1`）着色 | 位置 `P` |
-|---|---|---|---|
-| 不传（纯活动流） | `nil` | 一律 `dividerDefault`（**= 旧实现**） | 不适用（无着色层） |
-| `.notStarted` | 全部 `upcoming` | 全部 `dividerDefault` | `0` |
-| `.inProgress(at: k)`，`0 ≤ k < n` | `i < k` → `completed`；`i == k` → `inProgress`；`i > k` → `upcoming` | `i < k` → `.tint`；否则 `dividerDefault` | `k` |
-| `.inProgress(at: k)`，`k < 0` | 全部 `upcoming`（没有一行等于 `k`） | 全部 `dividerDefault` | `0` |
-| `.inProgress(at: k)`，`k ≥ n` | 全部 `completed`（没有一行等于 `k`） | 全部 `.tint` | `n − 1` |
-| `.completed` | 全部 `completed` | 全部 `.tint` | `n − 1` |
-| 任意，`n == 0` | —— | 无连线，渲染为空 | —— |
-| 任意，`n == 1` | 按上表 | 无连线 | `0` |
+边界：
 
-- **「进行中」判定**：恰为 `i == k` 且 `0 ≤ k < n` 的那一行；越界的 `k` 不产生进行中行（上表两行）。
-  `.inProgress(at: n)` 与 `.completed` 渲染相同，但作为值不相等（`Equatable` 按 case 比）。
-- **连线段归属**：段 `i` 由行 `i` 与行 `i+1` 共有，**着色看它通向的那一行**：行 `i+1` 已到达
-  （`completed` 或 `inProgress`）⇒ `.tint`。等价写法「行 `i` 已完成」——`i < k ⇔ i + 1 ≤ k`，两者恒同。
-  这与 `Steps` 的连线规则同义（`Steps.swift` 逐字 `self.progress(for: index) == .done`，即段后一侧行 `index` 已完成），
-  也与 reui 的 `has-[+[data-completed]]` 同义（看下一项）。
-- **着色层**：已到达段用 `.tint`（`TintShapeStyle`，调用方 `.tint(_:)` 可改；U11），底线 `dividerDefault`，宽
-  `CoreBorderWidth.thin` 不变。每段的着色比例 `f_i = clamp(P − i, 0, 1)`，静态时 `f_i ∈ {0, 1}`。
-- **回退**（`k` 变小，或 `.completed` → `.inProgress`）：按同一张表重算；动效上段从远端往回收（§6.2）。
-  不做「回退警示」之类的额外表现——Timeline 是展示型，回退就是数据变了。
-- **纯活动流 ↔ 带阶段** 是两个 init，切换属结构身份变化，**不做补间**。
-- 行序只数 `TimelineItem`（§1.5）。
+- **`k` 不等于任何行的 `step`**（越界或落在空档）：没有进行中行；`s < k` 的全部已完成。`.inProgress(at: 末 step + 1)` 与 `.completed` 渲染相同、作为值不相等。
+- **非单调 `step`**（调用方把 `step` 写乱）：逐行按上表各自判，连线按「看后一行」各自着色——画得出来，但语义由调用方负责；
+  文档写明「`step` 按声明顺序递增」，不做运行期校验（没有不打断渲染的报错通道）。
+- **重复 `step`**：两行同阶段（可能两行同时进行中）——同上，文档声明。
+- **部分行无 `step`**：这些行阶段 `nil`、按活动流画；连线仍看后一行（`nil` 视为未到达）。
+- **回退**（`k` 变小，或 `.completed` → `.inProgress`）：按同一张表重算；动效上段从远端往回收（§6.2）。不做「回退警示」。
+- **纯活动流 ↔ 带阶段** 是两个 init，切换属结构身份变化，不做补间。
+- **着色层**：已到达段用 `.tint`（U11 已按证据定案：与 `Steps` 同源、调用方 `.tint(_:)` 可改；按下一行 `status` 着色会让活动流的
+  danger / success 混排连线五颜六色，与「阶段决定连线、状态决定色相」的正交分工冲突），底线 `dividerDefault`，宽 `CoreBorderWidth.thin`。
+
+**位置 `P`**：容器从各行 `containerValues` 读到 `(配对序号 j, step, 阶段)`，`P` = 最后一个「已到达」行（`completed` 或 `inProgress`）
+的配对序号，没有则 −1。静态时段 `j`（行 `j` → 行 `j+1`）的着色比例 `f_j = clamp(P − j, 0, 1) ∈ {0, 1}`，与上面「看后一行」逐段等价
+（单调时；非单调时以逐段规则为准、`P` 只驱动动效）。
 
 ### 4.2 默认圆点的形态（色相仍由 `status` 经 `Timeline.nodeColor(for:in:)` 决定，U3）
 
@@ -355,39 +404,35 @@ Timeline(layout: .horizontal, progress: .inProgress(at: 2)) {
 |---|---|
 | `nil`（活动流） | 实心圆 Ø10（**旧实现原样**） |
 | `completed` | 实心圆 Ø10（与活动流逐点相同） |
-| `inProgress` | 实心圆 Ø10 + 同色外环（Ø18、线宽 `CoreBorderWidth.thick`、不透明度待视觉评审定，草案 0.4）；整体仍在 24 盒内 ⇒ 列宽不变 |
+| `inProgress` | 实心圆 Ø10 + 同色外环（Ø18、线宽 `CoreBorderWidth.thick`、不透明度待视觉评审，草案 0.4）；仍在 24 盒内 |
 | `upcoming` | 空心圆 Ø10，线宽 `CoreBorderWidth.thick`，同色 |
 
-- 浅色 `warning` 仍取 `statusAttentionForeground`（`#398` 的对比度修正对三种形态都成立，空心环同色同宽）。
+- 浅色 `warning` 仍取 `statusAttentionForeground`（`#398` 的对比度修正对三种形态都成立）。
 - **进行中是静态强调，不做呼吸 / 脉冲**（§6.5）。
-- 自定义 `node:` **不叠加任何阶段画法**：调用方在自己的节点视图里读 `@Environment(\.timelinePhase)` 自行决定。
+- 自定义 `node:` **不叠加任何阶段画法**：调用方读 `@Environment(\.timelinePhase)` 自行决定（U10）。
 
-### 4.3 `TimelineProgress.phase(at:)`
+### 4.3 `TimelineProgress.phase(forStep:)`
 
-公开纯函数，就是真值表第二列；容器与调用方（按阶段给 `content` 换样式时）共用同一实现。
+公开纯函数，就是真值表第二列；行的 body 与调用方共用同一实现。
 
 ## 5. d：`.horizontal` 补连线与更正传播
 
 ### 5.1 几何
 
-见 §3.5：横轴上从盒_i 右沿到盒_{i+1} 左沿；着色规则同 §4.1；纯活动流下为 `dividerDefault`。
-旧文档给出的不画理由（逐字「竖向连线的实现依赖「节点在上、内容在下」的纵向几何，换轴后那套 padding 计算不成立」）
-在新几何下不再成立：连线端点来自容器 `Layout` 的盒边，不依赖 padding。
+见 §3.5；着色规则同 §4.1。旧文档的不画理由（逐字「竖向连线的实现依赖「节点在上、内容在下」的纵向几何，换轴后那套 padding 计算不成立」）
+在新几何下不再成立：连线端点来自容器 `Layout` 的盒边。
 
 ### 5.2 更正传播（CLAUDE.md《「更正传播」约定》三处落点，均在 PR 1）
 
 | 落点 | 现文（逐字节选） | 处置 |
 |---|---|---|
-| 源码文档注释 | `Timeline.swift` 逐字 `/// 横向：节点沿水平轴排列，内容在节点下方。` | 补「节点间有连线」；`grouped` 那条注释不变 |
-| `docs/components/timeline.md` | 逐字「⚠️ `.horizontal` **不画节点间连线**」及用法注释「（无连线，可横向滚动）」 | 删去不画连线的段落与注释，按「更正只留一层」写一句「原写不画连线，`#420` 起画」 |
-| `docs/component-registry.json` `Timeline.notes` | 逐字「⚠️ 这条是**有意不开** issue 的：横向连线是一个尚无需求驱动的增强，不是缺口；要做时再开，别把它读成待办。」及其前一句 | 改写为一句：原判「尚无需求驱动、不是缺口」被 PRD FR-1 d 推翻，`#420` 已画出横向连线 |
+| 源码文档注释 | `Timeline.swift` 逐字 `/// 横向：节点沿水平轴排列，内容在节点下方。` | 补「节点间有连线」 |
+| `docs/components/timeline.md` | 逐字「⚠️ `.horizontal` **不画节点间连线**」及用法注释「（无连线，可横向滚动）」 | 删去；按「更正只留一层」写一句「原写不画连线，`#420` 起画」 |
+| `docs/component-registry.json` `Timeline.notes` | 逐字「⚠️ 这条是**有意不开** issue 的：横向连线是一个尚无需求驱动的增强，不是缺口；要做时再开，别把它读成待办。」及其前一句 | 改写为一句：原判被 PRD FR-1 d 推翻，`#420` 已画出横向连线 |
 
-同一条 `notes` 里「结构事实是现状「左侧固定 24pt 节点列 + 右侧内容」（`Timeline.nodeColumnWidth`，逐字
-`static let nodeColumnWidth: CGFloat = 24`）」一句随常量改名同步：改写为「左侧节点列（`#420` 起列宽按最宽节点推导、
-下限逐字 `static let minimumNodeExtent: CGFloat = 24`）+ 右侧内容」，`QuotedEvidenceGuard` 那一条登记同 PR 换成新引文。
-该句承载的判定（左右交替 / 横向判**排布**）不受影响：换轴与分居两侧的结构关系不变。
-
-改完 grep 三处的残留：`不画节点间连线`、`无连线`（排除 `.grouped` 的合法用法）、`nodeColumnWidth`、`尚无需求驱动`。
+同一条 `notes` 里「左侧固定 24pt 节点列」一句随常量改名同步为「左侧节点列（`#420` 起列宽按最宽节点推导、下限逐字
+`static let minimumNodeExtent: CGFloat = 24`）+ 右侧内容」，`QuotedEvidenceGuard` 那一条同 PR 换引文。
+改完 grep 三处残留：`不画节点间连线`、`无连线`（排除 `.grouped` 合法用法）、`nodeColumnWidth`、`尚无需求驱动`。
 
 ## 6. e：动效
 
@@ -395,22 +440,24 @@ Timeline(layout: .horizontal, progress: .inProgress(at: 2)) {
 
 | | **阶段推进** | **节点入场** |
 |---|---|---|
-| 触发 | `progress` 值变化（数据变了） | 该行节点**第一次**进入可见区域 |
+| 触发 | `progress` 值变化 | 该行节点**第一次**进入可见区域 |
 | 作用对象 | 连线着色比例 + 默认圆点形态 | 节点（默认与自定义都作用） |
 | token | `CoreMotionToken.reveal` | `CoreMotionToken.reveal` |
-| 与视口的关系 | **无关**：行在屏外时照常推进，不延迟、不排队 | 就是视口事件 |
-| 重播 | 每次 `progress` 变化都播 | **不重播**（§6.3） |
-
-两者可同时发生（新行进入视口时阶段刚好变了），互不影响：一个改节点的缩放，一个改颜色 / 连线比例。
+| 与视口的关系 | 无关：屏外照常推进 | 就是视口事件 |
+| 重播 | 每次 `progress` 变化都播 | 不重播（U4） |
 
 ### 6.2 阶段推进
 
-- 容器把 §4.1 的位置 `P` 作为可动画标量下发给每段连线；每段自己算 `f_i = clamp(P − i, 0, 1)` 并画
-  「底线 + 从起点（上沿 / leading）长到 `f_i` 的着色层」。`P` 由 `k₀` 补间到 `k₁` 时，段按序依次被填满——
-  **一次补间、总时长 = `reveal` 的 0.25s**，与跨越段数无关。回退时 `P` 变小，从远端往回收。
-- 默认圆点的形态切换（实心 / 外环 / 空心）走颜色与不透明度插值（`.coreAnimation(.reveal, value: phase)`），
-  不做缩放、不做位移。
-- 首次出现时不播：初始渲染直接是终态（`P` 不从 0 起补）。
+- 容器把 §4.1 的 `P` 作为可动画标量交给每段连线（容器构造的普通视图，`Animatable`）；每段画「底线 + 从起点长到 `f_j` 的着色层」。
+  `P` 由旧值补间到新值时段按序依次被填满——**一次补间、总时长 = `reveal` 的 0.25s，与跨越段数无关**。回退时 `P` 变小，从远端往回收。
+- **圆点形态与连线同步**（S-6）：第 1 版让圆点走独立的 `.coreAnimation(.reveal, value: phase)`，与连线生长是两条动画、各自计时——
+  跨多段推进时圆点在 0.25s 内一起变、连线却按段依次填满，二者不同步。改为**同一个 `P` 驱动**：`P` 以统一环境值在**解析前**下发
+  （P5 通路），行的默认圆点是 `Animatable` 视图、从 `P` 与本行配对序号算「到达比例」`r = clamp(P − j + 1, 0, 1)` 与「完成比例」
+  `c = clamp(P − j, 0, 1)`，据此在空心 / 外环 / 实心之间插值。⚠️ 行不知道自己的配对序号 `j`（容器解析后才知道）⇒ `P` 改在
+  **`step` 空间**表达：`P_step` 从旧 `k` 补间到新 `k`，行用自己的 `step` 算 `r = clamp(P_step − s + 1, 0, 1)`，容器用相邻两行的
+  `step` 把 `P_step` 换算成每段比例。**推断**：解析前下发的环境值在动画事务里变化时，行内 `Animatable` 视图的 `animatableData`
+  会被插值——PR 4 第一个 commit 先以在飞帧探针核实，核不过则圆点退回独立插值、在文档登记不同步。
+- 首次出现时不播：初始渲染直接是终态。
 
 ### 6.3 节点入场（「进入视口才播」）
 
@@ -418,290 +465,367 @@ Timeline(layout: .horizontal, progress: .inProgress(at: 2)) {
 
 | 方案 | 行为 | 结论 |
 |---|---|---|
-| `.scrollTransition` | 官方文档：「as this view appears and disappears within the visible region of the containing scroll view」——**双向**、**每次滚入滚出都作用**；`axis: nil` 时取「innermost containing scroll view」的轴 | 否决：① 滚出时节点会缩回，读起来像「未到达 / 被禁用」，与阶段语义冲突；② 每次重播；③ 横向布局自带内层 `ScrollView`，按文档取最内层 ⇒ 页面纵向滚动驱动不了它（推断）；④ 无滚动宿主时的行为文档未写 |
-| `.onAppear` 触发 | `VStack` 内全部行在挂载时一起 `onAppear`，与视口无关 | 否决：屏外的行在用户看到之前就播完了 |
-| **`onScrollVisibilityChange` + 一次性闩锁** | 首次回调 `true` 时置闩、播一次；之后的 `false` / `true` 忽略 | **采用** |
+| `.scrollTransition` | 官方文档：「as this view appears and disappears within the visible region of the containing scroll view」——双向、每次滚入滚出都作用；`axis: nil` 时取「innermost containing scroll view」 | 否决：滚出时节点缩回读作「未到达」；每次重播；横向布局自带内层 `ScrollView` ⇒ 页面纵向滚动驱动不了它（推断） |
+| `.onAppear` | `VStack` 内全部行挂载时一起触发 | 否决：屏外的行在被看到之前就播完了 |
+| **`onScrollVisibilityChange` + 一次性闩锁** | 首次回调 `true` 时置闩、播一次 | **采用** |
 
-采用方案的行为（P4 实测支撑前三行）：
+采用方案的行为（P4 支撑前三行）：
 
-- **无 `ScrollView` 宿主**：挂载即回调 `true` ⇒ 挂载时播一次。
-- **在 `ScrollView` 内**：首帧只有可见行播；屏外行在第一次被滚入时播。
-- **嵌套滚动**：可见性同时受外层裁剪（纵向页面里的横向 `ScrollView`，内层项在外层滚入前为 `false`）⇒ 以「真的出现在屏幕上」为准。
-- **再次滚入不重播**：闩锁是节点视图的 `@State`，身份不变就不重播。身份丢失时会重播：调用方把整个 `Timeline`
-  放进会回收单元的惰性容器、`ForEach` 的 id 变了、施了 `.id(_:)`——写进文档。
-- 阈值取 `0.5`（节点一半可见）；多行同时可见时同时播，**不做错峰**。
-- 动画形态：`keyframeAnimator(initialValue: 1, trigger: 入场计数)`——首帧瞬移到 `CollectionItemTransition.enteringScale`
-  （`CoreMotionToken.swift` 逐字 `nonisolated static let enteringScale: CGFloat = 0.86`）同时不透明度 0，
-  再以 `reveal` 曲线回到 1。**静止值就是终态**：没触发过的节点（包括 `ImageRenderer` 快照、位图判据）画的都是
-  缩放 1、不透明度 1 ⇒ 入场动效不污染任何静态像素。
+- 无 `ScrollView` 宿主：挂载即回调 `true` ⇒ 挂载时播一次。
+- 在 `ScrollView` 内：首帧只有可见行播；屏外行在第一次被滚入时播。
+- 嵌套滚动：以「真的出现在屏幕上」为准（外层滚入前为 `false`）。
+- 再次滚入不重播：闩锁是节点视图的 `@State`；身份丢失时会重播（惰性容器回收、`ForEach` id 变、`.id(_:)`），写进文档。
+- 阈值 `0.5`；多行同时可见时同时播，不做错峰。
+
+**入场首帧与「静止值」（S-7，P8 读数）**：
+
+| 触发方式 | 托管窗口首帧 | `ImageRenderer` 静态渲染 |
+|---|---|---|
+| 回调里**同步**置 trigger（`keyframeAnimator(initialValue: 1)`，首个关键帧 `MoveKeyframe(0.86)`） | 已是缩小态，**无闪帧**（挂载 / 滚入各 3/3） | **缩小态**（20pt 节点量得 17pt）——无滚动宿主时挂载即回调，`ImageRenderer` 那一次渲染就取到了动画第 0 帧 |
+| 回调里**推迟到下一轮 runloop** 置 trigger | **闪一帧**：首帧 20pt（终态）、次帧起 16pt（3/3） | 20pt（终态） |
+
+⇒ 第 1 版的断言「没触发过的节点（包括 `ImageRenderer` 快照）画的都是缩放 1」**为假**：`ImageRenderer` 里无滚动宿主的节点**会**被触发。
+两种写法各破一个性质，**不存在**只靠触发时机同时保住「不闪帧」与「`ImageRenderer` 画终态」的写法。定案：
+
+1. **同步触发**（保住真实界面不闪帧——这是用户看得见的那一个）；
+2. 入场**只在 `coreMotionPresentation == .animated` 时触发**（`.resting` / `.hidden` 不播，§6.4）；
+3. 「静止值即终态」的承诺收窄为：**在 `.resting` / `.hidden` 呈现下**，任何宿主的静态渲染都是终态。本仓的位图判据、`Legacy420*`
+   闸门与 `ImageRenderer` 夹具**一律注入 `coreMotionPresentationOverride(.resting)`**（`CoreMotionToken.swift` 逐字
+   `/// 供预览与测试固定一种呈现；产品代码通常不写它。`）；§9.5「静止帧」判据改为同时断言两件事：`.resting` 下 = 终态，`.animated`
+   下 `ImageRenderer` 取到的是入场第 0 帧（钉住这条实测事实，将来 SwiftUI 行为变了会判红提醒）。
+4. 文档写明：调用方用 `ImageRenderer` 导出含 `Timeline` 的图片时，注入 `.resting` 才能拿到终态（U14 相关）。
+
+⚠️ P8 的采样器是 `cacheDisplay`，它强制一次同步渲染；「真实屏幕合成帧」与它是否逐帧一致**未测**（R2）。iOS 未测（R3）。
 
 ### 6.4 Reduce Motion 降级（两类分开）
 
 | 呈现（`coreMotionPresentation`） | 阶段推进 | 节点入场 |
 |---|---|---|
-| `.animated` | 连线沿线生长 + 圆点形态插值（`reveal`） | 缩放 0.86 → 1 + 淡入 |
-| `.resting`（系统 RM 开） | **连线不生长**：新到达的段整段以 `easeInOut(0.25)` 淡入着色、退回的段淡出；圆点形态插值照旧（纯颜色 / 不透明度，`reveal.animation(for: .resting)` 给的正是 `easeInOut`） | **不播**（无缩放、无淡入）——入场不承载信息，淡入也省掉 |
+| `.animated` | 连线沿线生长 + 圆点形态插值（同一 `P`，`reveal`） | 缩放 0.86 → 1 + 淡入 |
+| `.resting`（系统 RM 开） | **连线不生长**：新到达的段整段以 `easeInOut(0.25)` 淡入着色、退回的段淡出；圆点形态照旧插值（纯颜色 / 不透明度） | 不播（U5） |
 | `.hidden`（只来自注入覆盖） | 直接到终态 | 不播 |
 
-生长走 `CoreMotionToken.reveal.transformAnimation(for:)`（`.resting` 下为 `nil`），与折叠组 chevron 的降级同一取法。
+**两条动画通路**（S-5）：`.animated` 下着色层的**长度**随 `P` 插值（`Animatable` 形状，通路 A）；`.resting` 下长度不插值、段内着色层的
+**不透明度**在 0 / 1 间淡变（通路 B，取 `reveal.animation(for: .resting)`，即 `easeInOut`）。二者由同一个 `coreMotionPresentation`
+分支选择，同一次 `progress` 变化**只走其一**。
 
 ### 6.5 能耗闸：不适用
 
-`EnergyState` 管的是**常驻渲染层**（`CoreMotionToken.swift` 逐字「只看 Reduce Motion，不看能耗——能耗闸只管常驻渲染层（`EnergyState`）。」）。
-本组件的两类动效都是一次性过渡，没有 `TimelineView` 驱动的常驻层 ⇒ 不接 `EnergyState`。
-这也是「进行中」不做脉冲的理由之一：一旦做脉冲，它就是常驻层，必须过能耗闸（§11 否决项 7）。
+`EnergyState` 管的是常驻渲染层（`CoreMotionToken.swift` 逐字「只看 Reduce Motion，不看能耗——能耗闸只管常驻渲染层（`EnergyState`）。」）。
+本组件两类动效都是一次性过渡 ⇒ 不接 `EnergyState`。「进行中」不做脉冲的理由之一即在此。
 
-### 6.6 纪律台账
+### 6.6 纪律台账（S-5）
 
-- `CoreMotionTokenDisciplineGuard.ledger` 登记 `"Components/Timeline/Timeline.swift": .gated`（若动画调用点落在
-  `TimelineStackLayout.swift`，该文件同样登记）。
-- `transformLedger` 登记入场缩放的调用点（理由：「`keyframeAnimator` 只在 `.animated` 下被触发；resting / hidden 不触发，静止值为 1」）。
-- ⚠️ 该守卫**不覆盖** `Shape` 的 `animatableData` 与 `keyframeAnimator` 的闭包（其文档注释已列为已知不覆盖）⇒
-  连线生长的 RM 分支**只能**由 §9.5 的在飞帧判据兜，不能指望源码守卫。
+- `CoreMotionTokenDisciplineGuard.ledger` 登记 `"Components/Timeline/Timeline.swift": .gated`（动画调用点落在
+  `TimelineStackLayout.swift` 时该文件同样登记）。
+- 通路 B 的 `withAnimation(CoreMotionToken.reveal.animation(for: presentation))` 调用点在 `.gated` 覆盖范围内，**单列**一条说明
+  「`.resting` 分支只动不透明度」，便于评审对照 §6.4。
+- `transformLedger` 登记入场缩放调用点（理由：「只在 `.animated` 下触发；`.resting` / `.hidden` 不触发」）。
+- ⚠️ 该守卫**不覆盖** `Shape` 的 `animatableData` 与 `keyframeAnimator` 闭包（其文档注释已列为已知不覆盖）⇒ 通路 A 与入场缩放的
+  RM 分支**只能**由 §9.5 在飞帧判据兜。
 
-## 7. f：无障碍不回退
+## 7. f：无障碍不回退，且状态播报在行上
 
-保留的能力（源码读）：默认圆点逐字 `.accessibilityLabel(` + `Timeline.accessibilityLabelKey(for:)` 取键
-（`Info` / `Success` / `Warning` / `Error` / `Neutral`）；自定义节点不叠加；`.grouped` 对默认节点项把状态挂在
-内容的 `accessibilityValue` 上。
+PRD FR-1 f 逐字「装饰元素不进无障碍树，但状态要播报在行上」。
 
-新设计：
+### 7.1 基线（P9，`f0f03c2` 画廊，iOS 26.4）
 
-| 场景 | 状态（`StatusLevel`） | 阶段（新增） |
+- `.vertical`：每行两个元素——节点 `GenericElement label='Info'`（10×10）与内容 `StaticText label='已创建'`，**状态在节点元素上、与标题分离**。
+- `.alternate`：内容在左的行，读序为内容先于节点（`再一条` 在 `Warning` 之前）——R6 在旧实现上已成立。
+- `.horizontal`：**五个节点元素全部排在五条内容之前**（`Info, Success, Warning, Error, Neutral, 已创建, 审核通过, …`）——
+  按几何行序读，状态与行完全脱钩。
+- `.grouped`：`StaticText label='已创建' value='Info'`——状态在行上（合并后的内容元素）。
+
+⇒ 旧实现在 `.vertical` / `.alternate` / `.horizontal` 下本来就**不满足**「播报在行上」（状态是一个独立的 10×10 元素）。
+「不回退」的比较基准是「状态可被读到」，新设计在此之上补足「在行上」。
+
+### 7.2 候选读数（P10，三行：Created / Deployed（内含 `Retry` 按钮）/ Archived，`Success, In Progress` 为第 2 行）
+
+| 候选 | 读数 | 满足 f？ |
 |---|---|---|
-| 默认圆点，活动流 | `accessibilityLabel` = 状态键（**不变**） | —— |
-| 默认圆点，带阶段 | 同上 | `accessibilityValue` = 阶段键（`Completed` / `In Progress` / `Not Started`，进 `en.lproj/Localizable.strings`，`bundle: .module`） |
-| 自定义节点，活动流 | 不叠加（**不变**） | —— |
-| 自定义节点，带阶段 | 不叠加 | 节点外包 `.accessibilityElement(children: .combine)` + `accessibilityValue(阶段)`——调用方节点自带的 label（如头像名）被合并保留，读作「Alice, Completed」；节点无无障碍内容时只读阶段 |
-| `.grouped` | 默认节点项：值含状态键（不变）；自定义节点项：不含 | 带阶段时值再追加阶段键，以「, 」连接 |
-| 连线 | `.accessibilityHidden(true)`（装饰） | —— |
+| 第 1 版：状态 + 阶段挂节点元素 | `GenericElement label='Success' value='In Progress'` + `Heading 'Deployed'` + … | 否：状态在独立元素上（与基线同病） |
+| (a) 节点隐藏，值挂内容子视图（不成元素） | 值被**复制到每个子元素**：`Heading 'Deployed' value='Success, In Progress'`、`StaticText '2h ago'` 同值、`Button 'Retry'` 同值 | 形式上是，但冗余（同一状态读三遍） |
+| (a2) 节点隐藏，内容 `.accessibilityElement(children: .combine)` + 值 | 一行一个元素：`label='Deployed, 2h ago' value='Success, In Progress'`；`Retry` 变成该元素的 `custom_actions: ['Retry']`；`--point` 命中行内任一处都落到这个元素 | **是**；代价：内容里的可交互元素不再能单独聚焦（改走「操作」转子） |
+| (a4) 节点隐藏，值挂**标题**元素（结构件 init 自己构造标题） | `Heading 'Deployed' value='Success, In Progress'`；`2h ago`、`Retry` 仍是独立元素（`--point` 各自命中、无值） | **是**（行首元素即标题）；只对有 `title` 的行可用 |
+| (a3) 内容 `.accessibilityElement(children: .contain)` + 值 | 值挂在一个 `Group` 上；`--point` 命中的是子元素、**不带值** ⇒ VoiceOver 读不到状态 | 否 |
+| (b) 容器 `.accessibilityChildren { 子视图代理 + combine + 值 }` | 标签与值正确，但**帧全错**：行元素落在 x=172 / 16 / 169，`Retry` 的帧 370×625 | 否：聚焦框与命中测试错位 |
+| (c) 真实父视图 `HStack { 节点; 内容 }.accessibilityElement(children: .combine)` | 与 (a2) 读数相同，帧覆盖节点 | 是，但要逐行父视图 ⇒ 放弃单遍 `Layout`（§3.1 否决项） |
 
-- **分组形态（U8）**：不引入行级无障碍容器。§3.1 的单遍 `Layout` 要求节点与内容是**同一个** `Layout` 的兄弟子视图，
-  行级容器会把它们重新包成一个子视图、失去跨行列宽 ⇒ 结构上不可兼得。旧实现同样没有行级分组（节点元素 + 内容
-  各自成元素），⇒ **不回退**；状态与阶段播报在节点元素上，它在阅读顺序上是每行的第一个元素（`.vertical`；
-  `.alternate` 下内容在左的行，读序可能是内容先于节点——**推断**，见 R6）。
-- 内容仍不合并（`content` 内含多个可交互元素时 VoiceOver 可逐一定位，同旧文档）。
-- 结构件标题加 `.isHeader`，VoiceOver 转子可按条目跳转（新能力）。
-- `.grouped` 的值是施在 `Subview` 代理外层的无障碍修饰——**未实测**（P5），R1。
+(a2)、(a4) 在**两种模型**下读数相同（P10 `Oa2` / `Na2` 逐字一致）——无障碍方案不决定 U1。但原方案下调用方 `.accessibilityHidden(true)`
+隐藏一行时，容器画的节点元素仍可命中（§0 P6 表）——I-1 方案下行的全部元素一起消失。
+
+### 7.3 定案（能由证据定的部分）与 U8
+
+- **默认圆点一律 `.accessibilityHidden(true)`**（装饰）；连线 `.accessibilityHidden(true)`。
+- **状态键**（`Timeline.accessibilityLabelKey(for:)`：`Info` / `Success` / `Warning` / `Error` / `Neutral`）与**阶段键**
+  （`Completed` / `In Progress` / `Upcoming`，进 `en.lproj/Localizable.strings`、`bundle: .module`）以「, 」连接成一个 `accessibilityValue`。
+  活动流只有状态键；自定义节点的行**不带状态键**（与旧实现「自定义节点不叠加」一致），带阶段时仍带阶段键。
+- 值挂在哪里是 **U8**：推荐「有 `title` 挂标题元素（a4），无 `title` 的纯富内容行挂合并后的内容元素（a2）」。
+- **自定义节点**不隐藏、不改写：它是调用方的内容（头像的名字、图标的 label 由调用方决定），调用方要它不进树就自己施 `.accessibilityHidden`。
+- `.grouped` 同一规则（它本来就是 (a2) 形态，基线读数 `value='Info'`）。
+- 结构件标题 `.isHeader`（新能力，VoiceOver 转子可按条目跳转）。
+- R1（`.grouped` 的值施在 `Subview` 代理外层是否进树）由 P10 `Oa` / `Oa2` 解决：施在 `Subview` 上的 `accessibilityValue` / `combine`
+  **进树**。
+- R6：`.alternate` 读序按几何（基线已如此）；在 (a4) / (a2) 下读序变化不影响「状态随行」，只影响行内元素先后，登记不处置。
+- 纯函数：`(status, 有无自定义节点, phase, 有无 title)` → `(值键序列, 挂载点)`，覆盖上表每一行（§9.3）。
 
 ## 8. 迁移面清单
 
 ### 8.1 调用点（grep 口径与计数，`f0f03c2`）
 
-口径：`grep -cE '(^|[^A-Za-z])Timeline\('`（排除 `TimelineView(`、`LegacyTimeline(`、`consumeTimeline(` 这类前缀，
-**不按** `Timeline(items:` 匹配——会漏换行写法）；`TimelineItem(` 用 `grep -oE '(^|[^A-Za-z])TimelineItem\(' | wc -l`。
+口径：`grep -cE '(^|[^A-Za-z])Timeline\('`（排除 `TimelineView(` 与 Effects 里 `AnimatedMeshTimeline(` / `OrbitingLogosTimeline(` /
+`SphereSurfaceTimeline(` 这类前缀；**不按** `Timeline(items:` 匹配——会漏换行写法）；`TimelineItem(` 用
+`grep -oE '(^|[^A-Za-z])TimelineItem\(' | wc -l`。
 
 | 文件 | `Timeline(` | `TimelineItem(` | 备注 |
 |---|---|---|---|
-| `App/Sources/ComponentData.swift` | **4** | 8 | 含 `Timeline(` 换行写法 1 处；`private static var items: [TimelineItem]` 要改成 `@ViewBuilder` 属性 |
-| `App/Sources/Previews.swift` | **5** | 9 | 含换行写法 1 处；共享 fixture `PreviewSnapshotFixtures.timelineItems`（逐字 `static var timelineItems: [TimelineItem] {`，被 3 处引用）改为 `@ViewBuilder static var timelineRows: some View`（P1 实测 `Group(subviews:)` 会展平它） |
-| `scripts/downstream-probe/Sources/DownstreamProbe/PublicVisibility.swift` | 1 | 2 | `consumeTimeline()` 改写，覆盖 4 个 init + `progress:` + `timelinePhase` 读取；该 job 带 `-warnings-as-errors` |
-| `Tests/OhMyDesignTests/TimelineTests.swift` | 11 | 19 | 结构断言（`timeline.items`、`item.node`、`isLastItem`）随类型消失而重写；`#398` 的 `LegacyTimeline` 依赖旧 `TimelineItem`，改为依赖测试内的旧类型拷贝 |
+| `App/Sources/ComponentData.swift` | 4 | 8 | 含换行写法 1 处；`private static var items: [TimelineItem]` 改成 `@ViewBuilder` 属性 |
+| `App/Sources/Previews.swift` | 5 | 9 | 含换行写法 1 处；共享 fixture `PreviewSnapshotFixtures.timelineItems`（逐字 `static var timelineItems: [TimelineItem] {`，被 3 处引用）改为 `@ViewBuilder static var timelineRows: some View` |
+| `scripts/downstream-probe/Sources/DownstreamProbe/PublicVisibility.swift` | 1 | 2 | `consumeTimeline()` 改写：覆盖 4 个 init、`step:`、`progress:`、`phase(forStep:)`、`timelinePhase` 读取；该 job 带 `-warnings-as-errors` |
+| `Tests/OhMyDesignTests/TimelineTests.swift` | 11 | 19 | 结构断言（`timeline.items`、`item.node`、`isLastItem`）随类型消失重写；`#398` 的 `LegacyTimeline` 改依赖测试内旧类型拷贝；**保留**「按 asset 名断言」那一族（CLAUDE.md 的免疫机制第 1 类点名了 `TimelineTests`） |
 | `Tests/OhMyDesignTests/DynamicTypeLayoutTests.swift` | 1 | 2 | `#if os(iOS)`，只在 iOS 腿跑 |
 | `Sources/OhMyDesign/Components/Timeline/Timeline.swift` | 7 | 13 | 本体 + `#Preview` 画廊 |
 
 `ComponentJudgeRulesTests.swift` 里的 `public struct TimelineItem {` 是判据自证的合成源码字符串，**不改**。
 
+**补漏**（S-2 / S-3 / S-4，第 1 版漏列；全仓 `grep -rlE 'TimelineItem|Timeline\(|TimelineLayout|nodeColumnWidth|timelineItems'` 逐个过）：
+
+| 落点 | 处置 | PR |
+|---|---|---|
+| `docs/README.md` 组件索引 `Timeline` 行（指向 `snapshots/…_Timeline.png` 与 `components/timeline.md`） | 行本身不改；新条目 `TimelineItem` 经 `readmeRowCoverage` 挂到这一行（§8.2） | 2 |
+| `docs/snapshots/OhMyDesignPreview_Previews.swift_Timeline{,_Layouts,_Alternate_Widths}.{png,json}` 三组 | 重生成；新 `#Preview` 各新增一组 | 1–3 |
+| `Sources/OhMyDesign/Resources/en.lproj/Localizable.strings` | 新增 `Completed` / `In Progress` / `Upcoming` 三键；`AccessibilityStringLiteralGuard` 要求 a11y 文案走键（不新增 `docs/a11y-exemptions.json` 豁免） | 3 |
+| `AGENTS.md` / `CLAUDE.md` 里点名 `TimelineTests` 的免疫机制第 1 类（「断言的是 asset 名」） | 不改；PR 2 重写 `TimelineTests` 时须保留该族断言，否则这两处散文失真（无机器判据，人工复核） | 2 |
+| `docs/component-contract.md` / `docs/contract-defects.md` 以 `TimelineItem` 的 `node:` 为例的段落 | 引文不变；PR 2 合入前 grep 复核上下文仍为真；U12 若取「semantic + styleSlot」则公约 D1 范例从「散文示例」变成「登记表实例」，补一句 | 2 |
+| `docs/component-contract-revisions.md`、`docs/issues/337-census.md` | 史料，不改 | —— |
+| `docs/reachable-type-registry.json` | 不涉及：它登记带文本参数的非组件可达类型；`TimelineProgress` / `TimelinePhase` 无文本参数（**推断**：PR 3 跑 `ReachableTypeRegistryGuard` 兜住） | —— |
+| `CoreMotionTokenDisciplineGuard` 台账 | §6.6 | 4 |
+
 ### 8.2 文档与判据
 
 | 落点 | 处置 | PR |
 |---|---|---|
-| `QuotedEvidenceGuard` 的 5 条（`grep -c 'Components/Timeline/Timeline.swift'` = 5） | `@ViewBuilder node: () -> Node,` ×2、`private var nodeContent: some View` ×2：**保持原样**（签名与默认画法保留，§1.2）；`static let nodeColumnWidth: CGFloat = 24` ×1：换成 `static let minimumNodeExtent: CGFloat = 24`，registry 引文同步（§5.2）。登记表条数不变（`citations` 现 114 条，地板 `>= 74`） | 1 |
-| `docs/contract-defects.md` / `docs/component-contract.md` | 引文不变 ⇒ 不改；PR 2 合入前 grep 复核两段上下文仍为真（「`TimelineItem` 的 `node:`」是外观槽、「`content:`」是内容槽） | 2 |
-| `docs/component-registry.json` `Timeline` | `notes`：§5.2 两处（PR 1）；追加 `#420` 段：组合式 API、阶段维度正交、`node:` 槽仍是 D1（PR 2 / 3）。`styleEnum` 仍 `TimelineLayout`，J-2 定义域仍 16 | 1–3 |
-| registry 新条目 `TimelineItem` | 它成为公开 `View` ⇒ `registryCoversOhMyDesignTypes` 要求登记；条目数断言 58 → 59（同步那句「`#422` 新增 Tree 后变为 58」的注记）；README 索引 `Timeline` 行经 `readmeRowCoverage` 映射覆盖 `TimelineItem`（先例 `SettingsRow` → `SettingsRowChevron`）。落点按公约走查（预判：`prescriptive`、`needsExtensionPoint: false`，排布候选由 `Timeline` 条目承担）⇒ **不进** J-2 定义域 | 2 |
-| `docs/components/timeline.md` | 重写 API / 用法 / 布局 / 视觉 token / 无障碍；删 `Timeline.applyGroupedStatusValue(_:item:)` 这个不存在的函数名（repo-survey A.6 已指出的漂移）；「stable identity 提示」改写 | 1–4 |
-| `docs/BREAKING-CHANGES.md` | 新增「未发布（相对 `v0.11.0`）——Issue #420」一节：签名变更表（旧 → 新）、行为变更、新增、迁移示例 | 1–4 逐 PR 追加 |
-| `docs/design-digest.md` | `scripts/design-digest.py` 重生成；`FLOORS` 按实际增量改并注 `#420`（预期 components +1、enums +2、enumcases +6） | 2 / 3 |
-| `docs/snapshots/OhMyDesignPreview_Previews.swift_Timeline*.{png,json}` | `scripts/run-snapshots.sh` 重生成（PR 1 横向连线出现；PR 2 / 3 新增参考形态） | 1–3 |
-| PRD FR-1 | PR 2 合入时在 FR-1 注明：命名保留 `TimelineItem` / `node:`、阶段取容器推导（本 spec §1.2、§4.1） | 2 |
-| 历史 plan / spec（`docs/superpowers/plans/2026-05-*` 等 7 份引旧 API 的） | 史料，不改 | —— |
+| `QuotedEvidenceGuard` 的 5 条（`grep -c 'Components/Timeline/Timeline.swift'` = 5） | `@ViewBuilder node: () -> Node,` ×2、`private var nodeContent: some View` ×2 保持；`static let nodeColumnWidth: CGFloat = 24` ×1 换成 `static let minimumNodeExtent: CGFloat = 24`，registry 引文同步 | 1 |
+| `ComponentTextParamGuard` | `Tests/OhMyDesignTests/ComponentTextParamGuard.swift` 逐字 `#expect(result.localizedByType.count == 21,` → **23**：新增 `TimelineItem.init#title` 与 `TimelineItem.init#description`（③④ 两个 init 命中同一个键只算一条，`ComponentJudgeRulesTests.swift` 逐字「两个重载命中同一个键只算一条」）；同句注记追加「`#420` TimelineItem 的 title / description 使 21 变为 23」。`time: Text?` 判 `.notText`，不进任何桶。U13 若加 `StringProtocol` 重载，`title` 另判 `.bareText`、须在 `TimelineItem` 条目登记 `textParams` | 2 |
+| `docs/component-registry.json` `Timeline` | `notes`：§5.2 两处（PR 1）；追加 `#420` 段：组合式 API、阶段正交、`node:` 仍是 D1（PR 2 / 3）。`styleEnum` 仍 `TimelineLayout` | 1–3 |
+| registry 新条目 `TimelineItem` | 它成为公开 `View` ⇒ `registryCoversOhMyDesignTypes` 要求登记；`ComponentRegistryGuard.swift` 逐字 `#expect(entries.filter { $0.repo == "ohmydesign" }.count == 58,` → 59；README 映射先例 `SettingsRow` → `SettingsRowChevron`。**分类与 J-2 定义域是 U12**（§8.4） | 2 |
+| `docs/components/timeline.md` | 重写 API / 用法 / 布局 / 视觉 token / 无障碍 / 规模（§3.8）/ `ImageRenderer` 须注入 `.resting`（§6.3）；删 `Timeline.applyGroupedStatusValue(_:item:)` 这个不存在的函数名 | 1–4 |
+| `docs/BREAKING-CHANGES.md` | 新增「未发布（相对 `v0.11.0`）——Issue #420」一节，逐 PR 追加 | 1–4 |
+| `docs/design-digest.md` | `scripts/design-digest.py` 重生成；`FLOORS` 按实际增量改并注 `#420` | 2 / 3 |
+| PRD FR-1 | PR 2 合入时在 FR-1 注明命名、阶段取值（按 U1 拍板结果） | 2 |
+| 历史 plan / spec | 史料，不改 | —— |
 
 ### 8.3 像素不变的射程
 
-**有意保留**（对照原样拷贝的旧实现，§9.1 闸门）：
+**有意保留**（对照原样拷贝的旧实现，§9.1 闸门；一律在 `.resting` 呈现下渲染，§6.3）：
 
-- `.vertical` / `.alternate` / `.grouped`，纯活动流，节点 ≤ 24×24（默认圆点五档状态、SF Symbol 图标、Ø20 固定圆、
-  不带尺寸的 `Circle()`），内容高 ≥ 16pt；
-- `.horizontal` 同上条件下，**连线像素以外**逐点相同；
+- `.vertical` / `.alternate` / `.grouped`，纯活动流，节点 ≤ 24×24，内容高 ≥ 16pt；
+- `.horizontal` 同上条件下，连线像素以外逐点相同；
 - 带阶段时 `completed` 行的默认圆点与活动流逐点相同。
 
-**有意改变**（另立新基线、登记 BREAKING）：
+**有意改变**（另立新基线、登记 BREAKING）：`.horizontal` 连线；大于 24pt 的节点的列宽 / 行高 / 连线端点；内容高 < 16pt 的非末行多出 `m`；
+带阶段的全部新外观；节点入场动效；`.alternate` 中非行子视图处连线截断（旧实现没有非行子视图这回事）。
 
-- `.horizontal` 多出节点间连线；
-- 大于 24pt 的节点：列宽 / 行高 / 连线端点随之变化（旧实现是溢出、被连线穿过）；
-- 内容高 < 16pt 的非末行：行高多出最短连线 `m`；
-- 带阶段的全部新外观（外环、空心、着色连线）；
-- 节点入场动效（首次可见时的运动，静止帧不变）。
+### 8.4 `TimelineItem` 的登记分类：按公约走一遍（I-7 → U12）
+
+`docs/component-contract.md` 把 `TimelineItem` 的 `node:` 当 D1 外观槽范例（D1 行的范例列逐字 `@ViewBuilder node: () -> Node,`），
+判据自证夹具也用这个形状（`ComponentJudgeRulesTests.swift` 逐字 `styleSlot: "TimelineItem.node", needsExtensionPoint: true`）。
+`TimelineItem` 第一次成为登记单位，照 §1 判定法走：
+
+1. 弃用条款 / 祖父条款：不命中（未弃用；无已发布的自有样式协议）。
+2. 步骤 1（Apple 原生样式协议）：无——没有「时间线条目」对应的系统控件与 `*Style` 协议。
+3. 步骤 2（≥2 个非皮肤的业界替代形态；最小基线 Apple HIG / Material / Fluent / Ant Design + 一个最贴近的产品）：
+   - Apple HIG、Material Design 3、Fluent 2：**无时间线组件**（查无对应条目）；
+   - Ant Design `Timeline.Item`：`dot`（自定义节点）= 同一槽内的画法变化 ⇒ **装饰，不计**；`color` ⇒ 装饰；
+     `label`（时间放在轴的另一侧）⇒ 空间关系改变 ⇒ **排布，计 1**；`mode="alternate" / "right"` ⇒ 排布，但由兄弟组件
+     `Timeline` 的 `TimelineLayout` 承担（`.alternate` 已在其登记表条目里）⇒ **按作用域条款排除**；
+   - 产品：MUI Lab `TimelineOppositeContent`（与 Ant `label` 同一形态，**不另计**）；GitHub PR 时间线「事件行（小图标 + 单行）vs
+     评论卡片（头像在轴外 + 带页眉的卡片）」——卡片的边框背景是装饰，页眉条（作者 + 时间）是**增一个槽**，计 1，但它更像
+     「行里放了一个卡片组件」而非条目自身的替代形态，**举得犹豫**。
+   - ⇒ 站得住的非皮肤候选 1 个、犹豫 1 个 ⇒ **不满足 ≥2**；「长相即含义」的理由也说不清 ⇒ 落**步骤 4 tiebreaker**。
+4. 结论（推荐）：`kind: prescriptive`、`decidedBy: tiebreaker`、`needsExtensionPoint: false` ⇒ **不进 J-2 定义域，仍为 16**。
+   `node:` 槽照旧存在并由 `QuotedEvidenceGuard` 的引文登记守着「签名逐字在」，但**不**由 J-2 判它。
+5. 备选：`kind: semantic`、`decidedBy: step2`、`styleSlot: "TimelineItem.node"`、`needsExtensionPoint: true` ⇒ J-2 定义域 **16 → 17**
+   （`ComponentExtensionPointGuard.swift` 逐字 `#expect(result.inspected.count == 16,` 与同句的 16 个组件名清单要改，CLAUDE.md 那条
+   「降到 16」的注记同步），公约 D1 范例由散文变成机器可判的实例。代价：步骤 2 须补足第二个站得住的候选（带可核验来源），否则这是
+   「通往不可逆结论的路举证最弱」的那种登记（公约步骤 2 自己点名的反模式）。
+6. ⚠️ 不可取的第三条路：把 `styleSlot: "TimelineItem.node"` 加在 **`Timeline`** 条目上——`judgeExtensionPoints` 按
+   `ComponentJudgeRules.swift` 逐字 `} else if let slot = entry.styleSlot {` 先于 `} else if let styleEnum = entry.styleEnum {` 裁决，
+   填了 `styleSlot` 会让 `TimelineLayout` 的 D2 接线检查**静默不再执行**。
 
 ## 9. 判据计划
 
-纪律：判据能被变异打红；**变异不照判据的形状构造**（改一个真实会犯的错，不是把判据读的常量改掉）；
-每次变异先 `git diff` 确认落到了文件里再跑。
+纪律：判据能被变异打红；变异不照判据的形状构造；每次变异先 `git diff` 确认落到了文件里再跑。
 
-**资源色约束**：默认圆点取 `StatusColors`（asset catalog），macOS native 腿上解析为全透明。⇒
-- 状态色相关的位图判据只在 catalog 已编译的腿上跑（沿用 `TimelineNodeColorRenderTests` 的 `.enabled(if: assetCatalogIsCompiled, …)`）；
-- macOS 腿的几何 / 形态判据改用**不走 catalog 的颜色**：`status: .neutral`（取 `contentSecondary`，系统色）、
-  自定义节点 `Color.black` 色块、`.tint(.black)` 固定着色层（不用默认 `.tint`——它在 macOS 取用户强调色，换机器就变）；
-- 取色映射本身继续用 asset 名断言（`nodeColorMapsToStatusColorsAsset` 那一族），双腿都跑。
+**资源色约束**：默认圆点取 `StatusColors`（asset catalog），macOS native 腿上解析为全透明 ⇒ 状态色相关位图判据只在 catalog 已编译的腿上跑
+（沿用 `TimelineNodeColorRenderTests` 的 `.enabled(if: assetCatalogIsCompiled, …)`）；macOS 腿的几何 / 形态判据用不走 catalog 的颜色
+（`status: .neutral`、自定义节点 `Color.black`、`.tint(.black)`）；取色映射继续用 asset 名断言，双腿都跑。
 
-**位图容差**：「应相同」用 `expectBitmapsEquivalent(maxChannelDelta: 2)`（`noiseTolerance = 2`，先例 `TreeTests`）；
-「应不同」不用裸 `expectBitmapsDiffer`（一个字节不同就过），改为「逐通道最大偏差 > 8（`minimumSignalDelta`，
-先例 `TreeSearchRenderTests`）**且**差异像素数 ≥ 预期区域面积的一半」——预期区域由几何算（例如一段连线 = 长 × 1pt）。
+**呈现约束**（§6.3）：所有 `ImageRenderer` / 托管窗口的**静态**位图判据注入 `coreMotionPresentationOverride(.resting)`。
+
+**位图容差**：「应相同」用 `expectBitmapsEquivalent(maxChannelDelta: 2)`；「应不同」= 逐通道最大偏差 > 8 **且**差异像素数 ≥ 预期区域面积一半。
 
 ### 9.1 几何（PR 1）
 
 | 判据 | 腿 | 形式 |
 |---|---|---|
-| §3.7 纯函数表逐行 | 双腿 | 纯函数；含 `infinity` / `-infinity` / `nan` / 负数 / 空数组；现有 `alternateSlotWidth` 断言原样保留 |
-| 列宽 = 最宽节点 | macOS | `.vertical`：三行，节点 `Color.black` 24×24 / 40×56（非正方形）/ 20×20，内容为纯色块；量三行内容色块的左缘列 ⇒ 三者相等且 = 40 + md |
-| 高节点不被穿过 | macOS | 同上夹具、`.tint(.black)` + `.completed` 使连线为实黑：中轴列上，40×56 那行节点盒内部无连线像素、连线首像素 y = 盒下沿（±1） |
-| 连线终点 = 下一盒上沿 | macOS | 同上，连线末像素 y = 下一盒上沿 − 1（±1） |
-| `.alternate` 中轴一致 | macOS | 同夹具 `.alternate`：各行节点色块水平中心列相同，且 = 行宽 / 2（±1）；连线列 = 该列 |
-| `.horizontal` 横轴与内容顶 | macOS | 盒高 24 / 56 混排：各节点色块垂直中心行相同；各内容色块顶行相同 = 56 + sm；连线在横轴行上、从左盒右沿到右盒左沿 |
-| RTL | macOS | 行内容为纯色块：`.vertical` RTL 图 = LTR 图水平翻转（≤ 噪声） |
-| **旧实现闸门**（`Legacy420*`） | 双腿（iOS 另加五档状态色） | 把 PR 1 父提交的渲染类型原样拷进测试 target、改名；§8.3「有意保留」矩阵 × {light, dark} × {`.vertical`, `.alternate`, `.grouped`} 新旧各渲一张，尺寸相同且 `expectBitmapsEquivalent(maxChannelDelta: 2)`；`.horizontal` 先把连线带（横轴 ±1pt、相邻盒之间）遮掉再比 |
-| `.horizontal` 确有连线 | macOS | 同夹具新旧对照的连线带：「应不同」（偏差 > 8 且差异像素 ≥ 连线预期面积一半） |
+| §3.7 纯函数表逐行 | 双腿 | 纯函数；含 `infinity` / `-infinity` / `nan` / 负数 / 空数组；`alternateSlotWidth` 断言原样保留 |
+| 列宽 = 最宽节点 | macOS | `.vertical` 三行，节点 `Color.black` 24×24 / 40×56 / 20×20，内容纯色块；三行内容左缘相等且 = 40 + md |
+| 高节点不被穿过 | macOS | 同上夹具、`.tint(.black)` + `.completed`：40×56 那行盒内部无连线像素、连线首像素 y = 盒下沿（±1） |
+| 连线终点 = 下一盒上沿 | macOS | 连线末像素 y = 下一盒上沿 − 1（±1） |
+| `.alternate` 中轴一致 | macOS | 各行节点色块水平中心列相同且 = 行宽 / 2（±1） |
+| `.horizontal` 横轴与内容顶 | macOS | 盒高 24 / 56 混排：节点中心行相同；内容顶行相同 = 56 + sm；连线在横轴行上 |
+| RTL | macOS | `.vertical` RTL 图 = LTR 图水平翻转（≤ 噪声） |
+| **旧实现闸门**（`Legacy420*`） | 双腿（iOS 另加五档状态色） | PR 1 父提交的渲染类型原样拷进测试 target、改名；§8.3「有意保留」矩阵 × {light, dark} × {`.vertical`, `.alternate`, `.grouped`} 新旧各渲一张，`expectBitmapsEquivalent(maxChannelDelta: 2)`；`.horizontal` 先遮掉连线带再比 |
+| `.horizontal` 确有连线 | macOS | 新旧对照的连线带「应不同」 |
 
-`Legacy420*` 闸门横跨 PR 1–2（PR 2 换 API 后同一矩阵再过一遍），**PR 2 最后一个 commit 删除**，读数写进 PR 正文
-（Tree `Legacy422` 的先例：拷贝件常驻只会变成维护负担）。`#398` 的三条旧圆点对照是另一回事，**保留**，只改它依赖的旧类型拷贝。
+**`Legacy420*` 闸门的生命周期（I-5 定案）**：**保留到 PR 4 最后一个 commit 删除**（不在 PR 2 末删除）。理由：§9.3 的
+「不传 `progress` 与旧实现同图」、§9.5 的「入场 `initialValue` 写成 0.86 ⇒ 闸门红」两条判据都要它；改用「PR 2 末固化基线位图」要把 PNG
+提交进测试资源，跨机器字体 / 渲染差异会让它变成脆性判据，而 `Legacy420*` 是同进程同宿主渲染、天然免疫。代价是拷贝件在测试 target
+多驻两个 PR。`#398` 的三条旧圆点对照是另一回事，**保留**，只改它依赖的旧类型拷贝。
 
-计划变异：
-
-- 列宽逐行各算各的（不跨行取最大）——预期「列宽 = 最宽节点」红；
-- 行高只看内容、不看盒高（「沿用 `HStack` 的思路」）——预期「高节点不被穿过」红；
-- 连线起点写回常量 24（旧实现的 `.padding(.top, …)` 回归）——预期「高节点不被穿过」红，闸门仍绿（说明闸门测不到它，符合射程）；
-- 节点提议改成 `.unspecified`——预期闸门红（`Circle()` 节点从 24 缩到 10）；
-- `.alternate` 仍调单参数 `alternateRowMetrics(forRowWidth:)`（忘了传列宽）——预期「中轴一致」红；
-- `.horizontal` 内容顶取本列盒高——预期「内容顶一致」红；
-- 两参数版 metrics 去掉 `nodeColumnWidth` 的 `nan` 防御——预期纯函数红。
+计划变异：列宽逐行各算（「列宽 = 最宽节点」红）；行高只看内容（「高节点不被穿过」红）；连线起点写回常量 24（「高节点不被穿过」红、闸门仍绿）；
+节点提议改 `.unspecified`（闸门红）；`.alternate` 仍调单参数 metrics（「中轴一致」红）；`.horizontal` 内容顶取本列盒高（「内容顶一致」红）；
+去掉 `nodeColumnWidth` 的 `nan` 防御（纯函数红）。
 
 ### 9.2 API 迁移（PR 2）
 
 | 判据 | 形式 |
 |---|---|
-| 行规格读取 | 纯结构：`Group(subviews:)` 解析出的行序列与声明一致（含 `ForEach` / `if` / 非行子视图），用 `ImageRenderer` 渲染一个每行内容为不同宽度色块的夹具，量内容左缘 / 顶沿顺序 |
-| 非行子视图不占行序 | 带阶段 `.inProgress(at: 1)`，第 0、1 行之间插一个 `Text`：第 1 个 `TimelineItem` 的节点形态为进行中（neutral 空心 / 实心 + 外环可在 macOS 区分） |
-| `timelinePhase` 只在 `node:` 内有值 | 自定义节点与内容各放一个读环境的探针视图，把读数画成不同宽度色块：节点内按阶段、内容内恒 `nil` |
+| 配对与行序 | `ImageRenderer` 渲染每行内容为不同宽度色块的夹具（含 `ForEach` / `if` / 非行子视图 / 调用方多视图节点闭包）：量内容左缘 / 顶沿顺序；多视图节点仍只占一个节点盒 |
+| 行上修饰作用于节点 | `.opacity(0.5)` 施在行上：节点色块与内容色块**都**半透（P6 同形）；变异见下 |
+| 行被包进 `VStack` | 节点与内容仍出现（降级可见） |
+| `timelinePhase` 两槽有值 | 自定义节点与内容各放一个读环境的探针，读数画成不同宽度色块：两处都按阶段；`Timeline` 外恒 `nil` |
+| `.grouped` 不摆节点 | 位图：无节点像素；iOS `axe --point` 在节点位置命中不到任何元素（手工读一次，写 PR 正文） |
 | 旧实现闸门 | §9.1 同一矩阵，新 API 写法 |
-| J-2 / registry / README / 引文 | 既有守卫：`ComponentExtensionPointGuard`（16 不变）、`ComponentRegistryGuard`（59）、`QuotedEvidenceGuard`、`ComponentTextParamGuard`、`BoolExemptionGuard` |
+| J-2 / registry / README / 引文 / 文案 | `ComponentExtensionPointGuard`（16 或 17，按 U12）、`ComponentRegistryGuard`（59）、`QuotedEvidenceGuard`、`ComponentTextParamGuard`（23）、`BoolExemptionGuard` |
 
-变异：`TimelineItem` 的 body 把节点也作为第二个视图产出（「顺手让它自己画节点」）——预期行序判据红（P1：会被展平成额外子视图）；
-容器改为对 `Subview` 施 `.environment(\.timelinePhase, …)`（「更 SwiftUI 的写法」）——预期 `timelinePhase` 判据红（P1b）。
+变异：行的 body 不给节点包单一容器（「节点闭包本来就是一个视图」）——预期多视图节点夹具的配对判据红；容器改为对 `Subview` 施
+`.environment(\.timelinePhase, …)`（「更 SwiftUI 的写法」）——预期 `timelinePhase` 判据红（P1b）；改回「容器画节点」——预期「行上修饰作用于节点」红。
 
 ### 9.3 阶段真值表（PR 3）
 
 | 判据 | 形式 |
 |---|---|
-| 真值表逐行 | 纯函数：`phase(at:)` × {`.notStarted`, `.inProgress(at: -1 / 0 / 2 / n−1 / n / n+5)`, `.completed`} × `n ∈ {0, 1, 5}`；段着色与 `P` 同表 |
-| 着色接线 | macOS 位图：`.tint(.black)`，`n = 5`，`.inProgress(at: 2)`：前两段中轴列为黑、后两段为 `dividerDefault`（系统色，可解析）；`.completed` 全黑；不传 `progress` 与旧实现闸门同图 |
+| 真值表逐行 | 纯函数：`phase(forStep:)` × {`.notStarted`, `.inProgress(at: -1 / 0 / 2 / 末 / 末+1 / 空档)`, `.completed`} × `step` ∈ {连续、有空档、重复、非单调、部分为 `nil`}；段着色与 `P` 同表 |
+| 着色接线 | macOS 位图：`.tint(.black)`、5 行、`.inProgress(at: 2)`：前两段黑、后两段 `dividerDefault`；`.completed` 全黑；不传 `progress` 与 `Legacy420*` 同图 |
 | 形态接线 | macOS 位图：`status: .neutral` 三阶段三张图两两「应不同」；`completed` 与活动流「应相同」 |
-| 无障碍取值 | 纯函数：`(status, 有无自定义节点, phase, layout)` → 值键序列，覆盖 §7 表每一行；iOS `axe describe-ui` 手工读一次（不进 CI，读数写 PR 正文与 `timeline.md`「不在 CI」清单） |
+| 无障碍取值 | 纯函数：`(status, 有无自定义节点, phase, 有无 title)` → `(值键序列, 挂载点)`，覆盖 §7.3；iOS `axe describe-ui --point` 手工读一次（整树输出含隐藏元素，不可用来判隐藏；§0），读数写 PR 正文与 `timeline.md`「不在 CI」清单 |
 
-变异：照 reui 写成 `index <= k` 判已完成（进行中行被判成已完成）——预期真值表红；段着色看行 `i` 是否 `inProgress`
-而非是否到达（「进行中那一段也算走过」）——预期着色接线红；不传 `progress` 时当成 `.completed`（「默认全完成」）——预期
-闸门红；带阶段时自定义节点忘了包阶段值——预期无障碍纯函数红。
+变异：照 reui 写成 `s <= k` 判已完成（进行中行被判成已完成）——真值表红；段着色看行 `j` 而非行 `j+1`——着色接线红；不传 `progress` 时当
+`.completed`——闸门红；带阶段时自定义节点行漏了阶段键——无障碍纯函数红。
 
 ### 9.4 与 `Steps` 不共用类型
 
 源码判据：`Timeline` 目录下不出现 `StepsProgress` / `StepItem`，`Steps` 目录下不出现 `TimelineProgress` / `TimelinePhase`；
-`git diff` 核 `Sources/OhMyDesign/Components/Steps/` 零改动（PR 正文贴读数）。
+`git diff` 核 `Sources/OhMyDesign/Components/Steps/` 零改动。
 
 ### 9.5 动效与 Reduce Motion（PR 4）
 
-在飞帧判据只在 macOS 腿（`CoreMotionTokenInFlightTests` 已登记原因：iOS 的 `layer.render(in:)` 拍不到进行中的帧），
-承重量取**结构量**（互异中间位置的个数），不取具体读数（PRD NFR）：
+在飞帧判据只在 macOS 腿（`CoreMotionTokenInFlightTests` 已登记原因：iOS 的 `layer.render(in:)` 拍不到进行中的帧），承重量取结构量：
 
 | 判据 | 形式 |
 |---|---|
-| 推进会生长（RM 关） | `HostedWindow`，`n = 5`、`.tint(.black)`，`progress` 从 `.inProgress(at: 0)` 改为 `(at: 3)`：采样期内中轴列黑色长度出现 ≥ 2 个**不在段边界上**的中间值；拍不到按 `observeControlMotion` 的「无法下结论」处理，不放行 |
-| 推进不生长（RM 开） | 同上 `.resting`：黑色长度只出现段边界值（整段淡入，长度不经过段内位置），中间值个数 = 0 |
-| 回退从远端收 | RM 关，`(at: 3)` → `(at: 1)`：中间长度单调不增 |
-| 入场按视口触发 | `HostedWindow` + `ScrollView`，第 8 行初始在屏外：滚入时该行节点色块宽度出现 ≥ 2 个介于 `0.86×` 与 `1×` 之间的中间值（若挂载时就播完了，此处为 0） |
-| 不重播 | 同一窗口滚出再滚回：中间值个数 = 0 |
+| 推进会生长（RM 关） | `HostedWindow`，5 行、`.tint(.black)`，`(at: 0)` → `(at: 3)`：中轴列黑色长度出现 ≥ 2 个不在段边界上的中间值；拍不到按 `observeControlMotion` 的「无法下结论」处理 |
+| 推进不生长（RM 开） | 同上 `.resting`：只出现段边界值 |
+| 回退从远端收 | `(at: 3)` → `(at: 1)`：中间长度单调不增 |
+| 圆点与连线同步 | 同一组帧里，第 `j` 行圆点的形态变化帧 ≥ 第 `j−1` 段填满的帧（§6.2；若 PR 4 首个 commit 的探针证伪 `P` 下发可插值，本条改为登记不同步） |
+| 入场按视口触发 | `HostedWindow` + `ScrollView`，第 8 行初始在屏外：滚入时该行节点宽度出现 ≥ 2 个介于 0.86× 与 1× 之间的中间值 |
+| 入场无闪帧 | 同上，滚入后采到的**第一帧**节点宽度 < 1×（P8：同步触发下首帧已是缩小态；推迟触发的变异下首帧为 1×） |
+| 不重播 | 滚出再滚回：中间值个数 = 0 |
 | 无滚动宿主挂载即播 | 无 `ScrollView`：挂载后采样出现中间值 |
-| 入场 RM 不播 | `.resting`：滚入时中间值个数 = 0，且无不透明度渐变（色块像素只有两种取值） |
-| 静止帧不受入场影响 | `ImageRenderer` 渲染 = `.hidden` 覆盖下的渲染（≤ 噪声） |
+| 入场 RM 不播 | `.resting`：滚入时中间值个数 = 0 |
+| 静止帧 | `.resting` 下 `ImageRenderer` 渲染 = 终态（≤ 噪声）；`.animated` 下 `ImageRenderer` 取到入场第 0 帧（P8 事实钉住） |
 | 源码台账 | `CoreMotionTokenDisciplineGuard` 的 `.gated` 与 `transformLedger` 条目 |
 
-变异：推进用 `.animation(CoreMotionToken.reveal.animation, value: position)`（取了 token、能过纪律守卫，但绕过了
-`coreMotionPresentation`）——预期「RM 开不生长」红；入场改挂 `.onAppear`——预期「按视口触发」红；闩锁放在会被重建的
-子视图里（身份随 `P` 变化）——预期「不重播」红；入场 `initialValue` 写成 0.86（「从小开始更自然」）——预期
-「静止帧」红与 §9.1 闸门红。
+变异：推进用 `.animation(CoreMotionToken.reveal.animation, value: position)`（绕过 `coreMotionPresentation`）——「RM 开不生长」红；入场改挂
+`.onAppear`——「按视口触发」红；闩锁放进会被重建的子视图——「不重播」红；trigger 推迟到下一轮 runloop（「避免在回调里改状态」）——
+「入场无闪帧」红；入场 `initialValue` 写成 0.86——「静止帧」`.resting` 一侧与闸门红。
 
 ### 9.6 强制检查（每个 PR）
 
-macOS `swift test`（读 `Test run with N tests` 总数）、iOS `xcodebuild -scheme OhMyDesign-Package`（`.xcresult`
-**顶层** `passedTests`）、预览宿主（按 CLAUDE.md 核 `Debug-iphonesimulator` + `Compiling ComponentData.swift` +
-`in target 'OhMyDesignPreview'` 步数非 0）、`scripts/downstream-probe`、MainActor 棘轮、`design-digest.py`。
+macOS `swift test`（读 `Test run with N tests` 总数）、iOS `xcodebuild -scheme OhMyDesign-Package`（`.xcresult` 顶层 `passedTests`）、
+预览宿主（核 `Debug-iphonesimulator` + `Compiling ComponentData.swift` + `in target 'OhMyDesignPreview'` 步数非 0；P9 构建读数为 61 步）、
+`scripts/downstream-probe`、MainActor 棘轮、`design-digest.py`。
 
 ## 10. 拆 PR 建议
 
-参照 `#429` 的 4-PR 拆法：每个 PR 独立可合并，验证口径分层。
-
 | PR | 内容 | 公开 API | 承重验证 |
 |---|---|---|---|
-| **1 几何内核** | `TimelineStackLayout` + §3.7 纯函数；**仍由旧 `[TimelineItem]` 数据喂**；节点盒自适应、连线端点取实际几何；`.horizontal` 连线（d）；`nodeColumnWidth` → `minimumNodeExtent`；§5.2 更正传播三处；`Legacy420*` 闸门 | 不变（`nonisolated` 加在 `TimelineLayout` 上除外） | §9.1；快照重生成 |
-| **2 组合式 API 迁移** | `Timeline<Content>` + `Group(subviews:)` + `ContainerValues`；`TimelineItem` 变 `View`、四个 init、结构件；移除旧 init；§8.1 全部调用点、fixture、probe、测试；registry 新条目 + 计数 59 + README 映射；活动流（>24pt 头像）与部署日志两个参考形态；BREAKING；digest；删 `Legacy420*` | **破坏性** | §9.2；预览宿主、probe、棘轮（本 PR 是它们的主战场） |
-| **3 阶段** | `TimelineProgress` / `TimelinePhase` / `init(progress:)` / `timelinePhase`；静态形态与连线着色；阶段无障碍；路线图参考形态 | 加法 | §9.3、§9.4 |
-| **4 动效** | 推进补间、入场闩锁、RM 分支、纪律台账 | 无 | §9.5 |
+| **1 几何内核** | `TimelineStackLayout` + §3.7 纯函数；**仍由旧 `[TimelineItem]` 数据喂**（容器构造节点，过渡态）；节点盒自适应、连线端点取实际几何；`.horizontal` 连线；`nodeColumnWidth` → `minimumNodeExtent`；§5.2 更正传播；`Legacy420*` 闸门 | 不变（`TimelineLayout` 加 `nonisolated` 除外） | §9.1；快照重生成 |
+| **2 组合式 API 迁移** | `Timeline<Content>` + `Group(subviews:)` + `ContainerValues` 角色配对；`TimelineItem` 变 `View`、**自己画节点**、四个 init、结构件、`step:`；移除旧 init；§8.1 全部调用点；registry 新条目（按 U12）+ 计数；活动流与部署日志两个参考形态；BREAKING；digest | **破坏性** | §9.2；预览宿主、probe、棘轮 |
+| **3 阶段** | `TimelineProgress` / `TimelinePhase` / `init(progress:)` / `timelinePhase`；静态形态与连线着色；阶段无障碍（§7.3）；路线图参考形态 | 加法 | §9.3、§9.4 |
+| **4 动效** | 推进补间（同一 `P`）、入场闩锁、RM 两条通路、纪律台账；**删除 `Legacy420*`** | 无 | §9.5 |
 
-依赖是线性的（2 依赖 1 的几何，3 依赖 2 的容器，4 依赖 3 的 `P`）；PR 1 不动公开签名，合入后 main 上外观只多了横向连线
-与大节点自适应，可单独发布。
+依赖线性（2 依赖 1 的几何，3 依赖 2 的容器，4 依赖 3 的 `P`）。⚠️ PR 1 的「容器构造节点」是过渡实现，PR 2 改为行构造；几何判据
+不依赖谁构造节点，故 PR 1 的判据在 PR 2 原样复用。
 
 ## 11. 被否决的替代方案
 
-1. **容器逐行注入环境值（reui Context 的直译）**：P1b / P1d 实测对 `Subview` 施自定义环境值进不了 body。
-2. **节点由 `TimelineItem` 自己画、作为第二个子视图产出**：拿不到阶段（同上），且会被 `Group(subviews:)` 展平成
-   额外子视图（P1），行序要靠「两个一组」的约定维持，任何一个行多产出一个视图就全错位。
-3. **`PreferenceKey` / `onGeometryChange` 求最宽节点**：两遍布局、首帧跳动、`ImageRenderer` 判据测到的是首帧（§3.1）。
-4. **只用 `alignmentGuide` 对齐中轴**：拿不到最宽值，内容列起点参差（§3.1）。
-5. **自定义 result builder、行不是 `View`（Swift Charts 的 `ChartContent` 式）**：可免去 registry 新条目，但要自己实现
-   `ForEach` / `if` 的 builder 支持，调用方熟悉的 `ForEach(data)` 写法全要换成本组件专用的，收益不抵成本。
-6. **逐行显式阶段 `phase:`**：允许非单调组合、连线着色无定义、做不出沿线推进（§4.1）。
-7. **「进行中」呼吸 / 脉冲**：常驻渲染层，要接 `EnergyState`；「进行中」已有静态外环表达，脉冲只加成本。
-8. **`.scrollTransition` 做入场**：双向、重播、滚出时缩回读作「未到达」、嵌套时取最内层（§6.3）。
-9. **保留 `Timeline(items:)` 作过渡 shim**：PRD 已定案移除；且新 `TimelineItem` 是泛型 `View`，`[TimelineItem]`
-   这个类型本身不成立，shim 只能换名，等于另起一套 API。
-10. **行内结构件做成独立子组件视图**（`TimelineTitle` / `TimelineTime` / `TimelineDescription`，reui 的分解直译）：
-    每个都是公开 `View` ⇒ registry 多 3 条、README 多 3 个映射、各走一遍公约，而它们只承担字体与颜色两个取值（U7）。
-11. **改名 `TimelineEntry` + `indicator:`**：公约文档里 D1 / 内容槽两个范例要改写、`QuotedEvidenceGuard` 多动 4 条，
-    语义上无收益（U2）。
+1. **对解析后的 `Subview` 逐个注入环境值**：P1b / P1d 实测进不了 body。（第 1 版把这条等同于「reui Context 的直译」，是误读——reui
+   下发的是统一的 `activeStep`，对应 P5 / P6 的解析前通路，见 §1.3。）
+2. **容器画节点（第 1 版定案）**：行上修饰碰不到节点、包进 `VStack` 后节点静默消失、隐藏一行留下可聚焦的状态元素（P6 / P10）。
+3. **`PreferenceKey` / `onGeometryChange` 求最宽节点**：两遍布局、首帧跳动（§3.1）。
+4. **只用 `alignmentGuide` 对齐中轴**：拿不到最宽值（§3.1）。
+5. **自定义 result builder、行不是 `View`**：要自己实现 `ForEach` / `if` 的 builder 支持，调用方熟悉的写法全要换。
+6. **「进行中」呼吸 / 脉冲**：常驻渲染层，要接 `EnergyState`。
+7. **`.scrollTransition` 做入场**：双向、重播、滚出时缩回读作「未到达」（§6.3）。
+8. **入场 trigger 推迟到下一轮 runloop**：`ImageRenderer` 干净了，但真实界面闪一帧终态（P8b）。
+9. **保留 `Timeline(items:)` 作过渡 shim**：PRD 已定案移除；`[TimelineItem]` 这个类型本身不成立。
+10. **行内结构件做成独立子组件视图**：多 3 条 registry、3 个 README 映射（U7 定案理由）。
+11. **改名 `TimelineEntry` + `indicator:`**：公约 D1 / 内容槽两个范例要改写、`QuotedEvidenceGuard` 多动 4 条，无语义收益（U2 定案理由）。
+12. **无障碍 `.accessibilityChildren` 合成行元素**：帧全错（P10 (b)）。
+13. **无障碍 `.contain` + 值**：值挂在不可聚焦的 `Group` 上，读不到（P10 (a3)）。
+14. **把 `styleSlot` 登记在 `Timeline` 条目上**：会让 `TimelineLayout` 的 D2 检查静默失效（§8.4 第 6 条）。
 
-## 12. 风险、未决与需要拍板
+## 12. 风险、未决与拍板清单
 
 ### 风险
 
-- **R1** `.grouped` 与自定义节点的无障碍值施在容器构造的包装 / `Subview` 代理外层，是否进入无障碍树**未实测**（P5）——
-  PR 2 / 3 以 iOS `axe describe-ui` 前置核对；读不到则 `.grouped` 的阶段值退回由 `TimelineItem` 自己施（它能读到统一下发的 `layout`，读不到逐行阶段 ⇒ 届时阶段在 `.grouped` 下无法播报，回来重议）。
-- **R2** 入场闪帧：`onScrollVisibilityChange` 若在首帧提交之后才回调，用户会先看到一帧终态再缩小——PR 4 的在飞采样要专门看挂载后的前几帧；若闪，改为「`.animated` 且尚未触发时静止值为 0.86」并接受快照需要 `.resting` 覆盖。
-- **R3** P4 只在 macOS 测；iOS 上 `onScrollVisibilityChange` 的首帧行为与嵌套滚动是推断。
-- **R4** 容器非惰性：全部行都构建（与旧 `VStack` 相同，不是回退）；超长时间线的惰性化不在本 issue。
-- **R5** `AnyView` 进 `ContainerValues`：节点视图类型擦除；节点的 `@State`（入场闩锁）挂在容器构造的 `TimelineNodeView` 上、以 `subview.id` 为身份——依赖 `subview.id` 在数据不变时稳定（文档保证，未单独实测）。
-- **R6** `.alternate` 下 VoiceOver 读序按几何还是按声明序未测；若按几何，内容在左的行会先读内容后读状态。
-- **R7** P1b 描述的是当前 SwiftUI 行为（「自定义环境值进不了 `Subview` 的 body」）；若将来 Apple 改变它，本设计仍然正确（容器自建节点不依赖这一点），只是 §11 第 1 条的否决理由弱化。
-- **R8** `title: LocalizedStringKey` 接数据驱动的字符串（`"\(e.actor) \(e.verb)"`）会走一次本地化查表、查不到回退原文——行为正确但语义上是插值键；纯用户数据可改用 `content:` 放 `Text(verbatim:)`。
-- **R9** 最短连线 `m` 让「内容高 < 16pt」的旧布局变高（§3.3），属有意变化但可能被下游快照捕获。
-- **R10** 本 spec 的探针未开 `defaultIsolation(MainActor)`；四个 init 的重载解析与 `ContainerValues` 存 `AnyView` 在本仓 target 设置下是否同样成立，PR 2 第一个 commit 先编译验证。
+- **R1**（已解决）`.grouped` 与内容子视图上的无障碍值是否进树：P10 实测进树。
+- **R2** 入场闪帧的观测器是 `cacheDisplay`（强制同步渲染），与屏幕合成帧是否逐帧一致未测；判据以它为准，真机观感交视觉评审。
+- **R3** P4 / P8 只在 macOS 测；iOS 上 `onScrollVisibilityChange` 的首帧行为、嵌套滚动、同步触发是否无闪帧均为推断。
+- **R4**（改写）本设计**架构上排斥惰性**：单个容器级 `Layout` 必须拿到全部子视图。n = 300 重排约 17ms、n = 1000 约 160–355ms（§3.8）；
+  要惰性需另一条管线（显式列宽 + `LazyVStack`），不在本 issue。
+- **R5** 节点入场闩锁是行内节点视图的 `@State`，身份跟随调用方 `ForEach` 的 id / 结构身份（I-1 方案下不再经 `subview.id` 转手）。
+- **R6** `.alternate` 下读序按几何（P9 基线已如此）；「状态随行」不受影响。
+- **R7** P1b 描述的是当前 SwiftUI 行为；I-1 方案不依赖它。
+- **R8** 逐子视图语义：行上的 `.padding` / `.background` / `.onTapGesture` 对节点与内容各施一次（P6）——文档引导布局修饰写进 `content:`。
+- **R9** 最短连线 `m` 让「内容高 < 16pt」的旧布局变高，可能被下游快照捕获。
+- **R10** P1–P5 未开 `defaultIsolation(MainActor)`；P6–P8 开了，除 `LayoutValueKey` 须 `nonisolated` 外无差异。四个 init 加 `step:`
+  后的重载解析仍待 PR 2 第一个 commit 编译验证。
+- **R11** 非单调 / 重复 `step` 由调用方负责，不做运行期校验（§4.1）。
+- **R12** 同一 `P` 驱动圆点形态依赖「解析前环境值在动画事务里变化会被行内 `Animatable` 插值」（推断，§6.2）。
 
 ### 未决（可后续加法）
 
-- `.completed(through:)`：「前 k 行完成、暂无进行中」这一态（订单等待揽收）；现在只能用 `.inProgress(at:)` 近似。
-- 惰性化（`LazyVStack` 版）、错峰入场、分组日期头的专用部件。
-- 连线与节点之间的间隙（现为 0，贴盒边，与旧实现一致）是否要留空，交视觉评审。
+- `.completed(through:)`：「前 k 行完成、暂无进行中」这一态；现在用 `.inProgress(at:)` 指向空档 `step` 近似。
+- 惰性管线（显式 `nodeColumnWidth:` + `LazyVStack`）、错峰入场。
+- 连线与节点之间的间隙（现为 0），交视觉评审。
+
+### 已按证据定案（不再列入拍板）
+
+| 原编号 | 定案 | 依据 |
+|---|---|---|
+| U2 命名 | 沿用 `TimelineItem` + `node:` | §1.2：改名只增成本（公约范例 + 4 条引文），无语义收益 |
+| U6 非行子视图 | 按内容摆放、无节点、不参与阶段；header / footer 由它承担 | §1.5：I-1 方案下「计入行序」一支已无意义 |
+| U7 行内结构件 | init 参数（标题 → 时间 → 描述 → 富内容） | 独立子组件多 3 条 registry / 3 个映射，只承担两个取值 |
+| U11 已到达连线颜色 | `.tint` | 与 `Steps` 同源；按 `status` 着色破坏「阶段管连线、状态管色相」的正交 |
+| U15 行修饰碰不到节点 | 并入 U1：I-1 方案下已解决（P6 / P10） | §1.3 |
+| 命名统一 | `TimelinePhase.upcoming` ↔ 阶段键 `Upcoming`；`TimelineProgress.notStarted` 描述的是整条时间线（⇒ 全部 `.upcoming`），与行阶段是两个概念，保留 | 第 1 版阶段键写 `Not Started`、枚举写 `.upcoming`，二者不一致 |
+| I-5 `Legacy420*` 生命周期 | 保留到 PR 4 末 | §9.1 |
 
 ### 需要用户拍板
 
-| # | 问题 | 推荐 | 备选 |
-|---|---|---|---|
-| **U1** | 阶段取值方式 | 容器 `progress: TimelineProgress`（`.notStarted` / `.inProgress(at:)` / `.completed`）+ 行序推导 | 逐行显式 `phase:` |
-| **U2** | 命名 | 沿用 `TimelineItem` + `node:` | 改 `TimelineEntry` + `indicator:` |
-| **U3** | 未开始 / 进行中的默认圆点 | 色相仍取 `status`；未开始 = 同色空心环；进行中 = 实心 + 同色外环 | 未开始统一中性灰 |
-| **U4** | 入场重播 | 每个视图身份只播一次（滚出再滚入不播） | 每次滚入都播 |
-| **U5** | RM 下的入场 | 完全不播 | 保留淡入 |
-| **U6** | 非 `TimelineItem` 直接子视图 | 按内容摆放、不占行序、连线贯穿 | 当无节点的行并计入行序 |
-| **U7** | 行内结构件 | `TimelineItem` 的 init 参数（标题 → 时间 → 描述 → 富内容），不新增公开视图 | 三个独立子组件视图（多 3 条 registry） |
-| **U8** | 无障碍分组 | 不加行级容器（与旧实现一致），状态 + 阶段挂在节点元素上 | 行级容器（要放弃单遍列宽，回到 §3.1 被否决的两遍方案） |
-| **U9** | 节点下方最短连线 `m` | `CoreSpacing.sm`（8pt） | `CoreSpacing.xs`（4pt，像素保持前提放宽到内容高 ≥ 12） |
-| **U10** | 阶段对调用方的暴露 | `@Environment(\.timelinePhase)` 只在 `node:` 槽内有值 + 公开 `TimelineProgress.phase(at:)` | `node:` 闭包带阶段参数（改 `@ViewBuilder node: () -> Node,` 这条被引签名） |
-| **U11** | 已到达连线的颜色 | `.tint`（与 `Steps` 同源，调用方可 `.tint(_:)`） | 取下一行的 `status` 色 |
+| # | 问题 | 推荐 | 备选 | 依据 |
+|---|---|---|---|---|
+| **U1** | 阶段取值与渲染管线（三选一） | **每行 `step` + 容器 `progress`**（reui 模型；行自己画节点） | ① 行序推导（必须容器画节点）② 逐行显式 `phase:`（行自己画节点） | P6 / P10：行自己画节点才能让行上的 `.transition` / `.redacted` / `.opacity` / `.accessibilityHidden` 同时作用于节点，包进 `VStack` 时节点不再静默消失；而行不知道自己的行序（P1b），所以行自己画节点时只能用 `step` 或显式 `phase`。`step` 比 `phase` 多一条单调性约定、少让调用方自己算阶段；代价是调用方要写 `step`，以及逐子视图修饰语义（`.padding` 撑宽节点列，R8） |
+| **U3** | 未开始 / 进行中的默认圆点 | 色相仍取 `status`；未开始 = 同色空心环；进行中 = 实心 + 同色外环 | 未开始统一中性灰 | 保 `status` 与阶段正交；中性灰会让「未开始的 danger」读不出 danger |
+| **U4** | 入场重播 | 每个身份只播一次 | 每次滚入都播 | P4：可见性回调双向；重播读作「刚到达」，与阶段语义冲突 |
+| **U5** | RM 下的入场 | 完全不播 | 保留淡入 | 入场不承载信息 |
+| **U8** | 状态 + 阶段挂在哪 | 有 `title` 挂**标题元素**（a4）；无 `title` 挂**合并后的内容元素**（a2）；默认圆点隐藏 | 一律 a2（行行一致，但带按钮的行按钮变「操作」）/ 一律挂节点元素（第 1 版，不满足「在行上」） | P10：a4 下行内其它元素保持独立可聚焦；a2 把 `Retry` 变成 `custom_actions`；挂节点元素与基线同病（`.horizontal` 下五个状态全部读在五条内容之前，P9） |
+| **U9** | 节点下方最短连线 `m` | `CoreSpacing.sm`（8pt） | `CoreSpacing.xs`（4pt，像素保持前提放宽到内容高 ≥ 12） | §3.3 |
+| **U10** | 阶段对调用方的暴露 | `@Environment(\.timelinePhase)`（I-1 方案下 `node:` 与 `content:` 两槽都有值）+ 公开 `phase(forStep:)` | `node:` 闭包带阶段参数（改被引签名 `@ViewBuilder node: () -> Node,`） | P6：行在自身 body 里施环境值，两槽都能读到；改闭包签名要动公约 D1 范例与引文 |
+| **U12** | `TimelineItem` 登记分类 | `prescriptive` / `tiebreaker` / 不给扩展点 ⇒ J-2 仍 **16** | `semantic` / `step2` / `styleSlot: "TimelineItem.node"` ⇒ J-2 **17** | §8.4：步骤 2 只找到 1 个站得住的非皮肤候选；选备选须先补足第二个带来源的候选 |
+| **U13** | 数据驱动标题（`"\(actor) \(verb)"` 这类） | 只给 `LocalizedStringKey`；纯运行期内容走 `content:` 放 `Text(verbatim:)` | ① 加 `<S: StringProtocol>` 重载（SwiftUI `Text` 的惯例；③④ 各多一个 init，`title` 判 `.bareText`、须登记 `textParams` 为 C 类）② `title: Text`（一个 init 走天下，判 `.notText`） | 公约 §4：B 类新增用 `LocalizedStringKey`，C 类（运行期内容）用 `String`；活动流标题是混合体（动词可本地化、人名是运行期）。`LocalizedStringKey` 插值可以本地化动词、人名原样代入 |
+| **U14** | 调用方能否关入场动效 | 本 issue 不新增 API；随 `coreMotionPresentation`（系统 RM）走；导出图片的调用方注入 `coreMotionPresentationOverride(.resting)` | 新增专用修饰（例如 `timelineEntrance(_:)` 取封闭枚举） | 该覆盖键已 `public`，但其文档逐字说产品代码通常不写它；一次性入场不承载信息；专用 API 可后续加法 |
