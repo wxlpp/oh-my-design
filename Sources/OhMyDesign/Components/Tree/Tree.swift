@@ -600,7 +600,7 @@ struct TreeRowCheckBox: View {
 
 enum TreeCheckBindings {
     // 恰两路来源让系统派生 off / mixed / on。动作只挂一路（两路都挂则一次点击翻转两次），且挂在「全勾」那一路：
-    // 三种态下系统写入的新值都与它的现值相反，即使系统只写值有变化的来源也写得到它。
+    // 系统把 mixed 点成 on 时，三种态下写入的新值都与它的现值相反，即使系统只写值有变化的来源也写得到它。
     static func scoped<ID: Hashable>(
         display leaves: [ID],
         scope retained: [ID],

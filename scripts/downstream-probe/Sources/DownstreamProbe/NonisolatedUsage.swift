@@ -210,5 +210,8 @@ nonisolated func countTreeSearchMatches(_ query: String) -> Int {
     let spelled = Tree<[NonisolatedProbeTreeNode], String, Text>.searchMatches(
         roots, id: \.id, children: \.children, query: query, text: { $0.name }
     )
-    return inferred.union(spelled).count
+    let emptyRow = Tree<[NonisolatedProbeTreeNode], String, EmptyView>.searchMatches(
+        roots, id: \.id, children: \.children, query: query, text: { $0.name }
+    )
+    return inferred.union(spelled).union(emptyRow).count
 }
