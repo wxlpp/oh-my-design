@@ -77,9 +77,10 @@ struct QuotedEvidenceGuard {
         ("docs/component-registry.json", "Sources/OhMyDesign/Modifier/TelegramGlassButtonModifier.swift", "isPressed: self.pressFeedback && self.isPressed,"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Timeline/Timeline.swift", "static let nodeColumnWidth: CGFloat = 24"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/Tree.swift", "content.disclosureGroupStyle(TreeDisclosureGroupStyle())"),
-        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeCore.swift", "TreeExpansionState"),
-        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeCore.swift", "TreeFocusing"),
-        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeCore.swift", "reconciled"),
+        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeCore.swift", "nonisolated struct TreeExpansionState<ID: Hashable>: Equatable {"),
+        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeCore.swift", "static func effective<ID: Hashable>( _ focus: ID?, visibleRows rows: [TreeRow<ID>], selection: Set<ID>, ancestors: (ID) -> [ID] ) -> ID? {"),
+        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeCore.swift", "static func reconciled<ID: Hashable>("),
+        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeInteraction.swift", "TreeFocusing.ancestors(of: hidden, in: oldRows)"),
         // ---- docs/issues/234-a11y-smoke.md ----
         ("docs/issues/234-a11y-smoke.md", "Sources/OhMyDesign/Components/Section/SectionHeader.swift", ".accessibilityAddTraits(.isHeader)"),
         ("docs/issues/234-a11y-smoke.md", "Sources/OhMyDesign/Components/Radio/Radio.swift", "[.isButton, .isSelected] : .isButton"),

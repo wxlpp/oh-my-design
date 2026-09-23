@@ -54,6 +54,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     @Binding private var selection: Set<ID>
     @State private var focus: ID?
     @State private var lastInteraction: TreeInteraction = .pointer
+    @State private var pointerClaimsFocus = false
     @FocusState private var isFocused: Bool
     @Environment(\.coreMotionPresentation) private var motionPresentation
 
@@ -67,7 +68,10 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         .focusable()
         .focused(self.$isFocused)
         .onKeyPress(phases: .down) { press in self.handle(press, rows: rows) }
-        .onChange(of: rows.map(\.id)) { self.reconcileFocus() }
+        .onChange(of: rows) { oldRows, newRows in
+            self.commit(TreeInteractionReducer.rowsChanged(state: self.interactionState, from: oldRows, to: newRows))
+        }
+        .onChange(of: self.isFocused) { _, focused in self.focusChanged(focused, rows: rows) }
         .coreAnimation(.selection, value: self.selection)
     }
 
@@ -91,70 +95,73 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         TreeFlatten.expandedIDs(data, id: id, children: children, toDepth: depth)
     }
 
-    // MARK: - 键盘 / Keyboard
+    // MARK: - 交互接线 / Interaction wiring
+
+    private var interactionState: TreeInteractionState<ID> {
+        TreeInteractionState(
+            focus: self.focus,
+            lastInteraction: self.lastInteraction,
+            selection: self.selection,
+            expanded: self.expanded
+        )
+    }
+
+    private func commit(_ next: TreeInteractionState<ID>, expansionMotion: MotionPresentation? = nil) {
+        if next.focus != self.focus { self.focus = next.focus }
+        if next.lastInteraction != self.lastInteraction { self.lastInteraction = next.lastInteraction }
+        if next.selection != self.selection { self.selection = next.selection }
+        if next.expanded != self.expanded {
+            withAnimation(expansionMotion.flatMap(CoreMotionToken.treeExpansion(for:))) {
+                self.expanded = next.expanded
+            }
+        }
+    }
 
     private func handle(_ press: KeyPress, rows: [TreeRow<ID>]) -> KeyPress.Result {
-        guard let focused = self.effectiveFocus(rows: rows) else { return .ignored }
-        if self.focus != focused { self.focus = focused }
-        let action = TreeKeyboard.action(
-            for: TreeKeyboard.key(for: press.key),
+        let outcome = TreeInteractionReducer.key(
+            TreeKeyboard.key(for: press.key),
             modifiers: press.modifiers,
+            state: self.interactionState,
             rows: rows,
-            focus: focused,
-            expanded: self.expanded,
-            mode: self.selectionMode
+            mode: self.selectionMode,
+            activation: self.onActivate == nil ? .disabled : .enabled,
+            motion: self.motionPresentation,
+            treeIDs: { self.treeIDs },
+            ancestors: self.ancestors(of:)
         )
-        let result = self.apply(action, rows: rows)
-        if result == .handled { self.lastInteraction = .keyboard }
-        return result
+        self.commit(outcome.state, expansionMotion: outcome.expansionMotion)
+        if let activated = outcome.activated { self.onActivate?(activated) }
+        return outcome.result
     }
 
-    private func effectiveFocus(rows: [TreeRow<ID>]) -> ID? {
-        TreeFocusing.effective(self.focus, visibleRows: rows, selection: self.selection) { hidden in
-            TreeFlatten.ancestorIDs(of: hidden, in: self.data, id: self.id, children: self.children)
+    private func focusChanged(_ focused: Bool, rows: [TreeRow<ID>]) {
+        let source: TreeInteraction = self.pointerClaimsFocus ? .pointer : .keyboard
+        self.pointerClaimsFocus = false
+        guard focused else { return }
+        self.commit(TreeInteractionReducer.focusEntered(
+            via: source, state: self.interactionState, rows: rows, ancestors: self.ancestors(of:)
+        ))
+    }
+
+    private func select(_ id: ID, rows: [TreeRow<ID>]) {
+        if !self.isFocused {
+            self.pointerClaimsFocus = true
+            self.isFocused = true
         }
-    }
-
-    private func reconcileFocus() {
-        guard self.focus != nil else { return }
-        let reconciled = self.effectiveFocus(rows: self.visibleRows)
-        if reconciled != self.focus { self.focus = reconciled }
-    }
-
-    private func apply(_ action: TreeKeyAction<ID>, rows: [TreeRow<ID>]) -> KeyPress.Result {
-        switch action {
-        case .unhandled:
-            return .ignored
-        case .doNothing:
-            return .handled
-        case .moveFocus(let id):
-            self.focus = id
-        case .moveFocusAndToggleSelection(let id):
-            self.focus = id
-            self.toggleSelection(id, rows: rows)
-        case .expand(let id):
-            self.context(rows: rows).setExpansion(id, isExpanded: true)
-        case .collapse(let id):
-            self.context(rows: rows).setExpansion(id, isExpanded: false)
-        case .toggleSelection(let id):
-            self.toggleSelection(id, rows: rows)
-        case .activate(let id):
-            guard let onActivate = self.onActivate else { return .ignored }
-            onActivate(id)
-        case .selectAllVisible:
-            self.selection = TreeSelection.selectingAll(in: self.selection, rowIDs: rows.map(\.id))
-        }
-        return .handled
-    }
-
-    private func toggleSelection(_ id: ID, rows: [TreeRow<ID>]) {
-        self.selection = TreeSelection.toggled(
+        self.commit(TreeInteractionReducer.pointerSelect(
             id,
-            in: self.selection,
+            state: self.interactionState,
             rowIDs: Set(rows.map(\.id)),
-            treeIDs: self.treeIDs,
-            mode: self.selectionMode
+            mode: self.selectionMode,
+            treeIDs: { self.treeIDs }
+        ))
+    }
+
+    private func setExpansion(_ id: ID, to target: TreeExpansionTarget) {
+        let outcome = TreeInteractionReducer.pointerExpansion(
+            id, to: target, state: self.interactionState, motion: self.motionPresentation
         )
+        self.commit(outcome.state, expansionMotion: outcome.expansionMotion)
     }
 
     // MARK: - 派生 / Derived
@@ -167,26 +174,24 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         TreeFlatten.allIDs(self.data, id: self.id, children: self.children)
     }
 
+    private func ancestors(of hidden: ID) -> [ID] {
+        TreeFlatten.ancestorIDs(of: hidden, in: self.data, id: self.id, children: self.children)
+    }
+
     private func context(rows: [TreeRow<ID>]) -> TreeContext<Data, ID, RowContent> {
         TreeContext(
             id: self.id,
             children: self.children,
-            expanded: self.$expanded,
-            selection: self.$selection,
+            expanded: self.expanded,
+            selection: self.selection,
             checked: self.checked,
-            selectionMode: self.selectionMode,
-            rowIDs: Set(rows.map(\.id)),
-            treeIDs: self.treeIDs,
-            focus: self.$focus,
+            focus: self.focus,
             showsFocusRing: TreeFocusing.showsRing(
                 containerFocused: self.isFocused, lastInteraction: self.lastInteraction
             ),
-            motionPresentation: self.motionPresentation,
-            claimKeyboardFocus: {
-                self.isFocused = true
-                self.lastInteraction = .pointer
-            },
-            notePointerInteraction: { self.lastInteraction = .pointer },
+            select: { id in self.select(id, rows: rows) },
+            setExpansion: { id, target in self.setExpansion(id, to: target) },
+            notePointerCheck: { self.commit(TreeInteractionReducer.pointerCheck(state: self.interactionState)) },
             content: self.content
         )
     }
@@ -265,38 +270,28 @@ public extension Tree where RowContent == EmptyView {
 struct TreeContext<Data: RandomAccessCollection, ID: Hashable, RowContent: View> {
     let id: KeyPath<Data.Element, ID>
     let children: KeyPath<Data.Element, Data?>
-    let expanded: Binding<Set<ID>>
-    let selection: Binding<Set<ID>>
+    let expanded: Set<ID>
+    let selection: Set<ID>
     let checked: Binding<Set<ID>>?
-    let selectionMode: TreeSelectionMode
-    let rowIDs: Set<ID>
-    let treeIDs: Set<ID>
-    let focus: Binding<ID?>
+    let focus: ID?
     let showsFocusRing: Bool
-    let motionPresentation: MotionPresentation
-    let claimKeyboardFocus: () -> Void
-    let notePointerInteraction: () -> Void
+    let select: (ID) -> Void
+    let setExpansion: (ID, TreeExpansionTarget) -> Void
+    let notePointerCheck: () -> Void
     let content: (Data.Element) -> RowContent
 
     func expansion(of elementID: ID) -> Binding<Bool> {
         Binding(
-            get: { self.expanded.wrappedValue.contains(elementID) },
-            set: { newValue in self.setExpansion(elementID, isExpanded: newValue) }
+            get: { self.expanded.contains(elementID) },
+            set: { newValue in self.setExpansion(elementID, newValue ? .expanded : .collapsed) }
         )
-    }
-
-    func setExpansion(_ elementID: ID, isExpanded: Bool) {
-        var state = TreeExpansionState(persisted: self.expanded.wrappedValue)
-        if isExpanded { state.expand(elementID) } else { state.collapse(elementID) }
-        withAnimation(CoreMotionToken.treeExpansion(for: self.motionPresentation)) {
-            self.expanded.wrappedValue = state.persisted
-        }
     }
 
     func checkState(of leafID: ID, in checked: Binding<Set<ID>>) -> Binding<Bool> {
         Binding(
             get: { checked.wrappedValue.contains(leafID) },
             set: { newValue in
+                self.notePointerCheck()
                 checked.wrappedValue = TreeChecking.applying(
                     newValue, toLeaves: [leafID], in: checked.wrappedValue
                 )
@@ -370,13 +365,12 @@ struct TreeRowView<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
 
     var body: some View {
         let elementID = self.element[keyPath: self.context.id]
-        let isExpanded = self.context.expanded.wrappedValue.contains(elementID)
-        let isSelected = self.context.selection.wrappedValue.contains(elementID)
-        let isFocused = self.context.showsFocusRing && self.context.focus.wrappedValue == elementID
+        let isExpanded = self.context.expanded.contains(elementID)
+        let isSelected = self.context.selection.contains(elementID)
+        let isFocused = self.context.showsFocusRing && self.context.focus == elementID
         return HStack(spacing: CoreSpacing.xs) {
             TreeDisclosureControl(hasChildren: self.hasChildren, isExpanded: isExpanded) {
-                self.context.notePointerInteraction()
-                self.context.setExpansion(elementID, isExpanded: !isExpanded)
+                self.context.setExpansion(elementID, isExpanded ? .collapsed : .expanded)
             }
             if let checked = self.context.checked {
                 self.checkBox(checked)
@@ -392,7 +386,7 @@ struct TreeRowView<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         )
         .contentShape(Rectangle())
         .padding(.leading, CGFloat(self.level - 1) * CoreSpacing.md)
-        .onTapGesture { self.select(elementID) }
+        .onTapGesture { self.context.select(elementID) }
         .focusRing(visible: isFocused, cornerRadius: CoreRadius.small)
         .accessibilityValue(self.expansionValue(isExpanded: isExpanded))
         .accessibilityAddTraits(TreeRowAccessibility.traits(isSelected: isSelected))
@@ -418,18 +412,6 @@ struct TreeRowView<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         return Text(
             LocalizedStringKey(TreeRowAccessibility.expansionValueKey(isExpanded: isExpanded)),
             bundle: .module
-        )
-    }
-
-    private func select(_ elementID: ID) {
-        self.context.claimKeyboardFocus()
-        self.context.focus.wrappedValue = elementID
-        self.context.selection.wrappedValue = TreeSelection.toggled(
-            elementID,
-            in: self.context.selection.wrappedValue,
-            rowIDs: self.context.rowIDs,
-            treeIDs: self.context.treeIDs,
-            mode: self.context.selectionMode
         )
     }
 }

@@ -206,7 +206,7 @@ nonisolated enum TreeSelection {
         _ id: ID,
         in selection: Set<ID>,
         rowIDs: Set<ID>,
-        treeIDs: Set<ID>,
+        treeIDs: @autoclosure () -> Set<ID>,
         mode: TreeSelectionMode
     ) -> Set<ID> {
         guard rowIDs.contains(id) else { return selection }
@@ -214,7 +214,7 @@ nonisolated enum TreeSelection {
         case .multiple:
             return selection.symmetricDifference([id])
         case .single:
-            let outside = selection.subtracting(treeIDs)
+            let outside = selection.subtracting(treeIDs())
             return selection.contains(id) ? outside : outside.union([id])
         }
     }
@@ -251,6 +251,17 @@ nonisolated enum TreeFocusing {
         guard let focus else { return Self.initialFocus(rows: rows, selection: selection) }
         if rows.contains(where: { $0.id == focus }) { return focus }
         return Self.reconciled(focus, visibleRows: rows, ancestorsOfFocus: ancestors(focus))
+    }
+
+    static func ancestors<ID: Hashable>(of target: ID, in rows: [TreeRow<ID>]) -> [ID] {
+        let parents = Dictionary(rows.map { ($0.id, $0.parent) }, uniquingKeysWith: { first, _ in first })
+        var out: [ID] = []
+        var cursor = parents[target] ?? nil
+        while let parent = cursor, !out.contains(parent) {
+            out.append(parent)
+            cursor = parents[parent] ?? nil
+        }
+        return out
     }
 
     static func showsRing(containerFocused: Bool, lastInteraction: TreeInteraction) -> Bool {

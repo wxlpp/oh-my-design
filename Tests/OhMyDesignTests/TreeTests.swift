@@ -662,6 +662,335 @@ struct TreeMotionTests {
     }
 }
 
+// MARK: - 交互归约
+
+@Suite("Tree 交互归约：按键 / 点击 / 获焦 / 可见行变化 →（焦点、交互来源、选中、展开、动效档）")
+struct TreeInteractionReducerTests {
+    private static func state(
+        focus: String?,
+        lastInteraction: TreeInteraction = .pointer,
+        selection: Set<String> = [],
+        expanded: Set<String> = []
+    ) -> TreeInteractionState<String> {
+        TreeInteractionState(focus: focus, lastInteraction: lastInteraction, selection: selection, expanded: expanded)
+    }
+
+    private static func press(
+        _ key: TreeKey,
+        _ state: TreeInteractionState<String>,
+        modifiers: EventModifiers = [],
+        mode: TreeSelectionMode = .multiple,
+        activation: TreeActivation = .enabled,
+        motion: MotionPresentation = .animated
+    ) -> TreeInteractionOutcome<String> {
+        TreeInteractionReducer.key(
+            key,
+            modifiers: modifiers,
+            state: state,
+            rows: TreeJudgeFixture.rows(expanded: state.expanded),
+            mode: mode,
+            activation: activation,
+            motion: motion,
+            treeIDs: { TreeJudgeFixture.treeIDs },
+            ancestors: TreeJudgeFixture.ancestors(of:)
+        )
+    }
+
+    @Test("焦点行已被折叠隐藏时，按键先归约到最近的可见祖先再执行——不归约就整条键盘通路交回系统")
+    func aHiddenFocusIsReducedBeforeTheKey() {
+        let outcome = Self.press(.down, Self.state(focus: "a1x"))
+        #expect(outcome.result == .handled, "焦点被隐藏后按键被交回系统——键盘层整条失效")
+        #expect(outcome.state.focus == "b", "a1x 被折叠进 a 之后，↓ 应当从 a 走到 b，实得 \(String(describing: outcome.state.focus))")
+    }
+
+    @Test("首键到达时还没有焦点：按初始焦点规则解析后再执行这一键")
+    func theFirstKeyResolvesTheInitialFocus() {
+        let outcome = Self.press(.down, Self.state(focus: nil, selection: ["b"]))
+        #expect(outcome.result == .handled)
+        #expect(outcome.state.focus == "c", "初始焦点应落在已选的 b，↓ 之后到 c，实得 \(String(describing: outcome.state.focus))")
+    }
+
+    @Test("被接住的键把交互来源置为键盘；交回系统的键不动它")
+    func handledKeysMarkTheInteractionAsKeyboard() {
+        let moved = Self.press(.down, Self.state(focus: "a"))
+        #expect(moved.state.lastInteraction == .keyboard, "按键被接住后交互来源仍是 pointer——焦点环不会出现")
+        let stuck = Self.press(.up, Self.state(focus: "a"))
+        #expect(stuck.result == .handled)
+        #expect(stuck.state.lastInteraction == .keyboard, "does nothing 也是被接住的键")
+        let ignored = Self.press(.character("g"), Self.state(focus: "a"))
+        #expect(ignored.result == .ignored)
+        #expect(ignored.state.lastInteraction == .pointer, "交回系统的键不应让焦点环出现")
+    }
+
+    @Test("键盘与点击的展开都带上环境的动效档，不自己挑曲线")
+    func expansionCarriesTheEnvironmentMotion() {
+        for motion in MotionPresentation.allCases {
+            let key = Self.press(.right, Self.state(focus: "a"), motion: motion)
+            #expect(key.state.expanded == ["a"])
+            #expect(key.expansionMotion == motion, "→ 展开时动效档应为 \(motion)，实得 \(String(describing: key.expansionMotion))")
+            let collapse = Self.press(.left, Self.state(focus: "a", expanded: ["a"]), motion: motion)
+            #expect(collapse.state.expanded.isEmpty)
+            #expect(collapse.expansionMotion == motion)
+            let pointer = TreeInteractionReducer.pointerExpansion(
+                "a", to: .expanded, state: Self.state(focus: nil, lastInteraction: .keyboard), motion: motion
+            )
+            #expect(pointer.state.expanded == ["a"])
+            #expect(pointer.expansionMotion == motion, "点 chevron 展开时动效档应为 \(motion)")
+        }
+        #expect(Self.press(.down, Self.state(focus: "a")).expansionMotion == nil, "没改展开态却带了动效档")
+    }
+
+    @Test("Enter：有 onActivate 时激活焦点行、不改选中；没有时交回系统")
+    func enterActivatesOnlyWhenThereIsAHandler() {
+        let enabled = Self.press(.enter, Self.state(focus: "b"))
+        #expect(enabled.result == .handled)
+        #expect(enabled.activated == "b")
+        #expect(enabled.state.selection.isEmpty)
+        let disabled = Self.press(.enter, Self.state(focus: "b"), activation: .disabled)
+        #expect(disabled.result == .ignored)
+        #expect(disabled.activated == nil)
+    }
+
+    @Test("点行、点 chevron、点复选框都把交互来源置回 pointer")
+    func pointerInteractionsClearTheKeyboardMark() {
+        let keyboard = Self.state(focus: "a", lastInteraction: .keyboard)
+        let selected = TreeInteractionReducer.pointerSelect(
+            "b", state: keyboard, rowIDs: ["a", "b", "c"], mode: .single, treeIDs: { TreeJudgeFixture.treeIDs }
+        )
+        #expect(selected.lastInteraction == .pointer)
+        #expect(selected.focus == "b")
+        #expect(selected.selection == ["b"])
+        let chevron = TreeInteractionReducer.pointerExpansion("a", to: .expanded, state: keyboard, motion: .animated)
+        #expect(chevron.state.lastInteraction == .pointer)
+        #expect(TreeInteractionReducer.pointerCheck(state: keyboard).lastInteraction == .pointer)
+    }
+
+    @Test("非点击导致的获焦（Tab 进入）置为键盘交互并解析焦点行；点击导致的获焦不动状态")
+    func focusEnteredByKeyboardShowsTheRing() {
+        let before = Self.state(focus: nil, selection: ["b"])
+        let tabbed = TreeInteractionReducer.focusEntered(
+            via: .keyboard, state: before, rows: TreeJudgeFixture.rows(expanded: []), ancestors: TreeJudgeFixture.ancestors(of:)
+        )
+        #expect(tabbed.lastInteraction == .keyboard)
+        #expect(tabbed.focus == "b", "Tab 进入后焦点应落在已选行")
+        #expect(TreeFocusing.showsRing(containerFocused: true, lastInteraction: tabbed.lastInteraction))
+        let clicked = TreeInteractionReducer.focusEntered(
+            via: .pointer, state: before, rows: TreeJudgeFixture.rows(expanded: []), ancestors: TreeJudgeFixture.ancestors(of:)
+        )
+        #expect(clicked == before)
+    }
+
+    @Test("可见行变化后焦点归约只用变化前的行求祖先，不回头遍历数据")
+    func rowsChangedReducesFromTheOldRows() {
+        let old = TreeJudgeFixture.rows(expanded: ["a", "a1"])
+        let collapsedA = TreeJudgeFixture.rows(expanded: [])
+        let collapsedA1 = TreeJudgeFixture.rows(expanded: ["a"])
+        let focused = Self.state(focus: "a1x", expanded: ["a", "a1"])
+        #expect(TreeInteractionReducer.rowsChanged(state: focused, from: old, to: collapsedA).focus == "a")
+        #expect(TreeInteractionReducer.rowsChanged(state: focused, from: old, to: collapsedA1).focus == "a1")
+        #expect(TreeInteractionReducer.rowsChanged(state: Self.state(focus: nil), from: old, to: collapsedA).focus == nil)
+        #expect(TreeFocusing.ancestors(of: "a1x", in: old) == ["a1", "a"])
+    }
+}
+
+// MARK: - 折叠子树不被读取
+
+nonisolated final class TreeChildrenReadLog {
+    var reads: [String: Int] = [:]
+
+    func reads(of ids: [String]) -> Int {
+        ids.reduce(0) { $0 + self.reads[$1, default: 0] }
+    }
+}
+
+nonisolated struct TreeCountingNode: Identifiable {
+    let id: String
+    let log: TreeChildrenReadLog
+    let kids: [TreeCountingNode]?
+
+    var children: [TreeCountingNode]? {
+        self.log.reads[self.id, default: 0] += 1
+        return self.kids
+    }
+
+    @MainActor static func roots(log: TreeChildrenReadLog) -> [TreeCountingNode] {
+        func convert(_ node: TreeJudgeNode) -> TreeCountingNode {
+            TreeCountingNode(id: node.id, log: log, kids: node.children?.map(convert))
+        }
+        return TreeJudgeFixture.roots.map(convert)
+    }
+}
+
+@Suite("Tree 惰性：渲染 / 多选 / 按键不读折叠子树的 children，只有单选点击才遍历整树")
+@MainActor
+struct TreeLazinessTests {
+    private static let hiddenWhenOnlyAIsExpanded = ["a1x", "a1y", "c1"]
+
+    private static func render(_ log: TreeChildrenReadLog, mode: TreeSelectionMode) -> CGImage? {
+        let renderer = ImageRenderer(
+            content: Tree(
+                TreeCountingNode.roots(log: log),
+                children: \.children,
+                expanded: .constant(["a"]),
+                selection: .constant(["b"]),
+                selectionMode: mode
+            ) { node in
+                Text(verbatim: node.id)
+            }
+            .frame(width: 260)
+        )
+        return renderer.cgImage
+    }
+
+    @Test("渲染：只读可见行的 children，折叠在 a1 / c 里的节点一次都不读", arguments: TreeSelectionMode.allCases)
+    func renderingNeverReadsCollapsedSubtrees(mode: TreeSelectionMode) {
+        let log = TreeChildrenReadLog()
+        #expect(Self.render(log, mode: mode) != nil, "没渲染出来，下面的计数无意义")
+        #expect(log.reads["a", default: 0] > 0, "可见的父行 a 一次都没读——渲染没有走到数据")
+        #expect(
+            log.reads(of: Self.hiddenWhenOnlyAIsExpanded) == 0,
+            "渲染读了折叠子树：\(log.reads.filter { Self.hiddenWhenOnlyAIsExpanded.contains($0.key) })"
+        )
+    }
+
+    @Test("按键：除单选下切换选中的键外，一律不求整树 ID、不读折叠子树")
+    func keysNeverWalkTheWholeTree() {
+        let log = TreeChildrenReadLog()
+        let roots = TreeCountingNode.roots(log: log)
+        var treeIDEvaluations = 0
+        let rows = TreeFlatten.rows(roots, id: \.id, children: \.children, expanded: ["a"])
+        log.reads = [:]
+        func press(_ key: TreeKey, _ modifiers: EventModifiers = [], focus: String, mode: TreeSelectionMode) {
+            _ = TreeInteractionReducer.key(
+                key,
+                modifiers: modifiers,
+                state: TreeInteractionState(focus: focus, lastInteraction: .pointer, selection: [], expanded: ["a"]),
+                rows: rows,
+                mode: mode,
+                activation: .enabled,
+                motion: .animated,
+                treeIDs: {
+                    treeIDEvaluations += 1
+                    return TreeFlatten.allIDs(roots, id: \.id, children: \.children)
+                },
+                ancestors: { TreeFlatten.ancestorIDs(of: $0, in: roots, id: \.id, children: \.children) }
+            )
+        }
+        for mode in TreeSelectionMode.allCases {
+            for key: TreeKey in [.down, .up, .right, .left, .home, .end, .enter] {
+                press(key, focus: "a", mode: mode)
+                press(key, focus: "a1", mode: mode)
+            }
+        }
+        press(.space, focus: "b", mode: .multiple)
+        press(.down, .shift, focus: "a", mode: .multiple)
+        press(.character("a"), .command, focus: "a", mode: .multiple)
+        #expect(treeIDEvaluations == 0, "非单选切换的按键求了整树 ID \(treeIDEvaluations) 次")
+        #expect(log.reads(of: Self.hiddenWhenOnlyAIsExpanded) == 0, "按键路径读了折叠子树：\(log.reads)")
+        press(.space, focus: "b", mode: .single)
+        #expect(treeIDEvaluations == 1, "单选下 Space 应当求一次整树 ID（替换被折叠的旧选中）")
+        #expect(log.reads(of: Self.hiddenWhenOnlyAIsExpanded) > 0, "单选切换没有遍历整树——被折叠的旧选中不会被替换")
+    }
+
+    @Test("点击：多选不求整树 ID，单选才求")
+    func pointerSelectWalksTheTreeOnlyInSingleMode() {
+        var evaluations = 0
+        let state = TreeInteractionState<String>(focus: nil, lastInteraction: .pointer, selection: [], expanded: [])
+        let treeIDs = {
+            evaluations += 1
+            return TreeJudgeFixture.treeIDs
+        }
+        _ = TreeInteractionReducer.pointerSelect("b", state: state, rowIDs: ["a", "b", "c"], mode: .multiple, treeIDs: treeIDs)
+        #expect(evaluations == 0, "多选点击求了整树 ID")
+        _ = TreeInteractionReducer.pointerSelect("b", state: state, rowIDs: ["a", "b", "c"], mode: .single, treeIDs: treeIDs)
+        #expect(evaluations == 1)
+    }
+}
+
+// MARK: - 托管窗口接线
+
+#if os(macOS)
+@MainActor
+final class TreeHostedLog {
+    var expanded: Set<String> = []
+    var selection: Set<String> = []
+    var animations: [Animation?] = []
+}
+
+struct TreeHostedHarness: View {
+    let log: TreeHostedLog
+    @State private var expanded: Set<String> = []
+    @State private var selection: Set<String> = []
+
+    var body: some View {
+        Tree(TreeJudgeFixture.roots, children: \.children, expanded: self.$expanded, selection: self.$selection) { node in
+            Text(verbatim: node.id)
+        }
+        .transaction { transaction in self.log.animations.append(transaction.animation) }
+        .onChange(of: self.expanded) { self.log.expanded = self.expanded }
+        .onChange(of: self.selection) { self.log.selection = self.selection }
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+}
+
+@Suite("Tree 视图接线（macOS 托管窗口 + 合成事件）：按键经 onKeyPress 到归约，展开曲线取自环境动效档")
+@MainActor
+struct TreeHostedWiringTests {
+    private static let chevronOfA = CGPoint(x: CoreSpacing.xs + 12, y: 22)
+    private static let leftArrow = String(Character(UnicodeScalar(NSLeftArrowFunctionKey)!))
+    private static let downArrow = String(Character(UnicodeScalar(NSDownArrowFunctionKey)!))
+
+    private static func window(_ log: TreeHostedLog, motion: MotionPresentation = .animated) -> HostedWindow {
+        HostedWindow(
+            TreeHostedHarness(log: log).environment(\.coreMotionPresentationOverride, motion),
+            size: CGSize(width: 260, height: 200),
+            scheme: .light
+        )
+    }
+
+    @Test("点 chevron 与按 ← 的展开事务都带环境动效档对应的曲线", arguments: MotionPresentation.allCases)
+    func expansionTransactionsFollowTheEnvironment(motion: MotionPresentation) {
+        let log = TreeHostedLog()
+        let window = Self.window(log, motion: motion)
+        defer { window.close() }
+        let expected = CoreMotionToken.treeExpansion(for: motion)
+
+        log.animations = []
+        window.sendMouse(.leftMouseDown, at: Self.chevronOfA)
+        window.sendMouse(.leftMouseUp, at: Self.chevronOfA)
+        window.settle()
+        #expect(log.expanded == ["a"], "点 chevron 没有展开 a——点击没走到 setExpansion，下面的曲线判据无意义")
+        let pointer = log.animations.compactMap { $0 }
+
+        log.animations = []
+        window.sendKey(keyCode: 123, characters: Self.leftArrow)
+        window.settle()
+        #expect(log.expanded.isEmpty, "← 没有折叠 a——按键没经 onKeyPress 走到归约，下面的曲线判据无意义")
+        let keyboard = log.animations.compactMap { $0 }
+
+        for (path, animations) in [("点 chevron", pointer), ("按 ←", keyboard)] {
+            if let expected {
+                #expect(!animations.isEmpty, "\(path)：\(motion) 下展开事务没带曲线")
+                #expect(animations.allSatisfy { $0 == expected }, "\(path)：\(motion) 下曲线应为 \(expected)，实得 \(animations)")
+            } else {
+                #expect(animations.isEmpty, "\(path)：hidden 下展开仍在补间，实得 \(animations)")
+            }
+        }
+    }
+
+    @Test("按键把归约结果写回宿主绑定：首键解析初始焦点，↓ 移焦，Space 选中")
+    func keysWriteTheReducedStateBack() {
+        let log = TreeHostedLog()
+        let window = Self.window(log)
+        defer { window.close() }
+        window.sendKey(keyCode: 125, characters: Self.downArrow)
+        window.sendKey(keyCode: 49, characters: " ")
+        window.settle()
+        #expect(log.selection == ["b"], "首键落在初始焦点 a，↓ 到 b，Space 应当选中 b，实得 \(log.selection)")
+    }
+}
+#endif
+
 // MARK: - 渲染
 
 @Suite("Tree 渲染：选中态 / 展开态 / 父节点三态复选框")
@@ -695,6 +1024,34 @@ struct TreeRenderTests {
         return (bytes, image.width, image.height)
     }
 
+    // 同一内容连渲的噪声实测为 1 LSB；本套「应不同」里最弱的真实信号是选中底色，逐通道最大偏差 20。
+    private static let minimumSignalDelta = 8
+    private static let noiseTolerance = 2
+
+    private static func expectVisiblyDifferent(
+        _ a: [UInt8]?,
+        _ b: [UInt8]?,
+        _ comment: String,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) {
+        guard let metrics = bitmapDifferenceMetrics(a, b) else {
+            #expect(
+                Bool(false),
+                Comment(rawValue: bitmapExpectationMessage("两张位图未渲染或长度不同。" + comment, a, b)),
+                sourceLocation: sourceLocation
+            )
+            return
+        }
+        #expect(
+            metrics.maxChannelDelta > Self.minimumSignalDelta,
+            Comment(rawValue: bitmapExpectationMessage(
+                "逐通道最大偏差 \(metrics.maxChannelDelta) ≤ \(Self.minimumSignalDelta)（差异字节 \(metrics.differingCount)），"
+                + "在渲染噪声量级内，不算画得不同。" + comment, a, b
+            )),
+            sourceLocation: sourceLocation
+        )
+    }
+
     private static func tree(
         expanded: Set<String>,
         selection: Set<String> = [],
@@ -724,18 +1081,19 @@ struct TreeRenderTests {
     func selectedRowDiffersFromUnselected() {
         let plain = Self.pixels(Self.tree(expanded: []))
         let selected = Self.pixels(Self.tree(expanded: [], selection: ["b"]))
-        expectBitmapsDiffer(plain.bytes, selected.bytes, "行选中没有任何视觉呈现")
+        Self.expectVisiblyDifferent(plain.bytes, selected.bytes, "行选中没有任何视觉呈现")
     }
 
     @Test("选中底色跟着环境 coreAccent 走（与 TagGroup 同一条通路）")
     func selectionHighlightFollowsTheEnvironmentAccent() {
         let red = Self.pixels(Self.tree(expanded: [], selection: ["b"], accent: .red))
         let blue = Self.pixels(Self.tree(expanded: [], selection: ["b"], accent: .blue))
-        expectBitmapsDiffer(red.bytes, blue.bytes, "换 coreAccent 选中底色没变——底色没走环境")
+        Self.expectVisiblyDifferent(red.bytes, blue.bytes, "换 coreAccent 选中底色没变——底色没走环境")
         let redUnselected = Self.pixels(Self.tree(expanded: [], accent: .red))
         let blueUnselected = Self.pixels(Self.tree(expanded: [], accent: .blue))
-        expectBitmapsEqual(
+        expectBitmapsEquivalent(
             redUnselected.bytes, blueUnselected.bytes,
+            maxChannelDelta: Self.noiseTolerance,
             "没有选中项时换 accent 也变了——说明 accent 漏进了非选中的行"
         )
     }
@@ -756,26 +1114,23 @@ struct TreeRenderTests {
         let off = Self.pixels(Self.tree(expanded: [], checked: []))
         let mixed = Self.pixels(Self.tree(expanded: [], checked: ["a1x"]))
         let on = Self.pixels(Self.tree(expanded: [], checked: ["a1x", "a1y", "a2"]))
-        expectBitmapsDiffer(off.bytes, mixed.bytes, "off 与 mixed 画得一样——系统没从 Toggle(sources:) 派生出 mixed")
-        expectBitmapsDiffer(mixed.bytes, on.bytes, "mixed 与 on 画得一样")
-        expectBitmapsDiffer(off.bytes, on.bytes, "off 与 on 画得一样")
+        Self.expectVisiblyDifferent(off.bytes, mixed.bytes, "off 与 mixed 画得一样——系统没从 Toggle(sources:) 派生出 mixed")
+        Self.expectVisiblyDifferent(mixed.bytes, on.bytes, "mixed 与 on 画得一样")
+        Self.expectVisiblyDifferent(off.bytes, on.bytes, "off 与 on 画得一样")
     }
 
     private static func row(focus: String?, showsFocusRing: Bool) -> some View {
         let context = TreeContext<[TreeJudgeNode], String, Text>(
             id: \.id,
             children: \.children,
-            expanded: .constant([]),
-            selection: .constant([]),
+            expanded: [],
+            selection: [],
             checked: nil,
-            selectionMode: .multiple,
-            rowIDs: ["b"],
-            treeIDs: TreeJudgeFixture.treeIDs,
-            focus: .constant(focus),
+            focus: focus,
             showsFocusRing: showsFocusRing,
-            motionPresentation: .animated,
-            claimKeyboardFocus: {},
-            notePointerInteraction: {},
+            select: { _ in },
+            setExpansion: { _, _ in },
+            notePointerCheck: {},
             content: { Text(verbatim: $0.id) }
         )
         return TreeRowView(element: TreeJudgeFixture.node("b"), level: 1, hasChildren: false, context: context)
@@ -787,14 +1142,16 @@ struct TreeRenderTests {
         let unfocused = Self.pixels(Self.row(focus: nil, showsFocusRing: true))
         let pointer = Self.pixels(Self.row(focus: "b", showsFocusRing: false))
         let keyboard = Self.pixels(Self.row(focus: "b", showsFocusRing: true))
-        expectBitmapsDiffer(unfocused.bytes, keyboard.bytes, "键盘交互后焦点行没画焦点环——下面那条相等判据会空转")
-        expectBitmapsEqual(unfocused.bytes, pointer.bytes, "点击选中后焦点行画出了焦点环")
+        Self.expectVisiblyDifferent(unfocused.bytes, keyboard.bytes, "键盘交互后焦点行没画焦点环——下面那条相等判据会空转")
+        expectBitmapsEquivalent(
+            unfocused.bytes, pointer.bytes, maxChannelDelta: Self.noiseTolerance, "点击选中后焦点行画出了焦点环"
+        )
     }
 
     @Test("不传 checked 时不画复选框")
     func withoutTheCheckedBindingNoCheckBoxIsDrawn() {
         let withBox = Self.pixels(Self.tree(expanded: [], checked: []))
         let withoutBox = Self.pixels(Self.tree(expanded: []))
-        expectBitmapsDiffer(withoutBox.bytes, withBox.bytes, "传不传 checked 画得一样——复选框没接上")
+        Self.expectVisiblyDifferent(withoutBox.bytes, withBox.bytes, "传不传 checked 画得一样——复选框没接上")
     }
 }

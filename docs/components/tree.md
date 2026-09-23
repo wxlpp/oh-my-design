@@ -124,10 +124,13 @@ Tree(nodes, children: \.children, expanded: $expanded, selection: $selection) { 
 - **焦点形态**：容器是**唯一**可聚焦元素，「焦点在哪一行」是组件内部状态（ARIA activedescendant 形态），
   画成行上的焦点环。⚠️ 不要改回「每行一个 `@FocusState`」：macOS 真 HID 实测那种形态下第一下 `Space`
   之后整个窗口丢键盘焦点。
-- **焦点环何时画**：容器有键盘焦点，**且**最近一次交互来自键盘（按键被 Tree 接住）时才画；
-  点行 / 点 chevron 会清掉它，容器失焦（macOS `Tab` 离开）也不画。iOS 模拟器截图核过：
+- **焦点环何时画**：容器有键盘焦点，**且**最近一次交互来自键盘时才画。「来自键盘」有两种：
+  按键被 Tree 接住；容器**不是因点行**而获焦（`Tab` 进入、宿主程序化聚焦）——此时焦点行按初始焦点规则
+  解析（有选中落可见顺序里第一个已选行，否则首行），环直接画在那一行，不必先按一下键。
+  点行 / 点 chevron / 点复选框会清掉它，容器失焦（macOS `Tab` 离开）也不画。iOS 模拟器截图核过：
   点一行无环 → 按 `↓` 环落在下一行 → 再点一行环消失。
-- **进入方式**：macOS 上 `Tab` 进入容器；iOS 上 `Tab` 不移焦点，**点一行**会同时把键盘焦点交给容器。
+- **进入方式**：macOS 上 `Tab` 进入容器；iOS 上 `Tab` 不移焦点，**点一行**会同时把键盘焦点交给容器
+  （点行导致的获焦记一个一次性标记，获焦回调据此不画环）。
 - **修饰键按白名单判**：只认 shift / control / option / command。macOS 真 HID 下方向键自带
   `.numericPad | .function`（`rawValue 96`），`Home` / `End` 带 `.function`（`64`）——写成黑名单漏一位，
   方向键就会整条静默失效。
@@ -160,7 +163,15 @@ Tree(nodes, children: \.children, expanded: $expanded, selection: $selection) { 
 | 展开折叠（点 chevron 与键盘 `←` / `→` 同一个函数） | `withAnimation(CoreMotionToken.treeExpansion(for:))`，即 `reveal.animation(for:)` | 同时长 `easeInOut`（`reveal` 档「展开」的既有口径，与 `CoreDisclosureGroupStyle` 相同）；`hidden` 下不补间 |
 | 选中态切换 | `.coreAnimation(.selection, value: self.selection)` | 按 `CoreMotionToken.selection` 的裁决 |
 
-三档取值有判据：`TreeMotionTests.expansionAnimationHonoursReduceMotion`。
+判据分三层，射程各不相同：
+
+- `TreeMotionTests.expansionAnimationHonoursReduceMotion` **只判 token 函数** `CoreMotionToken.treeExpansion(for:)`
+  的三档取值，不判视图有没有把环境动效档传进去。
+- `TreeInteractionReducerTests.expansionCarriesTheEnvironmentMotion` 判归约：键盘 `←` / `→` 与点 chevron 的
+  展开都原样带出传入的动效档。
+- `TreeHostedWiringTests.expansionTransactionsFollowTheEnvironment`（**仅 macOS 腿**，托管窗口 + 合成
+  鼠标 / 键盘事件）判视图透传：注入 `coreMotionPresentationOverride` 后，点 chevron 与按 `←` 产生的展开事务
+  带的曲线等于该档的 token 取值，`hidden` 下不带曲线。
 
 ## 无障碍与触控
 
@@ -182,6 +193,36 @@ Tree(nodes, children: \.children, expanded: $expanded, selection: $selection) { 
 - ⚠️ **已知缺口（`#428`）**：勾选态无法用键盘操作——`Space` 切换的是行选中，没有键改变勾选。
 - ⚠️ **未验证**：macOS 上 `.focusable()` 容器是否另画一圈系统焦点环（与行上的焦点环叠加）。
   本机会话没有屏幕录制权限，`screencapture` 取不到图，没能实看；iOS 截图上没有容器级的环。
+
+## 惰性：什么时候读 `children`
+
+- 渲染与按键**只读可见行**的 `children`（折叠的父行读一次自身的 `children` 以判断有没有 chevron，
+  不下探）；`children` 是计算属性（如惰性加载的文件浏览器）时，折叠的子树不会被强制加载。
+  判据：`TreeLazinessTests`（计数 `children` 读取次数的样本）。
+- **只有单选模式下切换选中**（点行、`Space`；单选下 `Shift+↑/↓` 只移焦不切换，不遍历）会遍历整树：单选要替换
+  已选集合里属于本树、但被折叠而不可见的旧选中项，只能求整树 ID。多选不遍历。
+- 可见行变化后的焦点归约用**变化前的行**求祖先，不回头遍历数据。按键时若焦点行已不可见
+  （可见行变化的回调还没来得及归约）才按数据求祖先——正常路径上不发生。
+- ⚠️ 传了 `checked` 时，父行复选框的三态要读它**全部叶后代**的勾选态，因此会遍历该父行的整棵子树，
+  折叠与否都一样。这是三态派生本身的代价。
+
+## 判据覆盖到哪、哪些接线不在 CI
+
+按键、点击、获焦、可见行变化对内部状态的作用收在纯归约 `TreeInteractionReducer`
+（`TreeInteractionReducerTests` 判）：焦点先归约再执行、被接住的键置键盘交互、点击置回 pointer、
+非点击获焦置键盘交互并解析焦点行、展开带环境动效档、`Enter` 无回调时交回系统。
+视图里只剩「把事件转给归约、把结果写回」。
+
+macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKeyPress` 真的到达归约并写回宿主绑定、
+展开事务的曲线取自环境。⚠️ 它**不在 iOS 腿上跑**（`#if os(macOS)`）。
+
+⚠️ **以下接线只由真 HID 探针覆盖、不在 CI**（托管窗口不是 key window，实测按键被接住后焦点环也不出现——
+推断容器的 `isFocused` 没有变真，未直接读到）：
+- `.onChange(of: isFocused)` 本身，以及区分「点行获焦」的一次性标记；
+- `.onChange(of: rows)` 本身（焦点行被隐藏后环跟到祖先行上）；
+- 焦点环是否真的画在屏幕上（渲染判据只判 `TreeRowView` 收到 `showsFocusRing` 后画不画）；
+- 点 chevron / 点复选框把交互来源置回 pointer 的调用点（归约函数本身有判据）。
+- ⚠️ **未验证**：`Tab` 进入后环直接出现在已选行 / 首行——本次改动后没有跑真 HID。
 
 ## 判定法
 
