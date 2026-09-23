@@ -404,6 +404,7 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             NavigatorTreeRow(configuration: configuration)
                 .contentShape(Rectangle())
                 .onHover { hovering in self.isHovered = hovering }
+                .onDisappear { self.isHovered = false }
         }
     }
 
