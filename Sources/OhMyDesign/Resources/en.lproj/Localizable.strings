@@ -4,9 +4,11 @@
 "%@, %@" = "%@, %@";
 "%@, required" = "%@, required";
 "Alert" = "Alert";
+"Collapse" = "Collapse";
 "Collapsed" = "Collapsed";
 "Dismiss" = "Dismiss";
 "Error" = "Error";
+"Expand" = "Expand";
 "Expanded" = "Expanded";
 "Info" = "Info";
 "Loading" = "Loading";

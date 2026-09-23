@@ -432,6 +432,21 @@ private struct SkeletonPreviewsPreviewGallery: View {
     .background(Color.surfaceCanvas)
 }
 
+#Preview("Tree") {
+    Tree(
+        PreviewSnapshotFixtures.treeNodes,
+        children: \.children,
+        expanded: .constant(["design", "tokens"]),
+        selection: .constant(["icons"]),
+        selectionMode: .multiple,
+        checked: .constant(["color"])
+    ) { node in
+        Text(verbatim: node.name).coreFont(.callout)
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
 #Preview("Timeline Layouts") {
     // `#60` 形态 D2 新增的三种排布。⚠️ `.alternate` 那组特意混入一个**宽内容**（220pt）——
     // 「节点恒在同一条中轴」恰恰只在内容固有宽度超过半槽时才会破，全用短文本的样本
@@ -535,6 +550,28 @@ enum PreviewSnapshotFixtures {
             TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) },
         ]
     }
+
+    static var treeNodes: [SnapshotTreeNode] {
+        [
+            SnapshotTreeNode(id: "design", name: "Design", children: [
+                SnapshotTreeNode(id: "tokens", name: "Tokens", children: [
+                    SnapshotTreeNode(id: "color", name: "Color", children: nil),
+                    SnapshotTreeNode(id: "spacing", name: "Spacing", children: nil),
+                ]),
+                SnapshotTreeNode(id: "icons", name: "Icons", children: nil),
+            ]),
+            SnapshotTreeNode(id: "readme", name: "README.md", children: nil),
+            SnapshotTreeNode(id: "tests", name: "Tests", children: [
+                SnapshotTreeNode(id: "unit", name: "Unit", children: nil),
+            ]),
+        ]
+    }
+}
+
+struct SnapshotTreeNode: Identifiable {
+    let id: String
+    let name: String
+    let children: [SnapshotTreeNode]?
 }
 
 #Preview("Rating") {

@@ -85,6 +85,22 @@ struct TouchTargetTests {
         #expect(height >= Self.minimumHitTarget, "ListRow 实测高度 \(height)pt < 44pt")
     }
 
+    // MARK: - Tree 行
+
+    @Test("Tree 行在 .regular 档实测命中高度 ≥ 44pt")
+    func treeRowMeetsMinimumTouchTarget() {
+        let tree = Tree(
+            [TreeJudgeNode(id: "leaf", children: nil)],
+            children: \TreeJudgeNode.children,
+            expanded: .constant([]),
+            selection: .constant([])
+        ) { node in
+            Text(verbatim: node.id)
+        }
+        let height = self.renderedHeight(tree)
+        #expect(height >= Self.minimumHitTarget, "Tree 行实测高度 \(height)pt < 44pt")
+    }
+
     // MARK: - CheckBox（Toggle 类）
 
     @Test("CheckBoxToggleStyle 实测命中高度 ≥ 44pt（Issue #123 修复：原先无 contentShape/minHeight）")

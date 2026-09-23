@@ -39,7 +39,8 @@ FLOORS = {
     # #398：colors +2（systemGray5 / statusNeutralSubtle）。
     # #407：motion 新节 4（press / selection / reveal / scroll）、enums +1（CoreMotionToken）、
     # enumcases +4（同上四档）、viewext +1（View.coreAnimation）。
-    "colors": 122, "components": 89, "enums": 45, "enumcases": 155,
+    # #422：components +1（Tree）、enums +1（TreeSelectionMode）、enumcases +2（single / multiple）。
+    "colors": 122, "components": 90, "enums": 46, "enumcases": 157,
     "protocols": 6, "viewext": 46, "styleext": 15, "others": 28,
 }
 
