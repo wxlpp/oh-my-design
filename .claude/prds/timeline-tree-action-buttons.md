@@ -229,7 +229,8 @@ Timeline 不吸收 Steps 的向导行为，Steps 不因本 epic 改动。两者�
   取选中集合与树的可见行的交集；**否则**只取右键那一行。「可见」指展开 / 过滤之后的行序列，不是视口内可见。
   唤起菜单不改变选中、焦点或交互来源；不设置时不挂菜单。验收按 spec §4、§7.6。
 - **单击父行**（`#431` 已交付：`Tree.rowClickBehavior(_:)`，取值为枚举 `TreeRowClickBehavior` 的 `.select`（默认）/
-  `.selectAndToggleExpansion`）：后者下单击父行照旧按 `selectionMode` 改行选中，**另外**取反该行的展开态，两份状态各算各的；
+  `.selectAndToggleExpansion`）：后者下单击父行选中该行，**另外**取反该行的展开态，两份状态互不读取；`.single` 下再点已选中的父行
+  保持选中（VS Code 式），`.multiple` 下仍逐行切换；
   chevron、复选框、叶行与键盘不受影响；搜索期间只写 overlay（与真值表第 4 行同一定案）。设计定案见 `docs/components/tree.md`「单击父行」。
 
 **FR-2 的行为真值表（本 PRD 定案，不留给实现期自选）**

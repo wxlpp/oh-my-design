@@ -174,32 +174,37 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     }
 
     private func click(_ id: ID) {
-        if !self.isFocused {
-            self.pointerClaimsFocus = true
-            self.isFocused = true
-        }
         let frame = self.searchFrame
-        let rows = TreeFlatten.rows(
-            self.data, id: self.id, children: self.children,
-            expanded: frame.expansion.effective, included: frame.included
-        )
         let outcome = TreeInteractionReducer.pointerClick(
             id,
             behavior: self.clickBehavior,
             state: self.interactionState(frame),
-            rows: rows,
+            rows: self.visibleRows(frame),
             mode: self.selectionMode,
             motion: self.motionPresentation,
             treeIDs: { self.treeIDs }
         )
+        guard outcome.result == .handled else { return }
+        if !self.isFocused {
+            self.pointerClaimsFocus = true
+            self.isFocused = true
+        }
         self.commit(outcome.state, frame: frame, expansionMotion: outcome.expansionMotion)
     }
 
-    private func setExpansion(_ id: ID, to target: TreeExpansionTarget, frame: TreeSearchFrame<ID>) {
-        let outcome = TreeInteractionReducer.pointerExpansion(
-            id, to: target, state: self.interactionState(frame), motion: self.motionPresentation
+    private func toggleExpansion(_ id: ID) {
+        let frame = self.searchFrame
+        let outcome = TreeInteractionReducer.pointerToggle(
+            id, state: self.interactionState(frame), rows: self.visibleRows(frame), motion: self.motionPresentation
         )
         self.commit(outcome.state, frame: frame, expansionMotion: outcome.expansionMotion)
+    }
+
+    private func visibleRows(_ frame: TreeSearchFrame<ID>) -> [TreeRow<ID>] {
+        TreeFlatten.rows(
+            self.data, id: self.id, children: self.children,
+            expanded: frame.expansion.effective, included: frame.included
+        )
     }
 
     // MARK: - 派生 / Derived
@@ -229,8 +234,9 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             showsFocusIndicator: TreeFocusing.showsRing(
                 containerFocused: self.isFocused, lastInteraction: self.lastInteraction
             ),
+            clickBehavior: self.clickBehavior,
             click: { id in self.click(id) },
-            setExpansion: { id, target in self.setExpansion(id, to: target, frame: frame) },
+            toggleExpansion: { id in self.toggleExpansion(id) },
             notePointerCheck: {
                 self.commit(TreeInteractionReducer.pointerCheck(state: self.interactionState(frame)), frame: frame)
             },
@@ -326,9 +332,10 @@ public extension Tree {
     /// 设置单击父行（行内容或缩进区）时做什么：`.select`（默认）只选中；`.selectAndToggleExpansion`
     /// 选中并取反该行的展开态（VS Code Explorer 式）。
     ///
-    /// 行选中照旧按 `selectionMode` 的规则变化，展开态的取反不看这一击是选中还是取消选中。
-    /// 叶行、chevron（仍只切换展开）、复选框（仍只勾选）与键盘都不受影响。搜索期间的展开只作用于本次搜索，
-    /// 与点 chevron 相同。直接在 `Tree` 上调用，放在其它 modifier 之前。
+    /// 展开态的取反不看这一击是选中还是取消选中。`.single` 下单击父行恒为选中（再点已选中的父行保持选中），
+    /// `.multiple` 下仍逐行切换。叶行、chevron（仍只切换展开）、复选框（仍只勾选）与键盘都不受影响；
+    /// 行内容里调用方自己的 `Button` / `Link` 先接到点击。搜索期间的展开只作用于本次搜索，与点 chevron 相同。
+    /// 直接在 `Tree` 上调用，放在其它 modifier 之前。
     ///
     /// - Parameter behavior: 单击父行的行为。
     /// - Returns: 带该点击行为的同一棵树。
@@ -431,8 +438,9 @@ struct TreeContext<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     let focus: ID?
     let metrics: TreeRowMetrics
     let showsFocusIndicator: Bool
+    let clickBehavior: TreeRowClickBehavior
     let click: (ID) -> Void
-    let setExpansion: (ID, TreeExpansionTarget) -> Void
+    let toggleExpansion: (ID) -> Void
     let notePointerCheck: () -> Void
     let rowMenu: ((Set<ID>) -> AnyView)?
     let selectedVisible: Set<ID>
@@ -499,7 +507,7 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             disclosure: TreeDisclosureControl(
                 hasChildren: self.hasChildren, isExpanded: isExpanded, metrics: self.context.metrics
             ) {
-                self.context.setExpansion(elementID, isExpanded ? .collapsed : .expanded)
+                self.context.toggleExpansion(elementID)
             },
             checkBox: self.context.checked.map { self.checkBox($0) },
             level: self.level,
@@ -519,6 +527,7 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             ))
             .onTapGesture { self.context.click(elementID) }
             .accessibilityValue(self.expansionValue(isExpanded: isExpanded))
+            .accessibilityHint(Text(LocalizedStringKey(self.clickHint ?? ""), bundle: .module), isEnabled: self.clickHint != nil)
             .accessibilityAddTraits(TreeRowAccessibility.traits(isSelected: isSelected))
     }
 
@@ -559,6 +568,10 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             hint: hint,
             metrics: self.context.metrics
         )
+    }
+
+    private var clickHint: String? {
+        TreeRowAccessibility.rowHintKey(hasChildren: self.hasChildren, clickBehavior: self.context.clickBehavior)
     }
 
     private func expansionValue(isExpanded: Bool) -> Text {

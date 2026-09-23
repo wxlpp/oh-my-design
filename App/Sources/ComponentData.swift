@@ -2266,7 +2266,7 @@ private struct TreePreview: View {
                 }
             }
             VStack(alignment: .leading, spacing: CoreSpacing.xs) {
-                Text(verbatim: "导航器 / navigator（.treeStyle(.navigator) + .controlSize(.small) + .rowClickBehavior(.selectAndToggleExpansion)，VS Code Explorer 式：单击文件夹行即展开 / 折叠）")
+                Text(verbatim: "导航器 / navigator（.treeStyle(.navigator) + .controlSize(.small) + .rowClickBehavior(.selectAndToggleExpansion) + 单选，VS Code Explorer 式：单击替换选中；单击文件夹行即展开 / 折叠，再点已选中的文件夹保持选中）")
                     .coreFont(.footnote).foregroundStyle(Color.contentSecondary)
                 ExplorerTreePreview()
             }
@@ -2355,7 +2355,7 @@ private struct ExplorerTreePreview: View {
             children: \.children,
             expanded: self.$expanded,
             selection: self.$selection,
-            selectionMode: .multiple
+            selectionMode: .single
         ) { node in
             HStack(spacing: CoreSpacing.xs) {
                 Label {

@@ -18,9 +18,9 @@ public nonisolated enum TreeSelectionMode: Hashable, Sendable, CaseIterable {
 
 /// 单击 `Tree` 的**父行**（行内容或缩进区，不含 chevron 与复选框）时做什么；经 `Tree.rowClickBehavior(_:)` 设置。
 ///
-/// 行选中与展开是两套独立状态：两种取值下行选中都按 `TreeSelectionMode` 的既有规则变化，
-/// 展开态只在 `.selectAndToggleExpansion` 下、且被点的是父行时取反，不看这一击是选中还是取消选中。
-/// 叶行、chevron、复选框与键盘不受影响。
+/// 行选中与展开是两套独立状态、互不读取：展开态只在 `.selectAndToggleExpansion` 下、且被点的是父行时取反。
+/// 行选中按 `TreeSelectionMode` 的既有规则变化，唯一例外是 `.selectAndToggleExpansion` + `.single` 下单击父行恒为选中
+/// （再点已选中的父行保持选中，VS Code 式）。叶行、chevron、复选框与键盘不受影响。
 public nonisolated enum TreeRowClickBehavior: Hashable, Sendable, CaseIterable {
     /// 只选中（默认）：展开 / 折叠只经 chevron 与 `←` / `→`。
     case select
@@ -303,6 +303,10 @@ nonisolated enum TreeSelection {
         }
     }
 
+    static func replacing<ID: Hashable>(with id: ID, in selection: Set<ID>, treeIDs: Set<ID>) -> Set<ID> {
+        selection.subtracting(treeIDs).union([id])
+    }
+
     static func selectingAll<ID: Hashable>(
         in selection: Set<ID>,
         rowIDs: [ID]
@@ -373,6 +377,7 @@ nonisolated enum TreeRowAccessibility {
     static let expandActionKey = "Expand"
     static let collapseActionKey = "Collapse"
     static let searchScopeHintKey = "Applies to filtered results only"
+    static let clickTogglesHintKey = "Activate to expand or collapse"
 
     static func expansionValueKey(isExpanded: Bool) -> String {
         isExpanded ? Self.expandedKey : Self.collapsedKey
@@ -384,6 +389,10 @@ nonisolated enum TreeRowAccessibility {
 
     static func checkBoxHintKey(hasChildren: Bool, isSearching: Bool) -> String? {
         hasChildren && isSearching ? Self.searchScopeHintKey : nil
+    }
+
+    static func rowHintKey(hasChildren: Bool, clickBehavior: TreeRowClickBehavior) -> String? {
+        hasChildren && clickBehavior == .selectAndToggleExpansion ? Self.clickTogglesHintKey : nil
     }
 
     static func traits(isSelected: Bool) -> AccessibilityTraits {

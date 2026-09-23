@@ -116,12 +116,35 @@ nonisolated enum TreeInteractionReducer {
         treeIDs: () -> Set<ID>
     ) -> TreeInteractionOutcome<ID> {
         guard let row = rows.first(where: { $0.id == id }) else { return TreeInteractionOutcome(state: state, result: .ignored) }
-        var next = Self.pointerSelect(id, state: state, rowIDs: Set(rows.map(\.id)), mode: mode, treeIDs: treeIDs)
+        let rowIDs = Set(rows.map(\.id))
         guard behavior == .selectAndToggleExpansion, row.hasChildren else {
-            return TreeInteractionOutcome(state: next, result: .handled)
+            return TreeInteractionOutcome(
+                state: Self.pointerSelect(id, state: state, rowIDs: rowIDs, mode: mode, treeIDs: treeIDs), result: .handled
+            )
+        }
+        var next = state
+        next.focus = id
+        next.lastInteraction = .pointer
+        switch mode {
+        case .single:
+            next.selection = TreeSelection.replacing(with: id, in: state.selection, treeIDs: treeIDs())
+        case .multiple:
+            next.selection = TreeSelection.toggled(id, in: state.selection, rowIDs: rowIDs, treeIDs: treeIDs(), mode: mode)
         }
         next.expansion.set(id, to: state.expanded.contains(id) ? .collapsed : .expanded)
         return TreeInteractionOutcome(state: next, result: .handled, expansionMotion: motion)
+    }
+
+    static func pointerToggle<ID: Hashable>(
+        _ id: ID,
+        state: TreeInteractionState<ID>,
+        rows: [TreeRow<ID>],
+        motion: MotionPresentation
+    ) -> TreeInteractionOutcome<ID> {
+        guard rows.contains(where: { $0.id == id }) else { return TreeInteractionOutcome(state: state, result: .ignored) }
+        return Self.pointerExpansion(
+            id, to: state.expanded.contains(id) ? .collapsed : .expanded, state: state, motion: motion
+        )
     }
 
     static func pointerExpansion<ID: Hashable>(
