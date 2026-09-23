@@ -768,3 +768,13 @@ func consumeStatefulButton(state: StatefulButtonState) -> some View {
         }
     }
 }
+
+// MARK: - SlideToConfirm（Issue #418）
+
+@MainActor
+func consumeSlideToConfirm() -> some View {
+    VStack {
+        SlideToConfirm("Slide to delete", action: { })
+        SlideToConfirm(action: { throw CancellationError() }) { Text("Slide to pay") }
+    }
+}

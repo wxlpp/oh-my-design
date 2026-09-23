@@ -103,6 +103,8 @@ struct QuotedEvidenceGuard {
         ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Button/styles/CoreBorderlessButtonStyle.swift", "CoreBorderlessButtonStyle"),
         ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Toast/Toast.swift", "@Entry public var toastHost: ToastHost? = nil"),
         ("docs/spikes/248-metal-packaging.md", "Tests/OhMyDesignTests/ColorAssetGuardTests.swift", "rawXcassetsAvailable"),
+        // ---- docs/components/slide-to-confirm.md ----
+        ("docs/components/slide-to-confirm.md", "Sources/OhMyDesign/Components/SlideToConfirm/SlideToConfirm.swift", "// 不要加 predictedEndTranslation 速度补偿：高代价确认不该因甩得快而降低门槛。"),
         // ---- docs/components/stateful-button.md ----
         ("docs/components/stateful-button.md", "Sources/OhMyDesign/Components/Button/StatefulButton.swift", "nonisolated static let defaultDwell: Duration = .seconds(2)"),
         ("docs/components/stateful-button.md", "Sources/OhMyDesign/Components/Button/AsyncButton.swift", ".onDisappear { self.task?.cancel() }"),

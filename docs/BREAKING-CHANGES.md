@@ -20,6 +20,27 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.11.0`）——Issue #418：`SlideToConfirm` 滑动确认
+
+**纯新增，无破坏性变更。** 已有公开符号一个都没动。
+
+新增公开符号：
+
+| 符号 | 说明 |
+|---|---|
+| `struct SlideToConfirm<Label: View>: View` | 滑到底才触发的高代价动作确认 |
+| `SlideToConfirm.init(action:label:)` | 自定义 label |
+| `SlideToConfirm.init(_:action:)`（`Label == Text`） | `LocalizedStringKey` 文案 |
+
+新增本地化键 `Double-tap to confirm`（替代按钮的操作提示）；执行态与播报复用既有的 `Loading` / `Success` / `Failed`。
+
+外观取 iOS「滑动来关机」：Liquid Glass 胶囊轨道、白色圆形指示器（两种外观下都是白的）、箭头取 `coreAccent`、
+文案在指示器右侧剩余区域并带流光（Reduce Motion 下不画）。`coreAccentOn` 不参与本组件。
+
+行为要点（给接入方的提醒，不是对既有行为的改变）：阈值是**纯距离**，没有速度补偿——
+从其他滑动确认实现迁来的用户「甩一下」不会触发；RTL 下轨道镜像（从右往左滑）；
+视图离屏（例如导航返回）会取消 `action` 所在的任务，不可中断的工作请在 `action` 内另起非结构化 `Task`。
+
 ## 未发布（相对 `v0.11.0`）——Issue #417：`StatefulButton` 四态动作按钮
 
 **纯新增，无破坏性变更。** 已有公开符号一个都没动，`AsyncButton` 未改。

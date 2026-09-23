@@ -554,6 +554,10 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 - **`SkeletonRect`** *: View* — 图片 / 卡片占位形状：矩形块，尺寸由调用方指定。
 - **`SkeletonCircle`** *: View* — 头像占位形状：圆形，直径由调用方指定。
 
+### `Components/SlideToConfirm/SlideToConfirm.swift`
+
+- **`SlideToConfirm`** *<Label: View>: View* — 滑到底才触发的高代价动作确认 / Slide-to-confirm for costly actions.  按住指示器拖到轨道尽头松手才执行 `action`：阈值是纯距离，**不**因甩得快而放宽。
+
 ### `Components/StateLabel/StateLabel.swift`
 
 - **`StateLabel`** *<Label: View>: View* — ⚠️ 源码缺摘要（材质层: 控件 / 表面角色: 控件）
@@ -1058,7 +1062,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | controlsize | 5 | 5 |
 | motion | 4 | 4 |
 | colors | 122 | 122 |
-| components | 90 | 90 |
+| components | 91 | 91 |
 | enums | 46 | 46 |
 | enumcases | 159 | 159 |
 | protocols | 6 | 6 |
