@@ -9,8 +9,12 @@ W3C 三分支重排、驱动脚本会在 `events.tsv` 里插 `# MARK <label>` �
 - 观测量**只有公开绑定**：`expanded` / `selection` / `checked` / `onActivate`。
   焦点是 Tree 的内部状态，探针**看不到**——所以每一步「焦点移动」都靠紧跟其后的一次
   `Space`（切换焦点行的选中态）间接读出来。这是有意的：不为了观测去改公开 API。
-- `ProbeRootView` 上挂了一个**哨兵** `onKeyPress`（恒 `.ignored`），用来分辨
-  「键没送到 app」与「键送到了但 Tree 没接」。⚠️ 它是查出下面第 1 条读数的唯一手段。
+- `ProbeRootView` 上挂了一个**哨兵** `onKeyPress`（恒 `.ignored`），只能分辨
+  「键有没有送到 app」。⚠️ 它**分辨不了**「Tree 接没接」：两条腿实测哨兵（祖先）的
+  handler **先于** Tree 的 handler 执行，且 Tree 返回 `.handled` 时哨兵照样收到
+  （见下方《虚拟焦点形态的读数》）。要判 Tree 接没接，只能临时在 `Tree.swift` 的
+  `onKeyPress` 里往 stderr 打一行（macOS 用 `open --stderr`，iOS 用
+  `simctl launch --console-pty`），**不提交**。
 
 ## 怎么跑
 
@@ -26,6 +30,7 @@ xcodegen generate
 xcodebuild -project TreeProbe.xcodeproj -scheme TreeProbeMac -destination 'platform=macOS' \
   -derivedDataPath dd-mac build CODE_SIGNING_ALLOWED=YES -IDEPackageEnablePrebuilts=NO
 PROBE_ROOT=$PWD ./hid-mac.sh run1 1          # 第二个参数是前奏 Tab 次数
+python3 check.py out/mac-run1/events.tsv     # 逐步对预期表，输出 steps_ok=N/32
 
 # iOS 腿
 export PROBE_UDID=$(xcrun simctl create probe-422 \
@@ -62,11 +67,34 @@ xcrun simctl delete "$PROBE_UDID"
    ⇒ 改成 **ARIA activedescendant 形态**：容器是唯一可聚焦元素（`.focusable()` +
    `.focused($isFocused)`），「焦点在哪一行」是 Tree 自己的 `@State`（虚拟焦点），
    行不再 `.focusable()`。**这条改动之后的 macOS 重测本轮没跑完**（见下）。
-3. **`Space` 在旧形态下还有第二条通路**：行是 `.focusable()` + `.onTapGesture` 时，
-   macOS 把 `Space` 当成对焦点行的「激活」，直接走了 tap handler
-   ——run2 里 `Space` 既进了哨兵（说明 Tree 的 `onKeyPress` 没接它）又产生了 `SELECT`。
-   ⇒ 「Space 能用」在那一版里是个**假象**，不是键盘层的功劳。虚拟焦点形态下行不再
-   `.focusable()`，这条通路随之消失，`Space` 只可能来自键盘层。
+3. ~~`Space` 在旧形态下走的是 tap handler、不是键盘层~~ —— 原写「`Space` 既进了哨兵
+   （说明 Tree 的 `onKeyPress` 没接它）又产生了 `SELECT`」，**括号里的推断实测为假**：
+   哨兵先于 Tree 执行、且 Tree 接住后哨兵照样收到 ⇒ 这个观测在两种假设下相同，
+   旧形态下 `Space` 到底走哪条通路**无法由它判定**。
+
+## 虚拟焦点形态的读数（2026-09-23，两条腿）
+
+`check.py` 逐步对下表（前奏 + 01–31 共 32 步，不计哨兵行）：
+
+| 腿 | 运行 | `steps_ok` |
+|---|---|---|
+| macOS（System Events 真 HID） | 修复 chevron 热区前 6 次（其中 4 次插桩）、后 3 次（提交态代码 + 原版探针） | 8 次 **32/32**；**1 次 15/32**（见下） |
+| iOS 26.4 模拟器（`axe` 真 HID） | 插桩 1 次 + 提交态 2 次 | 3 次 **32/32** |
+
+- **Space / Enter 真的到了 Tree 的 `onKeyPress`**：插桩那两次（macOS / iOS 各一），stderr 里
+  每一下 `Space` / `Return` / 方向键 / Home / End / Shift+↓ / Ctrl+A 都有 Tree 一行
+  `result=handled`，`g` 与 `Tab` 是 `result=ignored`（交回系统）。
+- **派发顺序**：同一条 stderr 流里，每一下键都是哨兵那行在前、Tree 那行在后。
+- **修饰键**：macOS 方向键 `rawValue 96`、Home / End `64`、Shift+↓ `98`；iOS 方向键 `0`、Shift+↓ `2`，
+  Ctrl+A 两端都是 `4`。
+- **iOS 点一行会把键盘焦点交给容器**：插桩读数是 `tap select a` 紧接 `isFocused false->true`。
+  变异：删掉 `select(_:)` 里的 `claimKeyboardFocus()` → 点击照样 `SELECT +a`，但之后
+  **0 下键**到达（哨兵 0、Tree 0）⇒ 这一调用在 iOS 上起作用，且**没有单测能兜它**。
+- **macOS 那 1 次失败**：新构建二进制的首次启动，前奏 `Space` 正常，第一下 `↓` 之后整个窗口
+  再没收到任何键（哨兵也没有）。同一二进制随后再跑全部 32/32；成因**未查明**，也未复现。
+- **iOS chevron 热区**：`describe-ui` 读出 chevron 按钮 frame 只有 12×7 pt，真点击偏离中心
+  10 pt 就落到相邻的父行复选框上、把整棵子树的叶子**静默勾上**。已改为 24×44 的命中槽
+  （`TreeDisclosureSlot`），复测槽内 5 个点全部落到展开 / 折叠上。
 
 ## 按键序列与预期（两条腿共用，前奏不同）
 

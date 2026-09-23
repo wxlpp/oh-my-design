@@ -101,6 +101,13 @@ struct TouchTargetTests {
         #expect(height >= Self.minimumHitTarget, "Tree 行实测高度 \(height)pt < 44pt")
     }
 
+    @Test("Tree 父行的展开控件实测命中高度 ≥ 44pt，不把偏离 chevron 的点击让给相邻复选框")
+    func treeDisclosureMeetsMinimumTouchTarget() {
+        let control = TreeDisclosureControl(hasChildren: true, isExpanded: false) {}
+        let height = self.renderedHeight(control, width: nil)
+        #expect(height >= Self.minimumHitTarget, "Tree 展开控件实测高度 \(height)pt < 44pt")
+    }
+
     // MARK: - CheckBox（Toggle 类）
 
     @Test("CheckBoxToggleStyle 实测命中高度 ≥ 44pt（Issue #123 修复：原先无 contentShape/minHeight）")

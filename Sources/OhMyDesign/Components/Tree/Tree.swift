@@ -306,8 +306,6 @@ struct TreeRowView<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     let context: TreeContext<Data, ID, RowContent>
 
     @Environment(\.coreAccent) private var resolvedAccent
-    @Environment(\.coreMotionPresentation) private var motionPresentation
-    @Environment(\.layoutDirection) private var layoutDirection
 
     var body: some View {
         let elementID = self.element[keyPath: self.context.id]
@@ -315,7 +313,9 @@ struct TreeRowView<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         let isSelected = self.context.selection.wrappedValue.contains(elementID)
         let isFocused = self.context.focus.wrappedValue == elementID
         return HStack(spacing: CoreSpacing.xs) {
-            self.disclosure(elementID, isExpanded: isExpanded)
+            TreeDisclosureControl(hasChildren: self.hasChildren, isExpanded: isExpanded) {
+                self.context.expansion(of: elementID).wrappedValue.toggle()
+            }
             if let checked = self.context.checked {
                 self.checkBox(checked)
             }
@@ -337,28 +337,6 @@ struct TreeRowView<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     }
 
     @ViewBuilder
-    private func disclosure(_ elementID: ID, isExpanded: Bool) -> some View {
-        if self.hasChildren {
-            Button {
-                self.context.expansion(of: elementID).wrappedValue.toggle()
-            } label: {
-                Self.chevron
-                    .rotationEffect(.degrees(self.chevronRotation(isExpanded: isExpanded)))
-                    .animation(
-                        CoreMotionToken.reveal.transformAnimation(for: self.motionPresentation),
-                        value: isExpanded
-                    )
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(
-                Text(LocalizedStringKey(TreeRowAccessibility.chevronLabelKey(isExpanded: isExpanded)), bundle: .module)
-            )
-        } else {
-            Self.chevron.hidden()
-        }
-    }
-
-    @ViewBuilder
     private func checkBox(_ checked: Binding<Set<ID>>) -> some View {
         let leaves = TreeFlatten.descendantLeafIDs(
             of: self.element, id: self.context.id, children: self.context.children
@@ -371,17 +349,6 @@ struct TreeRowView<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         }
         .toggleStyle(CheckBoxToggleStyle())
         .labelsHidden()
-    }
-
-    private static var chevron: some View {
-        Image(systemName: "chevron.forward")
-            .font(.system(size: CoreControlMetrics.iconSize(for: .small)))
-            .foregroundStyle(.tint)
-    }
-
-    private func chevronRotation(isExpanded: Bool) -> Double {
-        guard isExpanded else { return 0 }
-        return self.layoutDirection == .rightToLeft ? -90 : 90
     }
 
     private func expansionValue(isExpanded: Bool) -> Text {
@@ -401,6 +368,62 @@ struct TreeRowView<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             rowIDs: self.context.rowIDs,
             mode: self.context.selectionMode
         )
+    }
+}
+
+// MARK: - 展开控件 / Disclosure control
+
+struct TreeDisclosureControl: View {
+    let hasChildren: Bool
+    let isExpanded: Bool
+    let toggle: () -> Void
+
+    @Environment(\.coreMotionPresentation) private var motionPresentation
+    @Environment(\.layoutDirection) private var layoutDirection
+
+    var body: some View {
+        let isExpanded = self.isExpanded
+        if self.hasChildren {
+            Button(action: self.toggle) {
+                Self.chevron
+                    .rotationEffect(.degrees(self.chevronRotation(isExpanded: isExpanded)))
+                    .animation(
+                        CoreMotionToken.reveal.transformAnimation(for: self.motionPresentation),
+                        value: isExpanded
+                    )
+                    .modifier(TreeDisclosureSlot())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(
+                Text(LocalizedStringKey(TreeRowAccessibility.chevronLabelKey(isExpanded: isExpanded)), bundle: .module)
+            )
+        } else {
+            Self.chevron
+                .hidden()
+                .modifier(TreeDisclosureSlot())
+        }
+    }
+
+    private static var chevron: some View {
+        Image(systemName: "chevron.forward")
+            .font(.system(size: CoreControlMetrics.iconSize(for: .small)))
+            .foregroundStyle(.tint)
+    }
+
+    private func chevronRotation(isExpanded: Bool) -> Double {
+        guard isExpanded else { return 0 }
+        return self.layoutDirection == .rightToLeft ? -90 : 90
+    }
+}
+
+struct TreeDisclosureSlot: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .frame(
+                width: CoreControlMetrics.iconSize(for: .regular) + CoreSpacing.sm,
+                height: CoreControlMetrics.height(for: .regular)
+            )
+            .contentShape(Rectangle())
     }
 }
 
