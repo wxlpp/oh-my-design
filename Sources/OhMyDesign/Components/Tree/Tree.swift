@@ -12,7 +12,8 @@ import SwiftUI
 /// （含系统的 mixed 态），父节点自身**永不进** `checked` 集合。
 ///
 /// 行距、缩进、chevron 与复选框字形跟随环境 `controlSize`；iOS 上行距不低于 44 pt。
-/// 行外观由 `.treeStyle(_:)` 选择（`.automatic` / `.navigator`）；整行（含缩进区）都是点选区。
+/// 行外观由 `.treeStyle(_:)` 选择（`.automatic` / `.navigator`）；整行（含缩进区）都是点选区，
+/// 也是 `rowContextMenu(_:)` 的右键区。
 ///
 /// ⚠️ **不是原生外观**：本组件走递归 `DisclosureGroup(isExpanded:)`，从系统拿到的是
 /// 展开态接口与嵌套能力；chevron、缩进、行选中底色与无障碍播报全部自绘。
@@ -198,6 +199,10 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             select: { id in self.select(id, rows: rows) },
             setExpansion: { id, target in self.setExpansion(id, to: target) },
             notePointerCheck: { self.commit(TreeInteractionReducer.pointerCheck(state: self.interactionState)) },
+            rowMenu: self.rowMenu,
+            selectedVisible: self.rowMenu == nil
+                ? []
+                : TreeContextMenu.selectedVisible(self.selection, visibleIDs: Set(rows.map(\.id))),
             content: self.content
         )
     }
@@ -209,6 +214,23 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     private let checked: Binding<Set<ID>>?
     private let onActivate: ((ID) -> Void)?
     private let content: (Data.Element) -> RowContent
+    private var rowMenu: ((Set<ID>) -> AnyView)?
+}
+
+// MARK: - 整行右键菜单 / Row context menu
+
+public extension Tree {
+    /// 为整行（含缩进区）挂右键菜单。菜单作用于目标集合：右键的行已选中时，为选中集合里
+    /// 当前可见的行（被折叠隐藏的选中项、不属于本树的 ID 都不在内）；否则只是右键的那一行。
+    /// 唤起菜单不改变选中与焦点。builder 会在每个已构建的行上随 body 求值，闭包里不要做重活。
+    ///
+    /// - Parameter menu: 以目标 ID 集合生成菜单项。
+    /// - Returns: 挂好菜单的同一棵树。
+    func rowContextMenu<M: View>(@ViewBuilder _ menu: @escaping (Set<ID>) -> M) -> Tree {
+        var tree = self
+        tree.rowMenu = { targets in AnyView(menu(targets)) }
+        return tree
+    }
 }
 
 // MARK: - Identifiable convenience init
@@ -285,6 +307,8 @@ struct TreeContext<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     let select: (ID) -> Void
     let setExpansion: (ID, TreeExpansionTarget) -> Void
     let notePointerCheck: () -> Void
+    let rowMenu: ((Set<ID>) -> AnyView)?
+    let selectedVisible: Set<ID>
     let content: (Data.Element) -> RowContent
 
     func expansion(of elementID: ID) -> Binding<Bool> {
@@ -396,6 +420,10 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         return self.row(configuration)
             .frame(minHeight: self.context.metrics.rowHeight)
             .contentShape(Rectangle())
+            .modifier(TreeRowMenu(
+                menu: self.context.rowMenu,
+                targets: TreeContextMenu.targets(for: elementID, selectedVisible: self.context.selectedVisible)
+            ))
             .onTapGesture { self.context.select(elementID) }
             .accessibilityValue(self.expansionValue(isExpanded: isExpanded))
             .accessibilityAddTraits(TreeRowAccessibility.traits(isSelected: isSelected))
@@ -430,6 +458,21 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             LocalizedStringKey(TreeRowAccessibility.expansionValueKey(isExpanded: isExpanded)),
             bundle: .module
         )
+    }
+}
+
+// MARK: - 行右键菜单 / Row menu
+
+struct TreeRowMenu<ID: Hashable>: ViewModifier {
+    let menu: ((Set<ID>) -> AnyView)?
+    let targets: Set<ID>
+
+    func body(content: Content) -> some View {
+        if let menu = self.menu {
+            content.contextMenu { menu(self.targets) }
+        } else {
+            content
+        }
     }
 }
 

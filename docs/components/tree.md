@@ -53,6 +53,11 @@ public struct TreeStyle {
 public extension View {
     func treeStyle(_ style: TreeStyle) -> some View
 }
+
+// 整行右键菜单（#429）：builder 方法，返回同一棵树；Tree 仍是三个泛型参数
+public extension Tree {
+    func rowContextMenu<M: View>(@ViewBuilder _ menu: @escaping (Set<ID>) -> M) -> Tree
+}
 ```
 
 | 参数 | 类型 | 默认值 | 说明 |
@@ -248,6 +253,28 @@ Tree(roots, children: \.children, expanded: $expanded, selection: $selection) { 
 - **即时生效、无补间**，三档 `MotionPresentation` 一致，没有需要按 Reduce Motion 分支的动效。
 - macOS 鼠标触发；iPadOS 指针下预期同样触发（未实测）；iPhone 纯触控下永不触发。
 
+## 右键菜单：`rowContextMenu(_:)`
+
+```swift
+Tree(roots, children: \.children, expanded: $expanded, selection: $selection, selectionMode: .multiple) { node in
+    Label(node.name, systemImage: node.children == nil ? "doc" : "folder")
+}
+.rowContextMenu { targets in
+    Button("Delete \(targets.count) item(s)", role: .destructive) { delete(targets) }
+}
+```
+
+- **目标集合**：右键的行**已选中**时，是「选中集合 ∩ 当前可见行」；否则**只是右键的那一行**（不并进已有选中）。
+  「可见」指展开之后的行序列，不是视口内可见。因此被折叠隐藏的选中项、不属于本树的 ID
+  （几棵树共用一个 `selection` 时）都不会传给菜单——对齐 Finder：折叠的文件夹里之前选中的项不参与右键操作。
+- **唤起菜单不改变**选中、焦点与交互来源（对齐 Finder / Xcode；VS Code 会给右键行画焦点框，本组件不画）。
+- **整行都是右键区**（含缩进区）：菜单挂在行宿主上、`contentShape` 之后，与点选区同一层，换外观不丢菜单。
+- **不调用就不挂**：没有 `rowContextMenu` 时行上不挂 `.contextMenu`（不是挂一个空菜单）。
+- builder 会在每个已构建的行上**随 body 求值**（SwiftUI 的 `.contextMenu` 就是这样求值的），闭包里不要做重活；
+  求值次数是 SwiftUI 的实现细节。选中 ∩ 可见行每次 body 只算一次，所有行共用，不遍历整树。
+- 菜单内容是调用方的数据操作，不是外观——所以它是 `Tree` 上的 builder 方法，不在 `TreeStyle` 里，
+  也不是环境值（环境值要擦除 `ID`，闭包里就拿不到强类型集合）。拖放仍不在范围内。
+
 ## 动效
 
 | 调用点 | token | Reduce Motion 下 |
@@ -299,6 +326,7 @@ Tree(roots, children: \.children, expanded: $expanded, selection: $selection) { 
   已选集合里属于本树、但被折叠而不可见的旧选中项，只能求整树 ID。多选不遍历。
 - 可见行变化后的焦点归约用**变化前的行**求祖先，不回头遍历数据。按键时若焦点行已不可见
   （可见行变化的回调还没来得及归约）才按数据求祖先——正常路径上不发生。
+- 挂了 `rowContextMenu` 时，目标集合只用可见行求交，不读折叠子树（`TreeLazinessTests` 带菜单渲染的一格）。
 - ⚠️ 传了 `checked` 时，父行复选框的三态要读它**全部叶后代**的勾选态，因此会遍历该父行的整棵子树，
   折叠与否都一样。这是三态派生本身的代价。
 
@@ -328,6 +356,9 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
   容器 `Tree` 没有名字含 `hover` 的成员变量——**按名字匹配**，把容器状态起名 `pointerRow` 就漏。
 - **悬停命中区**：`.navigator` 行在 `.onHover` 之前挂了 `.contentShape(Rectangle())`，意在让从行右侧空白 / 缩进区进入也点亮（空闲态底色是 `Color.clear`）；真指针下从这两处进入是否点亮，**未验证**。
 - iPadOS 指针下 `onHover` 是否触发。
+- **右键菜单的真实唤起路径**（`#429`）：真右键 / 双指点按 / Control-点按（macOS）、长按（iOS）真的弹出菜单，
+  且**唤起后选中、焦点、交互来源都不变**。判据只对行所在点调 `NSView.menu(for:)`——那是菜单的构建，不是唤起；
+  没有经 `sendEvent` 合成 `rightMouseDown`（会进入菜单的模态追踪）。
 - **两种外观下无障碍取值相同**的运行时读数：托管窗口的 `NSHostingView` 读不到无障碍子树（KVC 读
   `accessibilityChildren` 只有根 `AXGroup`）。现有的网是源码判据：`accessibilityValue` / `accessibilityAddTraits` /
   `onTapGesture` / `contentShape` 只挂在行宿主上、两种外观类型里一处都没有。
@@ -344,6 +375,16 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
 - `TreeGuideLineTests`（双腿）：参考线对齐父行 chevron 中心（≤ 1 pt，`.small` / `.regular`）、跨行连续、
   第 3 层恰有 2 根、RTL 是 LTR 的镜像（容 1 px 亚像素错位）。
 - `TreeHoverTests`（macOS）：翻转悬停时行内容收到的事务不带动画（三档动效）。
+
+`#429` 起的右键菜单判据（`TreeContextMenuTests`）：
+- 纯函数（双腿）：右键已选中的行 → 选中 ∩ 可见行，折叠隐藏的本树 ID 与树外 ID 都不传出；右键未选中的行 → 只有这一行。
+- 渲染（双腿，`ImageRenderer`）：每个已构建行都以正确的目标集合求值 builder（只要求 ≥ 1 次，不钉死次数）。
+- 托管窗口（**仅 macOS**，两种外观）：对每一行所在点取 `NSView.menu(for:)`，得到的菜单就是这一行的目标集合。
+  ⚠️ 它**不判**「唤起菜单不改选中」：把「构建菜单时顺手选中该行」写进 builder 包装，这条照样绿
+  （构建期的状态写入没有落到绑定上）⇒ 该项只在上面的真 HID 清单里。
+- **「不调用就不挂」只在 iOS 腿有判据**：视图树里没有 `UIContextMenuInteraction`，调用了才有（正向对照在同一条里）。
+  ⚠️ macOS 腿上**没有**这条判据：`menu(for:)` 对「不挂」与「挂了空菜单」都返回 `nil`，两者分不开；
+  AX 动作列表也读不到（同上一条，`NSHostingView` 读不到无障碍子树）。
 - `TreeHoverMotionGuard`（源码）：行宿主与 `.navigator` 行内不出现 `animation(` / `coreAnimation(` / `withAnimation` /
   `transaction` / `withTransaction`（按名禁调用，不看实参——局部别名绕不过去；`CoreMotionToken.x.animation(for:)`
   这类取 token 的调用也会被拦，这是刻意的）；`.onHover` 只在行宿主的 `case .navigator` 分支内；容器无悬停状态；
@@ -365,6 +406,9 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
    `.automatic` 取 `.tint`——是同一部件的上色，不改变部件承载的展开态）；焦点指示形态（`.automatic` 圆角焦点环、
    `.navigator` 直角内描边——两者承载同一个焦点状态，只是画法不同）。
 3. 将来要让第三方扩展：升协议 + `where Self ==` 静态成员，modifier 取 `any TreeStyle`；届时走修订回路，J-2 计数 16 → 17。
+
+`#429` 的 `rowContextMenu(_:)` 同样**不改判**：菜单内容是调用方按目标 ID 集合给出的数据操作，与行内容 `content`
+同属调用方内容槽，不改变行的画法与含义，不是外观扩展点。
 
 ## 使用示例 / Usage
 
@@ -412,6 +456,11 @@ struct Explorer: View {
                 selectionMode: .multiple
             ) { node in
                 Label(node.name, systemImage: node.children == nil ? "doc" : "folder")
+            }
+            .rowContextMenu { targets in
+                Button("Rename") { print("rename \(targets)") }
+                    .disabled(targets.count != 1)
+                Button("Delete", role: .destructive) { print("delete \(targets)") }
             }
         }
         .treeStyle(.navigator)

@@ -955,7 +955,181 @@ struct TreeLazinessTests {
         _ = TreeInteractionReducer.pointerSelect("b", state: state, rowIDs: ["a", "b", "c"], mode: .single, treeIDs: treeIDs)
         #expect(evaluations == 1)
     }
+
+    @Test("带右键菜单渲染：选中集里有折叠在 a1 下的 a1x，目标集合照样不读折叠子树")
+    func renderingWithARowMenuNeverReadsCollapsedSubtrees() {
+        let log = TreeChildrenReadLog()
+        var builderCalls = 0
+        let renderer = ImageRenderer(
+            content: Tree(
+                TreeCountingNode.roots(log: log),
+                children: \.children,
+                expanded: .constant(["a"]),
+                selection: .constant(["b", "a1x"]),
+                selectionMode: .multiple
+            ) { node in
+                Text(verbatim: node.id)
+            }
+            .rowContextMenu { targets in
+                let _ = builderCalls += 1
+                Text(verbatim: targets.sorted().joined(separator: ","))
+            }
+            .frame(width: 260)
+        )
+        #expect(renderer.cgImage != nil, "没渲染出来，下面的计数无意义")
+        #expect(builderCalls > 0, "菜单 builder 一次都没被求值——目标集合那条路径没走到，下面的计数无意义")
+        #expect(
+            log.reads(of: Self.hiddenWhenOnlyAIsExpanded) == 0,
+            "求目标集合读了折叠子树：\(log.reads.filter { Self.hiddenWhenOnlyAIsExpanded.contains($0.key) })"
+        )
+    }
 }
+
+// MARK: - 右键菜单
+
+@Suite("Tree 整行右键菜单：目标集合 = 已选中时取选中 ∩ 可见行，否则只取右键行；未设置不挂菜单")
+@MainActor
+struct TreeContextMenuTests {
+    private static let visibleWhenAIsExpanded: Set<String> = Set(TreeJudgeFixture.rows(expanded: ["a"]).map(\.id))
+    private static let selection: Set<String> = ["a2", "b", "a1x", "outside"]
+
+    nonisolated static func title(_ targets: Set<String>) -> String {
+        targets.sorted().joined(separator: ",")
+    }
+
+    @Test("右键已选中的行：目标是选中集合与可见行的交集，折叠隐藏的 a1x 与树外的 ID 都不传出")
+    func selectedRowTargetsTheVisibleSelection() {
+        #expect(Self.visibleWhenAIsExpanded == ["a", "a1", "a2", "b", "c"], "样本的可见行变了，下面的期望值要跟着改")
+        for id in ["a2", "b"] {
+            #expect(
+                TreeContextMenu.targets(for: id, selection: Self.selection, visibleIDs: Self.visibleWhenAIsExpanded)
+                    == ["a2", "b"],
+                "右键 \(id)"
+            )
+        }
+    }
+
+    @Test("右键未选中的行：目标只有这一行，不并进已有选中")
+    func unselectedRowTargetsItselfOnly() {
+        for id in ["a", "a1", "c"] {
+            #expect(
+                TreeContextMenu.targets(for: id, selection: Self.selection, visibleIDs: Self.visibleWhenAIsExpanded)
+                    == [id],
+                "右键 \(id)"
+            )
+        }
+        #expect(TreeContextMenu.targets(for: "b", selection: [], visibleIDs: Self.visibleWhenAIsExpanded) == ["b"])
+    }
+
+    @Test("渲染时每个已构建行都以正确的目标集合求值菜单 builder（次数不钉死，只要求 ≥ 1）")
+    func everyBuiltRowEvaluatesTheBuilderWithItsTargets() {
+        var calls: [Set<String>: Int] = [:]
+        let renderer = ImageRenderer(
+            content: Tree(
+                TreeJudgeFixture.roots,
+                children: \.children,
+                expanded: .constant(["a"]),
+                selection: .constant(Self.selection),
+                selectionMode: .multiple
+            ) { node in
+                Text(verbatim: node.id)
+            }
+            .rowContextMenu { targets in
+                let _ = calls[targets, default: 0] += 1
+                Text(verbatim: Self.title(targets))
+            }
+            .frame(width: 260)
+        )
+        #expect(renderer.cgImage != nil, "没渲染出来，下面的判据无意义")
+        let expected: Set<Set<String>> = [["a2", "b"], ["a"], ["a1"], ["c"]]
+        #expect(Set(calls.keys) == expected, "builder 收到的目标集合 \(calls.keys.map(Self.title)) ≠ 期望 \(expected.map(Self.title))")
+        #expect(calls.values.allSatisfy { $0 >= 1 })
+    }
+
+    #if os(macOS)
+    private static let regular = TreeRowMetrics.resolve(.regular)
+
+    private static func menuTitles(_ window: HostedWindow, row index: Int) -> [String]? {
+        let host = window.root
+        let y = CGFloat(index) * (Self.regular.rowHeight + Self.regular.rowSpacing) + Self.regular.rowHeight / 2
+        let location = CGPoint(x: 120, y: host.bounds.height - y)
+        guard let event = NSEvent.mouseEvent(
+            with: .rightMouseDown, location: location, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: host.window?.windowNumber ?? 0, context: nil, eventNumber: 0, clickCount: 1, pressure: 1
+        ) else { return nil }
+        var view = host.hitTest(location)
+        while let current = view {
+            if let menu = current.menu(for: event) { return menu.items.map(\.title) }
+            view = current.superview
+        }
+        return nil
+    }
+
+    @Test("托管窗口：对行所在点取到的菜单，就是这一行的目标集合", arguments: TreeHostedAppearance.allCases)
+    func hostedMenuAtARowCarriesThatRowsTargets(appearance: TreeHostedAppearance) {
+        let log = TreeHostedLog()
+        let window = HostedWindow(
+            TreeHostedHarness(
+                log: log, style: appearance.style, expanded: ["a"], selection: Self.selection, menu: .targetTitles
+            ),
+            size: CGSize(width: 260, height: 320),
+            scheme: .light
+        )
+        defer { window.close() }
+        let rows = TreeJudgeFixture.rows(expanded: ["a"]).map(\.id)
+        for (index, id) in rows.enumerated() {
+            let expected = Self.title(TreeContextMenu.targets(
+                for: id, selection: Self.selection, visibleIDs: Self.visibleWhenAIsExpanded
+            ))
+            #expect(Self.menuTitles(window, row: index) == [expected], "\(appearance)：行 \(id)（第 \(index) 行）")
+        }
+    }
+    #endif
+
+    #if os(iOS)
+    private static func contextMenuInteractions(in view: UIView) -> Int {
+        view.interactions.filter { $0 is UIContextMenuInteraction }.count
+            + view.subviews.reduce(0) { $0 + Self.contextMenuInteractions(in: $1) }
+    }
+
+    private static func interactions(menu: TreeHostedMenuKind) -> Int {
+        let tree = Tree(
+            TreeJudgeFixture.roots,
+            children: \.children,
+            expanded: .constant(["a"]),
+            selection: .constant(["b"]),
+            checked: .constant(["a2"])
+        ) { node in
+            Text(verbatim: node.id)
+        }
+        let window = switch menu {
+        case .none:
+            HostedWindow(tree, size: CGSize(width: 260, height: 400), scheme: .light)
+        case .set:
+            HostedWindow(
+                tree.rowContextMenu { targets in Button(Self.title(targets)) {} },
+                size: CGSize(width: 260, height: 400),
+                scheme: .light
+            )
+        }
+        defer { window.close() }
+        return Self.contextMenuInteractions(in: window.root)
+    }
+
+    @Test("未调用 rowContextMenu 时视图树里没有 UIContextMenuInteraction；调用了才有（正向对照，证明探针看得见）")
+    func noMenuIsAttachedUnlessRequested() {
+        #expect(Self.interactions(menu: .set) > 0, "挂了菜单却探不到 UIContextMenuInteraction——探针失效，下一条判据无意义")
+        #expect(Self.interactions(menu: .none) == 0, "没调用 rowContextMenu 却挂上了上下文菜单")
+    }
+    #endif
+}
+
+#if os(iOS)
+enum TreeHostedMenuKind {
+    case none
+    case set
+}
+#endif
 
 // MARK: - 托管窗口接线
 
@@ -972,33 +1146,30 @@ struct TreeHostedHarness: View {
     let log: TreeHostedLog
     let style: TreeStyle
     let showsCheckBoxes: TreeHostedCheckBoxes
+    let menu: TreeHostedMenu
     @State private var expanded: Set<String>
-    @State private var selection: Set<String> = []
+    @State private var selection: Set<String>
     @State private var checked: Set<String> = []
 
     init(
         log: TreeHostedLog,
         style: TreeStyle,
         expanded: Set<String> = [],
-        showsCheckBoxes: TreeHostedCheckBoxes = .hidden
+        selection: Set<String> = [],
+        showsCheckBoxes: TreeHostedCheckBoxes = .hidden,
+        menu: TreeHostedMenu = .none
     ) {
         self.log = log
         self.style = style
         self.showsCheckBoxes = showsCheckBoxes
+        self.menu = menu
         self._expanded = State(initialValue: expanded)
+        self._selection = State(initialValue: selection)
     }
 
     var body: some View {
-        Tree(
-            TreeJudgeFixture.roots,
-            children: \.children,
-            expanded: self.$expanded,
-            selection: self.$selection,
-            checked: self.showsCheckBoxes == .shown ? self.$checked : nil
-        ) { node in
-            Text(verbatim: node.id)
-        }
-        .treeStyle(self.style)
+        self.tree
+            .treeStyle(self.style)
         .transaction { transaction in self.log.animations.append(transaction.animation) }
         .onChange(of: self.expanded) { self.log.expanded = self.expanded }
         .onChange(of: self.selection) { self.log.selection = self.selection }
@@ -1012,6 +1183,34 @@ struct TreeHostedHarness: View {
 enum TreeHostedCheckBoxes {
     case hidden
     case shown
+}
+
+enum TreeHostedMenu {
+    case none
+    case targetTitles
+}
+
+extension TreeHostedHarness {
+    @ViewBuilder
+    private var tree: some View {
+        let tree = Tree(
+            TreeJudgeFixture.roots,
+            children: \.children,
+            expanded: self.$expanded,
+            selection: self.$selection,
+            checked: self.showsCheckBoxes == .shown ? self.$checked : nil
+        ) { node in
+            Text(verbatim: node.id)
+        }
+        switch self.menu {
+        case .none:
+            tree
+        case .targetTitles:
+            tree.rowContextMenu { targets in
+                Button(TreeContextMenuTests.title(targets)) {}
+            }
+        }
+    }
 }
 
 nonisolated enum TreeHostedAppearance: CaseIterable, CustomTestStringConvertible, Sendable {
@@ -1298,6 +1497,8 @@ struct TreeRenderTests {
             select: { _ in },
             setExpansion: { _, _ in },
             notePointerCheck: {},
+            rowMenu: nil,
+            selectedVisible: [],
             content: { Text(verbatim: $0.id) }
         )
         return TreeRowHost(element: TreeJudgeFixture.node("b"), level: 1, hasChildren: false, context: context)

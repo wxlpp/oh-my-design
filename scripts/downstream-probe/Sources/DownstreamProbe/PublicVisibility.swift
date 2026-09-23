@@ -787,6 +787,9 @@ func consumeTree(
         ) { node in
             Text(node.id)
         }
+        .rowContextMenu { (targets: Set<String>) in
+            Button("Delete \(targets.count)") { selection.wrappedValue.subtract(targets) }
+        }
         .treeStyle(.navigator)
     }
     .treeStyle(.automatic)

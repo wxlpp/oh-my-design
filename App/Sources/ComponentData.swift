@@ -2310,8 +2310,18 @@ private struct ExplorerTreePreview: View {
         ExplorerTreePreview.roots, id: \.id, children: \.children, toDepth: 3
     )
     @State private var selection: Set<String> = ["Sources/Tree/TreeStyle.swift"]
+    @State private var lastMenuAction: String = "—"
 
     var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+            self.explorer
+            Text(verbatim: "右键菜单 / context menu: \(self.lastMenuAction)")
+                .coreFont(.caption)
+                .foregroundStyle(Color.contentSubtle)
+        }
+    }
+
+    private var explorer: some View {
         Tree(
             Self.roots,
             children: \.children,
@@ -2335,6 +2345,19 @@ private struct ExplorerTreePreview: View {
                         .coreFont(.caption)
                         .foregroundStyle(Self.tint(for: git) ?? Color.contentSecondary)
                 }
+            }
+        }
+        .rowContextMenu { targets in
+            Button("New File", systemImage: "doc.badge.plus") {
+                self.lastMenuAction = "New File in \(targets.sorted())"
+            }
+            Button("Rename", systemImage: "pencil") {
+                self.lastMenuAction = "Rename \(targets.sorted())"
+            }
+            .disabled(targets.count != 1)
+            Divider()
+            Button("Delete \(targets.count) item(s)", systemImage: "trash", role: .destructive) {
+                self.lastMenuAction = "Delete \(targets.sorted())"
             }
         }
         .treeStyle(.navigator)
