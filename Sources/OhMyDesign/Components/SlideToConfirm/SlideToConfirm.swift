@@ -58,6 +58,16 @@ nonisolated struct SlideToConfirmGeometry: Sendable, Hashable {
         self.travel > 0 && sample.translation >= self.travel
     }
 
+    var idleKnobRegion: ClosedRange<CGFloat> { self.spacing...(self.spacing + self.knob) }
+
+    var titleLeadingInset: CGFloat { self.knob + 2 * self.spacing }
+
+    var titleTrailingInset: CGFloat { 2 * self.spacing }
+
+    var titleRegion: ClosedRange<CGFloat> {
+        self.titleLeadingInset...max(self.titleLeadingInset, self.width - self.titleTrailingInset)
+    }
+
     func titleOpacity(forOffset offset: CGFloat) -> Double {
         guard self.travel > 0 else { return 1 }
         return Double(1 - self.clampedOffset(forTranslation: offset) / self.travel)
@@ -69,6 +79,63 @@ nonisolated struct SlideToConfirmGeometry: Sendable, Hashable {
 nonisolated enum SlideToConfirmMotion {
     static func returnDwell(for presentation: MotionPresentation) -> Duration {
         presentation == .animated ? .seconds(CoreMotionToken.reveal.duration) : .zero
+    }
+}
+
+// MARK: - 外观 / Appearance
+
+nonisolated enum SlideToConfirmAppearance {
+    static let disabledOpacity: Double = 0.4
+
+    // 指示器恒为浅色岛：accent 默认是墨色（深色外观下为白），白底上的箭头要在浅色外观下解析才看得见。
+    static let knobScheme: ColorScheme = .light
+
+    static let knobElevation: CoreElevation.Level = .medium
+
+    static func opacity(isEnabled: Bool) -> Double {
+        isEnabled ? 1 : Self.disabledOpacity
+    }
+}
+
+// MARK: - 流光 / Shimmer
+
+enum SlideToConfirmShimmer {
+    static let period: TimeInterval = 2.4
+
+    static let bandWidth: CGFloat = 0.6
+
+    static func sweeps(
+        presentation: MotionPresentation,
+        isEnabled: Bool,
+        phase: SlideToConfirmCore.Phase,
+        isOnScreen: Bool
+    ) -> Bool {
+        presentation == .animated && isEnabled && phase == .idle && isOnScreen
+    }
+
+    static func progress(at date: Date) -> CGFloat {
+        let t = date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: Self.period)
+        return CGFloat((t < 0 ? t + Self.period : t) / Self.period)
+    }
+
+    static func bandCenter(progress: CGFloat, layoutDirection: LayoutDirection) -> CGFloat {
+        let logical = -Self.bandWidth / 2 + (1 + Self.bandWidth) * progress
+        return layoutDirection == .rightToLeft ? 1 - logical : logical
+    }
+
+    static func style(bandCenter center: CGFloat?) -> LinearGradient {
+        guard let center else {
+            return LinearGradient(colors: [Color.contentSecondary, Color.contentSecondary], startPoint: .leading, endPoint: .trailing)
+        }
+        return LinearGradient(
+            stops: [
+                .init(color: Color.contentSecondary, location: 0),
+                .init(color: Color.contentPrimary, location: 0.5),
+                .init(color: Color.contentSecondary, location: 1),
+            ],
+            startPoint: UnitPoint(x: center - Self.bandWidth / 2, y: 0.5),
+            endPoint: UnitPoint(x: center + Self.bandWidth / 2, y: 0.5)
+        )
     }
 }
 
@@ -329,24 +396,28 @@ final class SlideToConfirmRunner {
 /// 视图离屏（例如导航返回）会取消 `action` 所在的任务；不可中断的工作请在 `action` 内另起非结构化 `Task`。
 ///
 /// 对辅助技术整体暴露为一个普通按钮：激活即执行同一个 `action`，执行中为禁用并带「Loading」状态。
-/// 强调色读 `View.coreAccent(_:on:)`；尺寸读 `controlSize`。
+/// 箭头与执行中的进度取 `View.coreAccent(_:on:)` 的强调色；尺寸读 `controlSize`。
 public struct SlideToConfirm<Label: View>: View {
     @State private var runner: SlideToConfirmRunner
     @State private var width: CGFloat = 0
+    @State private var titleOnScreen = true
     @GestureState private var dragging = false
 
     @Environment(\.coreMotionPresentation) private var motionPresentation
     @Environment(\.controlSize) private var controlSize
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.coreAccent) private var resolvedAccent
-    @Environment(\.coreAccentOn) private var resolvedOn
-    @Environment(\.self) private var environment
+    @Environment(\.scenePhase) private var systemScenePhase
+    @Environment(\.scenePhaseOverride) private var scenePhaseOverride
+    @Environment(\.lowPowerModeOverride) private var lowPowerModeOverride
     @Environment(\.locale) private var locale
     @Environment(\.layoutDirection) private var layoutDirection
     @Environment(\.slideToConfirmAnnouncementPoster) private var poster
 
     private let action: @MainActor @Sendable () async throws -> Void
     private let label: Label
+
+    private var reduceMotion: Bool { self.motionPresentation != .animated }
 
     /// 以自定义 label 创建。
     ///
@@ -378,22 +449,29 @@ public struct SlideToConfirm<Label: View>: View {
             layoutDirection: self.layoutDirection
         )
         let offset = core.knobOffset(in: geometry)
+        let energy = EnergyState.resolve(
+            injectedScenePhase: self.scenePhaseOverride,
+            systemScenePhase: self.systemScenePhase,
+            lowPowerModeOverride: self.lowPowerModeOverride
+        )
+        let sweeps = SlideToConfirmShimmer.sweeps(
+            presentation: energy.presentation(reduceMotion: self.reduceMotion),
+            isEnabled: self.isEnabled,
+            phase: core.phase,
+            isOnScreen: self.titleOnScreen
+        )
         return ZStack(alignment: .leading) {
             Capsule(style: .continuous)
                 .fill(Color.secondaryFill)
-            self.label
-                .coreFont(CoreControlMetrics.fontToken(for: self.controlSize))
-                .foregroundStyle(self.isEnabled ? Color.contentSecondary : Color.contentDisabled)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity)
-                .padding(.leading, geometry.knob + 2 * geometry.spacing)
-                .padding(.trailing, 2 * geometry.spacing)
+                .glassEffect(.regular, in: Capsule(style: .continuous))
+            self.title(geometry: geometry, sweeps: sweeps, energy: energy.policy)
                 .opacity(geometry.titleOpacity(forOffset: offset))
             self.knob(geometry: geometry, executing: core.phase == .executing)
                 .padding(geometry.spacing)
                 .offset(x: offset)
         }
         .frame(height: geometry.trackHeight)
+        .opacity(SlideToConfirmAppearance.opacity(isEnabled: self.isEnabled))
         .contentShape(Capsule(style: .continuous))
         // 挂在整条轨道上：起点不在指示器上的横滑也被吸收，不漏给系统返回手势。
         // 执行 / 回位期间不停用，正确性由 core 的会话裁决与门闩保证。
@@ -445,12 +523,39 @@ public struct SlideToConfirm<Label: View>: View {
         }
     }
 
+    private func title(geometry: SlideToConfirmGeometry, sweeps: Bool, energy: RenderPolicy) -> some View {
+        ZStack {
+            if sweeps {
+                TimelineView(.animation(minimumInterval: energy.minimumInterval)) { context in
+                    self.titleText(bandCenter: SlideToConfirmShimmer.bandCenter(
+                        progress: SlideToConfirmShimmer.progress(at: context.date),
+                        layoutDirection: self.layoutDirection
+                    ))
+                }
+            } else {
+                self.titleText(bandCenter: nil)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.leading, geometry.titleLeadingInset)
+        .padding(.trailing, geometry.titleTrailingInset)
+        .onAppear { self.titleOnScreen = true }
+        .onDisappear { self.titleOnScreen = false }
+        .onScrollVisibilityChange { self.titleOnScreen = $0 }
+    }
+
+    private func titleText(bandCenter: CGFloat?) -> some View {
+        self.label
+            .coreFont(CoreControlMetrics.fontToken(for: self.controlSize))
+            .foregroundStyle(SlideToConfirmShimmer.style(bandCenter: bandCenter))
+            .lineLimit(1)
+    }
+
     private func knob(geometry: SlideToConfirmGeometry, executing: Bool) -> some View {
-        let fill = self.isEnabled ? self.resolvedAccent : Color.accentDisabled(from: self.resolvedAccent)
-        let foreground = self.resolvedOn ?? Color.onAccent(for: self.resolvedAccent, in: self.environment)
-        return Circle()
-            .fill(fill)
+        Circle()
+            .fill(Color.surfaceRaised)
             .frame(width: geometry.knob, height: geometry.knob)
+            .coreShadow(SlideToConfirmAppearance.knobElevation)
             .overlay {
                 ZStack {
                     Image(systemName: "chevron.forward")
@@ -459,13 +564,14 @@ public struct SlideToConfirm<Label: View>: View {
                     if executing {
                         ProgressView()
                             .controlSize(.small)
-                            .tint(foreground)
+                            .tint(self.resolvedAccent)
                             .transition(.opacity)
                     }
                 }
-                .foregroundStyle(foreground)
+                .foregroundStyle(self.resolvedAccent)
                 .animation(CoreMotionToken.press.animation(for: self.motionPresentation), value: executing)
             }
+            .environment(\.colorScheme, SlideToConfirmAppearance.knobScheme)
     }
 }
 

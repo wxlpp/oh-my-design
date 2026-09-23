@@ -393,6 +393,257 @@ struct SlideToConfirmTests {
         await runner.task?.value
     }
 
+    // MARK: 外观 / Appearance
+
+    // 玻璃在离屏位图里一个像素都不画、流光的在屏状态在单测里没有滚动容器可驱动，这几处只能在源码层核。
+    @Test("外观接线：轨道玻璃、流光开关与在屏状态、指示器浅色岛与 coreAccent 取色、文案留白、禁用不透明度")
+    func appearanceWiring() {
+        let url = GuardScanRoots.sourcesURL(of: GuardScanRoots.primaryTargetName)
+            .appendingPathComponent("Components/SlideToConfirm/SlideToConfirm.swift")
+        guard let source = try? String(contentsOf: url, encoding: .utf8) else {
+            Issue.record(Comment(rawValue: "读不到 SlideToConfirm 源码：\(url.path)"))
+            return
+        }
+        let required = [
+            """
+                ZStack(alignment: .leading) {
+                    Capsule(style: .continuous)
+                        .fill(Color.secondaryFill)
+                        .glassEffect(.regular, in: Capsule(style: .continuous))
+            """,
+            """
+                let sweeps = SlideToConfirmShimmer.sweeps(
+                    presentation: energy.presentation(reduceMotion: self.reduceMotion),
+                    isEnabled: self.isEnabled,
+                    phase: core.phase,
+                    isOnScreen: self.titleOnScreen
+                )
+            """,
+            "private var reduceMotion: Bool { self.motionPresentation != .animated }",
+            """
+                if sweeps {
+                    TimelineView(.animation(minimumInterval: energy.minimumInterval)) { context in
+                        self.titleText(bandCenter: SlideToConfirmShimmer.bandCenter(
+                            progress: SlideToConfirmShimmer.progress(at: context.date),
+                            layoutDirection: self.layoutDirection
+                        ))
+                    }
+                } else {
+                    self.titleText(bandCenter: nil)
+                }
+            """,
+            ".padding(.leading, geometry.titleLeadingInset)",
+            ".padding(.trailing, geometry.titleTrailingInset)",
+            ".onAppear { self.titleOnScreen = true }",
+            ".onDisappear { self.titleOnScreen = false }",
+            ".onScrollVisibilityChange { self.titleOnScreen = $0 }",
+            ".foregroundStyle(SlideToConfirmShimmer.style(bandCenter: bandCenter))",
+            ".opacity(geometry.titleOpacity(forOffset: offset))",
+            ".tint(self.resolvedAccent)",
+            ".foregroundStyle(self.resolvedAccent)",
+            ".environment(\\.colorScheme, SlideToConfirmAppearance.knobScheme)",
+            ".coreShadow(SlideToConfirmAppearance.knobElevation)",
+            ".opacity(SlideToConfirmAppearance.opacity(isEnabled: self.isEnabled))",
+        ]
+        func squash(_ text: String) -> String { text.split(whereSeparator: \.isWhitespace).joined(separator: " ") }
+        let flat = squash(source)
+        let missing = required.filter { !flat.contains(squash($0)) }
+        #expect(missing.isEmpty, "外观接线缺 \(missing.count) 处，期望 0：\(missing)")
+        #expect(squash(source).components(separatedBy: "TimelineView(").count == 2, "TimelineView 不止一处 —— 流光可能绕过了开关")
+    }
+
+    @Test("文案区域在待命指示器之后：各档尺寸、各种宽度下都不重叠，宽度即全程减两侧留白")
+    func titleRegionClearsTheKnob() {
+        var overlaps: [String] = []
+        for size in ControlSize.allCases {
+            for width in [0, 30, 120, 320, 800] as [CGFloat] {
+                let g = SlideToConfirmGeometry.standard(width: width, controlSize: size, layoutDirection: .leftToRight)
+                if g.titleRegion.lowerBound < g.idleKnobRegion.upperBound + g.spacing {
+                    overlaps.append("\(size) × \(width)：文案起点 \(g.titleRegion.lowerBound)，指示器止于 \(g.idleKnobRegion.upperBound)")
+                }
+                if g.travel > 2 * g.spacing, g.titleRegion.upperBound - g.titleRegion.lowerBound != g.travel - 2 * g.spacing {
+                    overlaps.append("\(size) × \(width)：文案宽 \(g.titleRegion.upperBound - g.titleRegion.lowerBound) ≠ 全程 − 2×间距")
+                }
+            }
+        }
+        #expect(overlaps.isEmpty, "\(overlaps)")
+    }
+
+    @Test("执行阶段文案隐去、回位阶段文案回到不透明")
+    func titleHiddenWhileExecuting() {
+        var core = SlideToConfirmCore()
+        guard let run = core.activate() else {
+            Issue.record("首次激活应被准入")
+            return
+        }
+        #expect(Self.geometry.titleOpacity(forOffset: core.knobOffset(in: Self.geometry)) == 0, "执行阶段文案仍可见")
+        core.settle(run, outcome: .succeeded)
+        #expect(Self.geometry.titleOpacity(forOffset: core.knobOffset(in: Self.geometry)) == 1)
+    }
+
+    @Test("流光只在「能耗闸 + Reduce Motion 裁出 animated、启用、待命、在屏」同时成立时扫，任一条不满足就关")
+    func shimmerSweepsOnlyWhenEverythingAllows() {
+        typealias S = SlideToConfirmShimmer
+        func gate(_ phase: ScenePhase, lowPower: Bool, reduceMotion: Bool) -> MotionPresentation {
+            EnergyState(scenePhase: phase, isLowPower: lowPower).presentation(reduceMotion: reduceMotion)
+        }
+        #expect(S.sweeps(presentation: gate(.active, lowPower: false, reduceMotion: false), isEnabled: true, phase: .idle, isOnScreen: true))
+        #expect(S.sweeps(presentation: gate(.active, lowPower: true, reduceMotion: false), isEnabled: true, phase: .idle, isOnScreen: true), "低电量只降帧，不该停")
+        let animated = gate(.active, lowPower: false, reduceMotion: false)
+        let off: [(String, Bool)] = [
+            ("Reduce Motion", S.sweeps(presentation: gate(.active, lowPower: false, reduceMotion: true), isEnabled: true, phase: .idle, isOnScreen: true)),
+            ("场景不活跃", S.sweeps(presentation: gate(.inactive, lowPower: false, reduceMotion: false), isEnabled: true, phase: .idle, isOnScreen: true)),
+            ("场景在后台", S.sweeps(presentation: gate(.background, lowPower: false, reduceMotion: false), isEnabled: true, phase: .idle, isOnScreen: true)),
+            ("禁用", S.sweeps(presentation: animated, isEnabled: false, phase: .idle, isOnScreen: true)),
+            ("执行", S.sweeps(presentation: animated, isEnabled: true, phase: .executing, isOnScreen: true)),
+            ("回位（成功）", S.sweeps(presentation: animated, isEnabled: true, phase: .returning(.succeeded), isOnScreen: true)),
+            ("回位（失败）", S.sweeps(presentation: animated, isEnabled: true, phase: .returning(.failed), isOnScreen: true)),
+            ("离屏", S.sweeps(presentation: animated, isEnabled: true, phase: .idle, isOnScreen: false)),
+        ]
+        #expect(off.filter(\.1).isEmpty, "这些情形下流光仍在扫：\(off.filter(\.1).map(\.0))")
+    }
+
+    @Test("流光进度随时间线性、按周期回绕；高光带从一端外侧进、另一端外侧出，RTL 反向")
+    func shimmerProgressAndDirection() {
+        typealias S = SlideToConfirmShimmer
+        let base = Date(timeIntervalSinceReferenceDate: S.period * 1000)
+        for k in 0..<4 {
+            let p = S.progress(at: base.addingTimeInterval(S.period * Double(k) / 4))
+            #expect(abs(p - CGFloat(k) / 4) < 1e-6, "第 \(k)/4 周期进度实得 \(p)")
+        }
+        #expect(abs(S.progress(at: base.addingTimeInterval(S.period)) - 0) < 1e-6, "一个周期后没有回绕")
+        #expect(S.bandCenter(progress: 0, layoutDirection: .leftToRight) + S.bandWidth / 2 <= 0, "LTR 起点高光带没完全在文案外侧")
+        #expect(S.bandCenter(progress: 1, layoutDirection: .leftToRight) - S.bandWidth / 2 >= 1, "LTR 终点高光带没完全离开文案")
+        let ltr = stride(from: 0, through: 1, by: 0.125).map { S.bandCenter(progress: $0, layoutDirection: .leftToRight) }
+        let rtl = stride(from: 0, through: 1, by: 0.125).map { S.bandCenter(progress: $0, layoutDirection: .rightToLeft) }
+        #expect(zip(ltr, ltr.dropFirst()).allSatisfy { $0 < $1 }, "LTR 高光带不是从左往右：\(ltr)")
+        #expect(zip(rtl, rtl.dropFirst()).allSatisfy { $0 > $1 }, "RTL 高光带不是从右往左：\(rtl)")
+    }
+
+    // SwiftUI 不按布局方向镜像渐变的 UnitPoint（macOS 实测），方向只能由 bandCenter 换算——这里在真实渲染里核两者合起来的结果。
+    @Test("流光方向随布局方向：同一进度下 LTR 高光在文案左半、RTL 在右半")
+    func shimmerDirectionRendersWithLayoutDirection() {
+        func highlightCentroid(_ direction: LayoutDirection) -> CGFloat? {
+            let center = SlideToConfirmShimmer.bandCenter(progress: 0.35, layoutDirection: direction)
+            let window = HostedWindow(
+                Text(verbatim: "Slide to delete account now")
+                    .font(.title)
+                    .foregroundStyle(SlideToConfirmShimmer.style(bandCenter: center))
+                    .environment(\.layoutDirection, direction),
+                size: CGSize(width: 320, height: 60),
+                scheme: .dark
+            )
+            defer { window.close() }
+            let pixels = window.pixels()
+            guard let bytes = pixels.bytes else { return nil }
+            var sum = 0, count = 0
+            for y in 0..<pixels.height {
+                for x in 0..<pixels.width {
+                    let i = (y * pixels.width + x) * 4
+                    if bytes[i] > 215, bytes[i + 1] > 215, bytes[i + 2] > 215 { sum += x; count += 1 }
+                }
+            }
+            return count > 20 ? CGFloat(sum) / CGFloat(count) / CGFloat(pixels.width) : nil
+        }
+        let ltr = highlightCentroid(.leftToRight)
+        let rtl = highlightCentroid(.rightToLeft)
+        #expect(ltr.map { $0 < 0.5 } == true, "LTR 高光质心在 \(String(describing: ltr))，应在左半")
+        #expect(rtl.map { $0 > 0.5 } == true, "RTL 高光质心在 \(String(describing: rtl))，应在右半")
+    }
+
+    // iOS 单测宿主里动效开时拍到的两帧也相同（实测），流光推进只能在 macOS 腿观测。
+    #if os(macOS)
+    @Test("流光在时间上真的在走：动效开时两帧文案不同；RM / 禁用时两帧在噪声以内相同")
+    func shimmerAdvancesOnlyWhenAllowed() {
+        func frames(_ presentation: MotionPresentation, disabled: Bool) -> (HostedPixels, HostedPixels) {
+            let window = HostedWindow(
+                SlideHarness(runner: SlideToConfirmRunner { _ in })
+                    .disabled(disabled)
+                    .environment(\.coreMotionPresentationOverride, presentation)
+                    .environment(\.scenePhaseOverride, .active),
+                size: CGSize(width: 320, height: 60),
+                scheme: .dark
+            )
+            defer { window.close() }
+            let first = window.pixels()
+            for _ in 0..<(Int(SlideToConfirmShimmer.period * 0.3 / 0.03)) {
+                window.settle()
+                if bitmapMaxChannelDelta(first.bytes, window.pixels().bytes).map({ $0 > 8 }) == true { break }
+            }
+            return (first, window.pixels())
+        }
+        let animated = frames(.animated, disabled: false)
+        expectBitmapsDiffer(animated.0.bytes, animated.1.bytes, "动效开、场景活跃时流光没有推进")
+        let resting = frames(.resting, disabled: false)
+        expectBitmapsEquivalent(resting.0.bytes, resting.1.bytes, maxChannelDelta: 2, "Reduce Motion 下流光仍在走")
+        let disabled = frames(.animated, disabled: true)
+        expectBitmapsEquivalent(disabled.0.bytes, disabled.1.bytes, maxChannelDelta: 2, "禁用时流光仍在走")
+    }
+    #endif
+
+    @Test("指示器是浅色岛：surfaceRaised 与墨色在浅色外观下对比 ≥ 7:1，禁用降不透明度")
+    func knobIsALightIsland() {
+        var environment = EnvironmentValues()
+        environment.colorScheme = SlideToConfirmAppearance.knobScheme
+        func luminance(_ color: Color) -> Double {
+            let r = color.resolve(in: environment)
+            func channel(_ c: Float) -> Double { let v = Double(c); return v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
+            return 0.2126 * channel(r.red) + 0.7152 * channel(r.green) + 0.0722 * channel(r.blue)
+        }
+        let knob = luminance(Color.surfaceRaised)
+        let ink = luminance(Color.inkPrimary)
+        let ratio = (max(knob, ink) + 0.05) / (min(knob, ink) + 0.05)
+        #expect(ratio >= 7, "指示器底 \(knob) 与墨色箭头 \(ink) 对比 \(ratio):1")
+        #expect(knob > 0.9, "指示器底在浅色岛里不是近白：亮度 \(knob)")
+        #expect(SlideToConfirmAppearance.opacity(isEnabled: true) == 1)
+        #expect(SlideToConfirmAppearance.opacity(isEnabled: false) < 1)
+    }
+
+    @Test("箭头跟随 coreAccent：深色外观下 .red / .blue 的指示器区各自偏红 / 偏蓝，默认墨色箭头在白底上是深色；指示器之外相同")
+    func arrowFollowsCoreAccent() {
+        struct Tally { var red = 0, blue = 0, dark = 0 }
+        func render(_ accent: Color?) -> HostedPixels {
+            let harness = SlideHarness(runner: SlideToConfirmRunner { _ in })
+            let window = HostedWindow(
+                Group {
+                    if let accent { harness.coreAccent(accent) } else { harness }
+                }
+                .environment(\.coreMotionPresentationOverride, .resting),
+                size: CGSize(width: 320, height: 60),
+                scheme: .dark
+            )
+            defer { window.close() }
+            return window.pixels()
+        }
+        let knobEnd = Self.geometry.idleKnobRegion.upperBound
+        func tally(_ pixels: HostedPixels) -> Tally {
+            var t = Tally()
+            guard let bytes = pixels.bytes, let leading = slideKnobLeadingEdge(pixels) else { return t }
+            let limit = min(pixels.width, Int(knobEnd * pixels.scale))
+            for y in 0..<pixels.height {
+                for x in 0..<limit {
+                    let i = (y * pixels.width + x) * 4
+                    let r = Int(bytes[i]), g = Int(bytes[i + 1]), b = Int(bytes[i + 2])
+                    if r - max(g, b) > 80 { t.red += 1 }
+                    if b - max(r, g) > 80 { t.blue += 1 }
+                    if bytes[i + 3] > 200, r < 60, g < 60, b < 60, x > leading { t.dark += 1 }
+                }
+            }
+            return t
+        }
+        let red = render(.red), blue = render(.blue), ink = render(nil)
+        let tr = tally(red), tb = tally(blue), ti = tally(ink)
+        #expect(tr.red > 20 && tr.blue == 0, ".red 下指示器区红 \(tr.red) / 蓝 \(tr.blue)")
+        #expect(tb.blue > 20 && tb.red == 0, ".blue 下指示器区蓝 \(tb.blue) / 红 \(tb.red)")
+        #expect(ti.dark > 20, "默认墨色下白底指示器里的深色箭头像素只有 \(ti.dark) —— 箭头没按浅色岛解析（深色外观下成了白箭头）")
+        func outsideKnob(_ p: HostedPixels) -> [UInt8]? {
+            guard let bytes = p.bytes else { return nil }
+            let start = Int(knobEnd * p.scale) + 2
+            return (0..<p.height).flatMap { y in bytes[((y * p.width + start) * 4)..<((y + 1) * p.width * 4)] }
+        }
+        expectBitmapsEquivalent(outsideKnob(red), outsideKnob(blue), maxChannelDelta: 2, "coreAccent 改动了指示器之外的像素")
+    }
+
     // MARK: 渲染 / Rendering
 
     @Test("执行阶段指示器停在尽头：待命与执行两帧的指示器前沿相差约一个全程")
@@ -401,7 +652,7 @@ struct SlideToConfirmTests {
         let window = HostedWindow(
             SlideHarness(runner: runner).environment(\.coreMotionPresentationOverride, .resting),
             size: CGSize(width: 320, height: 60),
-            scheme: .light
+            scheme: .dark
         )
         defer { window.close() }
         let idle = try #require(slideKnobLeadingEdge(window.pixels()), "待命帧里找不到指示器")
@@ -409,7 +660,7 @@ struct SlideToConfirmTests {
         let again = HostedWindow(
             SlideHarness(runner: SlideToConfirmRunner { _ in }).environment(\.coreMotionPresentationOverride, .resting),
             size: CGSize(width: 320, height: 60),
-            scheme: .light
+            scheme: .dark
         )
         defer { again.close() }
         expectBitmapsEquivalent(window.pixels().bytes, again.pixels().bytes, maxChannelDelta: 2, "同一待命态两次渲染应在噪声以内相同")
@@ -433,7 +684,7 @@ struct SlideToConfirmTests {
                 .environment(\.layoutDirection, .rightToLeft)
                 .environment(\.coreMotionPresentationOverride, .resting),
             size: CGSize(width: 320, height: 60),
-            scheme: .light
+            scheme: .dark
         )
         defer { window.close() }
         let scale = window.pixels().scale
@@ -471,18 +722,35 @@ struct SlideHarness: View {
     }
 }
 
-// 全帧近黑像素的最小横坐标（像素）：浅色外观下 accent 为墨色，文案是 secondaryLabel，不会落进阈值。
+// 深色外观下找白色指示器：取「横向与纵向都连续近白 ≥ 14 pt」的像素里最小的横坐标（像素）。
+// 两个方向都要求：文案流光的白色字形横向不够长，玻璃高光边纵向不够厚，只有实心圆盘两者都满足。
 // 不取中线：iOS 宿主带顶部安全区，内容整体下移，中线穿不过指示器。
 nonisolated func slideKnobLeadingEdge(_ pixels: HostedPixels) -> Int? {
     guard let bytes = pixels.bytes, pixels.width > 0 else { return nil }
+    let run = Int((14 * pixels.scale).rounded())
+    func white(_ x: Int, _ y: Int) -> Bool {
+        guard x >= 0, x < pixels.width, y >= 0, y < pixels.height else { return false }
+        let i = (y * pixels.width + x) * 4
+        return bytes[i + 3] > 200 && bytes[i] > 235 && bytes[i + 1] > 235 && bytes[i + 2] > 235
+    }
+    func verticalRun(_ x: Int, through y: Int) -> Int {
+        var top = y, bottom = y
+        while white(x, top - 1) { top -= 1 }
+        while white(x, bottom + 1) { bottom += 1 }
+        return bottom - top + 1
+    }
     var leading: Int?
     for y in 0..<pixels.height {
-        for x in 0..<(leading ?? pixels.width) {
-            let i = (y * pixels.width + x) * 4
-            if bytes[i + 3] > 200, bytes[i] < 50, bytes[i + 1] < 50, bytes[i + 2] < 50 {
+        var x = 0
+        while x < (leading ?? pixels.width) {
+            guard white(x, y) else { x += 1; continue }
+            var end = x
+            while white(end + 1, y) { end += 1 }
+            if end - x + 1 >= run, verticalRun(x + run / 2, through: y) >= run {
                 leading = x
                 break
             }
+            x = end + 1
         }
     }
     return leading
@@ -508,7 +776,7 @@ struct SlideToConfirmInFlightTests {
         let window = HostedWindow(
             SlideHarness(runner: runner).environment(\.coreMotionPresentationOverride, presentation),
             size: CGSize(width: 320, height: 60),
-            scheme: .light
+            scheme: .dark
         )
         defer { window.close() }
         let geometry = SlideToConfirmTests.geometry

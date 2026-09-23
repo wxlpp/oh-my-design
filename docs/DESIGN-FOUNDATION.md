@@ -270,6 +270,7 @@ role 的底色是明暗镜像的 `ColorGrade` 色阶，前景仍走它、不吃 
 | `CheckBoxToggleStyle` / `RadioGroup` 指示符（#408） | `.symbolEffect(.replace)` 描画 | `ContentTransition.identity`，直接换图 |
 | `StatefulButton` 四态切换（#417） | 配件符号槽出现 / 消失使按钮变宽，走 `CoreMotionToken.press.transformAnimation(for:)`；槽内符号切换走 `.symbolEffect(.replace)` | 驱动曲线为 `nil` ⇒ 宽度**直接跳到位**（同 #408 的定案：宽度补间等于横向位移）；符号切换退为 `ContentTransition.identity` |
 | `SlideToConfirm` 回弹 / 回位（#418） | 指示器位移走 `CoreMotionToken.reveal.transformAnimation(for:)`（`.smooth` 族）；指示器内箭头 ↔ 进度淡变 | 位移曲线为 `nil` ⇒ 指示器**直接到位**、回位窗口为 0；箭头 ↔ 进度仍淡变（包围盒不变）；拖动跟手与触觉不受影响 |
+| `SlideToConfirm` 文案流光（#418） | 高光带沿文案循环扫过（2.4 s 一周、线性，`TimelineView` + 纯相位函数），方向随布局方向 | **不画流光**（不建 `TimelineView`），文案静止为 `contentSecondary`；禁用 / 执行 / 回位 / 场景不活跃 / 离屏同样不画 |
 
 **框架不替我们降级（FR-1 实测，Xcode 26.4）。** iOS 26.4 模拟器打开系统「减弱动态效果」（屏上同时核对
 `\.accessibilityReduceMotion` 与 `UIAccessibility.isReduceMotionEnabled` 均为 `true`）后录屏逐帧量色块：

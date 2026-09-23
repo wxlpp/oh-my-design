@@ -1,6 +1,7 @@
 # SlideToConfirm
 
-滑到底才触发的高代价动作确认（删除账户 / 支付这类）。形态是一条胶囊轨道 + 一个圆形指示器：
+滑到底才触发的高代价动作确认（删除账户 / 支付这类）。形态取 iOS「滑动来关机」：一条 Liquid Glass 胶囊轨道 +
+一个白色圆形指示器 + 指示器右侧带流光的提示文案：
 按住指示器拖到轨道尽头松手 ⇒ 执行 action；执行期间指示器停在尽头、内部换成进度指示；
 action 返回后指示器回到起点。RTL 下整条轨道镜像：指示器从右端出发、向左滑到尽头。
 
@@ -73,10 +74,33 @@ action 返回后指示器回到起点。RTL 下整条轨道镜像：指示器从
   执行中被禁用 ⇒ **不取消** action，照常回位，回到待命后保持禁用。
 - **不引入隐式超时**：action 永不返回，控件就一直停在执行阶段（同 `StatefulButton`）。
 
+### 外观
+
+| 部位 | 取值 | 理由 |
+|---|---|---|
+| 轨道 | `secondaryFill` 胶囊作玻璃的内容，外挂 `.glassEffect(.regular, in: Capsule(style: .continuous))` | 关机滑块的轨道是压在内容上的半透明材质；iOS 26 / macOS 26 上对应 Liquid Glass。垫 `secondaryFill`：玻璃压在纯色背景上几乎不可见（macOS 深色外观截图里整条轨道消失），垫一层系统填充色才看得出轨道。取 `.regular` 不取 `.interactive()`：整条轨道都吸收拖动，交互玻璃会在每次按下时整条形变，抢指示器的戏 |
+| 指示器底色 | `Color.surfaceRaised`，整个指示器子树钉 `.environment(\.colorScheme, .light)` | 关机滑块的指示器两种外观下都是白的。`surfaceRaised` 在浅色外观下解析为白（iOS `secondarySystemGroupedBackground` / macOS `controlBackgroundColor`），不写色相字面量、不用 asset catalog 色 |
+| 箭头 / 执行中的进度 | 环境 `coreAccent`（`foregroundStyle` 与 `.tint` 同取） | 宿主 `.coreAccent(.blue)` ⇒ 箭头变蓝。⚠️ 默认 accent 是墨色，**深色外观下解析为白**，白底白箭头会看不见 ⇒ 这正是指示器钉浅色外观的原因：墨色在浅色岛里解析为黑 |
+| 指示器阴影 | `coreShadow(.medium)` | 白底压在浅色玻璃上时靠它分层。⚠️ shadow token 是 asset catalog 色，macOS `swift test` 腿上解析为全透明 ⇒ 没有任何位图判据依赖它 |
+| 文案 | 放在「指示器右侧剩余区域」居中：左留白 = 指示器 + 2×间距，右留白 = 2×间距（RTL 下经 `.leading` / `.trailing` 自动镜像）；底色 `contentSecondary` | 待命时不与指示器重叠；拖动时透明度 = 1 − 位移 / 全程，执行阶段（位移 = 全程）为 0 ⇒ 文案隐去 |
+| 流光 | 文案的前景是一段线性渐变：`contentSecondary → contentPrimary → contentSecondary`，高光带宽为文案宽的 0.6，每 2.4 s 从起点一侧外沿扫到另一侧外沿 | 不用 `.mask`：渐变直接作前景样式，不引入遮罩点位与位移调用点。方向朝指示器前进的方向，RTL 下从右往左——⚠️ SwiftUI **不**按布局方向镜像渐变的 `UnitPoint`（macOS 实测：同一中心值在 LTR / RTL 下高光落在同一位置），所以方向由 `SlideToConfirmShimmer.bandCenter(progress:layoutDirection:)` 自己换算 |
+| 禁用 | 整个控件不透明度 0.4（同 `.circularGlass` / `.pressableCard` 的禁用值），不画流光 | |
+
+流光的开关是一个纯函数 `SlideToConfirmShimmer.sweeps(...)`：**同时**满足「两道闸裁出 `.animated`、启用、
+待命阶段、文案在屏」才扫；任一条不满足就不建 `TimelineView`（不是建了再暂停）。两道闸走库里共享的裁决点
+`EnergyState.presentation(reduceMotion:)`：能耗闸在前（场景不活跃 ⇒ `.hidden`），Reduce Motion 在后——
+后者取自 `coreMotionPresentation`（不直接读 `accessibilityReduceMotion`，核心库动效纪律要求如此，
+测试的 `coreMotionPresentationOverride` 也因此照样生效）。本文件因此登记进
+`MicroInteractionReduceMotionGuard.energyGatedFiles`。低电量下按 `RenderPolicy.minimumInterval` 降到 15 fps。
+「在屏」由文案容器上的 `onAppear` / `onDisappear` / `onScrollVisibilityChange` 维护。
+
 ### 动效与 Reduce Motion
 
 - 指示器位移（回弹、回位）走 `CoreMotionToken.reveal.transformAnimation(for:)`：`.smooth` 族弹簧
   （按定义 bounce 为 0），Reduce Motion 下为 `nil` ⇒ **直接到位**。拖动中的跟手位移不补间。
+- **流光**是常驻循环动效：`TimelineView(.animation)` + 按时间线性推进的纯相位函数（与 `Skeleton` 扫光、
+  `.spinning(presentation: .topBar)` 同一先例；`CoreMotionToken` 没有循环档，不引入曲线字面量）。
+  Reduce Motion 下**不画流光**（文案静止为 `contentSecondary`），禁用 / 执行 / 回位 / 场景不活跃 / 离屏同样不画。
 - 指示器内「箭头 ↔ 进度」的切换是纯淡变（`CoreMotionToken.press.animation(for:)`），
   包围盒不变，Reduce Motion 下保留淡变（与库内淡变类先例一致）。
 - **触觉**：确认与回弹两处，`.sensoryFeedback` 给不同反馈（确认 `.impact(weight: .heavy)`、
@@ -123,8 +147,8 @@ public init(_ titleKey: LocalizedStringKey, action: @escaping @MainActor @Sendab
 
 - 无 Bool 入参。尺寸读环境 `controlSize`：指示器直径取 `CoreControlMetrics.height(for:)`
   （`.regular` 为 44 pt），间距 `CoreSpacing.xs`，轨道高 = 指示器 + 2×间距；宽度撑满父视图提议。
-- 强调色读 `coreAccent`（指示器底色）与 `coreAccentOn`（指示器内前景，缺省按亮度自动选）；
-  轨道 `secondaryFill`，文案 `contentSecondary`，禁用时换 `accentDisabled(from:)` / `contentDisabled`。
+- 强调色读 `coreAccent`：箭头与执行中的进度取它（指示器底色恒为浅色岛里的 `surfaceRaised`，见上方《外观》）；
+  `coreAccentOn` 不参与。轨道 Liquid Glass，文案 `contentSecondary` + 流光，禁用时整体不透明度 0.4。
 - label 同时是轨道上的提示文案与无障碍按钮的名称。
 
 阈值判定在源码里就是这一句，上方的注释逐字为
@@ -160,13 +184,23 @@ public init(_ titleKey: LocalizedStringKey, action: @escaping @MainActor @Sendab
   「回位 → 待命」在同一次运行里连续发生、中间不渲染，按阶段差分会丢掉 `Success` / `Failed`。
 - **渲染**：执行阶段指示器前沿比待命帧右移约一个全程（±2 pt）；同一待命态两次渲染在噪声以内相同
   （两帧都钉 `coreMotionPresentationOverride = .resting`，不受宿主 Reduce Motion 设置影响）。
+  指示器寻址：**深色外观**下取「横向与纵向都连续近白 ≥ 14 pt」的像素里最小的横坐标——白色圆盘两个方向都满足，
+  流光里的白色字形横向不够长、玻璃高光边纵向不够厚。浅色外观下白指示器与画布同色，找不到，所以渲染判据一律用深色。
+- **外观**：文案区域在各档 `controlSize` × 五种宽度下都不与待命指示器重叠、宽度 = 全程 − 2×间距（纯函数）；
+  执行阶段文案透明度为 0、回位后回到 1；流光开关真值表（经 `EnergyState.presentation(reduceMotion:)` 裁决：Reduce Motion / 场景不活跃 /
+  场景在后台 / 禁用 / 执行 / 回位 / 离屏都关，低电量不关）；流光进度随时间线性、按周期回绕，高光带从外侧进、外侧出，RTL 反向；
+  渲染层——同一进度下 LTR 高光质心在文案左半、RTL 在右半；动效开 + 场景活跃时两帧文案不同，Reduce Motion /
+  禁用时两帧在噪声以内相同（只在 macOS 腿：iOS 单测宿主里动效开时两帧也相同，实测）；浅色岛里 `surfaceRaised` 与墨色对比 ≥ 7:1；深色外观下 `.coreAccent(.red)` /
+  `.blue` 的指示器区各自偏红 / 偏蓝、默认墨色下白底里有深色箭头像素，指示器之外两帧相同；
+  源码接线——轨道上的 `.glassEffect`、流光开关的实参、只在开关为真时建 `TimelineView`、在屏状态的三处维护、
+  指示器的浅色岛与 `coreAccent` 取色、禁用不透明度。
 - **位移曲线（两级）**：接线级——源码里必须有
   `.animation(CoreMotionToken.reveal.transformAnimation(for: self.motionPresentation), value: core.motionKey)`
   这一行（下方「视图接线」）；值级——`reveal.transformAnimation(for: .animated)` 等于
   `.spring(duration: 0.25, bounce: 0)`。两级合起来才说明「回弹 / 回位用的是 bounce 为 0 的曲线」：
   接线级只核用了哪个 token，值级只核那个 token 的取值。
 - **操作提示**：`Double-tap to confirm` 键已注册且取值逐字一致（值级）；替代 `Button` 挂着它（接线级）。
-- **动画进行中（macOS 腿）**：驱动编排器、逐帧量指示器前沿（全帧近黑像素的最小横坐标）：
+- **动画进行中（macOS 腿）**：驱动编排器、逐帧量指示器前沿（同上方的白色圆盘寻址，深色外观）：
   回弹与回位两个场景，RM 关时互异中间位置 ≥ 2 且没有任何一帧越出起止区间（容差 1 px），
   RM 开时中间位置为 0。iOS 腿上 `layer.render(in:)` 拍不到进行中的帧，这两条只在 macOS 腿跑。
   ⚠️ 「不越出起止区间」**分不出 `.smooth` 与 `.snappy`**：把 token 换成 `.press`（`.snappy`）后这两条照绿，
@@ -212,6 +246,13 @@ RTL（直达预览，伪语言启动参数）：向右横滑指示器、从轨�
 `Confirmed 0`；从右端指示器向左滑满 ⇒ `Loading`，截图里执行中的指示器停在左端，约 7 s 后 `Confirmed 1`。
 
 ## 已知缺口（如实登记）
+
+- **Liquid Glass 轨道没有位图判据**：macOS `swift test` 腿的离屏渲染里玻璃一个像素都不画（实测轨道区域与画布
+  逐像素同色），只有源码接线判据核「`.glassEffect` 挂在轨道上」；观感靠模拟器 / macOS 截图人工看。
+- **流光依赖场景阶段**：能耗闸读 `\.scenePhase`，不在 SwiftUI `Scene` 里（例如测试宿主）时它不是 `.active`，
+  流光不画——实测托管窗口里不注入 `scenePhaseOverride` 时两帧逐像素相同。纯 UIKit 宿主里嵌
+  `UIHostingController` 的情形**未实测**。
+- **浅色外观下指示器与轨道的分层靠阴影**：白色指示器压在浅色玻璃上，边界主要由 `coreShadow(.medium)` 给出。
 
 - **手势回调的先后没有视图层判据**：「正常松手时 `onEnded` 先于 `@GestureState` 复位触发的
   `onChange`」按 SwiftUI 的更新顺序推断，上表的模拟器正例说明这条路径在 iOS 26.4 上走得通；
