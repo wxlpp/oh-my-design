@@ -43,9 +43,21 @@ enum CheckBoxIndicator: Equatable, CaseIterable {
     }
 }
 
+// MARK: - 布局注入 / Layout injection
+
+nonisolated struct CheckBoxLayout: Equatable, Sendable {
+    let glyph: CGFloat
+    let minHeight: CGFloat
+}
+
+extension EnvironmentValues {
+    @Entry var checkBoxLayout: CheckBoxLayout? = nil
+}
+
 private struct CheckBoxBody: View {
     let configuration: ToggleStyleConfiguration
 
+    @Environment(\.checkBoxLayout) private var layout
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.fieldValidation) private var validation
     @Environment(\.coreMotionPresentation) private var motionPresentation
@@ -57,14 +69,14 @@ private struct CheckBoxBody: View {
         )
         HStack(alignment: .top, spacing: CoreSpacing.sm) {
             Image(systemName: indicator.symbolName)
-                .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
+                .font(.system(size: self.layout?.glyph ?? CoreControlMetrics.iconSize(for: .regular)))
                 .foregroundStyle(appearance.indicatorColor(normal: indicator.normalColor))
                 .contentTransition(self.motionPresentation.symbolReplacement)
             self.configuration.label
                 .fieldAccessibilityHint()
         }
         .opacity(appearance.controlOpacity)
-        .frame(minHeight: CoreControlMetrics.height(for: .regular))
+        .frame(minHeight: self.layout?.minHeight ?? CoreControlMetrics.height(for: .regular))
         .contentShape(Rectangle())
         .coreAnimation(.selection, value: indicator)
         .onTapGesture {

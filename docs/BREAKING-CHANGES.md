@@ -38,6 +38,11 @@
 `'Tree' is ambiguous for type lookup`。改成模块限定名（`OhMyDesign.Tree` 或 `MyModule.Tree`）即可。
 `TreeSelectionMode` 同理，但名字更少见。
 
+**行为（`#429`，同属本未发布小节）：`Tree` 读环境 `controlSize`。** 宿主祖先设了 `.controlSize(.small)`
+（或 `.mini` / `.large` / `.extraLarge`）时，Tree 的行距、缩进、chevron 与复选框字形随档位变化
+（macOS `.small` 行距 22；iOS 各档行距保底 44）；默认 `.regular` 与此前逐项相同。推导表见 tree.md「外观」。
+`CheckBoxToggleStyle` 的公开行为不变。
+
 行为契约（两套独立状态、键盘表、Reduce Motion 取值、已知缺口 `#427` / `#428`）见
 [tree.md](components/tree.md)。
 

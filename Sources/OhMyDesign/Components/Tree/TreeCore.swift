@@ -23,6 +23,40 @@ nonisolated struct TreeRow<ID: Hashable>: Identifiable, Equatable {
     let hasChildren: Bool
 }
 
+// MARK: - 行度量 / Row metrics
+
+nonisolated struct TreeRowMetrics: Equatable {
+    let rowHeight: CGFloat
+    let disclosureWidth: CGFloat
+    let indentation: CGFloat
+    let chevronSize: CGFloat
+    let rowSpacing: CGFloat
+    let checkBoxGlyph: CGFloat
+
+    #if os(iOS)
+    static let platformFloor: CGFloat = CoreControlMetrics.height(for: .regular)
+    #else
+    static let platformFloor: CGFloat = 0
+    #endif
+
+    static func resolve(_ size: ControlSize, platformFloor: CGFloat = Self.platformFloor) -> TreeRowMetrics {
+        let isDense = size < .regular
+        // 密集档不能套控件高度 token（small = 32 不是 22），regular 起也不能套图标 + padding（regular = 40，破 44）。
+        let visualHeight = isDense
+            ? CoreControlMetrics.iconSize(for: size) + 2 * CoreControlMetrics.verticalPadding(for: size)
+            : CoreControlMetrics.height(for: size)
+        let disclosureWidth = CoreControlMetrics.iconSize(for: size) + CoreSpacing.sm
+        return TreeRowMetrics(
+            rowHeight: max(visualHeight, platformFloor),
+            disclosureWidth: disclosureWidth,
+            indentation: disclosureWidth / 2,
+            chevronSize: CoreControlMetrics.compactIconSize(for: size),
+            rowSpacing: isDense ? CoreSpacing.none : CoreSpacing.xxs,
+            checkBoxGlyph: CoreControlMetrics.iconSize(for: size)
+        )
+    }
+}
+
 // MARK: - 展平 / Flattening
 
 nonisolated enum TreeFlatten {

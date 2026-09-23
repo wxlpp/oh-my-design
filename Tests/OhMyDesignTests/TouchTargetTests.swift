@@ -87,8 +87,8 @@ struct TouchTargetTests {
 
     // MARK: - Tree 行
 
-    @Test("Tree 行在 .regular 档实测命中高度 ≥ 44pt")
-    func treeRowMeetsMinimumTouchTarget() {
+    @Test("Tree 行在每一档实测命中高度 ≥ 44pt（密度只缩字形与缩进，不缩行距）", arguments: ControlSize.allCases)
+    func treeRowMeetsMinimumTouchTarget(size: ControlSize) {
         let tree = Tree(
             [TreeJudgeNode(id: "leaf", children: nil)],
             children: \TreeJudgeNode.children,
@@ -97,15 +97,32 @@ struct TouchTargetTests {
         ) { node in
             Text(verbatim: node.id)
         }
+        .controlSize(size)
         let height = self.renderedHeight(tree)
-        #expect(height >= Self.minimumHitTarget, "Tree 行实测高度 \(height)pt < 44pt")
+        #expect(height >= Self.minimumHitTarget, "\(size)：Tree 行实测高度 \(height)pt < 44pt")
     }
 
-    @Test("Tree 父行的展开控件实测命中高度 ≥ 44pt，不把偏离 chevron 的点击让给相邻复选框")
-    func treeDisclosureMeetsMinimumTouchTarget() {
-        let control = TreeDisclosureControl(hasChildren: true, isExpanded: false) {}
+    @Test("带复选框的 Tree 行在每一档实测命中高度 ≥ 44pt", arguments: ControlSize.allCases)
+    func treeCheckBoxRowMeetsMinimumTouchTarget(size: ControlSize) {
+        let tree = Tree(
+            [TreeJudgeNode(id: "leaf", children: nil)],
+            children: \TreeJudgeNode.children,
+            expanded: .constant([]),
+            selection: .constant([]),
+            checked: .constant([])
+        ) { node in
+            Text(verbatim: node.id)
+        }
+        .controlSize(size)
+        let height = self.renderedHeight(tree)
+        #expect(height >= Self.minimumHitTarget, "\(size)：带复选框的 Tree 行实测高度 \(height)pt < 44pt")
+    }
+
+    @Test("Tree 父行的展开控件在每一档实测命中高度 ≥ 44pt，不把偏离 chevron 的点击让给相邻复选框", arguments: ControlSize.allCases)
+    func treeDisclosureMeetsMinimumTouchTarget(size: ControlSize) {
+        let control = TreeDisclosureControl(hasChildren: true, isExpanded: false, metrics: .resolve(size)) {}
         let height = self.renderedHeight(control, width: nil)
-        #expect(height >= Self.minimumHitTarget, "Tree 展开控件实测高度 \(height)pt < 44pt")
+        #expect(height >= Self.minimumHitTarget, "\(size)：Tree 展开控件实测高度 \(height)pt < 44pt")
     }
 
     // MARK: - CheckBox（Toggle 类）

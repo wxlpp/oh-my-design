@@ -149,9 +149,33 @@ Tree(nodes, children: \.children, expanded: $expanded, selection: $selection) { 
 
 ## 外观
 
-- 缩进：每深一层 `CoreSpacing.md`。
+### 密度：跟随 `controlSize`
+
+`Tree` 读环境 `\.controlSize`（与按钮样式同一惯例），推导一份行度量；全部取自既有 token，不另立常量：
+
+| 量 | 推导 | mini | small | **regular** | large | extraLarge |
+|---|---|---|---|---|---|---|
+| 视觉行高 | `size < .regular` ⇒ `iconSize(for:) + 2 × verticalPadding(for:)`；否则 `height(for:)` | 20 | 22 | **44** | 50 | 56 |
+| 展开槽宽 | `iconSize(for:) + CoreSpacing.sm` | 20 | 22 | **24** | 28 | 32 |
+| 缩进步长 | 展开槽宽 / 2 | 10 | 11 | **12** | 14 | 16 |
+| chevron 字号 | `compactIconSize(for:)` | 10 | 12 | **14** | 16 | 18 |
+| 行间距 | `size < .regular` ⇒ `CoreSpacing.none`；否则 `CoreSpacing.xxs` | 0 | 0 | **2** | 2 | 2 |
+| 复选框字形 | `iconSize(for:)` | 12 | 14 | **16** | 20 | 24 |
+
+- `.regular`（默认档）一列逐项等于引入密度之前写死的取值，默认外观不变。
+- **iOS 行距保底 44**：视觉行高低于 44 的档位（mini / small）在 iOS 上行距仍是 44——连续堆叠的行，行距就是
+  命中区的上限，把命中区扩到行框外只会和邻行重叠。密度在 iOS 上只体现在缩进、chevron、复选框字形与行间距。
+  macOS 无下限。
+- macOS `.regular` 行距仍是 44（本仓控件高度统一口径，不做平台分叉）；要 VS Code 式紧凑，写 `.controlSize(.small)`（行距 22）。
+- 复选框随档位缩放只发生在 `Tree` **自己画的**复选框上；`CheckBoxToggleStyle` 的公开行为不变（仍按 `.regular`）。
+- ⚠️ 行高是**下限**不是上限：行内容里若放了读 `controlSize` 的控件（例如按钮，`height(for: .small)` = 32），
+  行会被内容撑高。密集档位的行内容宜用 `Text` / `Label` / `Image`。
+
+### 画法
+
+- 缩进：每深一层一个缩进步长（上表）。
 - chevron：`chevron.forward`，取 `.tint`，展开时转 90°（RTL 下 -90°）；叶行保留同宽的占位，行内容左缘对齐。
-- 行：最小高度 `CoreControlMetrics.height(for: .regular)`，圆角 `CoreRadius.small`。
+- 行：最小高度为该档行距（上表，iOS 过 44 下限），圆角 `CoreRadius.small`。
 - 选中底色 `accentSubtleBackground(from: coreAccent)`，从**环境 `coreAccent`** 派生
   （与 `TagGroup` 选中态同一条通路），`.coreAccent(_:)` 换色即跟随。
 
@@ -178,10 +202,12 @@ Tree(nodes, children: \.children, expanded: $expanded, selection: $selection) { 
 - 父行 `accessibilityValue` 播报 "Expanded" / "Collapsed"（自绘 `Button` 不会被系统自动播报，这一层是唯一来源）；
   chevron 的 `accessibilityLabel` 说的是**动作**（"Expand" / "Collapse"）。四个 key 都走 `bundle: .module`。
 - 已选行带 `.isSelected` trait。
-- **chevron 命中槽 24×44 pt**（宽 `iconSize(.regular) + CoreSpacing.sm`、高 `height(for: .regular)`）。
+- **chevron 命中槽 = 展开槽宽 × 行距**（`.regular` 为 24×44 pt；iOS 各档高都 ≥ 44）。
   原先按钮只有图标大小（实测 12×7 pt），在 iOS 上偏离 10 pt 的点击会落到紧邻的父行复选框上，
-  **一次点击勾上整棵子树**；判据 `TouchTargetTests.treeDisclosureMeetsMinimumTouchTarget`（iOS 腿）。
-- 行高 ≥ 44 pt：判据 `TouchTargetTests.treeRowMeetsMinimumTouchTarget`（iOS 腿）。
+  **一次点击勾上整棵子树**；判据 `TouchTargetTests.treeDisclosureMeetsMinimumTouchTarget`（iOS 腿，五档参数化）。
+- 行高 ≥ 44 pt（五档）：判据 `TouchTargetTests.treeRowMeetsMinimumTouchTarget` 与
+  `TouchTargetTests.treeCheckBoxRowMeetsMinimumTouchTarget`（iOS 腿，五档参数化）。
+- ⚠️ 横向：展开槽宽 20–32 pt < 44 pt，现判据只核高度，登记为已知项。
 - 行在无障碍树里**不是一个元素**：iOS `axe describe-ui` 实读，父行拆成 chevron（`Button`）、复选框、
   行内容三个元素，行上的 `accessibilityValue`（"Expanded" / "Collapsed"）被复制到这三个元素上。
   没有改成 `.accessibilityElement(children: .combine)`：合并后 chevron 与复选框不再是独立可激活的目标，
