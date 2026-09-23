@@ -81,6 +81,8 @@ struct QuotedEvidenceGuard {
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeCore.swift", "static func effective<ID: Hashable>( _ focus: ID?, visibleRows rows: [TreeRow<ID>], selection: Set<ID>, ancestors: (ID) -> [ID] ) -> ID? {"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeCore.swift", "static func reconciled<ID: Hashable>("),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeInteraction.swift", "TreeFocusing.ancestors(of: hidden, in: oldRows)"),
+        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeStyle.swift", "public struct TreeStyle {"),
+        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeStyle.swift", "func treeStyle(_ style: TreeStyle) -> some View {"),
         // ---- docs/issues/234-a11y-smoke.md ----
         ("docs/issues/234-a11y-smoke.md", "Sources/OhMyDesign/Components/Section/SectionHeader.swift", ".accessibilityAddTraits(.isHeader)"),
         ("docs/issues/234-a11y-smoke.md", "Sources/OhMyDesign/Components/Radio/Radio.swift", "[.isButton, .isSelected] : .isButton"),
@@ -113,6 +115,13 @@ struct QuotedEvidenceGuard {
         ("docs/components/tree.md", "Tests/OhMyDesignTests/TreeTests.swift", "expansionAnimationHonoursReduceMotion"),
         ("docs/components/tree.md", "Tests/OhMyDesignTests/TouchTargetTests.swift", "treeDisclosureMeetsMinimumTouchTarget"),
         ("docs/components/tree.md", "Tests/OhMyDesignTests/TouchTargetTests.swift", "treeRowMeetsMinimumTouchTarget"),
+        ("docs/components/tree.md", "Sources/OhMyDesign/Components/Tree/TreeStyle.swift", "Color.tertiaryFill"),
+        ("docs/components/tree.md", "Sources/OhMyDesign/Components/Tree/TreeStyle.swift", "Color.borderDefault"),
+        ("docs/components/tree.md", "Tests/OhMyDesignTests/TreeTests.swift", ".allowsWindowActivationEvents(true)"),
+        ("docs/components/tree.md", "Tests/OhMyDesignTests/TreeTests.swift", "TreeStyleRenderTests"),
+        ("docs/components/tree.md", "Tests/OhMyDesignTests/TreeTests.swift", "TreeGuideLineTests"),
+        ("docs/components/tree.md", "Tests/OhMyDesignTests/TreeTests.swift", "TreeHoverTests"),
+        ("docs/components/tree.md", "Tests/OhMyDesignTests/TreeHoverMotionGuard.swift", "TreeHoverMotionGuard"),
         // ---- docs/superpowers/ ----
         ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Button/styles/SolidButtonStyle.swift", "? self.role.resolvedOnColor("),
         ("docs/superpowers/specs/2026-05-13-async-button-design.md", "Sources/OhMyDesign/Components/Button/styles/CoreBorderlessButtonStyle.swift", "onTapGesture(count: 1, perform: configuration.trigger)"),

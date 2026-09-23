@@ -190,6 +190,21 @@ public extension Tree {
 - 静态成员一律 `nonisolated`（对齐 `SegmentedControlStyle` 的 `.glass` / `.plain` / `.ink`），
   不给 MainActor 棘轮添新豁免。
 
+**PR 2 前置探针读数（本仓 target，开 `defaultIsolation(MainActor)`；实测，Swift 6.3）**：库侧两版作为临时文件
+放进 `Sources/OhMyDesign/Components/Tree/`，调用方放进 `scripts/downstream-probe`（该包未开 `defaultIsolation`，
+调用方即 nonisolated 默认），`swift build` 后删除。
+
+| 调用方写法 | v1 `public struct`（**未加** `nonisolated` / `Sendable`）+ `nonisolated static var` | v2 协议 + `where Self ==` + `treeStyle(_: any TreeStyle)` |
+|---|---|---|
+| `.treeStyle(.navigator)` | 通过 | 通过 |
+| `.treeStyle(self.flag ? .navigator : .automatic)` | 通过 | 通过 |
+| `.treeStyle(TreeStyle.navigator)` | 通过 | **报错** `static member 'navigator' cannot be used on protocol metatype '(any TreeStyle).Type'` |
+| `let style: TreeStyle = .navigator`（View body 内） | 通过 | 通过，警告 `ExistentialAny` |
+| `nonisolated func` 内 `let style: TreeStyle = flag ? .navigator : .automatic` | 通过 | 通过，警告 `ExistentialAny` |
+
+库侧两版都是 0 条诊断 ⇒ 编译器**不要求** `nonisolated public struct`，也**不要求** `Sendable`（`@Entry` 默认值、
+`nonisolated` 静态成员返回该类型两处都过）。实现取 v1 原样（`public struct TreeStyle`），没有 `Sendable` 需要登记。
+
 **删除**（相对上一稿）：`lineage` / `TreeSiblingPosition`（YAGNI：`.navigator` 只画直线，
 不画肘线）、`HostileTreeStyle` 对抗样式、第三方样式漏画焦点 / 丢部件的风险条目——非协议形态下
 不存在第三方实现者。
@@ -268,9 +283,9 @@ public extension Tree {
 | 部位 | 画法 |
 |---|---|
 | 选中 | 整行底色（含缩进区），直角；`accentSubtleBackground(from: coreAccent)` |
-| 悬停 | 整行底色 `Color.surfaceCanvasSubtle`（与 `ListRow` 悬停同一 token，源码读）；选中优先于悬停 |
+| 悬停 | 整行底色 `Color.surfaceCanvasSubtle`（与 `ListRow` 悬停同一 token，源码读）；选中优先于悬停。⚠️ **PR 2 实测改为 `Color.tertiaryFill`**：macOS 上 `surfaceCanvasSubtle` 与 `surfaceCanvas` 同值（`controlBackgroundColor` / `windowBackgroundColor`），悬停与未悬停位图 Δ=0 |
 | 焦点 | `CoreBorderWidth.thin` 内描边，取 `coreAccent` |
-| 缩进参考线 | 对每个祖先层 `k = 1 … level-1` 画一根 `CoreBorderWidth.hairline` 竖线，色 `Color.borderSubtle`；x 坐标 = **第 k 层 chevron 的中心**，即 `CoreSpacing.xs + (k-1) × indentation + disclosureWidth / 2`（行内横向 padding 计入）；上下各外溢 `rowSpacing / 2`，使 `.regular` 的 2pt 行间距处也连续 |
+| 缩进参考线 | 对每个祖先层 `k = 1 … level-1` 画一根 `CoreBorderWidth.hairline` 竖线，色 `Color.borderSubtle`；x 坐标 = **第 k 层 chevron 的中心**，即 `CoreSpacing.xs + (k-1) × indentation + disclosureWidth / 2`（行内横向 padding 计入）；上下各外溢 `rowSpacing / 2`，使 `.regular` 的 2pt 行间距处也连续。⚠️ **PR 2 实测改两处**：色改 `Color.borderDefault`（`borderSubtle` α 0.027，白底 255→248，几乎不可见）；外溢改为**只向上溢出整个 `rowSpacing`**（上下各半时父行与首个子行之间留 `rowSpacing / 2` 的断口，§7.5「从父行下缘连续」判不过） |
 | chevron | `.tint(Color.contentSecondary)`（VS Code 的 twistie 是前景色，不是强调色） |
 | 缩进 | 内容区左移 `(level - 1) × indentation`，底色 / 悬停 / 焦点描边铺满整行 |
 

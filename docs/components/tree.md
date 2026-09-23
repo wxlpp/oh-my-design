@@ -44,6 +44,15 @@ public extension Tree where RowContent == EmptyView {
 
 // Data.Element: Identifiable 时可省略 id:
 Tree(nodes, children: \.children, expanded: $expanded, selection: $selection) { Text($0.name) }
+
+// 行外观（#429）：封闭配置，只有两个预设
+public struct TreeStyle {
+    nonisolated public static var automatic: TreeStyle { get }   // 默认
+    nonisolated public static var navigator: TreeStyle { get }
+}
+public extension View {
+    func treeStyle(_ style: TreeStyle) -> some View
+}
 ```
 
 | 参数 | 类型 | 默认值 | 说明 |
@@ -175,10 +184,48 @@ Tree(nodes, children: \.children, expanded: $expanded, selection: $selection) { 
 ### 画法
 
 - 缩进：每深一层一个缩进步长（上表）。
-- chevron：`chevron.forward`，取 `.tint`，展开时转 90°（RTL 下 -90°）；叶行保留同宽的占位，行内容左缘对齐。
-- 行：最小高度为该档行高（上表，iOS 过 44 下限），圆角 `CoreRadius.small`。
+- chevron：`chevron.forward`，展开时转 90°；叶行保留同宽的占位，行内容左缘对齐。
+  RTL 下系统已把字形镜像成朝左、并镜像了旋转方向，所以旋转角**两种书写方向都是 90°**。
+  ⚠️ `#422` 原写 RTL 下 -90°，实测画出来展开态朝**上**（`#429` 的 RTL 镜像判据首跑即抓到），已改。
+- 行：最小高度为该档行高（上表，iOS 过 44 下限）。
 - 选中底色 `accentSubtleBackground(from: coreAccent)`，从**环境 `coreAccent`** 派生
   （与 `TagGroup` 选中态同一条通路），`.coreAccent(_:)` 换色即跟随。
+- **命中区是整行**（含缩进区）：点缩进区也选中该行。两种外观相同。
+
+### 外观配置：`.treeStyle(_:)`
+
+`TreeStyle` 是**封闭**的外观配置（不是样式协议，第三方不能新增外观），只有两个预设：
+
+| 部位 | `.automatic`（默认） | `.navigator`（VS Code Explorer 式） |
+|---|---|---|
+| 选中 | 圆角 `CoreRadius.small` 选中块，起于缩进之后 | **整行**底色（含缩进区），直角 |
+| 悬停 | 无 | 整行底色 `Color.tertiaryFill`；选中优先于悬停 |
+| 焦点指示 | 焦点环（`focusRing`，圆角 small） | `CoreBorderWidth.thin` 内描边，取 `coreAccent` |
+| 缩进参考线 | 无 | 每个祖先层一根 `CoreBorderWidth.hairline` 竖线，色 `Color.borderDefault`，x 对齐该层 chevron 中心；向上溢出一个行间距，使行与行之间连成一条 |
+| chevron 着色 | 取 `.tint`（默认即强调色） | 固定 `Color.contentSecondary`，不随宿主 `.tint` |
+
+```swift
+Tree(roots, children: \.children, expanded: $expanded, selection: $selection) { node in
+    Label(node.name, systemImage: node.children == nil ? "doc" : "folder")
+}
+.treeStyle(.navigator)
+.controlSize(.small)   // 行距 22，VS Code 量级
+```
+
+- **只写 `.treeStyle(.navigator)` 这种形态**（三元 `.treeStyle(flag ? .navigator : .automatic)` 也可以）。
+  **不要**写 `TreeStyle.navigator`，也**不要**把 `TreeStyle` 存成属性：`TreeStyle` 将来可能升为协议，
+  这两种写法届时编译不过（兼容表见 spec `docs/superpowers/specs/2026-09-23-tree-style-design.md` §2.1）。
+- 外观只决定**怎么画**：键盘、选择归约、三态勾选、焦点归约、无障碍取值、命中区都在组件的行宿主上，
+  换外观不影响行为。
+- 取值偏离 spec 的两处（实测驱动）：悬停 spec 原写 `surfaceCanvasSubtle`——macOS 上它与 `surfaceCanvas` 同值，
+  悬停不可见，改 `tertiaryFill`；参考线 spec 原写 `borderSubtle`——α 0.027，白底上几乎不可见，改 `borderDefault`。
+
+### 悬停
+
+- 只有 `.navigator` 画悬停；**状态在行级**（行宿主的 `@State` + `.onHover`，与 `ListRow` 同一形态），
+  不放容器——容器级状态会让指针每跨一行就重算整棵树。
+- **即时生效、无补间**，三档 `MotionPresentation` 一致，没有需要按 Reduce Motion 分支的动效。
+- macOS 鼠标触发；iPadOS 指针下预期同样触发（未实测）；iPhone 纯触控下永不触发。
 
 ## 动效
 
@@ -187,6 +234,7 @@ Tree(nodes, children: \.children, expanded: $expanded, selection: $selection) { 
 | chevron 旋转 | `CoreMotionToken.reveal.transformAnimation(for:)` | `nil`，直接到终态角度 |
 | 展开折叠（点 chevron 与键盘 `←` / `→` 同一个函数） | `withAnimation(CoreMotionToken.treeExpansion(for:))`，即 `reveal.animation(for:)` | 同时长 `easeInOut`（`reveal` 档「展开」的既有口径，与 `CoreDisclosureGroupStyle` 相同）；`hidden` 下不补间 |
 | 选中态切换 | `.coreAnimation(.selection, value: self.selection)` | 按 `CoreMotionToken.selection` 的裁决 |
+| `.navigator` 悬停 | 无（即时生效） | 无分支可言 |
 
 判据分三层，射程各不相同：
 
@@ -247,15 +295,45 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
 推断容器的 `isFocused` 没有变真，未直接读到）：
 - `.onChange(of: isFocused)` 本身，以及区分「点行获焦」的一次性标记；
 - `.onChange(of: rows)` 本身（焦点行被隐藏后环跟到祖先行上）；
-- 焦点环是否真的画在屏幕上（渲染判据只判 `TreeRowView` 收到 `showsFocusRing` 后画不画）；
+- 焦点环是否真的画在屏幕上（渲染判据只判行宿主 `TreeRowHost` 收到 `showsFocusIndicator` 后画不画）；
 - 点 chevron / 点复选框把交互来源置回 pointer 的调用点（归约函数本身有判据）。
 - ⚠️ **未验证**：`Tab` 进入后环直接出现在已选行 / 首行——本次改动后没有跑真 HID。
+- **悬停的接线**（`#429`）：`.onHover` 真的把状态写进行宿主、以及「悬停只让进出的两行重算、不重算整棵树」。
+  托管窗口里合成悬停不可行（`mouseMoved` / `mouseEntered` 经 `sendEvent` 或直接调 `NSHostingView` 的方法，
+  `onHover` 回调都是 0 次）⇒ 两条都没有自动判据。剩下的网只有源码判据：`.onHover` 只在行宿主内、
+  容器 `Tree` 没有名字含 `hover` 的成员变量——**按名字匹配**，把容器状态起名 `pointerRow` 就漏。
+- iPadOS 指针下 `onHover` 是否触发。
+- **两种外观下无障碍取值相同**的运行时读数：托管窗口的 `NSHostingView` 读不到无障碍子树（KVC 读
+  `accessibilityChildren` 只有根 `AXGroup`）。现有的网是源码判据：`accessibilityValue` / `accessibilityAddTraits` /
+  `onTapGesture` / `contentShape` 只挂在行宿主上、两种外观类型里一处都没有。
+
+`#429` 起的外观判据（macOS 托管窗口判据**只在 macOS 腿**）：
+- `TreeHostedWiringTests`：点 chevron / `←` 的展开曲线、按键写回选中、**点行选中**、**点缩进区选中**、
+  **点复选框勾选（叶行 + 父行级联）**，每条都对 `.automatic` / `.navigator` 参数化，结论逐条相同。
+  ⚠️ 托管窗口不是 key window，行上的 `onTapGesture` 收不到合成点击（`Button` / `Toggle` 能收到）——
+  harness 加了 `.allowsWindowActivationEvents(true)` 才收到。这是托管窗口的限制，不是组件行为。
+- `TreeStyleRenderTests`（双腿）：`.navigator` 画悬停、选中压过悬停、焦点指示按需画、选中底色铺满缩进区
+  （`.automatic` 不铺）、chevron 不随宿主 `.tint`；行配置不含函数类型字段。
+- `TreeGuideLineTests`（双腿）：参考线对齐父行 chevron 中心（≤ 1 pt，`.small` / `.regular`）、跨行连续、
+  第 3 层恰有 2 根、RTL 是 LTR 的镜像（容 1 px 亚像素错位）。
+- `TreeHoverTests`（macOS）：翻转悬停时行内容收到的事务不带动画（三档动效）。
+- `TreeHoverMotionGuard`（源码）：行宿主与 `.navigator` 行内不出现 `animation(` / `coreAnimation(` / `withAnimation`
+  （按名禁调用，不看实参——局部别名绕不过去；`CoreMotionToken.x.animation(for:)` 这类取 token 的调用也会被拦，
+  这是刻意的）；`.onHover` 只在行宿主内；容器无悬停状态；行为 / 无障碍只挂在行宿主上。
 
 ## 判定法
 
 规定性组件（`prescriptive` / `step3`），**不给扩展点**，不进 `ComponentExtensionPointGuard` 的定义域。
 逐步走查（步骤 1 无、步骤 2 已穷尽走出口 2、步骤 3 的 (A)(B)）写在
 `docs/component-registry.json` 的 `Tree` 条目 `notes` 里。
+
+`#429` 加了 `TreeStyle` 但**不改判**（J-2 计数仍 16），`notes` 末段逐条写了三点：
+1. 步骤 3 ⇒ 公约不要求扩展点；`TreeStyle` 是**装饰预设**（封闭配置，调用方只能在两个预设里选），不在 A–D
+   扩展点形态的射程内。它是否仍应按扩展点处置，公约没有成文，登记为 `docs/contract-defects.md` 的 `D-429-1`。
+2. 两外观的差异逐项落在 `#422` 步骤 2 的装饰档原文（选中块 / 缩进引导线 / 尺寸 / 同槽画法变化）；
+   **悬停高亮不在那份名单里**，按补充规则 1 单独论证，**落在灰区**（它随「指针在本行」变化，而公约没有区分
+   组件状态与宿主输入状态），并入 `D-429-1` 待裁。
+3. 将来要让第三方扩展：升协议 + `where Self ==` 静态成员，modifier 取 `any TreeStyle`；届时走修订回路，J-2 计数 16 → 17。
 
 ## 使用示例 / Usage
 
@@ -284,6 +362,29 @@ struct FileBrowser: View {
         ) { node in
             Label(node.name, systemImage: node.children == nil ? "doc" : "folder")
         }
+    }
+}
+
+// VS Code Explorer 式：整行选中 / 悬停 / 缩进参考线，行距 22（iOS 上仍 44）
+struct Explorer: View {
+    let roots: [Node]
+    @State private var expanded: Set<String> = []
+    @State private var selection: Set<String> = []
+
+    var body: some View {
+        ScrollView {
+            Tree(
+                self.roots,
+                children: \.children,
+                expanded: self.$expanded,
+                selection: self.$selection,
+                selectionMode: .multiple
+            ) { node in
+                Label(node.name, systemImage: node.children == nil ? "doc" : "folder")
+            }
+        }
+        .treeStyle(.navigator)
+        .controlSize(.small)
     }
 }
 ```
