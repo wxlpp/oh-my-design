@@ -856,6 +856,19 @@
       "notes": "图片/卡片占位形状，纯几何矩形 ⇒ 长相即含义，步骤 3 规定性，不给扩展点。"
     },
     {
+      "component": "SlideToConfirm",
+      "repo": "ohmydesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#418` 落地的滑动确认控件：按住指示器拖到轨道尽头松手才执行 action。弃用条款与祖父条款均不适用：本组件无 `@available(*, deprecated)` 标记，也未发布任何自有样式协议。步骤 1 视为『无』——候选原生协议有两个，逐个否决：① `ButtonStyle`（`accessibilityRepresentation` 对辅助技术暴露的正是一个 `Button`）：`ButtonStyle.Configuration` 只给 `label` / `isPressed` / `role`，**不携带拖动位移**，也拿不到 action 的调用点；本组件的定义性功能是『松手位移 ≥ 全程才准入』的判定 + 与无障碍激活共用的运行号门闩，两者都要在 action 被调起之前、以拖动位移为输入做判定 ⇒ 改写成『`Button` + 自定义 `ButtonStyle`』会整项丢掉滑动阈值与防重入。② `Slider`：SwiftUI 没有公开的 `SliderStyle` 协议，无第三方 `makeBody` 定制点 ⇒ 按步骤 1 的操作化判据视为『无』。⚠️ 这条理由**不是**继承 `StatefulButton` 的（D-41-3：否决理由不可继承）：那条讲的是『action 调用点没有拦截位置』；本条承重的是『`Configuration` 不携带拖动位移』——即使有拦截点，style 也拿不到判定所需的输入。步骤 2 走『至少 3 个具名业界候选』这一支，逐个过三分法与边界条款：**候选 1** —— 产品 + 场景：iOS 关机界面『滑动来关机』（胶囊轨道 + 圆形指示器 + 轨道内文案）。它就是本组件的当前形态，『替代』的定义排除当前形态 ⇒ 不进枚举。**候选 2** —— 产品 + 场景：Uber Driver 应用开始行程时的『Swipe to start trip』横条（圆角矩形轨道 + 带箭头的方形指示器 + 轨道内文案）。三分法：三个槽（轨道 / 指示器 / 文案）不增不减，排布不变（指示器压在轨道一端、文案在轨道内），差异只在轨道与指示器的圆角画法 ⇒ **装饰，皮肤变体，不计入**。⚠️ 来源形态是『产品名 + 场景』，**未逐字核对**，抽查时以产品现状为准；该候选即使不成立，结论不变（它本来就不计入）。**候选 3** —— 长按确认（按住直到进度走满才执行）：交互输入由『拖动位移』换成『按住时长』，属**行为**差异，而公约第 2 节《边界条款：样式不得携带行为》⇒ 它是另一个组件，不是本组件的另一种长相 ⇒ **不计入**。**候选 4** —— 产品 + 场景：GitHub 删除仓库时要求输入仓库全名再点确认。同理，交互输入换成文字输入 ⇒ 行为差异 ⇒ **不计入**。⇒ 未被排除的非皮肤候选 **0 个**，未达 ≥2 的门槛 ⇒ 答不到『会』，落**出口 3（举得犹豫）⇒ 步骤 4 tiebreaker**，默认规定性组件、不给扩展点；未到达步骤 3，(B) 门槛不适用。佐证（与默认结论同向，不是另立的决定性理由）：强调色经 `coreAccent` 环境值、尺寸经 `controlSize` 跟随，调用方最常见的换色 / 换尺寸诉求走的是已发布的通路。textParams：唯一的文案参数是便利 init 的 `titleKey: LocalizedStringKey`，由类型裁决（落进 `ComponentTextParamGuard` 的 `localizedByType` 面），组件 init **无裸 String 展示参数** ⇒ 本表为空。⚠️ **阈值是纯距离**（松手位移 ≥ 容器宽 − 指示器宽 − 2×间距），**显式不采**参考实现 `no-comment/SlideButton` 的 `predictedEndTranslation` 速度补偿：高代价确认不该因甩得快而降低门槛。源码判定函数上有同一句注释，判据『快速甩到一半松手不触发』钉着它——**不要照着先例补上**。⚠️ 位移类动效（回弹 / 回位）走 `CoreMotionToken.reveal.transformAnimation(for:)`（`.smooth` 族），Reduce Motion 下直接到位；不是 `.coreAnimation`（后者 resting 下给同时长 `easeInOut`，位移照常补间）。阶段机、门闩与『动作已完成但回位未完成不可再触发』的定案见 `docs/components/slide-to-confirm.md`。"
+    },
+    {
       "component": "SpinningModifier",
       "repo": "ohmydesign",
       "kind": "semantic",

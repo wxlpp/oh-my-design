@@ -73,6 +73,9 @@ extension ComponentMeta {
         ComponentMeta(id: "stateful-button", name: "StatefulButton", description: "四态动作按钮：idle / loading / success / failure，自管与托管两种模式，防重入门闩", category: .button) {
             StatefulButtonPreview()
         },
+        ComponentMeta(id: "slide-to-confirm", name: "SlideToConfirm", description: "滑到底才触发的高代价动作确认：纯距离阈值、执行中进度、完成后回位", category: .button) {
+            SlideToConfirmPreview()
+        },
         // Form
         ComponentMeta(id: "label-icon", name: "Form Icons", description: "表单图标：LabelIcon / ChevronRightIcon / DangerIcon", category: .form) {
             FormIconsPreview()
@@ -2266,5 +2269,57 @@ private struct StatefulButtonPreview: View {
 }
 
 private struct StatefulButtonPreviewError: LocalizedError {
+    var errorDescription: String? { "Demo failure" }
+}
+
+// MARK: - SlideToConfirmPreview
+
+private struct SlideToConfirmPreview: View {
+    @State private var deleted = 0
+    @State private var failures = 0
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("滑到尽头松手才执行 / Slide all the way to confirm")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                SlideToConfirm("Slide to delete account") {
+                    try await Task.sleep(for: .milliseconds(1200))
+                    self.deleted += 1
+                }
+                Text(verbatim: "Confirmed \(self.deleted)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("action 抛错同样回位 / Failure also returns")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                SlideToConfirm("Slide to pay") {
+                    try await Task.sleep(for: .milliseconds(800))
+                    self.failures += 1
+                    throw SlideToConfirmPreviewError()
+                }
+                .controlSize(.large)
+                .coreAccent(.blue)
+                Text(verbatim: "Failed \(self.failures)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("宿主禁用 / Disabled by host")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                SlideToConfirm("Slide to confirm") { }
+                    .disabled(true)
+            }
+        }
+    }
+}
+
+private struct SlideToConfirmPreviewError: LocalizedError {
     var errorDescription: String? { "Demo failure" }
 }

@@ -40,8 +40,8 @@ FLOORS = {
     # #407：motion 新节 4（press / selection / reveal / scroll）、enums +1（CoreMotionToken）、
     # enumcases +4（同上四档）、viewext +1（View.coreAnimation）。
     # #417：components +1（StatefulButton）、enums +1（StatefulButtonState）、
-    # enumcases +4（idle / loading / success / failure）。
-    "colors": 122, "components": 90, "enums": 46, "enumcases": 159,
+    # enumcases +4（idle / loading / success / failure）。#418：components +1（SlideToConfirm）。
+    "colors": 122, "components": 91, "enums": 46, "enumcases": 159,
     "protocols": 6, "viewext": 46, "styleext": 15, "others": 28,
 }
 

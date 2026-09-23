@@ -620,6 +620,20 @@ enum PreviewSnapshotFixtures {
     .background(Color.surfaceCanvas)
 }
 
+#Preview("SlideToConfirm") {
+    VStack(alignment: .leading, spacing: CoreSpacing.md) {
+        SlideToConfirm("Slide to delete account") { }
+        SlideToConfirm("Slide to pay") { }
+            .controlSize(.large)
+            .coreAccent(.blue)
+        SlideToConfirm("Slide to confirm") { }
+            .disabled(true)
+    }
+    .padding()
+    .frame(width: 320)
+    .background(Color.surfaceCanvas)
+}
+
 #Preview("TagGroup") {
     struct Item: Identifiable, Hashable { let id: String }
     let languages = ["Swift", "Kotlin", "Rust", "TypeScript", "Go"].map(Item.init(id:))
