@@ -433,15 +433,27 @@ private struct SkeletonPreviewsPreviewGallery: View {
 }
 
 #Preview("Tree") {
-    Tree(
-        PreviewSnapshotFixtures.treeNodes,
-        children: \.children,
-        expanded: .constant(["design", "tokens"]),
-        selection: .constant(["icons"]),
-        selectionMode: .multiple,
-        checked: .constant(["color"])
-    ) { node in
-        Text(verbatim: node.name).coreFont(.callout)
+    VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+        Tree(
+            PreviewSnapshotFixtures.treeNodes,
+            children: \.children,
+            expanded: .constant(["design", "tokens"]),
+            selection: .constant(["icons"]),
+            selectionMode: .multiple,
+            checked: .constant(["color"])
+        ) { node in
+            Text(verbatim: node.name).coreFont(.callout)
+        }
+        Tree(
+            PreviewSnapshotFixtures.treeNodes,
+            children: \.children,
+            expanded: .constant(["design", "tokens", "tests"]),
+            selection: .constant(["spacing"])
+        ) { node in
+            Label(node.name, systemImage: node.children == nil ? "doc" : "folder").coreFont(.callout)
+        }
+        .treeStyle(.navigator)
+        .controlSize(.small)
     }
     .padding()
     .background(Color.surfaceCanvas)

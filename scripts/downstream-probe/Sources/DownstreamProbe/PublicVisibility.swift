@@ -748,7 +748,9 @@ func consumeTagGroup(selection: Binding<Set<String>>) -> some View {
     }
 }
 
-// MARK: - Tree（Issue #422）
+// MARK: - Tree（Issue #422 / #429）
+// `.treeStyle` 只以 `.treeStyle(.navigator)` 形态调用：别写 `TreeStyle.navigator` 或把它存成属性——
+// 那两种写法在 `TreeStyle` 将来升协议时编译不过（#429 spec §2.1）。
 
 private struct ProbeTreeNode: Identifiable {
     let id: String
@@ -785,7 +787,9 @@ func consumeTree(
         ) { node in
             Text(node.id)
         }
+        .treeStyle(.navigator)
     }
+    .treeStyle(.automatic)
 }
 
 // `expandedIDs` 是 `nonisolated public static` —— 这一句同时守可见性与「不被
