@@ -56,3 +56,4 @@ Tree 搜索接在 Tree 本体之后（同一批文件，不并行）。
 - [x] 421.md - CheckBox 增读系统 mixed 态 (parallel: true)
 - [ ] 422.md - Tree 本体 (parallel: false, depends #419 + #421)
 - [ ] 423.md - Tree 搜索过滤与命中高亮 (parallel: false, depends #422)
+- [ ] 429.md - Tree 密度与样式扩展点：controlSize + TreeStyle (parallel: false, depends #422, conflicts #423)
