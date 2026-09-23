@@ -261,7 +261,7 @@ grep -rn "struct .*Tests\|@Suite" Tests/OhMyDesignTests/TreeTests.swift Tests/Oh
 ### 改动文件
 
 - `Tree.swift`：`private var rowMenu: ((Set<ID>) -> AnyView)?`；`public func rowContextMenu<M: View>(@ViewBuilder _ menu: @escaping (Set<ID>) -> M) -> Tree`
-  （返回改了该字段的副本，文档注释写明目标集合语义、折叠隐藏的选中项不入目标、builder 随 body 逐行求值）；
+  （返回改了该字段的副本，文档注释写明目标集合语义、折叠隐藏的选中项不入目标、builder 随 body 逐行求值）（PR 3 终审后改为延迟到取菜单时求值，见 spec R6）；
   容器 body 里**每次 body 预算一次** `selectedVisible = selection ∩ Set(rows.map(\.id))` 传给行宿主（行上只做
   `selectedVisible.contains(id) ? selectedVisible : [id]`，不逐行重做交集）；行宿主 `if let menu` 才挂 `.contextMenu`。
   `Tree` 仍三个泛型。

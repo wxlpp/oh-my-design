@@ -316,9 +316,9 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   **根本不带 `@MainActor`**（`defaultIsolation` 不作用于外来模块类型的扩展）；
   真实形态是**显式**写 `@MainActor`，或扩展一个自身就是 `@MainActor` 的第三方类型。
 
-### 「退出码 0，却一条测试都没跑」——已实测到的五种形态（`#302`）
+### 「退出码 0，却一条测试都没跑」——已实测到的六种形态（`#302` / `#429`）
 
-⚠️ 五种的共同点：**退出码是成功的**。只看 `$?` 的验证纪律对它们全部免疫，
+⚠️ 六种的共同点：**退出码是成功的**。只看 `$?` 的验证纪律对它们全部免疫，
 必须核对「到底跑了几条」。除第 4 条另有标注外，以下每条都在本仓实测过
 （Swift 6.3 / Xcode 26.4）：
 
@@ -385,6 +385,14 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
    —— 三个 target 都开了 `.defaultIsolation(MainActor.self)`，报
    `main actor-isolated initializer 'init()' has different actor isolation from nonisolated
    overridden declaration`。⇒ 那次尝试**不下结论**，成因仍然是开放问题。
+
+6. **某条测试让 `swift test` 进程中途以退出码 0 退出 ⇒ 后面的测试全部不跑**（`#429` 实测）。
+   形态：托管窗口里经 `sendEvent` 合成 `rightMouseDown` 让 `NSMenu` 进入模态追踪，再在
+   `didBeginTrackingNotification` 里异步 `cancelTracking()` 退出——该测试本身通过，返回后进程退出
+   （退出栈 `swift_task_asyncMainDrainQueue` → `exit`），`EXIT=0`，输出里**没有 `Test run with` 行**；
+   改成同步 `cancelTracking()` 则进程挂住。⇒ 判据：`Test run with` 行必须**存在**且条数对得上基线，
+   只看退出码会判绿。`main` 的 `ci.yml` 没有那道 `grep -qE 'Test run with [1-9]…'` 网 ⇒ 这类测试进了
+   `main` 会在 CI 上判绿、静默丢掉其后全部测试。详情见 `docs/components/tree.md`「右键菜单的真实唤起路径」。
 
 ⚠️ **`#302` 把第 5 条记成了「`--build-system swiftbuild --filter` 静默跑零个测试」——
 复现不出来**（本次在 `main` 与 `epic/shipswift-shaders` 各测一遍）：后者上

@@ -279,7 +279,7 @@ Tree(roots, children: \.children, expanded: $expanded, selection: $selection, se
   builder 在视图更新期执行，**必须是纯的**，不要在里面写状态。选中 ∩ 可见行每次 body 只算一次，所有行共用，不遍历整树。
 - **直接在 `Tree` 上调用，放在其它 modifier 之前**（它返回 `Tree`，放在 modifier 之后编译不过）。
   ⚠️ 不要写 `flag ? tree.rowContextMenu { … } : tree` 这类按条件开关菜单：设与不设走行宿主里
-  `TreeRowMenu` 的两个条件分支，切换即换分支，行内容里的 `@State` 会被重置。要按条件禁用，
+  `TreeRowMenu` 的两个条件分支，切换即换分支，行内容里的 `@State` 会被重置（按 `if let` 结构推断，未实测）。要按条件禁用，
   让 builder 按条件返回不同的菜单项。
 - 菜单内容是调用方的数据操作，不是外观——所以它是 `Tree` 上的 builder 方法，不在 `TreeStyle` 里，
   也不是环境值（环境值要擦除 `ID`，闭包里就拿不到强类型集合）。拖放仍不在范围内。
@@ -366,7 +366,8 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
 - **悬停命中区**：`.navigator` 行在 `.onHover` 之前挂了 `.contentShape(Rectangle())`，意在让从行右侧空白 / 缩进区进入也点亮（空闲态底色是 `Color.clear`）；真指针下从这两处进入是否点亮，**未验证**。
 - iPadOS 指针下 `onHover` 是否触发。
 - **右键菜单的真实唤起路径**（`#429`）：真右键 / 双指点按 / Control-点按（macOS）、长按（iOS）真的弹出菜单，
-  且**唤起后选中、焦点、交互来源都不变**。判据只对行所在点调 `NSView.menu(for:)`——那是菜单的构建，不是唤起。
+  且**唤起后选中、焦点、交互来源都不变**；iOS 长按升起的预览 / 高亮是被按的那一行（含缩进区），而不是整棵树
+  ——整棵树只挂 1 个 `UIContextMenuInteraction`、按位置分派，预览走 delegate 的 `previewForHighlightingMenuWithConfiguration`，没有判据。判据只对行所在点调 `NSView.menu(for:)`——那是菜单的构建，不是唤起。
   经 `sendEvent` 合成 `rightMouseDown` 会进入菜单的模态追踪，可用 `NSMenu.didBeginTrackingNotification` +
   异步 `cancelTracking()` 退出（合成右键确实弹出了该行的菜单，选中与展开未变）；⚠️ 但在 `swift test` 进程里
   这样做，该测试返回后**测试进程以退出码 0 整体退出**，后面的测试一条都不跑（退出栈在
