@@ -113,15 +113,31 @@ Aceternity `stateful-button` 的 `delay: 2` 一致；两个停留时长可分别
 所以「外部复位（离屏、或新一轮抢走显示权）之后旧任务才完成」时，
 它的成功 / 失败结果与停留复位**都不生效**。
 
+### 编排的判据覆盖面
+
+点击 → 准入 → action → 落定 → 停留 → 复位、以及离屏的「取消 `Task` + 收回显示权」收在 internal 的
+`StatefulButtonRunner` 里，视图只做两处接线（`Button` 的 action 与 `onDisappear`）。
+`StatefulButtonRunnerTests` 注入可控挂起的 action 与停留 sleep，直接驱动编排器、不靠挂钟等待：
+自管一轮走完上表、运行中离屏 action 收到取消且旧运行结束前再点被忽略、停留期间离屏立即回 `idle`、
+托管模式不停留。
+
+⚠️ 视图到编排器的两处接线**只有源码级判据**：单测进程里合成鼠标点击（`NSWindow.sendEvent`）
+激活不了 SwiftUI `Button`（连一个普通 `Button` 都不行），无障碍树里也找不到它，无从按下。
+
 ## 超时
 
 本组件**不引入隐式超时**——action 跑多久是调用方的事，promise 不 resolve 就一直 `loading`
-（参考实现也是这个行为）。需要超时时在 action 内自己竞速：
+（参考实现也是这个行为）。需要超时时在 action 内自己竞速、超时抛错 ⇒ 按钮进 `failure`，
+停留结束后回 `idle`。
+
+⚠️ **前提：被竞速的操作必须协作式响应取消。** `withThrowingTaskGroup` 在子任务抛错后会取消其余子任务，
+但**要等它们全部结束才返回**。被竞速的操作若不理会取消，超时错误要等它自己跑完才抛得出来
+——操作永不返回，按钮就永远停在 `loading`。`Task.sleep`、`URLSession` 的 async API 都响应取消：
 
 ```swift
 StatefulButton("Upload") {
     try await withThrowingTaskGroup(of: Void.self) { group in
-        group.addTask { try await upload() }
+        group.addTask { try await upload() }   // upload() 必须在取消时尽快抛错返回
         group.addTask {
             try await Task.sleep(for: .seconds(10))
             throw UploadTimeout()
@@ -132,7 +148,56 @@ StatefulButton("Upload") {
 }
 ```
 
-超时抛错 ⇒ 按钮进 `failure`，停留结束后回 `idle`。
+底层是回调式 API 时，用 `withTaskCancellationHandler` 把取消转给它自己的 cancel，
+由它的完成回调（取消时也会回调一次）去 resume continuation。`CancelHandle` 处理
+「取消先于回调式任务创建」的竞态：
+
+```swift
+import Synchronization
+
+final class CancelHandle: Sendable {
+    private let state = Mutex<(cancelled: Bool, action: (@Sendable () -> Void)?)>((false, nil))
+
+    func install(_ action: @escaping @Sendable () -> Void) {
+        let runNow = self.state.withLock { state in
+            if state.cancelled { return true }
+            state.action = action
+            return false
+        }
+        if runNow { action() }
+    }
+
+    func cancel() {
+        let action = self.state.withLock { state in
+            state.cancelled = true
+            defer { state.action = nil }
+            return state.action
+        }
+        action?()
+    }
+}
+
+func upload() async throws {
+    let handle = CancelHandle()
+    try await withTaskCancellationHandler {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            let task = legacyUploader.start { error in   // 恰好回调一次，取消时带取消错误
+                if let error { continuation.resume(throwing: error) } else { continuation.resume() }
+            }
+            handle.install { task.cancel() }
+        }
+    } onCancel: {
+        handle.cancel()
+    }
+}
+```
+
+⚠️ **不要**在 `onCancel` 里直接 resume continuation：底层回调之后还会再 resume 一次，
+checked continuation 重复 resume 会崩溃。
+
+操作既不响应取消、也没有 cancel 入口时，task group 竞速**给不出**超时。
+能做的只有不等它：让它在 group 之外继续跑，超时即返回——但此时 action 已结束、门闩已开，
+再点会与仍在跑的旧操作**并发**，这层防重入要调用方自己兜。
 
 ## 与 `AsyncButton` 的分工
 

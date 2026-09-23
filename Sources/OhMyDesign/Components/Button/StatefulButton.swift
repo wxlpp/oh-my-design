@@ -158,6 +158,64 @@ struct StatefulButtonCore: Sendable, Hashable {
     }
 }
 
+// MARK: - 编排 / Orchestration
+
+// 点击 → 准入 → 跑 action → 落定 → 停留 → 复位，以及离屏取消 + 作废；视图只做接线。
+// `sleep` 可注入，好让停留复位在测试里不靠挂钟。
+@MainActor
+@Observable
+final class StatefulButtonRunner {
+    private(set) var core = StatefulButtonCore()
+    @ObservationIgnored private(set) var task: Task<Void, Never>?
+    @ObservationIgnored private let sleep: @MainActor (Duration) async throws -> Void
+
+    init(sleep: @escaping @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) }) {
+        self.sleep = sleep
+    }
+
+    @discardableResult
+    func tap(
+        host: StatefulButtonState?,
+        successDwell: Duration,
+        failureDwell: Duration,
+        action: @escaping @MainActor @Sendable () async throws -> Void
+    ) -> Bool {
+        guard case .run(let run) = self.core.tap(host: host) else { return false }
+        self.task?.cancel()
+        self.task = Task { @MainActor in
+            await self.perform(
+                run: run, host: host, successDwell: successDwell, failureDwell: failureDwell, action: action
+            )
+        }
+        return true
+    }
+
+    func disappear(host: StatefulButtonState?) {
+        self.task?.cancel()
+        self.core.invalidate(host: host)
+    }
+
+    private func perform(
+        run: Int,
+        host: StatefulButtonState?,
+        successDwell: Duration,
+        failureDwell: Duration,
+        action: @MainActor @Sendable () async throws -> Void
+    ) async {
+        let outcome = await StatefulButtonOutcome.resolve(action)
+        guard self.core.settle(run, to: outcome.state, host: host) else { return }
+        let dwell: Duration? = switch outcome {
+        case .succeeded: successDwell
+        case .failed: failureDwell
+        case .cancelled: nil
+        }
+        guard host == nil, let dwell else { return }
+        try? await self.sleep(dwell)
+        guard !Task.isCancelled else { return }
+        _ = self.core.reset(run, host: host)
+    }
+}
+
 // MARK: - StatefulButton
 
 /// 带 idle / loading / success / failure 四态视觉回执的动作按钮。
@@ -172,15 +230,15 @@ struct StatefulButtonCore: Sendable, Hashable {
 /// 两种模式下防重入门闩都**不看视觉态**：托管模式的调用方在 action 执行期间把 `state` 改回
 /// `.idle`，再次点击仍不会重入。
 ///
-/// action 不加隐式超时（那是调用方的事）；需要超时请在 action 内用
-/// `withTaskGroup` / `Task.sleep` 自行竞速后抛错，失败态会随之出现。
+/// action 不加隐式超时（那是调用方的事）；需要超时请在 action 内竞速后抛错，失败态会随之出现。
+/// 用 `withThrowingTaskGroup` 竞速时，被竞速的操作**必须协作式响应取消**：task group
+/// 要等所有子任务结束才返回，不响应取消的操作会让超时抛错迟迟不到、按钮一直停在 `loading`。
 /// 需要拿到 `Error` 本身（记日志 / 弹 toast）时在 action 内 `catch` 后处理并 `rethrow`。
 ///
 /// 与 `AsyncButton` 的分工：只需要「正在跑」的系统 spinner、不需要成功 / 失败视觉回执时用
 /// `AsyncButton`；需要四态回执、无障碍播报与外部托管态时用本组件。
 public struct StatefulButton<Label: View>: View {
-    @State private var core = StatefulButtonCore()
-    @State private var task: Task<Void, Never>?
+    @State private var runner = StatefulButtonRunner()
 
     @Environment(\.coreMotionPresentation) private var motionPresentation
     @Environment(\.controlSize) private var controlSize
@@ -232,10 +290,15 @@ public struct StatefulButton<Label: View>: View {
     }
 
     public var body: some View {
-        let state = self.core.display(host: self.hostState)
+        let state = self.runner.core.display(host: self.hostState)
         let slot = CoreControlMetrics.iconSize(for: self.controlSize)
         return Button {
-            self.handleTap()
+            self.runner.tap(
+                host: self.hostState,
+                successDwell: self.successDwell,
+                failureDwell: self.failureDwell,
+                action: self.action
+            )
         } label: {
             HStack(spacing: CoreSpacing.xs) {
                 if let symbol = state.symbolName {
@@ -255,34 +318,7 @@ public struct StatefulButton<Label: View>: View {
             self.poster.post(text)
         }
         .onDisappear {
-            self.task?.cancel()
-            self.core.invalidate(host: self.hostState)
-        }
-    }
-
-    private func handleTap() {
-        guard case .run(let run) = self.core.tap(host: self.hostState) else { return }
-        self.task?.cancel()
-        self.task = Task { @MainActor in
-            await self.perform(run: run)
-        }
-    }
-
-    @MainActor
-    private func perform(run: Int) async {
-        let outcome = await StatefulButtonOutcome.resolve(self.action)
-        guard self.core.settle(run, to: outcome.state, host: self.hostState) else { return }
-        guard self.hostState == nil, let dwell = self.dwell(for: outcome) else { return }
-        try? await Task.sleep(for: dwell)
-        guard !Task.isCancelled else { return }
-        _ = self.core.reset(run, host: self.hostState)
-    }
-
-    private func dwell(for outcome: StatefulButtonOutcome) -> Duration? {
-        switch outcome {
-        case .succeeded: self.successDwell
-        case .failed: self.failureDwell
-        case .cancelled: nil
+            self.runner.disappear(host: self.hostState)
         }
     }
 }
