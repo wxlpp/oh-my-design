@@ -20,6 +20,27 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.11.0`）——Issue #422：新增 `Tree`
+
+**纯新增，不是破坏。** 已有公开符号一个都没变。新增的公开符号：
+
+| 符号 | 说明 |
+|---|---|
+| `Tree<Data, ID, RowContent>` | 递归层级树组件：`init(_:id:children:expanded:selection:selectionMode:checked:onActivate:content:)`，另有 `Data.Element: Identifiable` 时省略 `id:` 的便利 init |
+| `TreeSelectionMode` | 行选择模式枚举：`.single` / `.multiple`（`nonisolated`、`Hashable`、`Sendable`、`CaseIterable`） |
+| `Tree.expandedIDs(_:id:children:toDepth:)` | `nonisolated` 静态函数，预算「默认展开到第 N 层」的集合（**根为第 1 层**）；两个同名重载：主类型上一个，`where RowContent == EmptyView` 的扩展上一个（调用处可写 `Tree.expandedIDs(...)` 不带泛型） |
+
+模块 `Localizable.strings` 新增两个 key：`"Expand"` / `"Collapse"`（chevron 的无障碍标签，说的是动作）。
+`"Expanded"` / `"Collapsed"` 此前已由 `CoreDisclosureGroupStyle` 登记，本次复用。
+
+**下游要改什么：通常不用改。** 唯一可能碰到的是**类型名歧义**：下游自己的模块（或它依赖的另一个库）
+若也声明了名为 `Tree` 的类型，同时 `import OhMyDesign` 的文件里裸写 `Tree` 会报
+`'Tree' is ambiguous for type lookup`。改成模块限定名（`OhMyDesign.Tree` 或 `MyModule.Tree`）即可。
+`TreeSelectionMode` 同理，但名字更少见。
+
+行为契约（两套独立状态、键盘表、Reduce Motion 取值、已知缺口 `#427` / `#428`）见
+[tree.md](components/tree.md)。
+
 ## 未发布（相对 `v0.11.0`）——Issue #421：CheckBox 增读系统 mixed 态
 
 **行为新增，不是破坏。** 公开符号一个都没变（`CheckBoxToggleStyle` 仍是无参构造、无配置项），

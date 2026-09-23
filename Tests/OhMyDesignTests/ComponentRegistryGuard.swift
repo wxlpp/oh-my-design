@@ -315,8 +315,8 @@ struct ComponentRegistryGuard {
         #expect(Set(entries.map(\.component)).count == entries.count,
                 "登记表存在重名 component 条目——差集判据会把重名静默吞掉")
 
-        #expect(entries.filter { $0.repo == "ohmydesign" }.count == 57,
-                "OhMyDesign 侧条目数不是 57（`#380` 新增 TagGroup 后由 56 变为 57）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
+        #expect(entries.filter { $0.repo == "ohmydesign" }.count == 58,
+                "OhMyDesign 侧条目数不是 58（`#380` 新增 TagGroup 后由 56 变为 57，`#422` 新增 Tree 后变为 58）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
         #expect(entries.filter { $0.repo == "storyui" }.count == 25,
                 "StoryUI 侧条目数不是 25——CI 无法跨仓核对源码，这条固定计数断言是 #43 落地前唯一挡「静默删条目」的机器判据，不得放宽为 print")
 

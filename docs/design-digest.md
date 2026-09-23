@@ -647,6 +647,16 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 - *enum* **`ToastDefaults`** — Toast 行为的默认值常量集合。
 - *final class* **`ToastHost`** — Scene 级的浮层 toast 队列与调度器，外壳形状由 `ToastPresentation` 三选一。
 
+### `Components/Tree/Tree.swift`
+
+- **`Tree`** *<Data: RandomAccessCollection, ID: Hashable, RowContent: View>: View* — 递归层级树 / Recursive tree：受控展开 + 行选中（单选 / 多选）+ 可选的三态复选框 + W3C ARIA Treeview 键盘导航。
+
+### `Components/Tree/TreeCore.swift`
+
+- *enum* **`TreeSelectionMode`** — `Tree` 的行选择模式。
+  - `.single` — 单选：选中一个未选行时，替换已选集合里属于本树的全部 ID（含被折叠而不可见的）。 不属于本树数据的 ID 原样保留；再选同一行取消（允许空选）。
+  - `.multiple` — 多选：逐行切换选中态。
+
 ### `Environment/EnergyPolicy.swift`
 
 - *enum* **`RenderPolicy`** — 一层常驻渲染件在当前能耗状态下的渲染策略。
@@ -1049,9 +1059,9 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | controlsize | 5 | 5 |
 | motion | 4 | 4 |
 | colors | 122 | 122 |
-| components | 89 | 89 |
-| enums | 45 | 45 |
-| enumcases | 155 | 155 |
+| components | 90 | 90 |
+| enums | 46 | 46 |
+| enumcases | 157 | 157 |
 | protocols | 6 | 6 |
 | viewext | 46 | 46 |
 | styleext | 15 | 15 |

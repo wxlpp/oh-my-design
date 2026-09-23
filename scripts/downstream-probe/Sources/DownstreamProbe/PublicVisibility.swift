@@ -747,3 +747,61 @@ func consumeTagGroup(selection: Binding<Set<String>>) -> some View {
         ) { Text($0) }
     }
 }
+
+// MARK: - Tree（Issue #422）
+
+private struct ProbeTreeNode: Identifiable {
+    let id: String
+    let children: [ProbeTreeNode]?
+}
+
+@MainActor
+func consumeTree(
+    expanded: Binding<Set<String>>,
+    selection: Binding<Set<String>>,
+    checked: Binding<Set<String>>
+) -> some View {
+    let roots = [
+        ProbeTreeNode(id: "root", children: [ProbeTreeNode(id: "leaf", children: nil)]),
+    ]
+    return VStack {
+        Tree(
+            roots,
+            children: \.children,
+            expanded: expanded,
+            selection: selection,
+            selectionMode: TreeSelectionMode.multiple,
+            checked: checked,
+            onActivate: { _ in }
+        ) { node in
+            Text(node.id)
+        }
+        Tree(
+            roots,
+            id: \.id,
+            children: \.children,
+            expanded: expanded,
+            selection: selection
+        ) { node in
+            Text(node.id)
+        }
+    }
+}
+
+// `expandedIDs` 是 `nonisolated public static` —— 这一句同时守可见性与「不被
+// defaultIsolation 卷进 MainActor」两条契约。
+nonisolated func consumeTreeExpandedIDs() -> Set<String> {
+    let roots = [
+        ProbeTreeNode(id: "root", children: [ProbeTreeNode(id: "leaf", children: nil)]),
+    ]
+    return Tree<[ProbeTreeNode], String, Text>.expandedIDs(
+        roots, id: \.id, children: \.children, toDepth: 2
+    )
+}
+
+nonisolated func consumeTreeExpandedIDsInferred() -> Set<String> {
+    let roots = [
+        ProbeTreeNode(id: "root", children: [ProbeTreeNode(id: "leaf", children: nil)]),
+    ]
+    return Tree.expandedIDs(roots, id: \.id, children: \.children, toDepth: 2)
+}

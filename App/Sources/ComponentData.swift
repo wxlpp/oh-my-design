@@ -162,6 +162,9 @@ extension ComponentMeta {
         ComponentMeta(id: "carousel", name: "Carousel", description: "走马灯：ScrollView 分页滚动 + 自动轮播 + 页点指示器", category: .layout) {
             CarouselPreview()
         },
+        ComponentMeta(id: "tree", name: "Tree", description: "层级树：受控展开（Set<ID>）+ 单选 / 多选 + 父节点三态复选框 + W3C Treeview 键盘导航", category: .layout) {
+            TreePreview()
+        },
 
         // Container（Phase 2）
         ComponentMeta(id: "settings-screen", name: "Settings Screen", description: "SC#10：仅用 OhMyDesign 复刻一屏 iOS 设置页（InsetGroupedSection + SettingsRow）", category: .container) {
@@ -2200,5 +2203,71 @@ private struct NetworkGraphDemo: View {
 
     var body: some View {
         NetworkGraph(nodes: Self.nodes, edges: Self.edges, tint: .teal).frame(height: 260)
+    }
+}
+
+private struct GalleryTreeNode: Identifiable {
+    let id: String
+    let name: String
+    let children: [GalleryTreeNode]?
+}
+
+private struct TreePreview: View {
+    private static let roots: [GalleryTreeNode] = [
+        GalleryTreeNode(id: "design", name: "Design", children: [
+            GalleryTreeNode(id: "tokens", name: "Tokens", children: [
+                GalleryTreeNode(id: "color", name: "Color", children: nil),
+                GalleryTreeNode(id: "spacing", name: "Spacing", children: nil),
+                GalleryTreeNode(id: "motion", name: "Motion", children: nil),
+            ]),
+            GalleryTreeNode(id: "icons", name: "Icons", children: nil),
+        ]),
+        GalleryTreeNode(id: "readme", name: "README.md", children: nil),
+        GalleryTreeNode(id: "tests", name: "Tests", children: [
+            GalleryTreeNode(id: "unit", name: "Unit", children: nil),
+            GalleryTreeNode(id: "snapshot", name: "Snapshot", children: nil),
+        ]),
+    ]
+
+    // ⚠️ 键盘导航在模拟器上只有接了硬件键盘才走得到；这一屏是它唯一的人工检查点。
+    @State private var expanded: Set<String> = Tree<[GalleryTreeNode], String, Text>.expandedIDs(
+        TreePreview.roots, id: \.id, children: \.children, toDepth: 2
+    )
+    @State private var selection: Set<String> = []
+    @State private var checked: Set<String> = ["color"]
+    @State private var activated: String = "—"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                Text(verbatim: "单选 / single").coreFont(.footnote).foregroundStyle(Color.contentSecondary)
+                Tree(
+                    Self.roots,
+                    children: \.children,
+                    expanded: self.$expanded,
+                    selection: self.$selection,
+                    onActivate: { self.activated = $0 }
+                ) { node in
+                    Text(verbatim: node.name).coreFont(.callout)
+                }
+            }
+            VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                Text(verbatim: "多选 + 三态复选框 / multiple + tri-state checkbox")
+                    .coreFont(.footnote).foregroundStyle(Color.contentSecondary)
+                Tree(
+                    Self.roots,
+                    children: \.children,
+                    expanded: self.$expanded,
+                    selection: self.$selection,
+                    selectionMode: .multiple,
+                    checked: self.$checked
+                ) { node in
+                    Text(verbatim: node.name).coreFont(.callout)
+                }
+            }
+            Text(verbatim: "expanded=\(self.expanded.sorted()) selection=\(self.selection.sorted()) checked=\(self.checked.sorted()) activated=\(self.activated)")
+                .coreFont(.caption)
+                .foregroundStyle(Color.contentSubtle)
+        }
     }
 }
