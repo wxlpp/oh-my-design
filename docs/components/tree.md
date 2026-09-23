@@ -203,7 +203,7 @@ Tree(nodes, children: \.children, expanded: $expanded, selection: $selection) { 
 - 父行 `accessibilityValue` 播报 "Expanded" / "Collapsed"（自绘 `Button` 不会被系统自动播报，这一层是唯一来源）；
   chevron 的 `accessibilityLabel` 说的是**动作**（"Expand" / "Collapse"）。四个 key 都走 `bundle: .module`。
 - 已选行带 `.isSelected` trait。
-- **chevron 命中槽 = 展开槽宽 × 行距**（`.regular` 为 24×44 pt；iOS 各档高都 ≥ 44）。
+- **chevron 命中槽 = 展开槽宽 × 行高**（`.regular` 为 24×44 pt；iOS 各档高都 ≥ 44）。
   原先按钮只有图标大小（实测 12×7 pt），在 iOS 上偏离 10 pt 的点击会落到紧邻的父行复选框上，
   **一次点击勾上整棵子树**；判据 `TouchTargetTests.treeDisclosureMeetsMinimumTouchTarget`（iOS 腿，五档参数化）。
 - 行高 ≥ 44 pt（五档）：判据 `TouchTargetTests.treeRowMeetsMinimumTouchTarget` 与
