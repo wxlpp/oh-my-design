@@ -1,9 +1,9 @@
 ---
 name: action-buttons
-status: backlog
+status: in-progress
 created: 2026-09-23T01:14:22Z
-updated: 2026-09-23T01:14:22Z
-progress: 0%
+updated: 2026-09-23T07:52:27Z
+progress: 50%
 prd: .claude/prds/timeline-tree-action-buttons.md
 github: https://github.com/wxlpp/oh-my-design/issues/415
 ---
@@ -37,5 +37,5 @@ PRD `timeline-tree-action-buttons` 的 FR-3 / FR-4（另一半在 epic `structur
 - Reduce Motion 降级要有判据；in-flight 采样只在 macOS 腿，承重量取结构量而非具体读数。
 
 ## Tasks Created
-- [ ] 417.md - StatefulButton (parallel: true)
+- [x] 417.md - StatefulButton (parallel: true)
 - [ ] 418.md - SlideToConfirm (parallel: true)
