@@ -47,7 +47,7 @@ struct ConsentForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.md) {
-            // 一真一假 ⇒ 这一行画 mixed；点它会把两个绑定一起写成同一个值
+            // 一真一假 ⇒ 这一行画 mixed；点它把两个绑定一起写成 true（全选）
             Toggle(sources: [$terms, $privacy], isOn: \.self) {
                 Text(verbatim: "全选 / Select all")
             }
@@ -62,6 +62,23 @@ struct ConsentForm: View {
 
 ⚠️ **`CheckBox` 没有、也不会有 `isMixed` 入参**：mixed 是从数据派生的状态，不是调用方
 拨的开关；本库的公开 API 一律无 Bool 入参。要自己控制三态就自己组一组绑定喂给 `sources:`。
+
+### mixed 下的两个实测读数
+
+`CheckBoxMixedWriteBackTests` 用**可写**绑定（不是 `.constant`）探针实测，`[true, false]`
+与 `[false, true]` 两种混合顺序各一遍，结果相同：
+
+| 量 | 实测 |
+|---|---|
+| mixed 下 `configuration.isOn` | **`false`** |
+| mixed 下 `isOn.toggle()` 之后那组绑定 | **`[true, true]`**（全选） |
+
+⇒ 点 mixed 那一行的方向是**全选**，与 PRD 真值表一致，不需要在组件里另写分支。
+对照组（同一探针）：全 `false` 的一组 `toggle()` 后也是 `[true, true]`，全 `true` 的一组
+`toggle()` 后是 `[false, false]`——写回是双向的，上面那条不是「恒写 true」的假象。
+
+⚠️ 实现**不依赖** `isOn` 在 mixed 下是 `false` 这一条：符号判定先看 `isMixed`。上表是给
+调用方与 Tree 父节点用的读数，不是实现的前提。
 
 ## 动效 / Motion
 
@@ -78,22 +95,36 @@ struct ConsentForm: View {
 包裹层的补间走 `.coreAnimation(.selection, value:)`，触发值是**三态枚举**而不是
 `isOn`——否则 off ↔ mixed 的切换不会补间。
 
+⚠️ 那个触发值**靠三个 case 在 `Equatable` 下互异**才起作用。把 `==` 写成恒等
+（`static func == (_, _) -> Bool { true }`）时，真值表、符号名、静息截图与三条登记引文
+**全部照绿**，只有动画永不触发——实测 22 条里只有
+`CheckBoxIndicatorTests.statesArePairwiseUnequal` 一条判红。⇒ 别删那条「两两不等」。
+
 ## 校验态 / Validation
 
 接 `FieldValidation`（`View.fieldValidation(_:)`）：`invalid` 时指示符改取
 `statusDangerForeground`，`disabled` 压过 `invalid` 并把整行降到 `FieldAppearance.disabledControlOpacity`。
-三态共用同一条取色通路，mixed 没有例外。
+三态共用同一条取色通路，mixed 没有例外——mixed + invalid 与 mixed + disabled 各有独立的
+期望对照（写死符号 + 取色 + 不透明度），**invalid 那三格只在编译过 catalog 的腿上跑**。
 
 ## 验证边界 / Verification boundaries
 
-- **`invalid` 的外观判据只在 iOS Simulator 腿作数**：`statusDangerForeground` 走 asset
-  catalog，在 macOS `swift test` 上解析为全透明 ⇒ 指示符一个像素都不画，「新旧两张相等」
-  会凭空成立。`CheckBoxLegacyAppearanceTests` 把 invalid 那两格显式 skip 并打印原因，
-  normal / disabled 四格两条腿都跑。
+- **任何以 `statusDangerForeground` 为对照对象的位图判据都只在 iOS Simulator 腿作数**：
+  它走 asset catalog，在 macOS `swift test` 上解析为全透明 ⇒ 指示符一个像素都不画，
+  失效方向**向绿**（「相等」因两张都没画而成立，「不同」因其中一张没画而成立）。
+  ⇒ 本组件涉及 `invalid` 的**每一条**位图判据都带 `.enabled(if: assetCatalogIsCompiled, …)`
+  并打印跳过原因，共四条：`matchesLegacyUnderInvalid`、`invalidDiffersFromNormal`、
+  `eachInvalidCellDrawsItsOwnSymbol`、`invalidReferenceDiffersFromNormal`。
+  normal / disabled 那些格子取的是系统语义色，两条腿都跑。
+  ⚠️ 这一段曾写成「`CheckBoxLegacyAppearanceTests` 把 invalid 两格 skip」——当时另有两条
+  没加门控，那句概括是假的。
 - **「三态渲染两两不同」不足以钉住画的是哪个符号**：三态的取色本来就不同
   （off 取 `contentSecondary`），只比「有差别」时，把符号退回按 `isOn` 二选一**仍然全绿**
-  （实测）。钉住符号的是 `eachStateDrawsItsOwnSymbol`——与一份把符号 / 取色**写死成字面量**
-  的同构视图树逐像素对照。
+  （实测）。钉住符号的是 `eachCellDrawsItsOwnSymbol` / `eachInvalidCellDrawsItsOwnSymbol`
+  ——与一份把符号 / 取色 / 不透明度**写死成字面量**的同构视图树逐像素对照。
+- **只覆盖默认外观的三态判据不够**：把取色改成「mixed 绕开 `FieldAppearance`」时，
+  macOS 腿 22 条**全绿**、iOS 腿 2 条判红（都落在 `mixed / invalid` 那个参数上）——实测。
+  ⇒ mixed 的校验态覆盖必须留着，且它天然只在 iOS 腿作数。
 
 ## API
 
