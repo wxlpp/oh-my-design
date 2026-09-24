@@ -168,3 +168,23 @@ README 的 Shaders 子表、digest（`components` / `enums` / `enumcases`）、`
 
 - 每件 render proof 变异：时间项 → 常数 ⇒「随时间变化」判红。
 - iOS 腿在 T0 后、T1 后、T2 后各跑一次（render proof 只在 iOS）。
+
+### 定向复审补充（a41fbdd 之后）
+
+- **恢复不跳变**：`.hidden` 是唯一「暂停但不归零」的档；进入时记 `pausedAt`，离开时 `origin += now − pausedAt`
+  （`@State` + `onChange(of: presentation)`），抽成 `static func resumedOrigin(origin:pausedAt:resumedAt:)` 进 T0 逐格断言。
+- **为什么不照 #274 的收窄规则摘掉装饰层**（`docs/components/orbiting-logos.md` 那段裁决 + 守卫
+  `orbitPresentationBranchesAreWiredCorrectly`）：环是内容旁的装饰，摘掉后内容仍完整；全幅背景**就是**可见表面，摘掉等于闪出宿主底色；
+  且 `EmptyView` 会销毁子树、重置 `@State origin`，回前台从 `t = 0` 重放是一次可见的闪回。macOS 上 `.inactive` = 别的 App 在前台、窗口完全可见，这个例子写进 doc。
+- **doc 落点三处**（更正传播）：① `ProceduralBackground` doc；② `EnergyPolicy.swift` 的 `drawsAnything` / `MotionPresentation.hidden`
+  两句全称句改成「Effects 件整层不建；Shaders 背景件暂停保留末帧，见 `ProceduralBackground`」，并重跑 digest；
+  ③ `orbiting-logos.md` 那段裁决旁加一句指针。行为变化（5 个既有件在后台 / inactive 从照常动变为暂停）登记进 `docs/BREAKING-CHANGES.md` 的 shaders 节。
+- **NFR-7 判据分三层**：
+  ① 渲染级（经 environment 注入，单帧 `ImageRenderer`）：同一 `originOverride(−30 s)` 下 `.background` / `.inactive` 与 `.active` 位图等价（容差 1），
+  配非平凡对照 `active(−30 s) ≠ active(0)`；变异：`.hidden ⇒ EmptyView` / `⇒ base` / `⇒ 归零` 各红。
+  ② 源码级守卫（照 Effects `presentationBranchesAreWiredCorrectly` 形态）：`ShaderSupport.swift` 读 `scenePhaseOverride` / `scenePhase` /
+  `lowPowerModeOverride`、调 `presentation(reduceMotion:)`、`paused:` 与 `minimumInterval:` 实参来自纯函数结果——抓「根本没接闸」（①在这枚变异上是绿的）。
+  ③ 纯函数：低电量 `.reduced` 只有 `minimumInterval` 可观测，单帧看不见 ⇒ **纯函数是天花板**，明写。
+- **`originOverride` 覆盖全部 13 个程序化件**：T0 同时给 5 个既有件加 internal `originOverride`，「随时间变化」参数化到全部件。
+- render harness 注入 `.active` 在新设计下对单帧测试是 no-op（hidden ≡ active 单帧），保留是为与 Effects 一致、给将来多帧判据预留，注释写明非承重。
+- 验证保留：空间项变异逐件说明红 / 绿；T3 预览宿主「清 derivedData、核三样」。
