@@ -374,6 +374,267 @@ inline float2 lastPixel(float2 size) {
     return cd::ramp3(saturate(v * 0.75 + sheen * 0.25), low, mid, high);
 }
 
+// MARK: - paper-design/shaders 移植件的共用原语
+
+namespace cd {
+
+// 以视图中心为原点、按短边归一化到 [-0.5, 0.5] 的坐标。
+// paper 的 `v_objectUV` / `v_patternUV` 由其顶点着色器按 fit / scale / rotation 算出；
+// `colorEffect` 没有这一层，统一换成本函数（逐件列为修改）。
+inline float2 centeredUV(float2 position, float2 size) {
+    float2 s = max(size, float2(1.0));
+    return (position - 0.5 * s) / min(s.x, s.y);
+}
+
+inline float2 rotate(float2 uv, float angle) {
+    return float2x2(float2(cos(angle), sin(angle)), float2(-sin(angle), cos(angle))) * uv;
+}
+
+// paper 两色阶梯渐变（`colorsCount == 2` 时的展开）：`shape` ∈ [0, 1]，`steps` 为每段台阶数。
+inline half4 steppedGradient2(float shape, half4 first, half4 second, float steps) {
+    float mixer = (shape - 0.25) * 2.0;
+    float s = max(1.0, steps);
+    if (mixer < 0.0 || mixer > 1.0) {
+        float localT = mixer < 0.0 ? mixer + 1.0 : mixer - 1.0;
+        localT = round(localT * s) / s;
+        return mix(second, first, half(localT));
+    }
+    float localT = round(saturate(mixer) * s) / s;
+    return mix(first, second, half(localT));
+}
+
+// 预乘颜色在底色上的「over」合成，输出不透明。
+inline half4 overBackground(float3 color, float opacity, half4 back) {
+    float3 bg = float3(back.rgb) * float(back.a);
+    float3 rgb = color + bg * (1.0 - opacity);
+    float a = opacity + float(back.a) * (1.0 - opacity);
+    return half4(half3(rgb), half(a));
+}
+
+} // namespace cd
+
+// MARK: - Metaballs
+
+/// paper `packages/shaders/src/shaders/metaballs.ts` @ `43cd68d`（Apache-2.0，见 `ACKNOWLEDGEMENTS.md`）。
+/// 修改：`textureRandomizerR` 的 1D 噪声改用 `cd::hash21`；`fwidth` 经 `cd::edgeWidth` 加下限；
+/// 颜色数组收成两色交替 + 底色；丢弃 `colorBandingFix`；UV 改为 `cd::centeredUV`；时间按本仓 `ShaderMotion` 换算。
+namespace cd {
+inline float metaballsNoise(float x) {
+    float i = floor(x);
+    float f = fract(x);
+    float u = f * f * (3.0 - 2.0 * f);
+    return mix(hash21(float2(i, 0.0)), hash21(float2(i + 1.0, 0.0)), u);
+}
+} // namespace cd
+
+[[stitchable]] half4 ohMyDesignMetaballs(float2 position, half4 currentColor,
+                                         float2 size, float time,
+                                         float count, float ballSize,
+                                         half4 back, half4 colorA, half4 colorB) {
+    float2 uv = cd::centeredUV(position, size) + 0.5;
+    float t = 0.2 * (time * 3.6 + 2503.4);
+
+    float3 totalColor = float3(0.0);
+    float totalShape = 0.0;
+    float totalOpacity = 0.0;
+
+    for (int i = 0; i < 20; ++i) {
+        if (i >= int(ceil(count))) break;
+        float idxFract = float(i) / 20.0;
+        float angle = 6.28318530718 * idxFract;
+        float speed = 1.0 - 0.2 * idxFract;
+        float nx = cd::metaballsNoise(angle * 10.0 + float(i) + t * speed);
+        float ny = cd::metaballsNoise(angle * 20.0 + float(i) - t * speed);
+        float2 pos = float2(0.5) + 1e-4 + 0.9 * (float2(nx, ny) - 0.5);
+
+        half4 c = (i % 2 == 0) ? colorA : colorB;
+        float3 ballColor = float3(c.rgb) * float(c.a);
+
+        float sizeFrac = float(i) > floor(count - 1.0) ? fract(count) : 1.0;
+        float s = 1.0 - saturate(0.5 * length(uv - pos));
+        float shape = pow(s, 45.0 - 30.0 * ballSize * sizeFrac) * pow(ballSize, 0.2);
+        shape = smoothstep(0.0, 1.0, shape);
+
+        totalColor += ballColor * shape;
+        totalShape += shape;
+        totalOpacity += float(c.a) * shape;
+    }
+
+    totalColor /= max(totalShape, 1e-4);
+    totalOpacity /= max(totalShape, 1e-4);
+    float edge = cd::edgeWidth(totalShape);
+    float finalShape = smoothstep(0.4, 0.4 + edge, totalShape);
+    return cd::overBackground(totalColor * finalShape, totalOpacity * finalShape, back);
+}
+
+// MARK: - DotOrbit
+
+/// paper `packages/shaders/src/shaders/dot-orbit.ts` @ `43cd68d`（Apache-2.0，见 `ACKNOWLEDGEMENTS.md`）。
+/// 修改：`textureRandomizerR/GB` 改用 `cd::hash21/22`（同为 `floor` 语义；上游
+/// `randomR(vec2(rand.x, rand.y))` 在 `rand ∈ [0, 1)` 时恒为同一个值，照搬）；`fwidth` 经 `cd::edgeWidth` 加下限；
+/// 颜色数组收成两色阶梯渐变 + 底色；UV 改为 `cd::centeredUV` × 格数；时间按本仓 `ShaderMotion` 换算。
+[[stitchable]] half4 ohMyDesignDotOrbit(float2 position, half4 currentColor,
+                                        float2 size, float time,
+                                        float cells, float dotSize, float sizeRange, float spreading,
+                                        half4 back, half4 colorA, half4 colorB) {
+    float2 uv = cd::centeredUV(position, size) * cells * 1.5;
+    float t = time * 3.6 - 10.0;
+
+    float2 iuv = floor(uv);
+    float2 fuv = fract(uv);
+    float spread = 0.25 * saturate(spreading);
+    float minDist = 1.0;
+    float2 randomizer = float2(0.0);
+    for (int y = -1; y <= 1; ++y) {
+        for (int x = -1; x <= 1; ++x) {
+            float2 tile = float2(float(x), float(y));
+            float2 rand = cd::hash22(iuv + tile);
+            float2 centre = float2(0.5 + 1e-4) + spread * cos(t + 6.28318530718 * rand) - 0.5;
+            centre = cd::rotate(centre, cd::hash21(rand) + 0.1 * t) + 0.5;
+            float dist = length(tile + centre - fuv);
+            if (dist < minDist) {
+                minDist = dist;
+                randomizer = rand;
+            }
+        }
+    }
+    float3 voronoi = float3(minDist, randomizer) + 1e-4;
+
+    float radius = 0.25 * saturate(dotSize) - 0.5 * saturate(sizeRange) * voronoi.z;
+    float e = cd::edgeWidth(voronoi.x);
+    float dots = 1.0 - smoothstep(radius - e, radius + e, voronoi.x);
+
+    half4 gradient = cd::steppedGradient2(voronoi.y, colorA, colorB, 2.0);
+    float3 color = float3(gradient.rgb) * float(gradient.a) * dots;
+    return cd::overBackground(color, float(gradient.a) * dots, back);
+}
+
+// MARK: - Voronoi
+
+/// paper `packages/shaders/src/shaders/voronoi.ts` @ `43cd68d`（Apache-2.0，见 `ACKNOWLEDGEMENTS.md`）。
+/// 上游原注：Original algorithm: https://www.shadertoy.com/view/ldl3W8（Inigo Quilez，MIT，见 `ACKNOWLEDGEMENTS.md`）。
+/// 修改：`textureRandomizerGB` 改用 `cd::hash22`；颜色数组收成「间隙 / 两色细胞 / 光晕」三档；
+/// 边缘平滑宽度按上游 `u_scale == 1` 取常数；UV 改为 `cd::centeredUV` × 格数；时间按本仓 `ShaderMotion` 换算。
+[[stitchable]] half4 ohMyDesignVoronoi(float2 position, half4 currentColor,
+                                       float2 size, float time,
+                                       float cells, float distortion, float gap, float glow,
+                                       half4 gapColor, half4 cellColor, half4 glowColor) {
+    float2 x = cd::centeredUV(position, size) * cells * 1.25;
+    float t = time * 3.6;
+
+    float2 ip = floor(x);
+    float2 fp = fract(x);
+    float2 mg = float2(0.0);
+    float2 mr = float2(0.0);
+    float md = 8.0;
+    float rand = 0.0;
+    for (int j = -1; j <= 1; ++j) {
+        for (int i = -1; i <= 1; ++i) {
+            float2 g = float2(float(i), float(j));
+            float2 o = cd::hash22(ip + g);
+            float rawHash = o.x;
+            o = 0.5 + distortion * sin(t + 6.28318530718 * o);
+            float2 r = g + o - fp;
+            float d = dot(r, r);
+            if (d < md) {
+                md = d;
+                mr = r;
+                mg = g;
+                rand = rawHash;
+            }
+        }
+    }
+    md = 8.0;
+    for (int j = -2; j <= 2; ++j) {
+        for (int i = -2; i <= 2; ++i) {
+            float2 g = mg + float2(float(i), float(j));
+            float2 o = cd::hash22(ip + g);
+            o = 0.5 + distortion * sin(t + 6.28318530718 * o);
+            float2 r = g + o - fp;
+            if (dot(mr - r, mr - r) > 0.00001) {
+                md = min(md, dot(0.5 * (mr + r), normalize(r - mr)));
+            }
+        }
+    }
+
+    half4 cell = cd::steppedGradient2(saturate(rand), cellColor, mix(cellColor, glowColor, half(0.5)), 1.0);
+    float3 color = float3(cell.rgb) * float(cell.a);
+    float opacity = float(cell.a);
+
+    float glows = pow(length(mr * glow), 1.5);
+    color = mix(color, float3(glowColor.rgb) * float(glowColor.a), float(glowColor.a) * glows);
+    opacity += float(glowColor.a) * glows;
+
+    float smoothEdge = 0.02 / 2.0 * (1.0 + 0.5 * gap);
+    float edge = smoothstep(gap - smoothEdge, gap + smoothEdge, md);
+    color = mix(float3(gapColor.rgb) * float(gapColor.a), color, edge);
+    opacity = mix(float(gapColor.a), opacity, edge);
+    return half4(half3(color), half(saturate(opacity)));
+}
+
+// MARK: - SmokeRing
+
+/// paper `packages/shaders/src/shaders/smoke-ring.ts` @ `43cd68d`（Apache-2.0，见 `ACKNOWLEDGEMENTS.md`）。
+/// 修改：`valueNoise` 复用 `cd::valueNoise`（上游经 `textureRandomizerR`，同为 `floor` 语义的双线性值噪声）；
+/// 颜色数组收成两色 + 底色（两色时上游的倒序循环等价于 `mix(colors[1], colors[0], ring²)`）；丢弃 `colorBandingFix`；
+/// UV 改为 `cd::centeredUV`；时间按本仓 `ShaderMotion` 换算。
+namespace cd {
+inline float2 smokeRingFbm(float2 n0, float2 n1, int iterations) {
+    float2 total = float2(0.0);
+    float amplitude = 0.4;
+    for (int i = 0; i < 8; ++i) {
+        if (i >= iterations) break;
+        total.x += valueNoise(n0) * amplitude;
+        total.y += valueNoise(n1) * amplitude;
+        n0 *= 1.99;
+        n1 *= 1.99;
+        amplitude *= 0.65;
+    }
+    return total;
+}
+
+inline float smokeRingNoise(float2 uv, float2 pUv, float t, float noiseScale, int iterations) {
+    float2 left = pUv + 0.03 * t;
+    float period = max(abs(noiseScale * 6.28318530718), 1e-6);
+    float2 right = float2(fract(pUv.x / period) * period, pUv.y) + 0.03 * t;
+    float2 n = smokeRingFbm(left, right, iterations);
+    return mix(n.y, n.x, smoothstep(-0.25, 0.25, uv.x));
+}
+} // namespace cd
+
+[[stitchable]] half4 ohMyDesignSmokeRing(float2 position, half4 currentColor,
+                                         float2 size, float time,
+                                         float thickness, float radius, float innerShape,
+                                         float noiseScale, float iterations,
+                                         half4 back, half4 inner, half4 outer) {
+    float2 uv = cd::centeredUV(position, size);
+    float t = time * 3.6;
+    int steps = int(iterations);
+
+    float cycle = 3.0;
+    float period2 = 2.0 * cycle;
+    float local1 = fract((0.1 * t + cycle) / period2) * period2;
+    float local2 = fract((0.1 * t) / period2) * period2;
+    float blend = 0.5 + 0.5 * sin(0.1 * t * 3.14159265358979 / cycle - 0.5 * 3.14159265358979);
+
+    float atg = atan2(uv.y, uv.x) + 0.001;
+    float l = length(uv);
+    float radialOffset = 0.5 * l - rsqrt(max(1e-4, l));
+    float2 polar1 = float2(atg, local1 - radialOffset) * noiseScale;
+    float2 polar2 = float2(atg, local2 - radialOffset) * noiseScale;
+    float noise = mix(cd::smokeRingNoise(uv, polar1, t, noiseScale, steps),
+                      cd::smokeRingNoise(uv, polar2, t, noiseScale, steps), blend);
+
+    uv *= 0.8 + 1.2 * noise;
+    float distance = length(uv);
+    float ring = 1.0 - smoothstep(radius, radius + thickness, distance);
+    ring *= smoothstep(radius - pow(innerShape, 3.0) * thickness, radius, distance);
+
+    half4 gradient = mix(outer, inner, half(saturate(ring * ring)));
+    float3 color = float3(gradient.rgb) * float(gradient.a) * ring;
+    return cd::overBackground(color, float(gradient.a) * ring, back);
+}
+
 // MARK: - RefractiveGlass（layerEffect）
 
 namespace cd {

@@ -1823,6 +1823,31 @@ README 逐字 "**Some**"）。本 task **照常落地**，并在 `ACKNOWLEDGEMEN
 这与本表既有的「两处冲突时以本表为准」是同一条规则，但那条规则此前只写给
 **本文件内部**的论证段落，没写给**下游任务书**。此处补记。
 
+## #282 的落地记录（B-2：paper 移植背景 + `StarNest`，分两批）
+
+成员按本文件《统一裁定表》与《汇总与闸②判定》复核：paper 的 `Voronoi` / `Swirl` / `SimplexNoise` /
+`ColorPanels` / `DotOrbit` / `SmokeRing` / `Metaballs`（`Halftone` 已由 `#283` 落地）加 MIT 档的 `StarNest`；
+`Water` / `NeuroNoise` / `GrainGradient` 不在名单内。移植源固定在 paper commit
+`43cd68db79fa0b1759f72ffc941b3238e2a3954c`；开工时逐件核对了本表 §B 记下的参数名与描述句，与该 commit 一致。
+
+### 批 A（已落地）
+
+| 件 | 落地入口 | 上游 | 许可地位 | 复制程度 |
+|---|---|---|---|---|
+| `Metaballs` | `Metaballs(tint:count:motion:)` · `ohMyDesignMetaballs` | paper `metaballs.ts` | **已追到兼容许可 · Apache-2.0** | **较大段落移植** |
+| `DotOrbit` | `DotOrbit(tint:density:motion:)` · `ohMyDesignDotOrbit` | paper `dot-orbit.ts` | **已追到兼容许可 · Apache-2.0** | **较大段落移植** |
+| `Voronoi` | `Voronoi(tint:cellSize:motion:)` · `ohMyDesignVoronoi` | paper `voronoi.ts` → iq `ldl3W8` | **已追到兼容许可 · Apache-2.0 + MIT（双层）** | **较大段落移植** |
+| `SmokeRing` | `SmokeRing(tint:thickness:motion:)` · `ohMyDesignSmokeRing` | paper `smoke-ring.ts` | **已追到兼容许可 · Apache-2.0** | **较大段落移植** |
+
+四件都不作原创声称；逐条修改写在 `OhMyDesignShaders.metal` 各分节头，署名在 `ACKNOWLEDGEMENTS.md`《paper-design/shaders》节
+（`Voronoi` 另挂 iq 的 MIT 段）。`u_noiseTexture` 一律改为 `cd::hash21/22`（`floor` 语义与 paper 的 `textureRandomizer*` 一致）；
+`colorBandingFix` 一律丢弃，因此 ACK 里「该常量组没有出现在本仓任何代码里」仍然为真。
+
+### 批 B（待落地）
+
+`Swirl` / `SimplexNoise` / `ColorPanels` / `StarNest`。`StarNest` 的原页许可头人工目视核验见《须用户人工完成的核验》，
+未完成前不得随 `epic → main` 合入。
+
 ## ⚠️ #261 合入前必须同步改口径的代码注释（第 2 轮终审 C-6）
 
 `shaders-plasma:Sources/OhMyDesignShaders/OhMyDesignShaders.metal` 的 `fbm` 注释

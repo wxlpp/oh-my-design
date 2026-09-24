@@ -25,6 +25,7 @@ struct RenderProofTests {
     /// 直接当 `arguments:` 会编译失败（`conformance of 'AnyView' to 'Sendable' is unavailable`）。
     enum Background: String, CaseIterable, Sendable {
         case plasma, dotGrid, fractalClouds, inkSmoke, liquidChrome
+        case metaballs, dotOrbit, voronoi, smokeRing
 
         @MainActor
         @ViewBuilder var view: some View {
@@ -34,6 +35,10 @@ struct RenderProofTests {
             case .fractalClouds: FractalClouds(tint: .blue, density: .turbulent)
             case .inkSmoke: InkSmoke(tint: .blue, density: .heavy)
             case .liquidChrome: LiquidChrome(tint: .blue, density: .fine)
+            case .metaballs: Metaballs(tint: .blue, count: .many)
+            case .dotOrbit: DotOrbit(tint: .blue, density: .dense)
+            case .voronoi: Voronoi(tint: .blue, cellSize: .small)
+            case .smokeRing: SmokeRing(tint: .blue, thickness: .thick)
             }
         }
 
@@ -45,11 +50,15 @@ struct RenderProofTests {
             case .fractalClouds: with(FractalClouds(tint: .blue, density: .turbulent, motion: .lively)) { $0.originOverride = originOverride }
             case .inkSmoke: with(InkSmoke(tint: .blue, density: .heavy, motion: .lively)) { $0.originOverride = originOverride }
             case .liquidChrome: with(LiquidChrome(tint: .blue, density: .fine, motion: .lively)) { $0.originOverride = originOverride }
+            case .metaballs: with(Metaballs(tint: .blue, count: .many, motion: .lively)) { $0.originOverride = originOverride }
+            case .dotOrbit: with(DotOrbit(tint: .blue, density: .dense, motion: .lively)) { $0.originOverride = originOverride }
+            case .voronoi: with(Voronoi(tint: .blue, cellSize: .small, motion: .lively)) { $0.originOverride = originOverride }
+            case .smokeRing: with(SmokeRing(tint: .blue, thickness: .thick, motion: .lively)) { $0.originOverride = originOverride }
             }
         }
     }
 
-    @Test("五个程序化背景各自渲染出非纯色结果", arguments: Background.allCases)
+    @Test("程序化背景各自渲染出非纯色结果", arguments: Background.allCases)
     func backgroundsRender(_ background: Background) throws {
         let samples = try Self.render(background.view.frame(width: 64, height: 64))
         #expect(

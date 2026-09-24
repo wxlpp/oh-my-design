@@ -998,6 +998,11 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 - **`DotGrid`** *: View* — 规则点阵背景，可选同心波呼吸。
 - *enum* **`DotGrid.Spacing`**: `.loose`, `.regular`, `.tight` — 点距。
 
+### `DotOrbit.swift`
+
+- **`DotOrbit`** *: View* — 点阵中的每个点绕各自的格心公转，点色在两档之间按格随机取。
+- *enum* **`DotOrbit.Density`**: `.sparse`, `.regular`, `.dense` — 点的疏密与公转幅度。
+
 ### `FractalClouds.swift`
 
 - **`FractalClouds`** *: View* — 分形云层背景。
@@ -1026,6 +1031,11 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 - **`LiquidChrome`** *: View* — 液态铬背景。
 - *enum* **`LiquidChrome.Density`**: `.wide`, `.regular`, `.fine` — 带的疏密。
 
+### `Metaballs.swift`
+
+- **`Metaballs`** *: View* — 一组彩色小球绕中心游走、彼此融合成黏连的有机形状。
+- *enum* **`Metaballs.Count`**: `.few`, `.regular`, `.many` — 小球的数量与大小。
+
 ### `OhMyDesignShaders.swift`
 
 - *enum* **`ShaderLibraryError`**: `.noMetalDevice`, `.libraryMissing`, `.functionMissing` — 加载检查失败的原因。
@@ -1043,6 +1053,16 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 ### `ShaderSupport.swift`
 
 - *enum* **`ShaderMotion`**: `.still`, `.calm`, `.regular`, `.lively` — 运动速度档位。
+
+### `SmokeRing.swift`
+
+- **`SmokeRing`** *: View* — 被多层噪声扰动的烟环，环心与环边各取一档颜色。
+- *enum* **`SmokeRing.Thickness`**: `.thin`, `.regular`, `.thick` — 环的粗细与噪声细节。
+
+### `Voronoi.swift`
+
+- **`Voronoi`** *: View* — 缓慢漂移的 Voronoi 细胞：细胞色、细胞间隙与向边缘渐强的内光各取一档颜色。
+- *enum* **`Voronoi.CellSize`**: `.large`, `.regular`, `.small` — 细胞大小。
 
 
 ---
@@ -1147,9 +1167,9 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | controlsize | 5 | 5 |
 | motion | 4 | 4 |
 | colors | 124 | 124 |
-| components | 99 | 99 |
-| enums | 61 | 61 |
-| enumcases | 203 | 203 |
+| components | 103 | 103 |
+| enums | 65 | 65 |
+| enumcases | 215 | 215 |
 | protocols | 6 | 6 |
 | viewext | 50 | 50 |
 | styleext | 15 | 15 |

@@ -273,20 +273,24 @@ License: MIT
 
 ---
 
-## paper-design/shaders（Apache-2.0）—— `View.halftone`，**部分落地** · `#283`
+## paper-design/shaders（Apache-2.0）—— `View.halftone` + `#282` 的移植背景，**部分落地**
 
-⚠️ **本节 `#283` 由占位改为生效，但只对 `Halftone` 生效。**
 `docs/shader-provenance.md` 判为 `已追到兼容许可 · Apache-2.0` 的共 **8** 个
-（Voronoi / Swirl / SimplexNoise / ColorPanels / DotOrbit / SmokeRing / Metaballs / Halftone），
-**本仓今天只落地了 `Halftone` 一个**；其余 7 个尚未落地 ⇒ 按本文件开头那条
-「不得署名尚未落地的东西」，本节的**逐件条目**只有 `Halftone` 一行。
+（Voronoi / Swirl / SimplexNoise / ColorPanels / DotOrbit / SmokeRing / Metaballs / Halftone）。
+按本文件开头那条「不得署名尚未落地的东西」，本节的逐件条目只列**已落地**的：
+`Halftone`（`#283`）与 `#282` 批 A 的 `Metaballs` / `DotOrbit` / `Voronoi` / `SmokeRing`；
+`Swirl` / `SimplexNoise` / `ColorPanels` 随 `#282` 批 B 落地时补入。
 ⚠️ 上一版把 `Water` 写进名单——**#280 已把它由 Apache-2.0 改判 `待追溯`**
 （其 `getCausticNoise()` 与 `neuro-noise.ts` 是同一算法、同源于同一条无许可推文，
 而 paper 这次连来源都没标），本版一并删掉。`NeuroNoise` / `GrainGradient` 同样不在名单内。
 
 - **上游**：[paper-design/shaders](https://github.com/paper-design/shaders) — **Apache-2.0**
-- **已落地的件**：`View.halftone(dot:ink:paper:)`
-  ← `packages/shaders/src/shaders/halftone-dots.ts`
+- **已落地的件**（`#282` 各件移植自 commit `43cd68db79fa0b1759f72ffc941b3238e2a3954c`）：
+  - `View.halftone(dot:ink:paper:)` ← `packages/shaders/src/shaders/halftone-dots.ts`
+  - `Metaballs` ← `packages/shaders/src/shaders/metaballs.ts`
+  - `DotOrbit` ← `packages/shaders/src/shaders/dot-orbit.ts`
+  - `Voronoi` ← `packages/shaders/src/shaders/voronoi.ts`（算法上游为 Inigo Quilez，见下方 MIT 段）
+  - `SmokeRing` ← `packages/shaders/src/shaders/smoke-ring.ts`
 - **档位**：**较大段落移植**
 
 ### Apache-2.0 §4 的四条义务，逐条兑现
@@ -305,7 +309,13 @@ License: MIT
    `soft`、六边形网格、`inverted`、对比度 sigmoid、三档颗粒**均未移植**）；
    只移植 `halftone-dots.ts`（**`halftone-cmyk.ts` 未移植**）；新增网屏角度参数化；
    两色输出改由 Swift 侧传入（FR-8：`.metal` 零硬编码色）。
-4. **`.metal` 文件头注明对应 `.ts` 路径** —— 见 `ohMyDesignHalftone` 的 Provenance 段。
+   `#282` 各件的逐条修改写在 `.metal` 对应分节头；共同的几条：paper 的噪声纹理
+   （`textureRandomizer*`）改为本仓程序化 hash（`cd::hash21/22`，同为 `floor` 语义）；
+   颜色数组收成由单一 `tint` 推导的三档；丢弃 `colorBandingFix`；UV 改为以视图中心为原点、
+   按短边归一化（paper 的 fit / scale / rotation 顶点层没有移植）；时间按本仓 `ShaderMotion` 换算；
+   公开参数收成语义档位枚举，不照搬上游 uniform 列表。
+4. **`.metal` 文件头注明对应 `.ts` 路径** —— 见 `ohMyDesignHalftone` 的 Provenance 段与
+   `#282` 各件分节头（`paper packages/shaders/src/shaders/<name>.ts @ 43cd68d`）。
 
 ### ⚠️⚠️ 第 5 条：paper **之外**的第三方 MIT 通知义务（paper 一个字都没给）
 
@@ -350,6 +360,9 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+适用件：`Halftone`（`0.3183099` 签名式，见上）· `Voronoi`（两趟边界算法；paper `voronoi.ts` 自注
+「Original algorithm: https://www.shadertoy.com/view/ldl3W8」，该注释原样保留在 `ohMyDesignVoronoi` 分节头）。
 
 出处：Shadertoy `ldl3W8` 源码头 · 站点级声明
 `https://iquilezles.org/articles/`（逐字「all technical code snippets you'll find are

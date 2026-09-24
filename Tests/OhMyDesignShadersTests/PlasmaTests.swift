@@ -17,10 +17,7 @@ import Testing
 // ⚠️⚠️ **看 swiftbuild 腿的输出时不要只看最后一行**（第 4 轮终审 C-2 更正）。
 //
 // 包里有 4 个 test bundle，`swift test --build-system swiftbuild --filter
-// OhMyDesignShadersTests` 会打印**四行** "Test run with …"：本 bundle 的
-// 「27 tests in 9 suites」（`Starfield` 随 #281 撤回后由 18 减 1 得 17；
-// `#283` 的 `GlassOrb` / `Halftone` 两件各带一个 suite（9 条）+ 入口清单里
-// 多一条「无时间形参」，合计 +10 条），
+// OhMyDesignShadersTests` 会打印**四行** "Test run with …"：本 bundle 一行真实条数，
 // 另外三个各一行「0 tests … passed」。
 // 用 `tail` 取最后一行恰好取到那个 0 ⇒ 会误判成「一条都没跑」。
 //
@@ -30,7 +27,7 @@ import Testing
 //（会让 `ColorAssetGuardTests` 静默跳过，#258 踩过的坑）。
 //
 // ⚠️ 第 3 轮 I-4 的**另一半仍然成立**：`RenderProofTests` 整个文件包在
-// `#if os(iOS)` 里 ⇒ macOS 腿的 17 条里**一条渲染证明都没有**，
+// `#if os(iOS)` 里 ⇒ macOS 腿上**一条渲染证明都没有**，
 // rim / 折射的机器守卫只在 iOS Simulator 腿上跑。
 @Suite("OhMyDesignShaders metallib 加载 —— fail-closed")
 struct ShaderLibraryLoadTests {
@@ -48,9 +45,13 @@ struct ShaderLibraryLoadTests {
         // 漏加不会有任何报错，那个 shader 的「函数名拼错 / 没编进 metallib」就无人守。
         "ohMyDesignGlassOrb",
         "ohMyDesignHalftone",
+        "ohMyDesignMetaballs",
+        "ohMyDesignDotOrbit",
+        "ohMyDesignVoronoi",
+        "ohMyDesignSmokeRing",
     ]
 
-    @Test("bundle 里有 metallib，且八个入口全部解析得到")
+    @Test("bundle 里有 metallib，且全部入口解析得到")
     func libraryLoads() throws {
         try OhMyDesignShaders.assertShaderLibraryLoadable(functions: Self.entryPoints)
     }
@@ -102,6 +103,34 @@ struct SemanticStopTests {
     func liquidChrome() {
         let f = LiquidChrome.Density.allCases.map(\.field)
         #expect(zip(f, f.dropFirst()).allSatisfy { $0.bands < $1.bands })
+    }
+
+    @Test("Metaballs.Count：个数递增、个数 ≥ 1，尺寸在 (0, 1]")
+    func metaballs() {
+        let b = Metaballs.Count.allCases.map(\.balls)
+        #expect(zip(b, b.dropFirst()).allSatisfy { $0.count < $1.count })
+        #expect(b.allSatisfy { $0.count >= 1 && $0.count <= 20 && $0.size > 0 && $0.size <= 1 })
+    }
+
+    @Test("DotOrbit.Density：格数与公转幅度递增，各项在 [0, 1]")
+    func dotOrbit() {
+        let d = DotOrbit.Density.allCases.map(\.dots)
+        #expect(zip(d, d.dropFirst()).allSatisfy { $0.cells < $1.cells && $0.spreading <= $1.spreading })
+        #expect(d.allSatisfy { [$0.size, $0.sizeRange, $0.spreading].allSatisfy { (0...1).contains($0) } })
+    }
+
+    @Test("Voronoi.CellSize：large → small 格数递增；扭曲 ≤ 0.5、间隙 ≤ 0.1（上游定义域）")
+    func voronoi() {
+        let c = Voronoi.CellSize.allCases.map(\.cells)
+        #expect(zip(c, c.dropFirst()).allSatisfy { $0.cells < $1.cells })
+        #expect(c.allSatisfy { $0.distortion <= 0.5 && $0.gap > 0 && $0.gap <= 0.1 && $0.glow <= 1 })
+    }
+
+    @Test("SmokeRing.Thickness：粗细递增，噪声层数在 [1, 8]（shader 循环上界）")
+    func smokeRing() {
+        let r = SmokeRing.Thickness.allCases.map(\.ring)
+        #expect(zip(r, r.dropFirst()).allSatisfy { $0.thickness < $1.thickness })
+        #expect(r.allSatisfy { $0.iterations >= 1 && $0.iterations <= 8 && $0.thickness > 0 })
     }
 
     @Test("RefractiveGlassStrength：折射与色散同向递增，subtle 档色散为 0")

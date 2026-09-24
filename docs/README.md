@@ -204,7 +204,7 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 
 ### Shader 背景与效果 / Shaders（`import OhMyDesignShaders`）
 
-⚠️ **本组 9 个单位由 `#261` / `#283` 落地、`#279` 接进登记表**。`#261` 的 8 个里
+⚠️ **本组单位由 `#261` / `#283` / `#282` 落地、`#279` 接进登记表**（`#282` 的 paper 移植背景分批落地）。`#261` 的 8 个里
 `Starfield` 已随 `#281` 撤回（上游 CC BY-NC-SA 3.0 与本仓 MIT 分发不兼容），整件删除
 ⇒ 现存 9 个 = 7 个自有内容 / 重采样单位 + `glassOrb` / `halftone`。
 ⚠️ **逐单位 `components/*.md` 尚未落地**，本表的「说明」列因此指向源码与
@@ -222,6 +222,10 @@ provenance 对账表，而不是不存在的文档链接。⚠️ **本组一律
 | GlassSymbol | `GlassSymbol(_:tint:strength:accessibilityLabel:)` | 渲染成折射玻璃的 SF Symbol（`Sources/OhMyDesignShaders/GlassSymbol.swift`） |
 | refractiveGlass | `View.refractiveGlass(corner:strength:rim:isEnabled:)` | 把内容渲染成折射玻璃；⚠️ 与系统 `.glassEffect()` 是两回事（`Sources/OhMyDesignShaders/RefractiveGlass.swift`） |
 | glassOrb | `View.glassOrb(size:magnification:)` | 跟手的玻璃珠放大镜，圆内随距离衰减地放大；⚠️ 移植自 Inferno 的 `WarpingLoupe.metal`（MIT，须署名）（`Sources/OhMyDesignShaders/GlassOrb.swift`） |
+| Metaballs | `Metaballs(tint:count:motion:)` | 彩色小球游走并融合成黏连形状；⚠️ 移植自 paper `metaballs.ts`（Apache-2.0，须署名 + 修改标注）（`Sources/OhMyDesignShaders/Metaballs.swift`） |
+| DotOrbit | `DotOrbit(tint:density:motion:)` | 点阵中每个点绕格心公转；⚠️ 移植自 paper `dot-orbit.ts`（Apache-2.0）（`Sources/OhMyDesignShaders/DotOrbit.swift`） |
+| Voronoi | `Voronoi(tint:cellSize:motion:)` | 漂移的 Voronoi 细胞；⚠️ 移植自 paper `voronoi.ts`（Apache-2.0）→ iq `ldl3W8`（MIT）（`Sources/OhMyDesignShaders/Voronoi.swift`） |
+| SmokeRing | `SmokeRing(tint:thickness:motion:)` | 噪声扰动的烟环；⚠️ 移植自 paper `smoke-ring.ts`（Apache-2.0）（`Sources/OhMyDesignShaders/SmokeRing.swift`） |
 | halftone | `View.halftone(dot:ink:paper:)` | 半调网屏，按 45° 网格用点的大小表示明暗；⚠️ 移植自 paper `halftone-dots.ts`（Apache-2.0，须署名 + 修改标注）（`Sources/OhMyDesignShaders/Halftone.swift`） |
 
 ## NFR-1 帧率基准 / Frame-rate benchmark
