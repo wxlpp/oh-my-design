@@ -110,12 +110,23 @@ struct TimelineCompositionTests {
         let children: [Element]
     }
 
+    // SwiftUI 只在系统「应用无障碍」开关打开时才生成 accessibilityElements；干净的模拟器（CI）上它是关的，读到的树恒为空。
+    // 没有公开 API 能打开它，只能经 libAccessibility 的私有符号——不得删，删了这两条判据在 CI 上恒红。
+    private static func enableApplicationAccessibility() -> Bool {
+        guard let handle = dlopen("/usr/lib/libAccessibility.dylib", RTLD_NOW),
+              let setter = dlsym(handle, "_AXSApplicationAccessibilitySetEnabled"),
+              let getter = dlsym(handle, "_AXSApplicationAccessibilityEnabled") else { return false }
+        unsafeBitCast(setter, to: (@convention(c) (Bool) -> Void).self)(true)
+        return unsafeBitCast(getter, to: (@convention(c) () -> Bool).self)()
+    }
+
     private static func accessibilityTree(_ view: some View) -> [Element] {
+        #expect(Self.enableApplicationAccessibility(), "没能打开应用无障碍开关，读到的树不可信")
         let host = HostedWindow(view, size: CGSize(width: 390, height: 300), scheme: .light)
         defer { host.close() }
         func collect(_ object: Any) -> [Element] {
             guard let node = object as? NSObject else { return [] }
-            let children = ((node.accessibilityElements as? [Any]) ?? []).flatMap { child -> [Element] in
+            let children = (node.accessibilityElements ?? []).flatMap { child -> [Element] in
                 guard let child = child as? NSObject else { return [] }
                 return [Element(
                     label: child.accessibilityLabel, value: child.accessibilityValue,

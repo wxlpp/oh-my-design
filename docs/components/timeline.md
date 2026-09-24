@@ -209,7 +209,11 @@ Timeline(layout: .grouped) { rows }   // node: 槽在此形态下不生效
 
 ### 接线判据覆盖到哪
 
-- **iOS 腿（进程内无障碍树）**：`UIHostingController` 的 `accessibilityElements` 在托管窗口里读得到 SwiftUI 的无障碍节点。
+- **iOS 腿（进程内无障碍树）**：`UIHostingController` 的 `accessibilityElements` 在托管窗口里读得到 SwiftUI 的无障碍节点，
+  **前提是模拟器的「应用无障碍」开关已打开**——干净模拟器（CI）上它是关的，树恒为空（iOS 26.4 新建模拟器实测 0 个元素）；
+  `axe describe-ui` 跑过一次就会打开它并持久化到设备（重启不复位、`simctl erase` 才复位），所以跑过 axe 的本地模拟器会假绿。
+  判据因此在建树前经 `libAccessibility` 私有符号 `_AXSApplicationAccessibilitySetEnabled` 自行打开，打不开即判红（不跳过）；
+  私有符号只在测试 target，随系统版本失效时这两条会红而不是空转。
   `TimelineCompositionTests` 据此核：标题元素的 label / 值 / `.isHeader`、无标题默认圆点行合并成一个带值元素、
   自定义节点不传 `status` 的行不合并也无值、横向语境下内容各成 `.contain` 容器（用 `timelineLayoutContext = .horizontal`
   直接渲染行，不经 `ScrollView`）。
