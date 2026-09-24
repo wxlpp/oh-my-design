@@ -35,7 +35,7 @@ into an organic blob shape.
 
 ## 无障碍
 
-装饰层：`body` 链尾带 `.accessibilityHidden(true)`（FR-13）。
+装饰层：`ProceduralBackground.body` 链尾带 `.accessibilityHidden(true)`（FR-13）。
 
 ## 使用示例
 

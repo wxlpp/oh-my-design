@@ -681,14 +681,14 @@ sin-fract hash ⇒ 署名指向**算法本身**，**不得**引 The Book of Shad
 | 单位 | 上游与许可 | 本文件对应小节 |
 |---|---|---|
 | `Plasma` | 本体未指认到上游；四相正弦叠加的公式出自 Lode Vandevenne（BSD-2-Clause） | 《上表三条义务的兑现》· 《共享原语与公开配方》 |
-| `FractalClouds` | 本体未指认到上游；域扭曲级联出自 iq（MIT） | 同上 |
+| `FractalClouds` | 本体未指认到上游；单级域扭曲属 iq 一族（MIT） | 同上 |
 | `InkSmoke` | 本体未指认到上游；域扭曲 `q` / `r` 三级级联出自 iq（MIT） | 同上 |
 | `LiquidChrome` | 未指认到上游（待追溯 · 低指纹） | 《共享原语与公开配方》 |
 | `DotGrid` | 未指认到上游（待追溯 · 低指纹） | 《共享原语与公开配方》 |
 | `View.refractiveGlass` | 主体未指认到上游；`roundedBoxSDF` 出自 iq（MIT） | 《上表三条义务的兑现》 |
 | `GlassSymbol` | 无自有 shader，档位随 `View.refractiveGlass` | 同上 |
 | `View.glassOrb` | Inferno「Warping Loupe」（MIT） | 《Inferno — Warping Loupe》 |
-| `View.halftone` | paper-design/shaders（Apache-2.0）；hash 出自 Dave Hoskins / iq（MIT） | 《paper-design/shaders（Apache-2.0）》 |
+| `View.halftone` | paper-design/shaders（Apache-2.0）；随 paper `halftone-dots.ts` 附 Dave Hoskins / iq 的 MIT 通知（本件未调用其 hash） | 《paper-design/shaders（Apache-2.0）》 |
 | `Metaballs` / `DotOrbit` / `SmokeRing` / `ColorPanels` | paper-design/shaders（Apache-2.0） | 同上 |
 | `Voronoi` | paper-design/shaders（Apache-2.0），算法上游 iq `ldl3W8`（MIT） | 同上 |
 | `Swirl` / `SimplexNoise` | paper-design/shaders（Apache-2.0）＋ Ashima Arts simplex noise（MIT） | 同上 |
@@ -800,19 +800,17 @@ permutation 表，与实际实现（值噪声 + 整数 hash + iq 级联）没有
 
 ### 上表三条义务的兑现（`#284`，原文取于 2026-09-25）
 
-#### Inigo Quilez — MIT（`roundedBoxSDF`、域扭曲 `q` / `r` 三级级联）
+#### Inigo Quilez — MIT（共享原语层：`roundedBoxSDF`、域扭曲）
 
 来源：`https://iquilezles.org/articles/distfunctions/`（`sdRoundBox`）、`https://iquilezles.org/articles/warp/`。
-站点级许可声明见 `https://iquilezles.org/articles/`，原文：
+站点级许可声明见 `https://iquilezles.org/articles/`（须带浏览器 User-Agent 请求才返回正文，裸 `curl` 得到的是不含声明的空壳页），原文：
 
 > all technical code snippets you'll find are under the MIT license so you can easily reuse them, but the mathematical/shader art is protected and requires a license for use.
 
-本仓用到的是代码片段（`cd::roundedBoxSDF` 与 `ohMyDesignInkSmoke` 的域扭曲结构，后者由 `InkSmoke` / `FractalClouds` 使用），
-不含其 shader 艺术作品。articles 页没有给出带年份的版权行，下面按 MIT 条款具名转载许可正文：
+本仓用到的是代码片段（`cd::roundedBoxSDF`、`ohMyDesignInkSmoke` 的 `q` / `r` 三级级联与 `ohMyDesignFractalClouds` 的单级 warp，同属 iq 的域扭曲一族），
+不含其 shader 艺术作品。作者未附版权行，此处按 MIT 标准文本转载，不替作者补造版权行（与《Star Nest》一节同一处置）：
 
 ```
-Copyright (c) Inigo Quilez
-
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights

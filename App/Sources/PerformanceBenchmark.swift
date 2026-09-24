@@ -267,7 +267,8 @@ private struct ConfettiBenchmarkHost: View {
 /// `StarNest` 另加最深一档，它是本组单帧开销最大的一件。
 /// `DotGrid` 默认 `.still` 会暂停时间线，这里显式给动效档。
 /// ⚠️ 本腿的 `dropped` 量的是主线程回到渲染循环的节奏，`drawnFrames` 数的是 `visualEffect`
-/// 闭包的求值次数；两者都不是 GPU 帧时间，GPU 端的开销要在真机上另用 Instruments 看。
+/// 闭包的求值次数（与 Confetti / NetworkGraph 腿的「画出内容的帧数」语义不同，不能与 `frames=` 对表）；
+/// 两者都不是 GPU 帧时间，GPU 端的开销要在真机上另用 Instruments 看。
 private struct ShaderBenchmarkHost: View {
     let index: Int
 

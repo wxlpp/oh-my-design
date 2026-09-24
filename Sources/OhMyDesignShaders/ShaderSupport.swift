@@ -193,12 +193,12 @@ struct ShaderRamp {
 
 // MARK: - 渲染存活读数（基准专用观测点）
 
-/// `ProceduralBackground` **真的提交了 shader** 的帧数。
+/// 所有 `ProceduralBackground` 实例共用的 `visualEffect` 闭包求值计数（存活读数，不是帧数、不是 GPU 提交次数）。
 @_spi(OhMyDesignBenchmark)
 public nonisolated enum ShaderRenderProbe {
     private static let counter = Atomic<Int>(0)
 
-    /// 至今提交过 shader 的帧数。基准取**窗口前后的差值**。
+    /// 至今的闭包求值次数。基准取**窗口前后的差值**。
     public static var drawnFrames: Int { Self.counter.load(ordering: .relaxed) }
 
     static func recordDrawnFrame() {

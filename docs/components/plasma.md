@@ -36,7 +36,7 @@
 
 ## 无障碍
 
-装饰层：`body` 链尾带 `.accessibilityHidden(true)`（FR-13，"纯装饰层。承载状态语义的效果由调用方提供
+装饰层：`ProceduralBackground.body` 链尾带 `.accessibilityHidden(true)`（FR-13，"纯装饰层。承载状态语义的效果由调用方提供
 a11y 通告"）。
 
 ## 使用示例

@@ -235,6 +235,9 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 `./scripts/run-perf-benchmark.sh` 把 Confetti（默认粒子数）与 NetworkGraph（声明的节点 /
 边上限）放进**真实运行的 App** 里，用 `CADisplayLink` 采样帧间隔并按「掉帧率 ≤ 5%」判定。
 第一条腿是**对照组**（每帧主线程死等 40 ms），它必须被判为掉帧 —— 否则这把秤是坏的。
+`#284` 起另有 14 条 shader 腿：13 个程序化背景各满屏跑一遍，外加 `StarNest(depth: .deep)`。
+⚠️ shader 腿的 `drawnFrames` 是 `visualEffect` 闭包求值次数，不是帧数；`dropped` 量的是主线程节奏，
+不是 GPU 帧时间。
 
 每条 `[perf]` 行带三样必须连带看的读数（PR #294 终审 C-1 / C-2 / I-1）：
 
@@ -249,7 +252,7 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 
 ⚠️ **Simulator 上跑绿不构成 NFR-1 达标证据**（PRD 钉的是「iPhone 15 满帧」，
 Simulator 没有真实 GPU 调度）。真机跑法见脚本头部注释。
-⚠️ **截至 `#256` 合入，真机那一次尚未执行。**
+⚠️ **真机那一次尚未执行**（`#256` 的三条腿与 `#284` 的 14 条 shader 腿都是）。
 ⚠️ **本脚本不在任何 CI 腿里**（`App/` 整个不在 CI 里，见 `.github/workflows/ci.yml`）
 —— 上面那类回归只能靠有人手跑它才会被发现。
 
