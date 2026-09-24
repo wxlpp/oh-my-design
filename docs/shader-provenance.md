@@ -1854,7 +1854,7 @@ README 逐字 "**Some**"）。本 task **照常落地**，并在 `ACKNOWLEDGEMEN
 
 Ashima `snoise` 逐行移植为 MSL（`cd::snoise`），`Swirl` / `SimplexNoise` 共用；ACK 新增 Ashima / Gustavson 的 MIT 段（paper 删去了原许可头）。
 `ColorPanels` 的 `u_edges`（Bool）折进 `Style` 枚举，本批 Bool 豁免 0 条。
-`StarNest` 的上游配色是 `.metal` 内的硬编码色调，按 FR-8 改为亮度标量经 `cd::ramp3`；档位直接驱动 `volsteps` / `iterations`（`.deep` = 上游 20 × 17）。
+`StarNest` 的上游配色是 `.metal` 内的硬编码色调，按 FR-8 改为亮度标量经 `cd::ramp3`；档位直接驱动 `volsteps` / `iterations`（`.deep` = 16 × 17，比上游 20 × 17 少 4 个体积步：上游参数在 iPhone 15 Pro 全屏下超出 60 Hz 帧预算，`#284` 真机基准）。
 ⚠️ `StarNest` 的原页许可头人工目视核验见《须用户人工完成的核验》第 1 项，**未完成前不得随 `epic → main` 合入**。
 
 ## ⚠️ #261 合入前必须同步改口径的代码注释（第 2 轮终审 C-6）

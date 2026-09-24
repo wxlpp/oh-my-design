@@ -12,9 +12,8 @@ import UIKit
 // 显卡与 CoreSimulator 的窗口服务，与被测 App 在真机上的 GPU / CPU 竞争关系没有对应关系。
 // ⇒ Simulator 上跑绿**不等于** NFR-1 过；跑红倒是有意义（真机只会更严）。
 //
-// ⚠️ **截至 `#256` 合入，真机那一次尚未执行**（实现者没有物理设备）。本文件与
-// `scripts/run-perf-benchmark.sh` 交付的是「一台可重复跑的秤」，**不是**「NFR-1 已达标」
-// 的结论。谁跑了真机，请把 `[perf]` 那几行贴进 issue 并更新这段。
+// 真机已在 `#284` 跑过（iPhone 15 Pro，读数贴在该 issue）。⚠️ 那次 `CADisplayLink` 按 60 Hz 调度
+// （宿主未设 `CADisableMinimumFrameDurationOnPhone`），120 Hz 下没有量过；再跑真机时把 `[perf]` 行贴进 issue。
 //
 // MARK: 为什么基准住在 **App target** 而不是 `App/Tests/`
 //
