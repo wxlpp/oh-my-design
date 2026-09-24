@@ -51,7 +51,9 @@ FLOORS = {
     # Timeline.init(layout:progress:content:) 与 EnvironmentValues.timelinePhase 不在任何计数节里。
     # #417：components +1（StatefulButton）、enums +1（StatefulButtonState）、
     # enumcases +4（idle / loading / success / failure）。#418：components +1（SlideToConfirm）。
-    "colors": 124, "components": 99, "enums": 61, "enumcases": 203,
+    # #282 批 A：components +4（Metaballs / DotOrbit / Voronoi / SmokeRing）、enums +4（各一个档位枚举）、enumcases +12（3 × 4）。
+    # #282 批 B：components +4（Swirl / SimplexNoise / ColorPanels / StarNest）、enums +4、enumcases +12（3 × 4）。
+    "colors": 124, "components": 107, "enums": 69, "enumcases": 227,
     "protocols": 6, "viewext": 50, "styleext": 15, "others": 29,
 }
 

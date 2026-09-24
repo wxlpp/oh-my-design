@@ -41,10 +41,12 @@ public struct FractalClouds: View {
     private let density: Density
     private let motion: ShaderMotion
 
+    var originOverride: Date?
+
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     public init(
-        tint: Color = .accent,
+        tint: Color = .dataAccent,
         density: Density = .regular,
         motion: ShaderMotion = .calm
     ) {
@@ -62,7 +64,7 @@ public struct FractalClouds: View {
         // 隔离的（#261 终审 I-1）。
         let library = ShaderLibrary.bundle(.module)
 
-        return ProceduralBackground(base: ramp.low, motion: self.motion) { size, t in
+        return ProceduralBackground(base: ramp.low, motion: self.motion, originOverride: self.originOverride) { size, t in
             library.ohMyDesignFractalClouds(
                 .float2(size), .float(t),
                 .float(field.scale), .float(field.octaves), .float(field.warp),

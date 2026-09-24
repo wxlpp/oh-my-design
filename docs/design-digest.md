@@ -693,9 +693,9 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 - *enum* **`RenderPolicy`** — 一层常驻渲染件在当前能耗状态下的渲染策略。
   - `.full` — 满帧。
   - `.reduced` — 降帧，但**仍然在动**。
-  - `.paused` — 完全停摆：驱动动画的 `TimelineView` **不建**（不是「建了但暂停」）。
+  - `.paused` — 完全停摆：驱动动画的 `TimelineView` **不建**（不是「建了但暂停」）。 ⚠️ `OhMyDesignShaders` 的全幅背景是例外：暂停并保留最后一帧，理由见其 `ProceduralBackground`。
 - *enum* **`MotionPresentation`** — 两道闸（NFR-7 能耗闸 + Reduce Motion 闸）**一起**裁出来的结果：这一层到底呈现什么。
-  - `.hidden` — 一个像素都不画（NFR-7 停摆）。**优先级最高**——它在 Reduce Motion 之前裁决。
+  - `.hidden` — 一个像素都不画（NFR-7 停摆）。**优先级最高**——它在 Reduce Motion 之前裁决。 ⚠️ `OhMyDesignShaders` 的全幅背景在此档暂停并保留最后一帧，见其 `ProceduralBackground`。
   - `.resting` — 画，但静止（Reduce Motion：保留视觉、去掉运动）。
   - `.animated` — 正常动。
 - *struct* **`EnergyState`** — 「注入值优先、否则从系统读」的解析结果，以及它推出的渲染策略。
@@ -993,10 +993,20 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 
 ## `OhMyDesignShaders`
 
+### `ColorPanels.swift`
+
+- **`ColorPanels`** *: View* — 一组半透明彩色面板绕中轴翻转，像透视中的百叶。
+- *enum* **`ColorPanels.Style`**: `.soft`, `.regular`, `.crisp` — 面板质感。
+
 ### `DotGrid.swift`
 
 - **`DotGrid`** *: View* — 规则点阵背景，可选同心波呼吸。
 - *enum* **`DotGrid.Spacing`**: `.loose`, `.regular`, `.tight` — 点距。
+
+### `DotOrbit.swift`
+
+- **`DotOrbit`** *: View* — 点阵中的每个点绕各自的格心公转，点色在两档之间按格随机取。
+- *enum* **`DotOrbit.Density`**: `.sparse`, `.regular`, `.dense` — 点的疏密与公转幅度。
 
 ### `FractalClouds.swift`
 
@@ -1026,6 +1036,11 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 - **`LiquidChrome`** *: View* — 液态铬背景。
 - *enum* **`LiquidChrome.Density`**: `.wide`, `.regular`, `.fine` — 带的疏密。
 
+### `Metaballs.swift`
+
+- **`Metaballs`** *: View* — 一组彩色小球绕中心游走、彼此融合成黏连的有机形状。
+- *enum* **`Metaballs.Count`**: `.few`, `.regular`, `.many` — 小球的数量与大小。
+
 ### `OhMyDesignShaders.swift`
 
 - *enum* **`ShaderLibraryError`**: `.noMetalDevice`, `.libraryMissing`, `.functionMissing` — 加载检查失败的原因。
@@ -1043,6 +1058,31 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 ### `ShaderSupport.swift`
 
 - *enum* **`ShaderMotion`**: `.still`, `.calm`, `.regular`, `.lively` — 运动速度档位。
+
+### `SimplexNoise.swift`
+
+- **`SimplexNoise`** *: View* — 双层 simplex 噪声的等高色带：三档颜色之间按阶梯过渡。
+- *enum* **`SimplexNoise.Banding`**: `.soft`, `.regular`, `.stepped` — 色带的阶梯感。
+
+### `SmokeRing.swift`
+
+- **`SmokeRing`** *: View* — 被多层噪声扰动的烟环，环心与环边各取一档颜色。
+- *enum* **`SmokeRing.Thickness`**: `.thin`, `.regular`, `.thick` — 环的粗细与噪声细节。
+
+### `StarNest.swift`
+
+- **`StarNest`** *: View* — 体积分形星云：一路穿行的星尘与暗物质。
+- *enum* **`StarNest.Depth`**: `.shallow`, `.regular`, `.deep` — 体积深度，同时决定渲染成本。
+
+### `Swirl.swift`
+
+- **`Swirl`** *: View* — 从中心旋出的彩色条带，可扭成漩涡，带轻微噪声扰动。
+- *enum* **`Swirl.Bands`**: `.few`, `.regular`, `.many` — 条带数与扭转强度。
+
+### `Voronoi.swift`
+
+- **`Voronoi`** *: View* — 缓慢漂移的 Voronoi 细胞：浅色细胞、较深的间隙线与向边缘渐强的内光。
+- *enum* **`Voronoi.CellSize`**: `.large`, `.regular`, `.small` — 细胞大小。
 
 
 ---
@@ -1147,9 +1187,9 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | controlsize | 5 | 5 |
 | motion | 4 | 4 |
 | colors | 124 | 124 |
-| components | 99 | 99 |
-| enums | 61 | 61 |
-| enumcases | 203 | 203 |
+| components | 107 | 107 |
+| enums | 69 | 69 |
+| enumcases | 227 | 227 |
 | protocols | 6 | 6 |
 | viewext | 50 | 50 |
 | styleext | 15 | 15 |

@@ -1,4 +1,5 @@
 #if os(iOS)
+import OhMyDesign
 import SwiftUI
 import Testing
 import UIKit
@@ -24,6 +25,8 @@ struct RenderProofTests {
     /// 直接当 `arguments:` 会编译失败（`conformance of 'AnyView' to 'Sendable' is unavailable`）。
     enum Background: String, CaseIterable, Sendable {
         case plasma, dotGrid, fractalClouds, inkSmoke, liquidChrome
+        case metaballs, dotOrbit, voronoi, smokeRing
+        case swirl, simplexNoise, colorPanels, starNest
 
         @MainActor
         @ViewBuilder var view: some View {
@@ -33,11 +36,38 @@ struct RenderProofTests {
             case .fractalClouds: FractalClouds(tint: .blue, density: .turbulent)
             case .inkSmoke: InkSmoke(tint: .blue, density: .heavy)
             case .liquidChrome: LiquidChrome(tint: .blue, density: .fine)
+            case .metaballs: Metaballs(tint: .blue, count: .many)
+            case .dotOrbit: DotOrbit(tint: .blue, density: .dense)
+            case .voronoi: Voronoi(tint: .blue, cellSize: .small)
+            case .smokeRing: SmokeRing(tint: .blue, thickness: .thick)
+            case .swirl: Swirl(tint: .blue, bands: .many)
+            case .simplexNoise: SimplexNoise(tint: .blue, banding: .stepped)
+            case .colorPanels: ColorPanels(tint: .blue, style: .crisp)
+            case .starNest: StarNest(tint: .blue, depth: .shallow)
+            }
+        }
+
+        @MainActor
+        @ViewBuilder func animated(originOverride: Date) -> some View {
+            switch self {
+            case .plasma: with(Plasma(tint: .blue, density: .dense, motion: .lively)) { $0.originOverride = originOverride }
+            case .dotGrid: with(DotGrid(tint: .blue, spacing: .tight, motion: .lively)) { $0.originOverride = originOverride }
+            case .fractalClouds: with(FractalClouds(tint: .blue, density: .turbulent, motion: .lively)) { $0.originOverride = originOverride }
+            case .inkSmoke: with(InkSmoke(tint: .blue, density: .heavy, motion: .lively)) { $0.originOverride = originOverride }
+            case .liquidChrome: with(LiquidChrome(tint: .blue, density: .fine, motion: .lively)) { $0.originOverride = originOverride }
+            case .metaballs: with(Metaballs(tint: .blue, count: .many, motion: .lively)) { $0.originOverride = originOverride }
+            case .dotOrbit: with(DotOrbit(tint: .blue, density: .dense, motion: .lively)) { $0.originOverride = originOverride }
+            case .voronoi: with(Voronoi(tint: .blue, cellSize: .small, motion: .lively)) { $0.originOverride = originOverride }
+            case .smokeRing: with(SmokeRing(tint: .blue, thickness: .thick, motion: .lively)) { $0.originOverride = originOverride }
+            case .swirl: with(Swirl(tint: .blue, bands: .many, motion: .lively)) { $0.originOverride = originOverride }
+            case .simplexNoise: with(SimplexNoise(tint: .blue, banding: .stepped, motion: .lively)) { $0.originOverride = originOverride }
+            case .colorPanels: with(ColorPanels(tint: .blue, style: .crisp, motion: .lively)) { $0.originOverride = originOverride }
+            case .starNest: with(StarNest(tint: .blue, depth: .shallow, motion: .lively)) { $0.originOverride = originOverride }
             }
         }
     }
 
-    @Test("五个程序化背景各自渲染出非纯色结果", arguments: Background.allCases)
+    @Test("程序化背景各自渲染出非纯色结果", arguments: Background.allCases)
     func backgroundsRender(_ background: Background) throws {
         let samples = try Self.render(background.view.frame(width: 64, height: 64))
         #expect(
@@ -55,38 +85,39 @@ struct RenderProofTests {
     /// 收下却不用的 shader，空间上照样变化，上一条测试照样通过（#261 终审 I-3）。
     /// 同类型形参**换序**也是同理——`.float(t), .float(frequency), .float(octaves)`
     /// 三个都是 `float`，换序照样编译；本条能抓到其中把 `time` 换走的那些排列。
-    @Test("动画背景在两个时刻的输出不同 —— shader 真的吃了 time")
-    func timeActuallyAdvances() throws {
-        // 同一个 shader、同一尺寸，只有时间原点不同。
+    @Test("动画背景在两个时刻的输出不同 —— shader 真的吃了 time", arguments: Background.allCases)
+    func timeActuallyAdvances(_ background: Background) throws {
         let now = Date()
-        let ramp = ShaderRamp(tint: .blue, reduceTransparency: false)
-        let library = ShaderLibrary.bundle(.module)
-
         func frame(secondsAgo: TimeInterval) throws -> [UInt32] {
-            try Self.render(
-                ProceduralBackground(
-                    base: ramp.low,
-                    motion: .lively,
-                    originOverride: now.addingTimeInterval(-secondsAgo)
-                ) { size, t in
-                    library.ohMyDesignPlasma(
-                        .float2(size), .float(t), .float(11), .float(3),
-                        .color(ramp.low), .color(ramp.mid), .color(ramp.high)
-                    )
-                }
-                .frame(width: 64, height: 64)
-            )
+            try Self.render(background.animated(originOverride: now.addingTimeInterval(-secondsAgo)).frame(width: 64, height: 64))
         }
-
         #expect(
             try frame(secondsAgo: 0) != frame(secondsAgo: 30),
             """
-            两个时刻渲染结果完全相同 ⇒ shader 没有真正使用 `time` 形参。
+            \(background.rawValue)：两个时刻渲染结果完全相同 ⇒ shader 没有真正使用 `time` 形参。
             ⚠️ 常见原因：`.float(...)` 实参顺序与 `[[stitchable]]` 形参不匹配
             （同为 `float` 时换序照样编译）；或时间被 `Float` 精度吃掉
-            （见 `ProceduralBackground.origin`）。
+            （见 `ProceduralBackground.origin`）；或能耗闸把它判成了暂停（渲染入口须注入 `.active`）。
             """
         )
+    }
+
+    // ⚠️ 不断言「与 .active 同一时刻逐像素相同」：两次渲染的墙钟不同，时间原点固定时两帧本来就不同。
+    @Test("能耗闸 .hidden（后台 / inactive）照常画出当前帧：不是空白 / 底色，时间也没被归零", arguments: Background.allCases)
+    func hiddenKeepsDrawing(_ background: Background) throws {
+        let freshStart = try Self.render(background.animated(originOverride: Date()).frame(width: 64, height: 64))
+        for phase in [ScenePhase.background, .inactive] {
+            let hidden = try Self.render(
+                background.animated(originOverride: Date().addingTimeInterval(-30))
+                    .environment(\.scenePhaseOverride, phase)
+                    .frame(width: 64, height: 64)
+            )
+            #expect(Set(hidden).count > 1, "\(background.rawValue) @ \(phase)：画面是纯色 ⇒ .hidden 把层摘掉了或只画了底色")
+            #expect(
+                !zip(hidden, freshStart).allSatisfy { Self.channelsWithin(1, $0, $1) },
+                "\(background.rawValue) @ \(phase)：与 t≈0 的帧相同 ⇒ .hidden 把时间归零了"
+            )
+        }
     }
 
     @Test("refractiveGlass 改变了内容层的像素")
@@ -592,8 +623,14 @@ struct RenderProofTests {
     /// 按固定偏移取通道会误读甚至越界，测试因此变得偶发脆弱。仓库既有先例
     /// （`CoreControlStyleTintTests.averageColor`）的做法是先重绘到己方构造的
     /// `CGContext` 把格式钉死，再做采样——这里沿用同一写法，不另立平行模式。
+    private static func channelsWithin(_ tolerance: Int, _ a: UInt32, _ b: UInt32) -> Bool {
+        [16, 8, 0].allSatisfy { shift in abs(Int((a >> UInt32(shift)) & 0xFF) - Int((b >> UInt32(shift)) & 0xFF)) <= tolerance }
+    }
+
+    // ⚠️ `ImageRenderer` 没有 Scene，`scenePhase` 读到 `.background`；统一注入 `.active`（Effects 测试同一做法）。
+    // 单帧下 `.hidden` 与 `.active` 画同一帧，这层注入对现有单帧判据不承重。
     private static func rgbaPixels(_ view: some View) throws -> (pixels: [UInt8], width: Int, height: Int) {
-        let renderer = ImageRenderer(content: view)
+        let renderer = ImageRenderer(content: view.environment(\.scenePhaseOverride, .active))
         renderer.scale = 1
         let cgImage = try #require(renderer.cgImage, "ImageRenderer 未产出图像")
         let width = cgImage.width
@@ -653,5 +690,11 @@ struct RenderProofTests {
     }
 
     private enum RenderProbeError: Error { case noPixelData }
+}
+@MainActor
+private func with<V>(_ value: V, _ mutate: (inout V) -> Void) -> V {
+    var copy = value
+    mutate(&copy)
+    return copy
 }
 #endif

@@ -58,16 +58,22 @@ public struct Plasma: View {
     private let density: Density
     private let motion: ShaderMotion
 
+    var originOverride: Date?
+
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
-    /// - Parameter tint: 调色基色，三档斜坡由它推导。默认 `Color.accent`。
+    /// - Parameter tint: 调色基色，三档斜坡由它推导。默认 `Color.dataAccent`。
     ///
     ///   ⚠️ **这里不能走 `.tint` 通路，与 `.core` control style 的规矩不同**——那条规矩
     ///   成立的前提是 `ShapeStyle` 能直接喂给 SwiftUI 绘制；Metal 需要**具体的颜色分量**，
     ///   而 SwiftUI **没有公开 API 能把 `.tint` 读成 `Color`**。⇒ 只能走 FR-8 的第①条
     ///   合法来源「调用方参数」，默认值取第③条「语义 token」。**这不是漏了 `.tint` 通路。**
+    ///
+    ///   ⚠️ 默认值是 `dataAccent`（系统蓝），**不是** `accent`：本库的 `accent` 是墨色（`label`），
+    ///   而 `ShaderRamp` 的高档朝 `contentPrimary` 混——墨色朝自己混，中高两档塌成同一种黑，
+    ///   背景只剩「灰底 + 纯黑块」。与图表 / tag 同一取舍（`dataAccent` 的文档注释）。所有程序化背景同此默认。
     public init(
-        tint: Color = .accent,
+        tint: Color = .dataAccent,
         density: Density = .regular,
         motion: ShaderMotion = .regular
     ) {
@@ -85,7 +91,7 @@ public struct Plasma: View {
         // 隔离的（#261 终审 I-1）。
         let library = ShaderLibrary.bundle(.module)
 
-        return ProceduralBackground(base: ramp.low, motion: self.motion) { size, t in
+        return ProceduralBackground(base: ramp.low, motion: self.motion, originOverride: self.originOverride) { size, t in
             library.ohMyDesignPlasma(
                 .float2(size),
                 .float(t),

@@ -388,7 +388,7 @@ grep -n '^| ' docs/shader-provenance.md | grep TBD
 前两次（Shadertoy 默认许可、The Book of Shaders 的 `All rights reserved`）都停在
 "差点"；这一次是**一个已落地、已合入 epic 分支的 shader**。
 
-⚠️ 别和 `StarNest` 搞混：`StarNest`（Kali，MIT，**未落地**）与 `Starfield`
+⚠️ 别和 `StarNest` 搞混：`StarNest`（Kali，MIT，`#282` 已落地，原页人工核验待办）与 `Starfield`
 （#261 **已落地**）是两件东西，名字像而已。本节说的是后者。
 
 #### 具名上游（一手）
@@ -1822,6 +1822,40 @@ README 逐字 "**Some**"）。本 task **照常落地**，并在 `ACKNOWLEDGEMEN
 `283.md` 写着 3 件，裁定表只支持 2 件；照任务书做会把一个 `待追溯` 件发出去。
 这与本表既有的「两处冲突时以本表为准」是同一条规则，但那条规则此前只写给
 **本文件内部**的论证段落，没写给**下游任务书**。此处补记。
+
+## #282 的落地记录（B-2：paper 移植背景 + `StarNest`，分两批）
+
+成员按本文件《统一裁定表》与《汇总与闸②判定》复核：paper 的 `Voronoi` / `Swirl` / `SimplexNoise` /
+`ColorPanels` / `DotOrbit` / `SmokeRing` / `Metaballs`（`Halftone` 已由 `#283` 落地）加 MIT 档的 `StarNest`；
+`Water` / `NeuroNoise` / `GrainGradient` 不在名单内。移植源固定在 paper commit
+`43cd68db79fa0b1759f72ffc941b3238e2a3954c`；开工时逐件核对了本表 §B 记下的参数名与描述句，与该 commit 一致。
+
+### 批 A（已落地 · `cff8993`）
+
+| 件 | 落地入口 | 上游 | 许可地位 | 复制程度 |
+|---|---|---|---|---|
+| `Metaballs` | `Metaballs(tint:count:motion:)` · `ohMyDesignMetaballs` | paper `metaballs.ts` | **已追到兼容许可 · Apache-2.0** | **较大段落移植** |
+| `DotOrbit` | `DotOrbit(tint:density:motion:)` · `ohMyDesignDotOrbit` | paper `dot-orbit.ts` | **已追到兼容许可 · Apache-2.0** | **较大段落移植** |
+| `Voronoi` | `Voronoi(tint:cellSize:motion:)` · `ohMyDesignVoronoi` | paper `voronoi.ts` → iq `ldl3W8` | **已追到兼容许可 · Apache-2.0 + MIT（双层）** | **较大段落移植** |
+| `SmokeRing` | `SmokeRing(tint:thickness:motion:)` · `ohMyDesignSmokeRing` | paper `smoke-ring.ts` | **已追到兼容许可 · Apache-2.0** | **较大段落移植** |
+
+四件都不作原创声称；逐条修改写在 `OhMyDesignShaders.metal` 各分节头，署名在 `ACKNOWLEDGEMENTS.md`《paper-design/shaders》节
+（`Voronoi` 另挂 iq 的 MIT 段）。`u_noiseTexture` 一律改为 `cd::hash21/22`（`floor` 语义与 paper 的 `textureRandomizer*` 一致）；
+`colorBandingFix` 一律丢弃，因此 ACK 里「该常量组没有出现在本仓任何代码里」仍然为真。
+
+### 批 B（已落地 · `3da4cf5`）
+
+| 件 | 落地入口 | 上游 | 许可地位 | 复制程度 |
+|---|---|---|---|---|
+| `Swirl` | `Swirl(tint:bands:motion:)` · `ohMyDesignSwirl` | paper `swirl.ts` + `shader-utils.simplexNoise`（Ashima） | **已追到兼容许可 · Apache-2.0 + MIT（双层）** | **较大段落移植** |
+| `SimplexNoise` | `SimplexNoise(tint:banding:motion:)` · `ohMyDesignSimplexNoise` | paper `simplex-noise.ts` + `shader-utils.simplexNoise`（Ashima） | **已追到兼容许可 · Apache-2.0 + MIT（双层）** | **较大段落移植** |
+| `ColorPanels` | `ColorPanels(tint:style:motion:)` · `ohMyDesignColorPanels` | paper `color-panels.ts` | **已追到兼容许可 · Apache-2.0** | **较大段落移植** |
+| `StarNest` | `StarNest(tint:depth:motion:)` · `ohMyDesignStarNest` | Kali，Shadertoy `XlfGRj` | **已追到兼容许可 · MIT**（⚠️ 原页人工目视核验未完成） | **较大段落移植** |
+
+Ashima `snoise` 逐行移植为 MSL（`cd::snoise`），`Swirl` / `SimplexNoise` 共用；ACK 新增 Ashima / Gustavson 的 MIT 段（paper 删去了原许可头）。
+`ColorPanels` 的 `u_edges`（Bool）折进 `Style` 枚举，本批 Bool 豁免 0 条。
+`StarNest` 的上游配色是 `.metal` 内的硬编码色调，按 FR-8 改为亮度标量经 `cd::ramp3`；档位直接驱动 `volsteps` / `iterations`（`.deep` = 上游 20 × 17）。
+⚠️ `StarNest` 的原页许可头人工目视核验见《须用户人工完成的核验》第 1 项，**未完成前不得随 `epic → main` 合入**。
 
 ## ⚠️ #261 合入前必须同步改口径的代码注释（第 2 轮终审 C-6）
 

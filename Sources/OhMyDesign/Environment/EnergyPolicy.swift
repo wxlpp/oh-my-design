@@ -9,9 +9,10 @@ public nonisolated enum RenderPolicy: Sendable, Equatable, CaseIterable {
     case reduced
 
     /// 完全停摆：驱动动画的 `TimelineView` **不建**（不是「建了但暂停」）。
+    /// ⚠️ `OhMyDesignShaders` 的全幅背景是例外：暂停并保留最后一帧，理由见其 `ProceduralBackground`。
     case paused
 
-    /// 是否还要画装饰层。`false` ⇒ 调用方应当**整层不建**。
+    /// 是否还要画装饰层。`false` ⇒ 调用方应当**整层不建**（`OhMyDesignShaders` 的全幅背景例外，见上）。
     public var drawsAnything: Bool { self != .paused }
 
     /// 交给 `TimelineSchedule.animation(minimumInterval:)` 的最小间隔。
@@ -61,6 +62,7 @@ public nonisolated struct EnergyState: Sendable, Equatable {
 /// 两道闸（NFR-7 能耗闸 + Reduce Motion 闸）**一起**裁出来的结果：这一层到底呈现什么。
 public nonisolated enum MotionPresentation: Sendable, Equatable, CaseIterable {
     /// 一个像素都不画（NFR-7 停摆）。**优先级最高**——它在 Reduce Motion 之前裁决。
+    /// ⚠️ `OhMyDesignShaders` 的全幅背景在此档暂停并保留最后一帧，见其 `ProceduralBackground`。
     case hidden
 
     /// 画，但静止（Reduce Motion：保留视觉、去掉运动）。

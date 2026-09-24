@@ -38,11 +38,13 @@ public struct DotGrid: View {
     private let spacing: Spacing
     private let motion: ShaderMotion
 
+    var originOverride: Date?
+
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     /// - Parameter motion: `.still` 时**完全静态**（呼吸振幅为 0），适合作纹理底。
     public init(
-        tint: Color = .accent,
+        tint: Color = .dataAccent,
         spacing: Spacing = .regular,
         motion: ShaderMotion = .still
     ) {
@@ -61,7 +63,7 @@ public struct DotGrid: View {
         // 隔离的（#261 终审 I-1）。
         let library = ShaderLibrary.bundle(.module)
 
-        return ProceduralBackground(base: ramp.low, motion: self.motion) { size, t in
+        return ProceduralBackground(base: ramp.low, motion: self.motion, originOverride: self.originOverride) { size, t in
             library.ohMyDesignDotGrid(
                 .float2(size), .float(t),
                 .float(metrics.spacing), .float(metrics.radius), .float(pulse),
