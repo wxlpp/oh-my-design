@@ -110,6 +110,18 @@ struct TimelineLegacy420GateTests {
         }
     }
 
+    private static func steppedTimeline(layout: TimelineLayout) -> some View {
+        Timeline(layout: layout) {
+            ForEach(Array(Self.fixtures.enumerated()), id: \.offset) { step, entry in
+                if case .dot(let status) = entry.0 {
+                    TimelineItem(step: step, status: status) { Self.content(entry.1) }
+                } else {
+                    TimelineItem(step: step, status: .neutral) { Self.node(entry.0) } content: { Self.content(entry.1) }
+                }
+            }
+        }
+    }
+
     private static var legacyItems: [Legacy420TimelineItem] {
         Self.fixtures.map { fixture, text in
             if case .dot(let status) = fixture {
@@ -156,6 +168,23 @@ struct TimelineLegacy420GateTests {
         expectBitmapsEquivalent(
             now.bytes, old.bytes, maxChannelDelta: Self.noiseTolerance,
             "\(layout) / \(scheme)：新实现与旧实现不同"
+        )
+    }
+
+    @Test("不传 progress：各行写了 step、容器施 .tint(.black)，仍与旧实现在光栅噪声内相同（没有阶段、连线全为底线色）",
+          arguments: PreservedLayout.allCases, Scheme.allCases)
+    func steppedRowsWithoutProgressMatchLegacy(layout: PreservedLayout, scheme: Scheme) {
+        let now = Self.render(Self.marked(Self.steppedTimeline(layout: layout.layout).tint(.black)), scheme: scheme)
+        let old = Self.render(
+            Self.marked(Legacy420Timeline(items: Self.legacyItems, layout: layout.layout).tint(.black)), scheme: scheme
+        )
+        #expect(Self.distinctPixelCount(old) > 500, "\(layout) / \(scheme)：旧实现几乎没画出东西，相等判据无意义")
+        let bottom = Self.bottomMarkerRow(now)
+        #expect(bottom != nil && bottom == Self.bottomMarkerRow(old),
+                "\(layout) / \(scheme)：容器下方标记行 \(String(describing: bottom))，旧实现 \(String(describing: Self.bottomMarkerRow(old)))")
+        expectBitmapsEquivalent(
+            now.bytes, old.bytes, maxChannelDelta: Self.noiseTolerance,
+            "\(layout) / \(scheme)：各行带 step 但不传 progress 时与旧实现不同"
         )
     }
 

@@ -13,24 +13,24 @@ struct TimelineCompositionTests {
     func defaultNodeRowsMountStatus() {
         for status in [StatusLevel.info, .success, .warning, .danger, .neutral] {
             let key = Timeline.accessibilityLabelKey(for: status)
-            #expect(Timeline.accessibility(status: status, hasCustomNode: false, hasTitle: false)
+            #expect(Timeline.accessibility(status: status, hasCustomNode: false, hasTitle: false, phase: nil)
                     == TimelineRowAccessibility(valueKeys: [key], mount: .content, combinesContent: true))
-            #expect(Timeline.accessibility(status: status, hasCustomNode: false, hasTitle: true)
+            #expect(Timeline.accessibility(status: status, hasCustomNode: false, hasTitle: true, phase: nil)
                     == TimelineRowAccessibility(valueKeys: [key], mount: .title, combinesContent: false))
         }
-        #expect(Timeline.accessibility(status: nil, hasCustomNode: false, hasTitle: false).valueKeys == ["Info"],
+        #expect(Timeline.accessibility(status: nil, hasCustomNode: false, hasTitle: false, phase: nil).valueKeys == ["Info"],
                 "默认圆点行恒带状态键")
     }
 
     @Test("挂载点：自定义节点不传 status ⇒ 无状态键、不改写内容；传了 ⇒ 与默认圆点同一挂载规则")
     func customNodeRowsMountOnlyPassedStatus() {
         for hasTitle in [false, true] {
-            #expect(Timeline.accessibility(status: nil, hasCustomNode: true, hasTitle: hasTitle)
+            #expect(Timeline.accessibility(status: nil, hasCustomNode: true, hasTitle: hasTitle, phase: nil)
                     == TimelineRowAccessibility(valueKeys: [], mount: .none, combinesContent: false))
         }
-        #expect(Timeline.accessibility(status: .danger, hasCustomNode: true, hasTitle: false)
+        #expect(Timeline.accessibility(status: .danger, hasCustomNode: true, hasTitle: false, phase: nil)
                 == TimelineRowAccessibility(valueKeys: ["Error"], mount: .content, combinesContent: true))
-        #expect(Timeline.accessibility(status: .success, hasCustomNode: true, hasTitle: true)
+        #expect(Timeline.accessibility(status: .success, hasCustomNode: true, hasTitle: true, phase: nil)
                 == TimelineRowAccessibility(valueKeys: ["Success"], mount: .title, combinesContent: false))
     }
 
@@ -103,7 +103,7 @@ struct TimelineCompositionTests {
     // MARK: - 无障碍接线（iOS 进程内无障碍树）
 
     #if os(iOS)
-    private struct Element: Equatable {
+    struct Element: Equatable {
         let label: String?
         let value: String?
         let isHeader: Bool
@@ -112,7 +112,7 @@ struct TimelineCompositionTests {
 
     // SwiftUI 只在系统「应用无障碍」开关打开时才生成 accessibilityElements；干净的模拟器（CI）上它是关的，读到的树恒为空。
     // 没有公开 API 能打开它，只能经 libAccessibility 的私有符号——不得删，删了这两条判据在 CI 上恒红。
-    private static func enableApplicationAccessibility() -> Bool {
+    static func enableApplicationAccessibility() -> Bool {
         guard let handle = dlopen("/usr/lib/libAccessibility.dylib", RTLD_NOW),
               let setter = dlsym(handle, "_AXSApplicationAccessibilitySetEnabled"),
               let getter = dlsym(handle, "_AXSApplicationAccessibilityEnabled") else { return false }
@@ -120,7 +120,7 @@ struct TimelineCompositionTests {
         return unsafeBitCast(getter, to: (@convention(c) () -> Bool).self)()
     }
 
-    private static func accessibilityTree(_ view: some View) -> [Element] {
+    static func accessibilityTree(_ view: some View) -> [Element] {
         #expect(Self.enableApplicationAccessibility(), "没能打开应用无障碍开关，读到的树不可信")
         let host = HostedWindow(view, size: CGSize(width: 390, height: 300), scheme: .light)
         defer { host.close() }
@@ -480,6 +480,62 @@ struct TimelineCompositionTests {
         #expect(content.map { abs($0.width - 16) <= 1 } == true, "内容槽读数 \(String(describing: content?.width))，应为 .vertical ⇒ 16")
         let outside = canvas.bounds(x: 0...300, y: 40...60, canvas.isBlue)
         #expect(outside.map { abs($0.width - 8) <= 1 } == true, "Timeline 外读数 \(String(describing: outside?.width))，应为默认 ⇒ 8")
+    }
+
+    private struct PhaseProbe: View {
+        let red: Bool
+        @Environment(\.timelinePhase) private var phase
+
+        var body: some View {
+            Color(red: self.red ? 1 : 0, green: 0, blue: self.red ? 0 : 1)
+                .frame(width: TimelineCompositionTests.probeWidth(self.phase), height: 10)
+        }
+    }
+
+    private static func probeWidth(_ phase: TimelinePhase?) -> CGFloat {
+        switch phase {
+        case nil: 4
+        case .completed: 8
+        case .inProgress: 12
+        case .upcoming: 16
+        }
+    }
+
+    @Test("timelinePhase：Timeline(progress:) 内带 step 的行，节点槽与内容槽都读到本行阶段；无 step 的行、非行子视图、不传 progress 的 Timeline 与 Timeline 外恒为 nil")
+    func phaseReachesBothSlots() {
+        let canvas = Self.render(VStack(alignment: .leading, spacing: 0) {
+            Timeline(progress: .inProgress(at: 1)) {
+                TimelineItem(step: 0) { PhaseProbe(red: true) } content: { PhaseProbe(red: false) }
+                TimelineItem(step: 1) { PhaseProbe(red: true) } content: { PhaseProbe(red: false) }
+                TimelineItem(step: 2) { PhaseProbe(red: true) } content: { PhaseProbe(red: false) }
+                TimelineItem { PhaseProbe(red: true) } content: { PhaseProbe(red: false) }
+                PhaseProbe(red: true)
+            }
+            Timeline {
+                TimelineItem(step: 0) { PhaseProbe(red: true) } content: { PhaseProbe(red: false) }
+            }
+            PhaseProbe(red: false)
+        })
+        let rows: [(CGFloat, TimelinePhase?, String)] = [
+            (0, .completed, "step 0"), (32, .inProgress, "step 1"), (64, .upcoming, "step 2"), (96, nil, "无 step"),
+        ]
+        for (top, phase, name) in rows {
+            let expected = Self.probeWidth(phase)
+            let node = canvas.bounds(x: 0...30, y: top...(top + 24), canvas.isRed)
+            #expect(node.map { abs($0.width - expected) <= 1 } == true,
+                    "\(name) 节点槽读数 \(String(describing: node?.width))，应为 \(String(describing: phase)) ⇒ \(expected)")
+            let content = canvas.bounds(x: 30...300, y: top...(top + 10), canvas.isBlue)
+            #expect(content.map { abs($0.width - expected) <= 1 } == true,
+                    "\(name) 内容槽读数 \(String(describing: content?.width))，应为 \(String(describing: phase)) ⇒ \(expected)")
+        }
+        let free = canvas.bounds(x: 30...300, y: 128...138, canvas.isRed)
+        #expect(free.map { abs($0.width - 4) <= 1 } == true, "非行子视图读数 \(String(describing: free?.width))，应为 nil ⇒ 4")
+        let plainNode = canvas.bounds(x: 0...30, y: 138...162, canvas.isRed)
+        let plainContent = canvas.bounds(x: 30...300, y: 138...148, canvas.isBlue)
+        #expect(plainNode.map { abs($0.width - 4) <= 1 } == true && plainContent.map { abs($0.width - 4) <= 1 } == true,
+                "不传 progress 的行读数 \(String(describing: plainNode?.width)) / \(String(describing: plainContent?.width))，应为 nil ⇒ 4")
+        let outside = canvas.bounds(x: 0...300, y: 162...172, canvas.isBlue)
+        #expect(outside.map { abs($0.width - 4) <= 1 } == true, "Timeline 外读数 \(String(describing: outside?.width))，应为 nil ⇒ 4")
     }
     #endif
 }

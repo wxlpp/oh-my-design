@@ -317,6 +317,35 @@ extension TimelineStackLayout {
         }
     }
 
+    nonisolated static func progressPosition(steps: [Int?], progress: TimelineProgress?) -> CGFloat? {
+        let known = steps.compactMap { $0 }
+        guard let progress, let lowest = known.min(), let highest = known.max() else { return nil }
+        switch progress {
+        case .notStarted: return CGFloat(lowest) - 1
+        case .inProgress(let current): return CGFloat(current)
+        case .completed: return CGFloat(highest) + 1
+        }
+    }
+
+    nonisolated static func segmentFraction(position: CGFloat?, nextStep: Int?) -> CGFloat {
+        guard let position, let nextStep else { return 0 }
+        return Swift.min(1, Swift.max(0, position - CGFloat(nextStep) + 1))
+    }
+
+    nonisolated static func connectorFractions(
+        slots: [Slot], steps: [Int?], progress: TimelineProgress?, layout: TimelineLayout
+    ) -> [CGFloat] {
+        guard layout != .grouped else { return [] }
+        let position = Self.progressPosition(steps: steps, progress: progress)
+        return Self.segments(slots: slots).flatMap { segment in
+            let fraction = Self.segmentFraction(
+                position: position, nextStep: steps.indices.contains(segment.to) ? steps[segment.to] : nil
+            )
+            let pieces = layout == .alternate ? segment.free.count + 1 : 1
+            return [CGFloat](repeating: fraction, count: pieces)
+        }
+    }
+
     nonisolated static func nodeBox(reported: CGSize) -> CGSize {
         CGSize(width: Self.extent(reported.width), height: Self.extent(reported.height))
     }
