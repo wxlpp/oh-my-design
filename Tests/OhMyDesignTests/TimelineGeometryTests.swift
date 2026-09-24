@@ -99,6 +99,19 @@ struct TimelineGeometryPureTests {
         }
     }
 
+    @Test("pairRows：按行号配对；缺节点或缺内容的行照样成行（缺的一格为 nil），不丢行、不串行；同一行重复的部件取先到的")
+    func pairRowsKeepsIncompleteRows() {
+        typealias Part = TimelineStackLayout.Part
+        typealias Row = TimelineStackLayout.Row
+        let parts: [Part?] = [.connector(0), .connector(1), .node(0), .content(0), .content(1), .node(2), .content(2), nil]
+        let paired = TimelineStackLayout.pairRows(parts: parts)
+        #expect(paired.rows == [Row(node: 2, content: 3), Row(node: nil, content: 4), Row(node: 5, content: 6)])
+        #expect(paired.connectors == [0: 0, 1: 1])
+        #expect(TimelineStackLayout.pairRows(parts: [.node(0)]).rows == [Row(node: 0, content: nil)])
+        #expect(TimelineStackLayout.pairRows(parts: [.node(0), .node(0), .content(0)]).rows == [Row(node: 0, content: 2)])
+        #expect(TimelineStackLayout.pairRows(parts: []).rows.isEmpty)
+    }
+
     @Test("connectorSpan：两盒相邻边的距离，恒 ≥ 0，非有限得 0")
     func connectorSpanIsNonNegative() {
         #expect(TimelineStackLayout.connectorSpan(from: 24, to: 76) == 52)
@@ -135,6 +148,32 @@ struct TimelineGeometryRenderTests {
         func isBlack(_ x: Int, _ y: Int) -> Bool {
             let p = self.device(x, y)
             return p.r < 40 && p.g < 40 && p.b < 40
+        }
+
+        func isRed(_ x: Int, _ y: Int) -> Bool {
+            let p = self.device(x, y)
+            return p.r > 200 && p.g < 60 && p.b < 60
+        }
+
+        func isDark(_ x: Int, _ y: Int) -> Bool {
+            let p = self.device(x, y)
+            return p.r >= 0 && p.r < 128 && p.g < 128 && p.b < 128
+        }
+
+        func bounds(x: ClosedRange<CGFloat>, y: ClosedRange<CGFloat>, _ match: (Int, Int) -> Bool) -> CGRect? {
+            let scale = self.pixels.scale
+            var minX = Int.max, minY = Int.max, maxX = Int.min, maxY = Int.min
+            for py in Int(y.lowerBound * scale)..<Swift.min(Int(y.upperBound * scale), self.pixels.height) {
+                for px in Int(x.lowerBound * scale)..<Swift.min(Int(x.upperBound * scale), self.pixels.width) where match(px, py) {
+                    minX = Swift.min(minX, px); maxX = Swift.max(maxX, px)
+                    minY = Swift.min(minY, py); maxY = Swift.max(maxY, py)
+                }
+            }
+            guard maxX >= minX else { return nil }
+            return CGRect(
+                x: CGFloat(minX) / scale, y: CGFloat(minY) / scale,
+                width: CGFloat(maxX + 1 - minX) / scale, height: CGFloat(maxY + 1 - minY) / scale
+            )
         }
 
         func isBlue(_ x: Int, _ y: Int) -> Bool {
@@ -275,23 +314,6 @@ struct TimelineGeometryRenderTests {
         #expect(rightEdge.map { abs($0 - 182) <= 1 } == true, "右侧内容左缘 \(String(describing: rightEdge))，应为 150 + 20 + 12")
     }
 
-    @Test(".alternate 内容宽于槽时向外（远离中轴）溢出，不压节点")
-    func alternateOverflowGoesOutward() {
-        let items = [
-            TimelineItem(status: .neutral) { Color.black.frame(width: 24, height: 24) } content: { Self.block(width: 200, height: 24) },
-            TimelineItem(status: .neutral) { Color.black.frame(width: 24, height: 24) } content: { Self.block(width: 200, height: 24) },
-        ]
-        let canvas = Self.render(Timeline(items: items, layout: .alternate))
-        let scale = canvas.pixels.scale
-        for y in [CGFloat(12), 52] {
-            #expect(canvas.isBlack(Int(150 * scale), Int(y * scale)), "y=\(y)：中轴上的节点被宽内容盖住了")
-        }
-        let leftEdge = canvas.lastX(inRow: 12, before: 150, canvas.isBlue)
-        #expect(leftEdge.map { abs($0 - 126) <= 1 } == true, "左槽宽内容右缘 \(String(describing: leftEdge))，应停在槽右沿 126")
-        let rightEdge = canvas.firstX(inRow: 52, from: 150, canvas.isBlue)
-        #expect(rightEdge.map { abs($0 - 174) <= 1 } == true, "右槽宽内容左缘 \(String(describing: rightEdge))，应从 174 起")
-    }
-
     @Test(".horizontal 横轴与内容顶：盒高 24 / 56 混排，节点中心同一行、内容顶都在 56 + sm，横轴上有连线")
     func horizontalAxisAndContentTop() {
         let items = [
@@ -308,6 +330,179 @@ struct TimelineGeometryRenderTests {
         }
         let d = canvas.deltaFromWhite(device: Int(68 * canvas.pixels.scale), Int(28 * canvas.pixels.scale))
         #expect(d >= 6, "横轴 x=68 处应有连线，与背景只差 \(d)")
+    }
+
+    private static let nodeIsShown = false
+
+    @Test("空节点（if 不成立）：本行照常成行、节点盒取下限 24，内容不落到容器中心，后续行不错位")
+    func emptyNodeKeepsItsRow() {
+        let items = [
+            TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: { Self.block(height: 20) },
+            TimelineItem(status: .neutral) {
+                if Self.nodeIsShown { Color.black.frame(width: 10, height: 10) }
+            } content: { Self.block(width: 40, height: 20) },
+            TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: { Self.block(height: 20) },
+        ]
+        let canvas = Self.render(Timeline(items: items))
+        for (row, top) in [CGFloat(0), 36, 72].enumerated() {
+            let blue = canvas.bounds(x: 0...300, y: top...(top + 20), canvas.isBlue)
+            #expect(blue.map { abs($0.minX - 36) <= 1 && abs($0.minY - top) <= 1 } == true,
+                    "第 \(row) 行内容 \(String(describing: blue))，应左缘 36、顶 \(top)")
+        }
+        let stray = canvas.bounds(x: 100...300, y: 0...240, canvas.isBlue)
+        #expect(stray == nil, "内容落到了行外 \(String(describing: stray))")
+        let node = canvas.bounds(x: 0...36, y: 36...72, canvas.isBlack)
+        #expect(node == nil, "空节点行出现了节点像素 \(String(describing: node))")
+    }
+
+    @Test("多视图节点：两个视图叠在同一个节点盒里（居中），不拆成两格、不落到容器中心")
+    func multiViewNodeSharesOneBox() {
+        let items = [
+            TimelineItem(status: .neutral) {
+                Color.black.frame(width: 16, height: 4)
+                Color.black.frame(width: 4, height: 16)
+            } content: { Self.block(height: 20) },
+            TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: { Self.block(height: 20) },
+        ]
+        let canvas = Self.render(Timeline(items: items))
+        let node = canvas.bounds(x: 0...300, y: 0...30, canvas.isBlack)
+        #expect(node.map { abs($0.midX - 12) <= 1 && abs($0.midY - 12) <= 1 && abs($0.width - 16) <= 1 && abs($0.height - 16) <= 1 } == true,
+                "多视图节点像素 \(String(describing: node))，应是以 (12, 12) 为中心的 16×16 十字")
+        let blue = canvas.bounds(x: 0...300, y: 0...20, canvas.isBlue)
+        #expect(blue.map { abs($0.minX - 36) <= 1 } == true, "内容 \(String(describing: blue))，应左缘 36")
+        let stray = canvas.bounds(x: 30...300, y: 0...240, canvas.isBlack)
+        #expect(stray == nil, "节点列以外出现节点像素 \(String(describing: stray))")
+    }
+
+    @Test("多视图内容：竖排在同一内容格里（左缘相等、间距 0），行高按两者之和算")
+    func multiViewContentStacks() {
+        let items = [
+            TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: {
+                Self.block(height: 20)
+                Color(red: 1, green: 0, blue: 0).frame(width: 40, height: 20)
+            },
+            TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: { Self.block(height: 20) },
+        ]
+        let canvas = Self.render(Timeline(items: items))
+        let first = canvas.bounds(x: 0...300, y: 0...40, canvas.isBlue)
+        let second = canvas.bounds(x: 0...300, y: 0...40, canvas.isRed)
+        #expect(first.map { abs($0.minX - 36) <= 1 && abs($0.minY) <= 1 } == true, "第一个内容视图 \(String(describing: first))")
+        #expect(second.map { abs($0.minX - 36) <= 1 && abs($0.minY - 20) <= 1 } == true,
+                "第二个内容视图 \(String(describing: second))，应左缘 36、顶 20（紧贴第一个下方）")
+        let next = canvas.firstY(inColumn: 50, from: 41, canvas.isBlue)
+        #expect(next.map { abs($0 - 56) <= 1 } == true, "下一行内容顶 \(String(describing: next))，应为 40 + lg = 56")
+    }
+
+    @Test("内容高 10 的非末行：行高 = 盒高 24 + sm = 32（旧实现为 max(24, 10 + lg) = 26）")
+    func shortContentRowIsBoxPlusGap() {
+        let items = [
+            TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: { Self.block(height: 10) },
+            TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: { Self.block(height: 10) },
+        ]
+        let canvas = Self.render(Timeline(items: items))
+        let second = canvas.firstY(inColumn: 50, from: 11, canvas.isBlue)
+        #expect(second.map { abs($0 - 32) <= 1 } == true, "第 1 行内容顶 \(String(describing: second))，应为 32")
+    }
+
+    private static let longText = "A fairly long description line that has to wrap inside the slot width"
+
+    private static func slotted(_ view: some View) -> some View {
+        view.frame(width: 300).padding(.horizontal, 50)
+    }
+
+    private static func textItems(longRow: Int) -> [TimelineItem] {
+        (0..<2).map { row in
+            TimelineItem(status: .neutral) {
+                Color(red: 1, green: 0, blue: 0).frame(width: 10, height: 10)
+            } content: {
+                Text(verbatim: row == longRow ? Self.longText : "b")
+            }
+        }
+    }
+
+    @Test(".alternate 长文本：按槽宽换行，落在本槽内、不越过槽外缘（左右槽、RTL 同一规则）",
+          arguments: [LayoutDirection.leftToRight, .rightToLeft], [0, 1])
+    func alternateTextWrapsInsideSlot(direction: LayoutDirection, longRow: Int) {
+        let canvas = Self.render(
+            Self.slotted(Timeline(items: Self.textItems(longRow: longRow), layout: .alternate)),
+            size: CGSize(width: 400, height: 240), direction: direction
+        )
+        let onLeading = longRow.isMultiple(of: 2)
+        let onLeft = onLeading == (direction == .leftToRight)
+        let slot: ClosedRange<CGFloat> = onLeft ? 50...176 : 224...350
+        let search: ClosedRange<CGFloat> = onLeft ? 0...190 : 210...400
+        let text = canvas.bounds(x: search, y: 0...240, canvas.isDark)
+        #expect(text.map { $0.minX >= slot.lowerBound - 1 && $0.maxX <= slot.upperBound + 1 } == true,
+                "长文本横向范围 \(String(describing: text))，应落在槽 \(slot) 内")
+        #expect(text.map { $0.height >= 30 } == true, "长文本高 \(String(describing: text?.height))，应已换成多行")
+    }
+
+    @Test(".alternate 220pt 固定宽色块：宽于槽时越过槽外缘向外溢出，不压节点（左右槽、RTL 同一规则）",
+          arguments: [LayoutDirection.leftToRight, .rightToLeft])
+    func alternateFixedWidthOverflowsOutward(direction: LayoutDirection) {
+        let items = (0..<2).map { _ in
+            TimelineItem(status: .neutral) {
+                Color(red: 1, green: 0, blue: 0).frame(width: 10, height: 10)
+            } content: { Self.block(width: 220, height: 24) }
+        }
+        let canvas = Self.render(
+            Self.slotted(Timeline(items: items, layout: .alternate)), size: CGSize(width: 400, height: 240), direction: direction
+        )
+        let scale = canvas.pixels.scale
+        for y in [CGFloat(12), 52] {
+            #expect(canvas.isRed(Int(200 * scale), Int(y * scale)), "y=\(y)：中轴上的节点被宽内容盖住了")
+        }
+        let firstRowOnLeft = direction == .leftToRight
+        for (y, onLeft) in [(CGFloat(12), firstRowOnLeft), (52, !firstRowOnLeft)] {
+            let block = canvas.bounds(x: 0...400, y: y...(y + 1), canvas.isBlue)
+            let expected: (CGFloat, CGFloat) = onLeft ? (0, 176) : (224, 400)
+            #expect(block.map { abs($0.minX - expected.0) <= 1 && abs($0.maxX - expected.1) <= 1 } == true,
+                    "y=\(y) 的色块 \(String(describing: block))，应占 \(expected)（内缘贴槽内缘、外侧越过槽外缘到画布边）")
+        }
+    }
+
+    @Test(".alternate RTL 图 = LTR 图水平翻转（220pt 溢出色块 + 节点 + 连线）")
+    func alternateRightToLeftMirrors() {
+        let items = (0..<3).map { row in
+            TimelineItem(status: .neutral) {
+                Color(red: 1, green: 0, blue: 0).frame(width: 10, height: 10)
+            } content: { Self.block(width: row == 1 ? 60 : 220, height: 24) }
+        }
+        let size = CGSize(width: 400, height: 240)
+        let ltr = Self.render(Self.slotted(Timeline(items: items, layout: .alternate)), size: size).pixels
+        let rtl = Self.render(
+            Self.slotted(Timeline(items: items, layout: .alternate)), size: size, direction: .rightToLeft
+        ).pixels
+        let axis = Int(200 * ltr.scale)
+        let band = (axis - 2)...(axis + 1)
+        expectBitmapsEquivalent(
+            Self.masking(columns: band, in: Self.mirrored(ltr), width: ltr.width),
+            Self.masking(columns: band, in: rtl.bytes, width: rtl.width),
+            maxChannelDelta: 2, ".alternate RTL（中轴连线列以外）不是 LTR 的水平翻转：1pt 连线跨在两个设备像素上，镜像后取整方向不同"
+        )
+        let red = Self.render(Self.slotted(Timeline(items: items, layout: .alternate)), size: size, direction: .rightToLeft)
+        #expect(red.isRed(Int(200 * ltr.scale), Int(12 * ltr.scale)), "RTL 中轴上的节点被遮住或不在中轴")
+    }
+
+    private static func masking(columns: ClosedRange<Int>, in bytes: [UInt8]?, width: Int) -> [UInt8]? {
+        guard var bytes else { return nil }
+        for offset in stride(from: 0, to: bytes.count, by: 4) where columns.contains((offset / 4) % width) {
+            for channel in 0..<4 { bytes[offset + channel] = 0 }
+        }
+        return bytes
+    }
+
+    private static func mirrored(_ pixels: HostedPixels) -> [UInt8]? {
+        guard let bytes = pixels.bytes else { return nil }
+        var mirrored = bytes
+        for y in 0..<pixels.height {
+            for x in 0..<pixels.width {
+                let source = (y * pixels.width + x) * 4
+                let target = (y * pixels.width + (pixels.width - 1 - x)) * 4
+                for channel in 0..<4 { mirrored[target + channel] = bytes[source + channel] }
+            }
+        }
+        return mirrored
     }
 
     private static func oddWidthItems() -> [TimelineItem] {

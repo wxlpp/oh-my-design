@@ -160,10 +160,6 @@ public struct Timeline: View {
         case .neutral: "Neutral"
         }
     }
-
-    static func isLastItem(_ item: TimelineItem, in items: [TimelineItem]) -> Bool {
-        item.id == items.last?.id
-    }
 }
 
 // MARK: - TimelineNodeView
@@ -174,7 +170,9 @@ struct TimelineNodeView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        self.nodeContent
+        ZStack {
+            self.nodeContent
+        }
     }
 
     @ViewBuilder

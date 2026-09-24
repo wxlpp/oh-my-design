@@ -15,6 +15,16 @@ struct TimelineStackLayout: Layout {
         static let defaultValue: Part? = nil
     }
 
+    nonisolated struct Row: Equatable, Sendable {
+        let node: Int?
+        let content: Int?
+    }
+
+    nonisolated struct Rows: Equatable, Sendable {
+        var rows: [Row] = []
+        var connectors: [Int: Int] = [:]
+    }
+
     nonisolated struct AlternateRowMetrics: Equatable, Sendable {
         let slotWidth: CGFloat
         let nodeCenterX: CGFloat
@@ -53,42 +63,23 @@ struct TimelineStackLayout: Layout {
     private struct Arrangement {
         var size: CGSize = .zero
         var placements: [Placement] = []
-    }
 
-    private struct Rows {
-        var nodes: [Int] = []
-        var contents: [Int] = []
-        var connectors: [Int: Int] = [:]
+        mutating func place(_ index: Int?, _ point: CGPoint, _ anchor: UnitPoint, _ proposal: ProposedViewSize) {
+            guard let index else { return }
+            self.placements.append(Placement(index: index, point: point, anchor: anchor, proposal: proposal))
+        }
     }
 
     private static let nodeProposal = ProposedViewSize(
         width: Timeline.minimumNodeExtent, height: Timeline.minimumNodeExtent
     )
 
-    private static func rows(_ subviews: Subviews) -> Rows {
-        var nodes: [Int: Int] = [:]
-        var contents: [Int: Int] = [:]
-        var rows = Rows()
-        for index in subviews.indices {
-            switch subviews[index][PartKey.self] {
-            case .node(let row): nodes[row] = index
-            case .content(let row): contents[row] = index
-            case .connector(let segment): rows.connectors[segment] = index
-            case nil: break
-            }
-        }
-        for row in nodes.keys.sorted() {
-            guard let node = nodes[row], let content = contents[row] else { continue }
-            rows.nodes.append(node)
-            rows.contents.append(content)
-        }
-        return rows
-    }
-
     private func arrange(width: CGFloat?, subviews: Subviews) -> Arrangement {
-        let rows = Self.rows(subviews)
-        guard !rows.nodes.isEmpty else { return Arrangement() }
-        let boxes = rows.nodes.map { Self.nodeBox(reported: subviews[$0].sizeThatFits(Self.nodeProposal)) }
+        let rows = Self.pairRows(parts: subviews.map { $0[PartKey.self] })
+        guard !rows.rows.isEmpty else { return Arrangement() }
+        let boxes = rows.rows.map { row in
+            Self.nodeBox(reported: row.node.map { subviews[$0].sizeThatFits(Self.nodeProposal) } ?? .zero)
+        }
         switch self.layout {
         case .alternate:
             return Self.arrangeAlternate(width: width, rows: rows, boxes: boxes, subviews: subviews)
@@ -106,20 +97,13 @@ struct TimelineStackLayout: Layout {
         let contentX = column + CoreSpacing.md
         let finiteWidth = width.flatMap { $0.isFinite ? $0 : nil }
         let contentProposal = ProposedViewSize(width: finiteWidth.map { Swift.max(0, $0 - contentX) }, height: nil)
-        let contentSizes = rows.contents.map { subviews[$0].sizeThatFits(contentProposal) }
+        let contentSizes = Self.contentSizes(rows: rows, subviews: subviews, proposal: contentProposal)
         let tops = Self.rowTops(boxes: boxes, contents: contentSizes)
 
         var arrangement = Arrangement()
-        for row in rows.nodes.indices {
-            arrangement.placements.append(Placement(
-                index: rows.nodes[row],
-                point: CGPoint(x: column / 2, y: tops[row] + boxes[row].height / 2),
-                anchor: .center, proposal: Self.nodeProposal
-            ))
-            arrangement.placements.append(Placement(
-                index: rows.contents[row], point: CGPoint(x: contentX, y: tops[row]),
-                anchor: .topLeading, proposal: contentProposal
-            ))
+        for (row, parts) in rows.rows.enumerated() {
+            arrangement.place(parts.node, CGPoint(x: column / 2, y: tops[row] + boxes[row].height / 2), .center, Self.nodeProposal)
+            arrangement.place(parts.content, CGPoint(x: contentX, y: tops[row]), .topLeading, contentProposal)
         }
         arrangement.placements += Self.verticalConnectors(
             rows: rows, boxes: boxes, tops: tops, axisX: column / 2
@@ -137,29 +121,24 @@ struct TimelineStackLayout: Layout {
         if let width, width.isFinite {
             rowWidth = width
         } else {
-            let ideal = rows.contents.map { subviews[$0].sizeThatFits(.unspecified).width }.max() ?? 0
+            let ideal = Self.contentSizes(rows: rows, subviews: subviews, proposal: .unspecified).map(\.width).max() ?? 0
             rowWidth = ideal * 2 + column + 2 * CoreSpacing.md
         }
         let metrics = Self.alternateRowMetrics(forRowWidth: rowWidth, nodeColumnWidth: column)
         let slot = metrics.slotWidth
         let contentProposal = ProposedViewSize(width: slot, height: nil)
-        let contentSizes = rows.contents.map { subviews[$0].sizeThatFits(contentProposal) }
+        let contentSizes = Self.contentSizes(rows: rows, subviews: subviews, proposal: contentProposal)
         let tops = Self.rowTops(boxes: boxes, contents: contentSizes)
 
         var arrangement = Arrangement()
-        for row in rows.nodes.indices {
-            arrangement.placements.append(Placement(
-                index: rows.nodes[row],
-                point: CGPoint(x: metrics.nodeCenterX, y: tops[row] + boxes[row].height / 2),
-                anchor: .center, proposal: Self.nodeProposal
-            ))
+        for (row, parts) in rows.rows.enumerated() {
+            arrangement.place(
+                parts.node, CGPoint(x: metrics.nodeCenterX, y: tops[row] + boxes[row].height / 2), .center, Self.nodeProposal
+            )
             let contentX = row.isMultiple(of: 2)
                 ? slot - contentSizes[row].width
                 : slot + CoreSpacing.md + column + CoreSpacing.md
-            arrangement.placements.append(Placement(
-                index: rows.contents[row], point: CGPoint(x: contentX, y: tops[row]),
-                anchor: .topLeading, proposal: contentProposal
-            ))
+            arrangement.place(parts.content, CGPoint(x: contentX, y: tops[row]), .topLeading, contentProposal)
         }
         arrangement.placements += Self.verticalConnectors(
             rows: rows, boxes: boxes, tops: tops, axisX: metrics.nodeCenterX
@@ -170,27 +149,22 @@ struct TimelineStackLayout: Layout {
 
     private static func arrangeHorizontal(rows: Rows, boxes: [CGSize], subviews: Subviews) -> Arrangement {
         let axis = Self.horizontalAxis(boxHeights: boxes.map(\.height))
-        let contentSizes = rows.contents.map { subviews[$0].sizeThatFits(.unspecified) }
-        let columnWidths = rows.nodes.indices.map { Swift.max(boxes[$0].width, contentSizes[$0].width) }
+        let contentSizes = Self.contentSizes(rows: rows, subviews: subviews, proposal: .unspecified)
+        let columnWidths = rows.rows.indices.map { Swift.max(boxes[$0].width, contentSizes[$0].width) }
 
         var arrangement = Arrangement()
         var columnX: [CGFloat] = []
         var x: CGFloat = 0
-        for row in rows.nodes.indices {
+        for (row, parts) in rows.rows.enumerated() {
             columnX.append(x)
             let centerX = x + columnWidths[row] / 2
-            arrangement.placements.append(Placement(
-                index: rows.nodes[row], point: CGPoint(x: centerX, y: axis.axisY),
-                anchor: .center, proposal: Self.nodeProposal
-            ))
-            arrangement.placements.append(Placement(
-                index: rows.contents[row],
-                point: CGPoint(x: centerX - contentSizes[row].width / 2, y: axis.contentTop),
-                anchor: .topLeading, proposal: .unspecified
-            ))
+            arrangement.place(parts.node, CGPoint(x: centerX, y: axis.axisY), .center, Self.nodeProposal)
+            arrangement.place(
+                parts.content, CGPoint(x: centerX - contentSizes[row].width / 2, y: axis.contentTop), .topLeading, .unspecified
+            )
             x += columnWidths[row] + CoreSpacing.lg
         }
-        for row in rows.nodes.indices.dropLast() {
+        for row in rows.rows.indices.dropLast() {
             guard let connector = rows.connectors[row] else { continue }
             let start = columnX[row] + columnWidths[row] / 2 + boxes[row].width / 2
             let end = columnX[row + 1] + columnWidths[row + 1] / 2 - boxes[row + 1].width / 2
@@ -204,6 +178,10 @@ struct TimelineStackLayout: Layout {
             width: Swift.max(0, x - CoreSpacing.lg), height: axis.contentTop + contentHeight
         )
         return arrangement
+    }
+
+    private static func contentSizes(rows: Rows, subviews: Subviews, proposal: ProposedViewSize) -> [CGSize] {
+        rows.rows.map { row in row.content.map { subviews[$0].sizeThatFits(proposal) } ?? .zero }
     }
 
     private static func rowTops(boxes: [CGSize], contents: [CGSize]) -> [CGFloat] {
@@ -220,7 +198,7 @@ struct TimelineStackLayout: Layout {
     private static func verticalConnectors(
         rows: Rows, boxes: [CGSize], tops: [CGFloat], axisX: CGFloat
     ) -> [Placement] {
-        rows.nodes.indices.dropLast().compactMap { row in
+        rows.rows.indices.dropLast().compactMap { row in
             guard let connector = rows.connectors[row] else { return nil }
             let start = tops[row] + boxes[row].height
             return Placement(
@@ -236,6 +214,24 @@ struct TimelineStackLayout: Layout {
 // MARK: - 纯函数 / Pure geometry
 
 extension TimelineStackLayout {
+    nonisolated static func pairRows(parts: [Part?]) -> Rows {
+        var nodes: [Int: Int] = [:]
+        var contents: [Int: Int] = [:]
+        var result = Rows()
+        for (index, part) in parts.enumerated() {
+            switch part {
+            case .node(let row): nodes[row] = nodes[row] ?? index
+            case .content(let row): contents[row] = contents[row] ?? index
+            case .connector(let segment): result.connectors[segment] = result.connectors[segment] ?? index
+            case nil: break
+            }
+        }
+        result.rows = Set(nodes.keys).union(contents.keys).sorted().map { row in
+            Row(node: nodes[row], content: contents[row])
+        }
+        return result
+    }
+
     nonisolated static func nodeBox(reported: CGSize) -> CGSize {
         CGSize(width: Self.extent(reported.width), height: Self.extent(reported.height))
     }

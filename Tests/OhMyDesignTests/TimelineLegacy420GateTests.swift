@@ -34,8 +34,8 @@ struct TimelineLegacy420GateTests {
         }
     }
 
-    private static let size = CGSize(width: 320, height: 520)
-    private static let horizontalSize = CGSize(width: 1600, height: 120)
+    private static let size = CGSize(width: 320, height: 900)
+    private static let horizontalSize = CGSize(width: 2400, height: 120)
     private static let noiseTolerance = 2
 
     private static var statuses: [StatusLevel] {
@@ -47,15 +47,23 @@ struct TimelineLegacy420GateTests {
         case symbol
         case flexibleCircle
         case square20
+        case emptyNode
+        case multiViewNode
     }
 
+    private static let nodeIsShown = false
+
     private static var fixtures: [(Fixture, String)] {
-        Self.statuses.enumerated().map { (.dot($0.element), "Event \($0.offset)") } + [
+        Self.statuses.enumerated().map { (.dot($0.element), $0.offset == 0 ? Self.leadingLongText : "Event \($0.offset)") } + [
             (.symbol, "Shipped with a symbol node that wraps onto a second line in the narrow slot"),
             (.flexibleCircle, "Flexible circle"),
             (.square20, "Square 20"),
+            (.emptyNode, "Empty node"),
+            (.multiViewNode, "Multi-view node"),
         ]
     }
+
+    private static let leadingLongText = "Event 0 with a description long enough to wrap inside the leading slot"
 
     private static func content(_ text: String) -> some View {
         Text(verbatim: text).coreFont(.callout).frame(minHeight: 20, alignment: .topLeading)
@@ -68,6 +76,25 @@ struct TimelineLegacy420GateTests {
         case .symbol: Image(systemName: "checkmark.circle.fill")
         case .flexibleCircle: Circle().fill(Color.black)
         case .square20: Color.black.frame(width: 20, height: 20)
+        case .emptyNode:
+            if Self.nodeIsShown { Color.black.frame(width: 10, height: 10) }
+        case .multiViewNode:
+            Self.plusBars()
+        }
+    }
+
+    @ViewBuilder
+    private static func plusBars() -> some View {
+        Color.black.frame(width: 16, height: 4)
+        Color.black.frame(width: 4, height: 16)
+    }
+
+    @ViewBuilder
+    private static func legacyNode(_ fixture: Fixture) -> some View {
+        switch fixture {
+        case .emptyNode: Color.clear.frame(width: 24, height: 24)
+        case .multiViewNode: ZStack { Self.plusBars() }
+        default: Self.node(fixture)
         }
     }
 
@@ -86,7 +113,7 @@ struct TimelineLegacy420GateTests {
             if case .dot(let status) = fixture {
                 Legacy420TimelineItem(status: status) { Self.content(text) }
             } else {
-                Legacy420TimelineItem(status: .neutral) { Self.node(fixture) } content: { Self.content(text) }
+                Legacy420TimelineItem(status: .neutral) { Self.legacyNode(fixture) } content: { Self.content(text) }
             }
         }
     }
@@ -115,12 +142,15 @@ struct TimelineLegacy420GateTests {
         return count
     }
 
-    @Test("有意保留：节点 ≤ 24、内容 ≥ 16pt 的活动流，新实现与旧实现在光栅噪声内相同",
+    @Test("有意保留：节点 ≤ 24、内容 ≥ 16pt 的活动流，新实现与旧实现在光栅噪声内相同（空节点对照旧实现的 24pt 空盒、多视图节点对照旧实现包 ZStack 的同一组视图），容器下方标记同一行",
           arguments: PreservedLayout.allCases, Scheme.allCases)
     func preservedLayoutsMatchLegacy(layout: PreservedLayout, scheme: Scheme) {
-        let now = Self.render(Timeline(items: Self.items, layout: layout.layout), scheme: scheme)
-        let old = Self.render(Legacy420Timeline(items: Self.legacyItems, layout: layout.layout), scheme: scheme)
+        let now = Self.render(Self.marked(Timeline(items: Self.items, layout: layout.layout)), scheme: scheme)
+        let old = Self.render(Self.marked(Legacy420Timeline(items: Self.legacyItems, layout: layout.layout)), scheme: scheme)
         #expect(Self.distinctPixelCount(old) > 500, "\(layout) / \(scheme)：旧实现几乎没画出东西，相等判据无意义")
+        let bottom = Self.bottomMarkerRow(now)
+        #expect(bottom != nil && bottom == Self.bottomMarkerRow(old),
+                "\(layout) / \(scheme)：容器下方标记行 \(String(describing: bottom))，旧实现 \(String(describing: Self.bottomMarkerRow(old)))——容器高度不同或标记落在画布外")
         expectBitmapsEquivalent(
             now.bytes, old.bytes, maxChannelDelta: Self.noiseTolerance,
             "\(layout) / \(scheme)：新实现与旧实现不同"
@@ -133,7 +163,22 @@ struct TimelineLegacy420GateTests {
         VStack(alignment: .leading, spacing: 0) {
             Color(red: 1, green: 0, blue: 1).frame(width: 4, height: Self.markerHeight)
             view
+            Color(red: 1, green: 0, blue: 1).frame(width: 4, height: Self.markerHeight)
         }
+    }
+
+    private static func isMarker(_ bytes: [UInt8], _ offset: Int) -> Bool {
+        bytes[offset] > 200 && bytes[offset + 1] < 60 && bytes[offset + 2] > 200
+    }
+
+    private static func bottomMarkerRow(_ pixels: HostedPixels) -> Int? {
+        guard let bytes = pixels.bytes else { return nil }
+        let x = Int(pixels.scale)
+        let belowTopMarker = Int(Self.markerHeight * pixels.scale)
+        for y in stride(from: pixels.height - 1, through: belowTopMarker, by: -1) where Self.isMarker(bytes, (y * pixels.width + x) * 4) {
+            return y
+        }
+        return nil
     }
 
     private static func axisBand(_ pixels: HostedPixels) -> ClosedRange<Int>? {
@@ -141,7 +186,7 @@ struct TimelineLegacy420GateTests {
         let x = Int(pixels.scale)
         for y in 0..<pixels.height {
             let offset = (y * pixels.width + x) * 4
-            if bytes[offset] > 200, bytes[offset + 1] < 60, bytes[offset + 2] > 200 {
+            if Self.isMarker(bytes, offset) {
                 let axis = CGFloat(y) + (Self.markerHeight + Timeline.minimumNodeExtent / 2) * pixels.scale
                 return Int(axis - pixels.scale)...Int(axis + pixels.scale)
             }
@@ -185,6 +230,9 @@ struct TimelineLegacy420GateTests {
         )
         #expect(Self.axisBand(now) != nil && Self.axisBand(now) == Self.axisBand(old), "\(scheme)：没找到横轴定位标记")
         #expect(Self.lastColumnIsOnCanvas(old), "\(scheme)：横向最后一列落在画布外，闸门只比了一部分")
+        let bottom = Self.bottomMarkerRow(now)
+        #expect(bottom != nil && bottom == Self.bottomMarkerRow(old),
+                "\(scheme)：容器下方标记行 \(String(describing: bottom))，旧实现 \(String(describing: Self.bottomMarkerRow(old)))——容器高度不同或标记缺失")
         #expect(Self.distinctPixelCount(old) > 500, "\(scheme)：旧实现几乎没画出东西，相等判据无意义")
         let a = Self.splitAxisBand(now)
         let b = Self.splitAxisBand(old)

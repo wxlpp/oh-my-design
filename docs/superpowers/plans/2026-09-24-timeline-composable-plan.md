@@ -239,7 +239,7 @@ U12 `TimelineItem` 登记 `prescriptive` / `tiebreaker`、J-2 仍 16；U13 标�
 
 - `Timeline.swift`：`Timeline<Content: View>` + `Group(subviews:)` 解析前下发 `layout`；`ContainerValues` 角色（`.node` / `.content`）、`step`、`status`；
   `TimelineItem<Node, Content>: View` 自己产出「节点（包 `ZStack`）→ 内容（包 `VStack(alignment: .leading, spacing: 0)`）」两个子视图（spec §1.3「单一容器」）；四个 init（spec §1.2，② / ④ 的 `status: StatusLevel? = nil`）；结构件（标题 `.coreFont(.callout)` +
-  `.isHeader`，时间 / 描述 `.coreFont(.footnote)`）；删旧 `TimelineItem` struct、`Timeline(items:layout:)`、`isLastItem`、`groupedStatusKey(for:)` 改形。
+  `.isHeader`，时间 / 描述 `.coreFont(.footnote)`）；删旧 `TimelineItem` struct、`Timeline(items:layout:)`（`isLastItem` 已在 PR 1 删除）、`groupedStatusKey(for:)` 改形。
   标题 / 描述只接 `LocalizedStringKey`（U13）。`TimelineNodeView` 与 `private var nodeContent: some View` 留在本文件。
 - `TimelineStackLayout.swift`：加 `pairParts(roles:)`；从 `containerValues` 配对；非行子视图按 spec §1.5 摆放、`.alternate` 截断连线。
 - 无障碍（U8，状态键部分）：默认圆点 `.accessibilityHidden(true)`；有 `title` 的行把状态键挂标题元素（a4，`.grouped` 同样）；无 `title` 的行内容 `.combine` + 值（a2）；自定义节点行传了 `status` 才带状态键（U18）。挂载点纯函数 `(status?, 有无自定义节点, 有无 title)` 在本 PR 建立；阶段键留到 PR 3 扩同一函数。`.horizontal` 按 E2-4 结论。

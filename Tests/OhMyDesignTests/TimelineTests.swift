@@ -102,42 +102,6 @@ struct TimelineTests {
         #expect(item.id == id)
     }
 
-    // MARK: - isLastItem：最后一条不渲染连线的 identity 判定
-
-    @Test("isLastItem：数组末条返回 true")
-    func isLastItemTrueForLastElement() {
-        let items = [
-            TimelineItem { Text("1") },
-            TimelineItem { Text("2") },
-            TimelineItem { Text("3") },
-        ]
-        #expect(Timeline.isLastItem(items[2], in: items) == true)
-    }
-
-    @Test("isLastItem：非末条返回 false")
-    func isLastItemFalseForNonLastElements() {
-        let items = [
-            TimelineItem { Text("1") },
-            TimelineItem { Text("2") },
-            TimelineItem { Text("3") },
-        ]
-        #expect(Timeline.isLastItem(items[0], in: items) == false)
-        #expect(Timeline.isLastItem(items[1], in: items) == false)
-    }
-
-    @Test("isLastItem：单条数组，唯一元素即末条")
-    func isLastItemSingleElementArray() {
-        let items = [TimelineItem { Text("only") }]
-        #expect(Timeline.isLastItem(items[0], in: items) == true)
-    }
-
-    @Test("isLastItem：item 不在 items 中（不同 id）返回 false，不崩溃")
-    func isLastItemNotInArrayReturnsFalse() {
-        let items = [TimelineItem { Text("1") }]
-        let stray = TimelineItem { Text("stray") }
-        #expect(Timeline.isLastItem(stray, in: items) == false)
-    }
-
     // MARK: - Timeline：items 原样保留
 
     @Test("Timeline(items:)：items 数量与顺序原样保留")
@@ -416,7 +380,7 @@ private struct LegacyTimeline: View {
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.none) {
             ForEach(self.items) { item in
-                LegacyTimelineRowView(item: item, isLast: Timeline.isLastItem(item, in: self.items))
+                LegacyTimelineRowView(item: item, isLast: item.id == self.items.last?.id)
             }
         }
     }
