@@ -34,6 +34,30 @@ struct TimelineStackLayout: Layout {
         let contentTop: CGFloat
     }
 
+    nonisolated struct ConnectorPiece: Equatable, Sendable {
+        let resting: CGFloat
+        let nextStep: Int?
+        let index: Int
+        let count: Int
+
+        func fraction(position: Double, target: Double?) -> CGFloat {
+            guard let target, let nextStep = self.nextStep, position != target else { return self.resting }
+            let segment = TimelineStackLayout.unit(position - Double(nextStep) + 1)
+            return CGFloat(TimelineStackLayout.unit(segment * Double(self.count) - Double(self.index)))
+        }
+    }
+
+    nonisolated struct DotMorph: Equatable, Sendable {
+        let arrival: Double
+        let completion: Double
+    }
+
+    nonisolated struct DotLayers: Equatable, Sendable {
+        let hollow: Double
+        let fill: Double
+        let ring: Double
+    }
+
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         self.arrange(width: proposal.width, subviews: subviews).size
     }
@@ -322,12 +346,43 @@ extension TimelineStackLayout {
     nonisolated static func connectorFractions(
         slots: [Slot], steps: [Int?], progress: TimelineProgress?, layout: TimelineLayout
     ) -> [CGFloat] {
+        Self.connectorMotionPieces(slots: slots, steps: steps, progress: progress, layout: layout).map(\.resting)
+    }
+
+    nonisolated static func connectorMotionPieces(
+        slots: [Slot], steps: [Int?], progress: TimelineProgress?, layout: TimelineLayout
+    ) -> [ConnectorPiece] {
         Self.connectorPieces(slots: slots, layout: layout).flatMap { entry in
-            let fraction = Self.segmentFraction(
-                progress: progress, nextStep: steps.indices.contains(entry.segment.to) ? steps[entry.segment.to] : nil
-            )
-            return [CGFloat](repeating: fraction, count: entry.pieces)
+            let nextStep = steps.indices.contains(entry.segment.to) ? steps[entry.segment.to] : nil
+            let resting = Self.segmentFraction(progress: progress, nextStep: nextStep)
+            return (0..<entry.pieces).map {
+                ConnectorPiece(resting: resting, nextStep: nextStep, index: $0, count: entry.pieces)
+            }
         }
+    }
+
+    nonisolated static func dotMorph(step: Int?, position: Double, target: Double?) -> DotMorph? {
+        guard let step, let target, position != target else { return nil }
+        let offset = position - Double(step)
+        return DotMorph(arrival: Self.unit(offset + 1), completion: Self.unit(offset))
+    }
+
+    nonisolated static func dotLayers(phase: TimelinePhase?, morph: DotMorph?) -> DotLayers {
+        if let morph {
+            return DotLayers(
+                hollow: morph.arrival < 1 ? 1 : 0, fill: morph.arrival,
+                ring: Swift.min(morph.arrival, 1 - morph.completion)
+            )
+        }
+        switch phase {
+        case nil, .completed: return DotLayers(hollow: 0, fill: 1, ring: 0)
+        case .inProgress: return DotLayers(hollow: 0, fill: 1, ring: 1)
+        case .upcoming: return DotLayers(hollow: 1, fill: 0, ring: 0)
+        }
+    }
+
+    nonisolated static func unit(_ value: Double) -> Double {
+        value.isFinite ? Swift.min(1, Swift.max(0, value)) : (value > 0 ? 1 : 0)
     }
 
     nonisolated static func nodeBox(reported: CGSize) -> CGSize {
@@ -373,5 +428,23 @@ extension TimelineStackLayout {
 
     private nonisolated static func length(_ value: CGFloat) -> CGFloat {
         value.isFinite ? Swift.max(0, value) : 0
+    }
+}
+
+// MARK: - TimelineMotion
+
+nonisolated struct TimelineMotion: Equatable, Sendable {
+    let position: Double
+    let progress: TimelineProgress
+
+    init?(progress: TimelineProgress?, steps: [Int?]) {
+        let known = steps.compactMap { $0 }
+        guard let progress, let lowest = known.min(), let highest = known.max() else { return nil }
+        self.progress = progress
+        switch progress {
+        case .notStarted: self.position = Double(lowest) - 1
+        case .inProgress(let current): self.position = Double(current)
+        case .completed: self.position = Double(highest) + 1
+        }
     }
 }

@@ -73,7 +73,7 @@ extension EnvironmentValues { public internal(set) var timelinePhase: TimelinePh
   ⚠️ **未设置 `.tint` 时取宿主 App 的 AccentColor**（macOS 为用户在系统设置里选的强调色），不是本库的墨色 `accent`；
   **`.coreAccent(_:)` 改不了连线色**，要统一色调请在 `Timeline` 外层写 `.tint(_:)`。纯活动流（不传 `progress`）的连线全是 `dividerDefault`。
 - 段系数与 `phase(forStep:)` 同源、逐个整数判定：后一行阶段不是 `upcoming` ⇒ 1，否则 0（后一行 `step == nil` 或不传 `progress` 恒为 0），
-  与上一条逐段等价。连续的推进位置 `P`（`step` 空间，spec §6.2）只在推进动效（`#420` PR 4）里引入。
+  与上一条逐段等价。连续的推进位置 `P`（`step` 空间，spec §6.2）只在推进动效的在飞帧里使用，见《动效》。
 - **`timelinePhase`**：在 `Timeline(progress:)` 内、带 `step` 的 `TimelineItem` 的 `node:` 与 `content:` **两个槽**里都有值；
   无 `step` 的行、非行子视图、不传 `progress` 的 `Timeline` 与 `Timeline` 外恒为 `nil`。只读（`internal(set)`）。
   嵌套时也成立：`Timeline` 在解析子视图前先把它置空（逐字 `.environment(\.timelinePhase, nil)`），外层行内容里的内层时间线，
@@ -270,6 +270,30 @@ Timeline(layout: .grouped) { rows }   // node: 槽在此形态下不生效
   竖向长连线用 1pt 比 separator hairline（0.5pt）观感更实，是对 phase0「连线对齐 separator」
   决策的有意偏离（与 Steps 横向连线同源，指示性连线需强于分隔线；phase0/013 统一记录）
 - 行间距：内容下方 `CoreSpacing.lg`、节点下方至少 `CoreSpacing.sm`（最后一条不追加）；节点列与 content 横向间距 `CoreSpacing.md`
+
+## 动效
+
+两类，分开定义，都取 `CoreMotionToken.reveal`（0.25s），随 `coreMotionPresentation` 降级；两类都是一次性过渡，不接能耗闸。
+
+| | 阶段推进 | 节点入场 |
+|---|---|---|
+| 触发 | `progress` 变化（`step` 集合变化使推进位置变化时同样） | 挂载时在屏外的行，挂载后第一次滚入可见区域（阈值 0.5） |
+| `.animated` | 连线沿线生长、回退从远端收；默认圆点在空心 / 靶心 / 实心之间插值，与通向它的那段连线同步；一次补间，总时长与跨越段数无关 | 缩放 0.86 → 1 + 淡入 |
+| `.resting`（系统「减弱动态效果」） | 连线不生长：新到达的段整段淡入着色、退回的段淡出（`easeInOut`）；圆点形态照旧按不透明度插值 | 不播 |
+| `.hidden`（只来自注入覆盖） | 直接到终态 | 不播 |
+
+- 挂载时直接是终态，推进不补间。
+- **入场只作用于挂载时在屏外的行**：挂载时已在屏上的行、没有滚动宿主时的全部行都不播 ⇒ `ImageRenderer` 导出与快照总是终态，
+  调用方不必注入任何呈现覆盖。挂载时在屏外的行在滚入前处于待入场态（0.86×、透明），此时它们在屏外、看不到。
+- 不重播：每个节点身份只播一次（状态存在节点视图里）；身份丢失时会重播——惰性容器回收、`ForEach` 的 id 变化、`.id(_:)`。
+- `Timeline` 自身在 `LazyVStack` 等惰性容器里随滚动被创建时，那一刻就是它的挂载 ⇒ 当时在屏上的行不播。
+  挂载后追加、直接出现在屏上的行也不播（它从未处于「挂载时在屏外」）。
+- 多行同时滚入时同时播，不错峰。
+- `.horizontal` 在 RTL 下，部分着色的连线同样从前一行一侧长出（SwiftUI 对容器级 `Layout` 与其中的绘制整体镜像，组件不另做翻转；在飞帧判据两个方向都核）。
+- `.alternate` 里被非行子视图截断的段，各截按顺序依次填满、每截等时（不按长度分配）。
+- 推进位置 `P` 在 `step` 空间里插值；**静止时**连线与圆点仍按 `phase(forStep:)` 逐个整数判定，只有在飞帧才用浮点插值 ⇒ `step` 取
+  `Int.min` / `Int.max` 附近时在飞的先后次序可能不精确，静止帧不受影响。
+- 自定义节点只参与入场，不参与推进插值（它的阶段外观由调用方经 `timelinePhase` 决定，阶段值在推进开始时即切到新值）。
 
 ## Accessibility
 

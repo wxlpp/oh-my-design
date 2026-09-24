@@ -160,12 +160,12 @@ struct TimelineAccessibilityValueTests {
     func phaseWiringInSource() throws {
         let source = try Self.source()
         for call in [
-            ".environment(\\.timelineProgressContext, self.progress)\n            .environment(\\.timelinePhase, nil)\n        ) { subviews in",
-            "TimelineNodeView(status: self.status ?? .info, phase: phase, node: self.node)\n            .environment(\\.timelinePhase, phase)",
+            ".environment(\\.timelineProgressContext, self.progress)\n            .environment(\\.timelinePhase, nil)\n            .environment(\\.timelineMotion, self.motion)\n            .environment(\\.timelineMountWindowOpen, self.isMounting)\n        ) { subviews in",
+            "position: self.motion?.position, node: self.node\n        )\n            .environment(\\.timelinePhase, phase)",
             "self.contentSlot\n            .environment(\\.timelinePhase, phase)",
             "hasTitle: self.title != nil, phase: self.phase",
             "return progress.phase(forStep: step)",
-            "TimelineConnector(fraction: fractions[index]",
+            "TimelineConnector(\n                    piece: pieces[index]",
             ".fill(.tint)",
         ] {
             #expect(source.contains(call), "Timeline.swift 缺少 \(call)")
