@@ -513,16 +513,26 @@ private struct TimelineConnector: View {
             .fill(Color.dividerDefault)
             .overlay {
                 if self.fraction > 0 {
-                    Rectangle()
+                    TimelineConnectorReach(fraction: self.fraction, axis: self.axis)
                         .fill(.tint)
-                        .scaleEffect(
-                            x: self.axis == .horizontal ? self.fraction : 1,
-                            y: self.axis == .vertical ? self.fraction : 1,
-                            anchor: self.axis == .horizontal ? .leading : .top
-                        )
                 }
             }
             .accessibilityHidden(true)
+    }
+}
+
+private struct TimelineConnectorReach: Shape {
+    let fraction: CGFloat
+    let axis: Axis
+
+    nonisolated func path(in rect: CGRect) -> Path {
+        let fraction = Swift.min(1, Swift.max(0, self.fraction))
+        var reached = rect
+        switch self.axis {
+        case .horizontal: reached.size.width *= fraction
+        case .vertical: reached.size.height *= fraction
+        }
+        return Path(reached)
     }
 }
 
