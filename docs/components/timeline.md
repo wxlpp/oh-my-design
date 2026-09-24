@@ -36,15 +36,14 @@ vertical timeline: node + connecting line + trailing content.
 
 | case | 说明 | 业界来源 |
 |---|---|---|
-| `.vertical` | 默认：左侧固定节点列 + 右侧内容，节点间竖向连线（现状形态） | —— |
+| `.vertical` | 默认：左侧节点列（列宽取最宽节点、下限 24pt）+ 右侧内容，节点间竖向连线（现状形态） | —— |
 | `.alternate` | 左右交替：节点恒在**中轴**，内容按索引奇偶在两侧交替 | Ant Design Timeline `mode="alternate"` |
-| `.horizontal` | 横向：节点沿水平轴排列，内容在节点下方（可横向滚动） | PowerPoint SmartArt Basic Timeline / Final Cut Pro 横向事件线 |
+| `.horizontal` | 横向：节点沿水平轴排列，节点间有连线，内容在节点下方（可横向滚动） | PowerPoint SmartArt Basic Timeline / Final Cut Pro 横向事件线 |
 | `.grouped` | 无连线的分组列表：删掉节点列与连线，只留内容 | Apple 邮件 / 信息的日期分组、GitHub 活动流 |
 
 ⚠️ **正交性的代价**（有意的静默，传了不生效**不报错**）：`.grouped` 不渲染节点列 ⇒
 `TimelineItem.node:` 槽**不生效**。存储层原样保留 `node`，切回其余布局时不丢配置。
-⚠️ `.horizontal` **不画节点间连线**——竖向连线的实现依赖「节点在上、内容在下」的纵向几何，
-换轴后那套 padding 计算不成立；横向连线属独立形态，本轮不引入。
+`.horizontal` 原写不画节点间连线，`#420` 起画（连线端点取自容器级布局算出的节点盒边沿，不再依赖纵向 padding）。
 
 ## 预览 / Preview
 
@@ -91,7 +90,7 @@ Timeline(items: [
 // 左右交替：节点恒在中轴，内容按索引奇偶换边
 Timeline(items: items, layout: .alternate)
 
-// 横向：节点沿水平轴排列，内容在节点下方（无连线，可横向滚动）
+// 横向：节点沿水平轴排列，节点间有连线，内容在节点下方（可横向滚动）
 Timeline(items: items, layout: .horizontal)
 
 // 分组列表：删掉节点列与连线，只留内容（node: 槽在此形态下不生效）
@@ -100,24 +99,34 @@ Timeline(items: items, layout: .grouped)
 
 ## 布局
 
-每行是 `HStack(alignment: .top)`：左侧固定 `24×24pt` 的节点方框（默认圆点或自定义
-`node` 均在此方框内居中），右侧 `content`。**自定义 `node` 应 ≤ 24×24pt**——方框不裁剪，
-更大的视图（如 32–40pt 头像）会溢出、上沿侵入上一行、下沿被连线穿过；需要更大节点时请自行
-缩放到 24pt（`.frame(width:24,height:24)` + `.clipShape(...)`）。连线以 `.background(alignment:)` 挂在整行
-`HStack` 之下——`.background` 的内容会被提议整行**已解析出的具体尺寸**，让
-`Rectangle().frame(maxHeight: .infinity)` 能正确撑到「本行实际高度」，不受
-`VStack`/`ScrollView` 这类按内容 hug 高度的祖先容器影响。最后一条节点不渲染连线（用
-`id` 而非位置索引判定，见 `Timeline.isLastItem(_:in:)`）。
+`.vertical` / `.alternate` / `.horizontal` 由同一个容器级 `Layout`（`TimelineStackLayout`）单遍排版，
+节点、内容、连线都是它的子视图：
 
-`.alternate` 走**另一套几何**：`弹性左槽 | 固定节点列 | 弹性右槽`（`TimelineAlternateRowView`）。
-节点列的水平位置与索引奇偶**无关** —— 内容只是换边占用左槽或右槽，另一侧留等宽空槽。
-因此中轴（节点中心）在所有行之间是同一条竖线，连线随之居中即可与所有节点对齐。
-⚠️ 这不是给 `.vertical` 的两列行传一个 alignment 就能得到的：那样只会把节点挪到行尾，
-而连线仍钉在 `.topLeading`，两者各画各的。
+- **节点盒**：节点收到 `24×24pt` 的提议（`Circle()` 这类弹性视图因此仍画成 24pt），节点盒取它
+  报告的尺寸、下限 `24pt`，节点在盒内居中。≤ 24×24 的节点（默认圆点、SF Symbol、20pt 圆）与旧实现逐点相同；
+  更大的节点（如 40pt 头像）不再溢出，而是撑宽整列 / 撑高本行。
+- **`.vertical`**：节点列宽取所有节点盒里最宽的那个（跨行统一，内容左缘对齐）；内容从
+  `列宽 + CoreSpacing.md` 起。非末行行高 `max(盒高 + CoreSpacing.sm, 内容高 + CoreSpacing.lg)`，末行
+  `max(盒高, 内容高)`——内容高 ≥ 16pt 时与旧式 `max(24, 内容高 + lg)` 相同；更矮的内容行多出一小段
+  （节点下方至少留 `sm` 的连线）。连线从本行节点盒**实际下沿**画到下一行节点盒**实际上沿**，不穿过高节点。
+- **`.alternate`**：`弹性左槽 | 节点列 | 弹性右槽`，节点列宽同上跨行取最大、中轴恒在行宽一半处；
+  内容按行序奇偶换边，行高与连线端点同 `.vertical`；固有宽度超过槽宽的内容向外（远离中轴）溢出，不压节点。
+- **`.horizontal`**：外层 `ScrollView(.horizontal)`；横轴在最高节点盒的一半处，所有节点中心落在横轴上，
+  内容顶统一在 `最高盒高 + CoreSpacing.sm`；列宽 `max(盒宽, 内容理想宽)`、列间距 `CoreSpacing.lg`；
+  连线在横轴上，从前一盒右沿画到后一盒左沿。
+- **`.grouped`**：`VStack(spacing: CoreSpacing.md)`，只摆内容，不摆节点、不画连线。
+- RTL 下整体水平镜像（自定义 `Layout` 自动镜像）。
+
+## 规模
+
+容器级 `Layout` 必须拿到全部子视图才能算出跨行列宽 ⇒ **架构上不支持惰性**（不能放进 `LazyVStack` 按需实例化）。
+粗测量级（macOS、`-O`、`ScrollView` 内，spec 探针读数，非基准）：n = 300 首次布局约 80 ms、一行内容变宽触发的重排约
+17 ms；n = 1000 首次约 1 s、重排 160–355 ms（会掉帧）。带 `Text(date, style: .relative)` 这类每分钟刷新内容的
+超长时间线（数百行以上）请分页或截断；惰性管线（调用方显式给列宽）不在本组件当前范围内。
 
 ## 视觉 Token
 
-- 节点方框：`24×24pt`，默认圆点直径 `10pt`
+- 节点盒：提议 `24×24pt`，取节点报告尺寸、下限 `24pt`；节点列宽取最宽节点；默认圆点直径 `10pt`
 - 默认圆点颜色：`StatusColors` emphasis 档，按 `StatusLevel` 映射——
   `info → statusAccentEmphasis` / `success → statusSuccessEmphasis` /
   `warning → statusAttentionEmphasis` / `danger → statusDangerEmphasis`；
@@ -128,7 +137,7 @@ Timeline(items: items, layout: .grouped)
 - 连线：`Color.dividerDefault`（= 系统 `separator` 色），`CoreBorderWidth.thin`（1pt）宽度——
   竖向长连线用 1pt 比 separator hairline（0.5pt）观感更实，是对 phase0「连线对齐 separator」
   决策的有意偏离（与 Steps 横向连线同源，指示性连线需强于分隔线；phase0/013 统一记录）
-- 行间距：`CoreSpacing.lg`（最后一条不追加）；节点列与 content 横向间距 `CoreSpacing.md`
+- 行间距：内容下方 `CoreSpacing.lg`、节点下方至少 `CoreSpacing.sm`（最后一条不追加）；节点列与 content 横向间距 `CoreSpacing.md`
 
 ## Accessibility
 

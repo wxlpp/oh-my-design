@@ -496,7 +496,7 @@ private struct SkeletonPreviewsPreviewGallery: View {
     // @3x 占 30px ⇒ 中心落在 x.5；1pt 连线 @3x 占 3px ⇒ 中心落在整数。两者奇偶必然不同，
     // 差半个像素消不掉。真正的回归长什么样有参照：第 3 轮那次是 **7.2pt**（= (24-10)/2）。
     //
-    // ⇒ 「不会冻结」由 `TimelineAlternateRowLayout` **无存储状态**这一结构事实保证（槽宽每次
+    // ⇒ 「不会冻结」由 `TimelineStackLayout` **无存储状态**这一结构事实保证（槽宽每次
     // `sizeThatFits` / `placeSubviews` 都从 proposal 现算），不由本预览保证。留着它是因为
     // 「不同宽度下各自居中 + 连线穿过圆点」本身值得看 —— 第 4 轮的 7pt 偏移正是在这张图上
     // 被量出来的。
