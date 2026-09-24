@@ -48,7 +48,7 @@ public struct InkSmoke: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     public init(
-        tint: Color = .accent,
+        tint: Color = .dataAccent,
         density: Density = .regular,
         motion: ShaderMotion = .calm
     ) {

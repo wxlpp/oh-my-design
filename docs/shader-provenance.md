@@ -388,7 +388,7 @@ grep -n '^| ' docs/shader-provenance.md | grep TBD
 前两次（Shadertoy 默认许可、The Book of Shaders 的 `All rights reserved`）都停在
 "差点"；这一次是**一个已落地、已合入 epic 分支的 shader**。
 
-⚠️ 别和 `StarNest` 搞混：`StarNest`（Kali，MIT，**未落地**）与 `Starfield`
+⚠️ 别和 `StarNest` 搞混：`StarNest`（Kali，MIT，`#282` 已落地，原页人工核验待办）与 `Starfield`
 （#261 **已落地**）是两件东西，名字像而已。本节说的是后者。
 
 #### 具名上游（一手）
@@ -1830,7 +1830,7 @@ README 逐字 "**Some**"）。本 task **照常落地**，并在 `ACKNOWLEDGEMEN
 `Water` / `NeuroNoise` / `GrainGradient` 不在名单内。移植源固定在 paper commit
 `43cd68db79fa0b1759f72ffc941b3238e2a3954c`；开工时逐件核对了本表 §B 记下的参数名与描述句，与该 commit 一致。
 
-### 批 A（已落地）
+### 批 A（已落地 · `cff8993`）
 
 | 件 | 落地入口 | 上游 | 许可地位 | 复制程度 |
 |---|---|---|---|---|
@@ -1843,7 +1843,7 @@ README 逐字 "**Some**"）。本 task **照常落地**，并在 `ACKNOWLEDGEMEN
 （`Voronoi` 另挂 iq 的 MIT 段）。`u_noiseTexture` 一律改为 `cd::hash21/22`（`floor` 语义与 paper 的 `textureRandomizer*` 一致）；
 `colorBandingFix` 一律丢弃，因此 ACK 里「该常量组没有出现在本仓任何代码里」仍然为真。
 
-### 批 B（已落地）
+### 批 B（已落地 · `3da4cf5`）
 
 | 件 | 落地入口 | 上游 | 许可地位 | 复制程度 |
 |---|---|---|---|---|

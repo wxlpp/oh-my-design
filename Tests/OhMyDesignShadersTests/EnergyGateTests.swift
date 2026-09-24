@@ -97,6 +97,7 @@ struct EnergyGateWiringTests {
             "let schedule = Self.schedule(presentation: presentation, policy: energy.policy, motion: self.motion)",
             "TimelineView(.animation(minimumInterval: schedule.minimumInterval, paused: schedule.paused)) { timeline in",
             "let t = self.elapsed(at: self.pausedAt ?? timeline.date)",
+            "if new == .hidden {\n                self.pausedAt = now",
             "self.origin = Self.resumedOrigin(origin: self.origin, pausedAt: pausedAt, resumedAt: now)",
         ] {
             #expect(source.contains(line), "ShaderSupport.swift 缺少接线：\(line)")

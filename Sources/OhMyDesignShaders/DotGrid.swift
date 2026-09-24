@@ -44,7 +44,7 @@ public struct DotGrid: View {
 
     /// - Parameter motion: `.still` 时**完全静态**（呼吸振幅为 0），适合作纹理底。
     public init(
-        tint: Color = .accent,
+        tint: Color = .dataAccent,
         spacing: Spacing = .regular,
         motion: ShaderMotion = .still
     ) {

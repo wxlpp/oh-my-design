@@ -14,7 +14,7 @@ import Testing
 // ⚠️ **不要**为了让原生腿变绿而加 `.enabled(if:)`——那会把"metallib 没编出来"变成
 // 静默跳过，正是本仓反复堵的假绿病型（对照 #258 发现的 `ColorAssetGuardTests`
 // 在 swiftbuild 下静默失守）。
-// ⚠️⚠️ **看 swiftbuild 腿的输出时不要只看最后一行**（第 4 轮终审 C-2 更正）。
+// ⚠️⚠️ **看 swiftbuild 腿的输出时不要只看最后一行**。
 //
 // 包里有 4 个 test bundle，`swift test --build-system swiftbuild --filter
 // OhMyDesignShadersTests` 会打印**四行** "Test run with …"：本 bundle 一行真实条数，
@@ -26,7 +26,7 @@ import Testing
 // `--filter` 的，删掉它会变成整腿 swiftbuild，而 `ci.yml` 与 `AGENTS.md` 明令禁止
 //（会让 `ColorAssetGuardTests` 静默跳过，#258 踩过的坑）。
 //
-// ⚠️ 第 3 轮 I-4 的**另一半仍然成立**：`RenderProofTests` 整个文件包在
+// ⚠️ 另有一条：`RenderProofTests` 整个文件包在
 // `#if os(iOS)` 里 ⇒ macOS 腿上**一条渲染证明都没有**，
 // rim / 折射的机器守卫只在 iOS Simulator 腿上跑。
 @Suite("OhMyDesignShaders metallib 加载 —— fail-closed")

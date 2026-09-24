@@ -390,8 +390,10 @@ inline float2 rotate(float2 uv, float angle) {
     return float2x2(float2(cos(angle), sin(angle)), float2(-sin(angle), cos(angle))) * uv;
 }
 
-// paper 两色阶梯渐变（`colorsCount == 2` 时的展开）：`shape` ∈ [0, 1]，`steps` 为每段台阶数。
-inline half4 steppedGradient2(float shape, half4 first, half4 second, float steps) {
+// paper 两色阶梯渐变（`colorsCount == 2` 时的展开）：`shape` ∈ [0, 1]，`steps` 为每段台阶数；与上游一样先预乘再混合。
+inline half4 steppedGradient2(float shape, half4 firstColor, half4 secondColor, float steps) {
+    half4 first = half4(firstColor.rgb * firstColor.a, firstColor.a);
+    half4 second = half4(secondColor.rgb * secondColor.a, secondColor.a);
     float mixer = (shape - 0.25) * 2.0;
     float s = max(1.0, steps);
     if (mixer < 0.0 || mixer > 1.0) {
@@ -403,7 +405,7 @@ inline half4 steppedGradient2(float shape, half4 first, half4 second, float step
     return mix(first, second, half(localT));
 }
 
-// 预乘颜色在底色上的「over」合成，输出不透明。
+// 预乘颜色在底色上做「over」合成。
 inline half4 overBackground(float3 color, float opacity, half4 back) {
     float3 bg = float3(back.rgb) * float(back.a);
     float3 rgb = color + bg * (1.0 - opacity);
@@ -472,7 +474,7 @@ inline float metaballsNoise(float x) {
 /// paper `packages/shaders/src/shaders/dot-orbit.ts` @ `43cd68d`（Apache-2.0，见 `ACKNOWLEDGEMENTS.md`）。
 /// 修改：`textureRandomizerR/GB` 改用 `cd::hash21/22`（同为 `floor` 语义；上游
 /// `randomR(vec2(rand.x, rand.y))` 在 `rand ∈ [0, 1)` 时恒为同一个值，照搬）；`fwidth` 经 `cd::edgeWidth` 加下限；
-/// 颜色数组收成两色阶梯渐变 + 底色；UV 改为 `cd::centeredUV` × 格数；时间按本仓 `ShaderMotion` 换算。
+/// 颜色数组收成两色阶梯渐变 + 底色，`u_stepsPerColor` 固定为 2；UV 改为 `cd::centeredUV` × 格数；时间按本仓 `ShaderMotion` 换算。
 [[stitchable]] half4 ohMyDesignDotOrbit(float2 position, half4 currentColor,
                                         float2 size, float time,
                                         float cells, float dotSize, float sizeRange, float spreading,
@@ -505,7 +507,7 @@ inline float metaballsNoise(float x) {
     float dots = 1.0 - smoothstep(radius - e, radius + e, voronoi.x);
 
     half4 gradient = cd::steppedGradient2(voronoi.y, colorA, colorB, 2.0);
-    float3 color = float3(gradient.rgb) * float(gradient.a) * dots;
+    float3 color = float3(gradient.rgb) * dots;
     return cd::overBackground(color, float(gradient.a) * dots, back);
 }
 
@@ -513,7 +515,8 @@ inline float metaballsNoise(float x) {
 
 /// paper `packages/shaders/src/shaders/voronoi.ts` @ `43cd68d`（Apache-2.0，见 `ACKNOWLEDGEMENTS.md`）。
 /// 上游原注：Original algorithm: https://www.shadertoy.com/view/ldl3W8（Inigo Quilez，MIT，见 `ACKNOWLEDGEMENTS.md`）。
-/// 修改：`textureRandomizerGB` 改用 `cd::hash22`；颜色数组收成「间隙 / 两色细胞 / 光晕」三档；
+/// 修改：`textureRandomizerGB` 改用 `cd::hash22`；颜色数组收成「间隙 / 细胞 / 光晕」三档，细胞的第二色合成为
+/// `mix(cellColor, glowColor, 0.5)`、`u_stepsPerColor` 固定为 1；
 /// 边缘平滑宽度按上游 `u_scale == 1` 取常数；UV 改为 `cd::centeredUV` × 格数；时间按本仓 `ShaderMotion` 换算。
 [[stitchable]] half4 ohMyDesignVoronoi(float2 position, half4 currentColor,
                                        float2 size, float time,
@@ -558,7 +561,7 @@ inline float metaballsNoise(float x) {
     }
 
     half4 cell = cd::steppedGradient2(saturate(rand), cellColor, mix(cellColor, glowColor, half(0.5)), 1.0);
-    float3 color = float3(cell.rgb) * float(cell.a);
+    float3 color = float3(cell.rgb);
     float opacity = float(cell.a);
 
     float glows = pow(length(mr * glow), 1.5);
@@ -630,8 +633,8 @@ inline float smokeRingNoise(float2 uv, float2 pUv, float t, float noiseScale, in
     float ring = 1.0 - smoothstep(radius, radius + thickness, distance);
     ring *= smoothstep(radius - pow(innerShape, 3.0) * thickness, radius, distance);
 
-    half4 gradient = mix(outer, inner, half(saturate(ring * ring)));
-    float3 color = float3(gradient.rgb) * float(gradient.a) * ring;
+    half4 gradient = mix(half4(outer.rgb * outer.a, outer.a), half4(inner.rgb * inner.a, inner.a), half(saturate(ring * ring)));
+    float3 color = float3(gradient.rgb) * ring;
     return cd::overBackground(color, float(gradient.a) * ring, back);
 }
 
@@ -732,8 +735,8 @@ inline float snoise(float2 v) {
 
 /// paper `packages/shaders/src/shaders/simplex-noise.ts` @ `43cd68d`（Apache-2.0，见 `ACKNOWLEDGEMENTS.md`）；
 /// 噪声为 Ashima `snoise`（MIT，见上）。
-/// 修改：`fwidth` 经 `cd::edgeWidth` 加下限；颜色数组收成三档（`low` / `mid` / `high`）；丢弃 `colorBandingFix`；
-/// UV 改为 `cd::centeredUV` × 缩放；时间按本仓 `ShaderMotion` 换算。
+/// 修改：`fwidth` 经 `cd::edgeWidth` 加下限；颜色数组收成三档（`low` / `mid` / `high`）；去掉超出两端时从末色绕回首色的那段
+/// （单色斜坡下它在深色块里冒出浅色斑），改为两端钳住；丢弃 `colorBandingFix`；UV 改为 `cd::centeredUV` × 缩放；时间按本仓 `ShaderMotion` 换算。
 namespace cd {
 inline float simplexSteppedSmooth(float m, float steps, float softness) {
     float stepT = floor(m * steps) / steps;
@@ -763,11 +766,6 @@ inline float simplexSteppedSmooth(float m, float steps, float softness) {
     for (int i = 1; i < 3; ++i) {
         float localM = cd::simplexSteppedSmooth(saturate(mixer - float(i - 1)), steps, 0.5 * softness);
         gradient = mix(gradient, colors[i], half(localM));
-    }
-    if (mixer < 0.0 || mixer > count - 1.0) {
-        float localM = mixer < 0.0 ? mixer + 1.0 : mixer - (count - 1.0);
-        localM = cd::simplexSteppedSmooth(localM, steps, 0.5 * softness);
-        gradient = mix(colors[2], colors[0], half(localM));
     }
     return gradient;
 }
@@ -889,7 +887,7 @@ inline half4 colorPanelBlend(half4 color, float mask, float panelMap, float fade
 
 /// 「Star Nest」by Pablo Roman Andrioli（Kali），Shadertoy `XlfGRj`，源码头声明 MIT（见 `ACKNOWLEDGEMENTS.md`）。
 /// 修改：上游的配色（`vec3(s, s*s, s*s*s*s)` 距离着色 + `saturation`）是 `.metal` 内的硬编码色调，按 FR-8 改为
-/// 取结果的亮度标量经 `cd::ramp3` 映射到三档（丢掉按距离的冷暖色调）；去掉鼠标旋转（取上游鼠标在原点时的角度）；
+/// 取结果的亮度标量压缩到 [0, 0.5) 后经 `cd::ramp3` 映射（星点最深到 `mid`，密集星团不饱和成实心块；丢掉按距离的冷暖色调）；去掉鼠标旋转（取上游鼠标在原点时的角度）；
 /// `volsteps` / `iterations` 改为参数，由 Swift 侧的档位给出（上游固定 20 × 17，成本随全屏像素线性增长）；
 /// 坐标改为 `cd::centeredUV`；时间按本仓 `ShaderMotion` 换算。
 [[stitchable]] half4 ohMyDesignStarNest(float2 position, half4 currentColor,
@@ -943,7 +941,8 @@ inline half4 colorPanelBlend(half4 color, float mask, float panelMap, float fade
         fade *= distfading;
         s += stepsize;
     }
-    float intensity = saturate(length(v) * 0.01 / 1.7320508);
+    float raw = length(v) * 0.01 / 1.7320508;
+    float intensity = 0.5 * (1.0 - exp(-2.0 * raw));
     return cd::ramp3(intensity, low, mid, high);
 }
 

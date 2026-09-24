@@ -20,7 +20,7 @@ public struct Metaballs: View {
             switch self {
             case .few: (5, 0.85)
             case .regular: (10, 0.8)
-            case .many: (16, 0.7)
+            case .many: (16, 0.8)
             }
         }
     }
@@ -34,11 +34,11 @@ public struct Metaballs: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     /// - Parameters:
-    ///   - tint: 调色基色，三档斜坡由它推导。默认 `Color.accent`（Metal 读不到 `.tint`，只能走参数，见 `Plasma`）。
+    ///   - tint: 调色基色，三档斜坡由它推导。默认 `Color.dataAccent`（为什么不是 `.tint` / `accent`，见 `Plasma`）。
     ///   - count: 小球的数量与大小。
     ///   - motion: 运动速度档位。
     public init(
-        tint: Color = .accent,
+        tint: Color = .dataAccent,
         count: Count = .regular,
         motion: ShaderMotion = .regular
     ) {

@@ -206,7 +206,7 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 
 ⚠️ **本组单位由 `#261` / `#283` / `#282` 落地、`#279` 接进登记表**（`#282` 的 paper 移植背景分批落地）。`#261` 的 8 个里
 `Starfield` 已随 `#281` 撤回（上游 CC BY-NC-SA 3.0 与本仓 MIT 分发不兼容），整件删除
-⇒ 现存 9 个 = 7 个自有内容 / 重采样单位 + `glassOrb` / `halftone`。
+⇒ 现存单位 = `#261` 的 7 个自有内容 / 重采样单位 + `#283` 的 `glassOrb` / `halftone` + `#282` 的 8 个移植背景（见下表）。
 ⚠️ **逐单位 `components/*.md` 尚未落地**，本表的「说明」列因此指向源码与
 provenance 对账表，而不是不存在的文档链接。⚠️ **本组一律不作原创声称**，逐件裁定见
 [`shader-provenance.md`](shader-provenance.md)。

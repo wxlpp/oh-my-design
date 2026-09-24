@@ -11,6 +11,7 @@ import SwiftUI
 /// 移植自「Star Nest」by Pablo Roman Andrioli（Kali），Shadertoy `XlfGRj`，作者在源码头声明 MIT；
 /// 修改逐项写在 `OhMyDesignShaders.metal` 的分节头；署名见 `ACKNOWLEDGEMENTS.md`。
 /// ⚠️ 成本随全屏像素 × 体积步数 × 迭代数线性增长，`.deep` 即上游的 20 × 17。
+/// 浅色外观下是浅底深星；要深色星空，在该区域写 `.environment(\.colorScheme, .dark)`（本件不替调用方翻转外观）。
 public struct StarNest: View {
 
     /// 体积深度，同时决定渲染成本。⚠️ 语义枚举。
@@ -35,11 +36,11 @@ public struct StarNest: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     /// - Parameters:
-    ///   - tint: 调色基色，三档斜坡由它推导。默认 `Color.accent`（Metal 读不到 `.tint`，只能走参数，见 `Plasma`）。
+    ///   - tint: 调色基色，三档斜坡由它推导。默认 `Color.dataAccent`（为什么不是 `.tint` / `accent`，见 `Plasma`）。
     ///   - depth: 体积深度（同时决定渲染成本）。
     ///   - motion: 运动速度档位。
     public init(
-        tint: Color = .accent,
+        tint: Color = .dataAccent,
         depth: Depth = .regular,
         motion: ShaderMotion = .regular
     ) {

@@ -36,11 +36,11 @@ public struct SimplexNoise: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     /// - Parameters:
-    ///   - tint: 调色基色，三档斜坡由它推导。默认 `Color.accent`（Metal 读不到 `.tint`，只能走参数，见 `Plasma`）。
+    ///   - tint: 调色基色，三档斜坡由它推导。默认 `Color.dataAccent`（为什么不是 `.tint` / `accent`，见 `Plasma`）。
     ///   - banding: 色带的阶梯感。
     ///   - motion: 运动速度档位。
     public init(
-        tint: Color = .accent,
+        tint: Color = .dataAccent,
         banding: Banding = .regular,
         motion: ShaderMotion = .regular
     ) {

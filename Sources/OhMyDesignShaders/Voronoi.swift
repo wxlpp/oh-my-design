@@ -6,7 +6,7 @@
 import OhMyDesign
 import SwiftUI
 
-/// 缓慢漂移的 Voronoi 细胞：细胞色、细胞间隙与向边缘渐强的内光各取一档颜色。
+/// 缓慢漂移的 Voronoi 细胞：浅色细胞、较深的间隙线与向边缘渐强的内光。
 ///
 /// 移植自 paper-design/shaders 的 `packages/shaders/src/shaders/voronoi.ts` @ `43cd68d`（Apache-2.0），
 /// 修改逐项写在 `OhMyDesignShaders.metal` 的分节头；署名与许可全文见 `ACKNOWLEDGEMENTS.md`。
@@ -21,7 +21,7 @@ public struct Voronoi: View {
             switch self {
             case .large: (2.5, 0.35, 0.03, 0.6)
             case .regular: (4, 0.4, 0.04, 0.7)
-            case .small: (7, 0.45, 0.05, 0.8)
+            case .small: (5.5, 0.45, 0.05, 0.8)
             }
         }
     }
@@ -35,11 +35,11 @@ public struct Voronoi: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     /// - Parameters:
-    ///   - tint: 调色基色，三档斜坡由它推导。默认 `Color.accent`（Metal 读不到 `.tint`，只能走参数，见 `Plasma`）。
+    ///   - tint: 调色基色，三档斜坡由它推导。默认 `Color.dataAccent`（为什么不是 `.tint` / `accent`，见 `Plasma`）。
     ///   - cellSize: 细胞大小。
     ///   - motion: 运动速度档位。
     public init(
-        tint: Color = .accent,
+        tint: Color = .dataAccent,
         cellSize: CellSize = .regular,
         motion: ShaderMotion = .regular
     ) {
@@ -57,7 +57,7 @@ public struct Voronoi: View {
             library.ohMyDesignVoronoi(
                 .float2(size), .float(t),
                 .float(p.cells), .float(p.distortion), .float(p.gap), .float(p.glow),
-                .color(ramp.low), .color(ramp.mid), .color(ramp.high)
+                .color(ramp.mid), .color(ramp.low), .color(ramp.high)
             )
         }
     }

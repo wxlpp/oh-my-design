@@ -31,6 +31,10 @@
 | 低电量模式 | 满帧 | 降到 `RenderPolicy.reduced.minimumInterval`（15 fps） |
 
 与 Effects 的 `.hidden ⇒ 整层不建` 不同：背景是整个可见表面，摘掉会闪出宿主底色，所以保留末帧。
+
+**默认调色基色改为 `Color.dataAccent`**（此前是 `Color.accent`）：本库的 `accent` 是墨色，
+三档斜坡的高档朝 `contentPrimary` 混，墨色朝自己混会把中高两档塌成同一种黑。
+未显式传 `tint:` 的调用点观感会从黑灰变成系统蓝系；要保留旧观感请显式传 `tint: .accent`。
 测试里用 `ImageRenderer` 离屏渲染时没有 Scene、`scenePhase` 读到 `.background`：单帧仍画同一帧，
 但若要验证动画推进，请注入 `.environment(\.scenePhaseOverride, .active)`。
 

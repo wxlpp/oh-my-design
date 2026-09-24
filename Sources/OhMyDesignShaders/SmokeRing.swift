@@ -18,9 +18,9 @@ public struct SmokeRing: View {
 
         var ring: (thickness: Float, radius: Float, innerShape: Float, noiseScale: Float, iterations: Float) {
             switch self {
-            case .thin: (0.35, 0.25, 0.7, 3, 6)
-            case .regular: (0.6, 0.25, 0.9, 3, 7)
-            case .thick: (0.9, 0.2, 1.2, 2.5, 8)
+            case .thin: (0.35, 0.3, 0.7, 3, 6)
+            case .regular: (0.5, 0.3, 0.9, 3, 7)
+            case .thick: (0.7, 0.28, 1.0, 2.5, 8)
             }
         }
     }
@@ -34,11 +34,11 @@ public struct SmokeRing: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     /// - Parameters:
-    ///   - tint: 调色基色，三档斜坡由它推导。默认 `Color.accent`（Metal 读不到 `.tint`，只能走参数，见 `Plasma`）。
+    ///   - tint: 调色基色，三档斜坡由它推导。默认 `Color.dataAccent`（为什么不是 `.tint` / `accent`，见 `Plasma`）。
     ///   - thickness: 环的粗细与噪声细节。
     ///   - motion: 运动速度档位。
     public init(
-        tint: Color = .accent,
+        tint: Color = .dataAccent,
         thickness: Thickness = .regular,
         motion: ShaderMotion = .regular
     ) {
@@ -57,7 +57,7 @@ public struct SmokeRing: View {
                 .float2(size), .float(t),
                 .float(p.thickness), .float(p.radius), .float(p.innerShape),
                 .float(p.noiseScale), .float(p.iterations),
-                .color(ramp.low), .color(ramp.high), .color(ramp.mid)
+                .color(ramp.low), .color(ramp.mid), .color(ramp.low.mix(with: ramp.mid, by: 0.5))
             )
         }
     }

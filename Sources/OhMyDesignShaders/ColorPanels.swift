@@ -18,7 +18,7 @@ public struct ColorPanels: View {
 
         var panels: (edges: Float, blur: Float, gradient: Float) {
             switch self {
-            case .soft: (0, 0.25, 1)
+            case .soft: (0, 0.4, 1)
             case .regular: (0, 0.1, 0.5)
             case .crisp: (1, 0, 0)
             }
@@ -34,11 +34,11 @@ public struct ColorPanels: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     /// - Parameters:
-    ///   - tint: 调色基色，三档斜坡由它推导。默认 `Color.accent`（Metal 读不到 `.tint`，只能走参数，见 `Plasma`）。
+    ///   - tint: 调色基色，三档斜坡由它推导。默认 `Color.dataAccent`（为什么不是 `.tint` / `accent`，见 `Plasma`）。
     ///   - style: 面板质感。
     ///   - motion: 运动速度档位。
     public init(
-        tint: Color = .accent,
+        tint: Color = .dataAccent,
         style: Style = .regular,
         motion: ShaderMotion = .regular
     ) {
@@ -57,7 +57,7 @@ public struct ColorPanels: View {
                 .float2(size), .float(t),
                 .float(3), .float(0), .float(0), .float(1.1),
                 .float(p.edges), .float(p.blur), .float(1), .float(0.3), .float(p.gradient),
-                .color(ramp.low), .color(ramp.mid), .color(ramp.high)
+                .color(ramp.low), .color(ramp.mid.opacity(0.45)), .color(ramp.high.opacity(0.45))
             )
         }
     }

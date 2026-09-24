@@ -35,11 +35,11 @@ public struct Swirl: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     /// - Parameters:
-    ///   - tint: 调色基色，三档斜坡由它推导。默认 `Color.accent`（Metal 读不到 `.tint`，只能走参数，见 `Plasma`）。
+    ///   - tint: 调色基色，三档斜坡由它推导。默认 `Color.dataAccent`（为什么不是 `.tint` / `accent`，见 `Plasma`）。
     ///   - bands: 条带数与扭转强度。
     ///   - motion: 运动速度档位。
     public init(
-        tint: Color = .accent,
+        tint: Color = .dataAccent,
         bands: Bands = .regular,
         motion: ShaderMotion = .regular
     ) {
@@ -58,7 +58,7 @@ public struct Swirl: View {
                 .float2(size), .float(t),
                 .float(p.count), .float(p.twist), .float(0.2), .float(0.5),
                 .float(0.3), .float(0.2), .float(0.4),
-                .color(ramp.low), .color(ramp.mid), .color(ramp.high)
+                .color(ramp.low), .color(ramp.mid), .color(ramp.low.mix(with: ramp.mid, by: 0.3))
             )
         }
     }

@@ -18,9 +18,9 @@ public struct DotOrbit: View {
 
         var dots: (cells: Float, size: Float, sizeRange: Float, spreading: Float) {
             switch self {
-            case .sparse: (3, 0.8, 0.4, 0.6)
-            case .regular: (5, 0.75, 0.5, 0.8)
-            case .dense: (8, 0.7, 0.6, 1.0)
+            case .sparse: (3, 0.75, 0.5, 0.9)
+            case .regular: (5, 0.75, 0.5, 0.95)
+            case .dense: (8, 0.75, 0.5, 1.0)
             }
         }
     }
@@ -34,11 +34,11 @@ public struct DotOrbit: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     /// - Parameters:
-    ///   - tint: 调色基色，三档斜坡由它推导。默认 `Color.accent`（Metal 读不到 `.tint`，只能走参数，见 `Plasma`）。
+    ///   - tint: 调色基色，三档斜坡由它推导。默认 `Color.dataAccent`（为什么不是 `.tint` / `accent`，见 `Plasma`）。
     ///   - density: 点的疏密与公转幅度。
     ///   - motion: 运动速度档位。
     public init(
-        tint: Color = .accent,
+        tint: Color = .dataAccent,
         density: Density = .regular,
         motion: ShaderMotion = .regular
     ) {
