@@ -24,15 +24,16 @@
 - 长度单位一律 **pt**。间距标度见下方 `CoreSpacing` 表，**不是纯 8 的倍数**：`xxs` / `xs` / `md` 三档（2 / 4 / 12pt）不是。
 - 字号**不写数字**：走 Apple 系统文本样式，随 Dynamic Type 缩放。
 
-## 三个 target（依赖单向）
+## 四个 target（依赖单向）
 
 | target | 内容 | 依赖 |
 |---|---|---|
 | `OhMyDesign` | 系统原生观感的组件、四层色彩、token、modifier | 无（恒为空） |
 | `OhMyDesignEffects` | 微交互 / 转场 / 常驻动效 | → `OhMyDesign` |
 | `OhMyDesignCharts` | Swift Charts 画不出来的四类图表 | → `OhMyDesign` |
+| `OhMyDesignShaders` | Metal 着色器背景与内容层效果 | → `OhMyDesign` |
 
-标注元素时**写明它来自哪个 target**——只要系统原生观感的消费者不会引入后两个。
+标注元素时**写明它来自哪个 target**——只要系统原生观感的消费者不会引入后三个。
 
 ## 硬规则（违反即为误标）
 

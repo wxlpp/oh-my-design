@@ -43,3 +43,11 @@ OhMyDesign:BottomInputBarDefaults.placeholder
 #     referenced from a nonisolated context`。
 #   ⇒ 想解开这条豁免，光把 shadow 色挪出去不够，还得先让 `Spec` 本身 nonisolated。
 OhMyDesign:CoreElevation.spec(for:)
+
+# --- OhMyDesignShaders ---
+# 函数体走 `device.makeDefaultLibrary(bundle: .module)`，而 `Bundle.module` 访问器由
+# SwiftPM 生成在本 target 内、随 `defaultIsolation` 成为 MainActor 隔离；标
+# `nonisolated` 会编译失败：`main actor-isolated static property 'module' can not be
+# referenced from a nonisolated context`（源码注释实测）。加载检查是诊断 / 测试用 API，
+# MainActor 对它没有实际约束。
+OhMyDesignShaders:OhMyDesignShaders.assertShaderLibraryLoadable(functions:)
