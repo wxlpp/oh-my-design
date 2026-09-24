@@ -23,6 +23,7 @@ struct SPIVisibilityGuard {
     nonisolated static let registry: Set<SPIDeclaration> = [
         .init(group: "OhMyDesignBenchmark", name: "ConfettiRenderProbe"),
         .init(group: "OhMyDesignBenchmark", name: "NetworkGraphRenderProbe"),
+        .init(group: "OhMyDesignBenchmark", name: "ShaderRenderProbe"),
     ]
 
     // MARK: - 纯扫描器（供合成输入的变红自证使用）

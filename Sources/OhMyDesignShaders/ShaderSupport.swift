@@ -7,6 +7,7 @@
 
 import OhMyDesign
 import SwiftUI
+import Synchronization
 
 // MARK: - ShaderMotion
 
@@ -111,7 +112,8 @@ struct ProceduralBackground: View {
 
             self.base
                 .visualEffect { content, proxy in
-                    content.colorEffect(self.makeShader(proxy.size, t))
+                    ShaderRenderProbe.recordDrawnFrame()
+                    return content.colorEffect(self.makeShader(proxy.size, t))
                 }
         }
         .onChange(of: presentation) { old, new in
@@ -186,5 +188,20 @@ struct ShaderRamp {
         self.low = tint.mix(with: .surfaceCanvas, by: 0.5 + spread)
         self.mid = tint
         self.high = tint.mix(with: .contentPrimary, by: spread)
+    }
+}
+
+// MARK: - 渲染存活读数（基准专用观测点）
+
+/// `ProceduralBackground` **真的提交了 shader** 的帧数。
+@_spi(OhMyDesignBenchmark)
+public nonisolated enum ShaderRenderProbe {
+    private static let counter = Atomic<Int>(0)
+
+    /// 至今提交过 shader 的帧数。基准取**窗口前后的差值**。
+    public static var drawnFrames: Int { Self.counter.load(ordering: .relaxed) }
+
+    static func recordDrawnFrame() {
+        Self.counter.wrappingAdd(1, ordering: .relaxed)
     }
 }
