@@ -747,3 +747,34 @@ func consumeTagGroup(selection: Binding<Set<String>>) -> some View {
         ) { Text($0) }
     }
 }
+
+// MARK: - StatefulButton（Issue #417）
+
+@MainActor
+func consumeStatefulButton(state: StatefulButtonState) -> some View {
+    VStack {
+        StatefulButton("Send", action: { })
+        StatefulButton(
+            "Send",
+            successDwell: StatefulButtonState.defaultDwell,
+            failureDwell: .seconds(1),
+            action: { }
+        )
+        StatefulButton("Send", state: state, action: { })
+        StatefulButton(state: state, action: { }) { Text("Send") }
+        StatefulButton(action: { }) { Text("Send") }
+        ForEach(StatefulButtonState.allCases, id: \.self) { each in
+            StatefulButton("Send", state: each, action: { })
+        }
+    }
+}
+
+// MARK: - SlideToConfirm（Issue #418）
+
+@MainActor
+func consumeSlideToConfirm() -> some View {
+    VStack {
+        SlideToConfirm("Slide to delete", action: { })
+        SlideToConfirm(action: { throw CancellationError() }) { Text("Slide to pay") }
+    }
+}

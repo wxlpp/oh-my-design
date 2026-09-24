@@ -856,6 +856,19 @@
       "notes": "图片/卡片占位形状，纯几何矩形 ⇒ 长相即含义，步骤 3 规定性，不给扩展点。"
     },
     {
+      "component": "SlideToConfirm",
+      "repo": "ohmydesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#418` 落地的滑动确认控件：按住指示器拖到轨道尽头松手才执行 action。弃用条款与祖父条款均不适用：本组件无 `@available(*, deprecated)` 标记，也未发布任何自有样式协议。步骤 1 视为『无』——候选原生协议有两个，逐个否决：① `ButtonStyle`（`accessibilityRepresentation` 对辅助技术暴露的正是一个 `Button`）：`ButtonStyle.Configuration` 只给 `label` / `isPressed` / `role`，**不携带拖动位移**，也拿不到 action 的调用点；本组件的定义性功能是『松手位移 ≥ 全程才准入』的判定 + 与无障碍激活共用的运行号门闩，两者都要在 action 被调起之前、以拖动位移为输入做判定 ⇒ 改写成『`Button` + 自定义 `ButtonStyle`』会整项丢掉滑动阈值与防重入。② `Slider`：SwiftUI 没有公开的 `SliderStyle` 协议，无第三方 `makeBody` 定制点 ⇒ 按步骤 1 的操作化判据视为『无』。⚠️ 这条理由**不是**继承 `StatefulButton` 的（D-41-3：否决理由不可继承）：那条讲的是『action 调用点没有拦截位置』；本条承重的是『`Configuration` 不携带拖动位移』——即使有拦截点，style 也拿不到判定所需的输入。步骤 2 走『至少 3 个具名业界候选』这一支，逐个过三分法与边界条款：**候选 1** —— 产品 + 场景：iOS 关机界面『滑动来关机』（胶囊轨道 + 圆形指示器 + 轨道内文案）。它就是本组件的当前形态，『替代』的定义排除当前形态 ⇒ 不进枚举。**候选 2** —— 产品 + 场景：Uber Driver 应用开始行程时的『Swipe to start trip』横条（圆角矩形轨道 + 带箭头的方形指示器 + 轨道内文案）。三分法：三个槽（轨道 / 指示器 / 文案）不增不减，排布不变（指示器压在轨道一端、文案在轨道内），差异只在轨道与指示器的圆角画法 ⇒ **装饰，皮肤变体，不计入**。⚠️ 来源形态是『产品名 + 场景』，**未逐字核对**，抽查时以产品现状为准；该候选即使不成立，结论不变（它本来就不计入）。**候选 3** —— 长按确认（按住直到进度走满才执行）：交互输入由『拖动位移』换成『按住时长』，属**行为**差异，而公约第 2 节《边界条款：样式不得携带行为》⇒ 它是另一个组件，不是本组件的另一种长相 ⇒ **不计入**。**候选 4** —— 产品 + 场景：GitHub 删除仓库时要求输入仓库全名再点确认。同理，交互输入换成文字输入 ⇒ 行为差异 ⇒ **不计入**。⇒ 未被排除的非皮肤候选 **0 个**，未达 ≥2 的门槛 ⇒ 答不到『会』，落**出口 3（举得犹豫）⇒ 步骤 4 tiebreaker**，默认规定性组件、不给扩展点；未到达步骤 3，(B) 门槛不适用。佐证（与默认结论同向，不是另立的决定性理由）：强调色经 `coreAccent` 环境值、尺寸经 `controlSize` 跟随，调用方最常见的换色 / 换尺寸诉求走的是已发布的通路。textParams：唯一的文案参数是便利 init 的 `titleKey: LocalizedStringKey`，由类型裁决（落进 `ComponentTextParamGuard` 的 `localizedByType` 面），组件 init **无裸 String 展示参数** ⇒ 本表为空。⚠️ **阈值是纯距离**（松手位移 ≥ 容器宽 − 指示器宽 − 2×间距），**显式不采**参考实现 `no-comment/SlideButton` 的 `predictedEndTranslation` 速度补偿：高代价确认不该因甩得快而降低门槛。源码判定函数上有同一句注释，判据『快速甩到一半松手不触发』钉着它——**不要照着先例补上**。⚠️ 位移类动效（回弹 / 回位）走 `CoreMotionToken.reveal.transformAnimation(for:)`（`.smooth` 族），Reduce Motion 下直接到位；不是 `.coreAnimation`（后者 resting 下给同时长 `easeInOut`，位移照常补间）。阶段机、门闩与『动作已完成但回位未完成不可再触发』的定案见 `docs/components/slide-to-confirm.md`。"
+    },
+    {
       "component": "SpinningModifier",
       "repo": "ohmydesign",
       "kind": "semantic",
@@ -888,6 +901,19 @@
         }
       ],
       "notes": "六固定 case 状态 pill，与 Badge 同一套『颜色即语义、无装饰性材质』规则 ⇒ 步骤 3 视觉即含义，规定性，不给扩展点。textParams：label 便利 init 内容是调用方选定的状态描述（默认取 style 内建文案，或覆盖为『Saving…』『Save failed』等界面生成文案）⇒ B 类。 ⚠️ #53 §3.1 carve-out 三步程序改判（D-41-3：否决理由不可继承，对所有步骤都成立）：① 剥离委托句——把「与 Badge 同一套『颜色即语义、无装饰性材质』规则」从判定依据里拿掉（判定依据的剥离，不是 notes 的删除，notes 只增不删）。② 按段 1/段 2 独立重走——剥离后本条目自身仅剩「六固定 case 状态 pill」（组件描述，非理由）与「视觉即含义，规定性，不给扩展点」——「视觉即含义」正是公约第 1 节步骤 3 (B) 操作化门槛明文列出的消极结论复述短语之一，不构成合格的反事实理由，(A)(B) 均不成立（引 53-survey.md 条目 22：枚举候选 0 个、无反事实机制、兄弟组件名是理由唯一来源）。源码级补充核验（非必需但已做，Sources/OhMyDesign/Components/StateLabel/StateLabel.swift 与 Sources/OhMyDesign/Components/Badge/Badge.swift）：StateLabel = Capsule(style: .continuous) 填充 status*Emphasis + 固定图标 + label；Badge = Capsule(style: .continuous) 填充 status*Subtle（可选描边）+ label——两者共享同一「pill + 状态色即语义」骨架，StateLabel 相对 Badge 的唯一差异是内建图标与 6 态默认文案，不是独立于 Badge 的视觉身份。⇒ 直接改判，无需进段 2（无额外候选材料可供三道门槛压测）。③ 走完整修订回路（含连带面分析，见 D-53-16）。⇒ decidedBy: step3 → tiebreaker（kind / needsExtensionPoint 不动）。⚠️ 不是「兄弟已 tiebreaker ⇒ 跟着改判」——本条按剥离后的独立材料判定，只是与兄弟结论方向相同。 ⚠️ 与 #49 的顺序（并行安全声明）：实测 #49 尚未开工（`StateLabelStyle.Spec` 的 `defaultLabel` 仍为 `let defaultLabel: String`（逐字），未变成 `LocalizedStringResource`）⇒ #53 本轮先行。本次改动只动 decidedBy 与 notes（本段），textParams 与 Sources/ 零改动，与 #49 计划中的 A 类类型改造（defaultLabel: String → LocalizedStringResource，公约缺口 G-4）互不覆盖，并行安全。 ⚠️ 跨仓对齐（给 #54，本 issue 不改判）：ChapterStatusBadge（repo=storyui，decidedBy=step3）的机制整条挂在 StateLabel / StateLabelStyle 上（其自身 notes 原话「建在 OhMyDesign StateLabel 上，胶囊/图标/配色/对比度全部来自上游，本件一处都不重造」）；StateLabel 本轮判死（tiebreaker）后，ChapterStatusBadge 就变成新的「当前就矛盾」条目，而 #52 的 carve-out 判准恰好漏掉它（它未「声明套用规则」，是被建在上游之上而非声明套用同一规则）——对齐详情见 docs/contract-defects.md D-53-16「给 #54 的对齐」段。回路：D-53-16 / R-31。"
+    },
+    {
+      "component": "StatefulButton",
+      "repo": "ohmydesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#417` 落地的四态动作按钮（idle / loading / success / failure）。弃用条款与祖父条款均不适用：本组件无 `@available(*, deprecated)` 标记，也未发布任何自有样式协议。步骤 1 视为『无』——唯一候选原生协议是 `ButtonStyle`，而 `ButtonStyle.Configuration` 只给 `label` / `isPressed` / `role`，**拿不到 action 本身**；本组件的定义性功能是把 action 的调用点包进一道运行号门闩（同一时刻只允许一次执行，且门闩不读视觉态），而 `Button` 的 action 由框架直接调起、style 侧没有插入判定的位置 ⇒ 改写成『`Button` + 自定义 `ButtonStyle`』会整项丢掉防重入。⚠️ 这条理由**不是**继承 `AsyncButton` 的（D-41-3：否决理由不可继承）：`AsyncButton` 否决步骤 1 的理由是「同步渲染函数看不到 Task 生命周期」，讲的是**可见性**；本条讲的是**拦截点**——即使 style 能看到状态，它也无法在 action 被调起之前拒绝这次调用。步骤 2 走『至少 3 个具名业界候选』这一支，逐个过三分法与作用域条款：**候选 1 文案替换式** —— 产品 + 场景：GitHub 的 PR 合并按钮在点击后把按钮文案由 “Merge pull request” 改成 “Merging…”，**不加任何图标**。三分法：配件槽由 1 个变 0 个、状态全部由文案槽承载 ⇒ 公约补充规则 2（槽的计数变化也算槽差异）⇒ **槽差异，非皮肤，计入**。⚠️ 来源形态是『产品名 + 场景』，**未逐字核对**：GitHub 官方文档（docs.github.com《Merging a pull request》）只写到 “Merge pull request” → “Confirm merge” 两步，没有写中间态文案，“Merging…” 这一环未取到一手出处，抽查时请以产品现状为准。该候选即使不成立，未被排除的非皮肤候选降为 0 个，仍落出口 3，结论不变。**候选 2 遮罩替换式** —— 设计体系 + 具体形态：本设计系统 `AsyncButton`，执行期间把 label 整体隐去（`opacity(0)` + `accessibilityHidden`）、居中压一个 `ProgressView`。三分法：文案槽在执行期间消失 ⇒ 槽差异、非皮肤；但**作用域条款命中**——该形态由登记表里的具名条目 `AsyncButton` 承担 ⇒ **排除，不计入**。**候选 3 回执移出按钮式** —— 设计体系 + 具体形态：本设计系统 `Toast`（`AsyncButton` 抛错时走 `toastHost?.show(..., level: .danger)`）与 `Banner`：按钮自身回到静息，成功 / 失败由屏幕边缘的提示件承担。三分法：回执与按钮的空间关系由『按钮内部』变为『屏幕边缘覆盖层』⇒ 公约补充规则 3 ⇒ 排布差异、非皮肤；但**作用域条款命中**（`Toast` 与 `Banner` 两个具名条目）⇒ **排除，不计入**。**候选 4 侧边追加 spinner 式** —— 即本组件当前形态（文案槽 + 单一配件槽），而『替代』的定义排除当前形态 ⇒ 不进枚举；它与本组件三个非静息态的画法差异（静态循环箭头 `arrow.triangle.2.circlepath` / 打钩圆 / 叹号三角，均为静态符号、无自转）属**同一槽内的画法变化 ⇒ 装饰 ⇒ 皮肤变体**，本来也不计入。⇒ 未被排除的非皮肤候选 **1 个**（候选 1），**未达 ≥2 的门槛** ⇒ 答不到『会』，落**出口 3（举得犹豫）⇒ 步骤 4 tiebreaker**，默认规定性组件、不给扩展点；未到达步骤 3，(B) 门槛不适用。佐证（与默认结论同向，不是另立的决定性理由）：本组件的 chrome（形状 / 底色 / 内边距 / 前景色）**完全委派给外层 `ButtonStyle`**（`.solid` / `.light` / `.borderless` / `.circularGlass`），它自己只决定『配件槽画哪个符号、槽多宽』；调用方想要『看起来完全不同』的通路就是 `.buttonStyle(_:)`——一个**已发布**的扩展点，不需要再开第二个。textParams：两个便利 init 的文案参数都是 `LocalizedStringKey`，由类型裁决（落进 `ComponentTextParamGuard` 的 `localizedByType` 面），组件 init **无裸 String 展示参数** ⇒ 本表为空。⚠️ 与 `AsyncButton` 的分工写在 `docs/components/stateful-button.md`：只要『正在跑』的系统 spinner、不要成功 / 失败回执时用 `AsyncButton`；要四态回执 + 无障碍播报 + 防重入门闩 + 外部托管态时用本组件。`AsyncButton` 保留不动。⚠️ **宽度 / 布局类动效走 `CoreMotionToken.press.transformAnimation(for:)`，不是 `.coreAnimation`**：后者走 `animation(for:)`，Reduce Motion 下返回同时长 `easeInOut` 而非 `nil`，宽度会补间 —— 而 `#408` 对 `anchoredBadge` 的定案逐字判过「胶囊宽度也不补间（补间等于横向位移，不该在 RM 下发生）」。本组件落地时先用了 `.coreAnimation`，按该定案改成 `transformAnimation`，与库内 5 处布局类先例（`AnchoredBadgeModifier` / `TagInput` / `TagGroup` / `UnderlinedTabBar` / `CoreDisclosureGroupStyle`）一致。⚠️ 无障碍 modifier 必须恒挂（`idle` 给空值），不得写成 `if let … else content`：那会产生 `_ConditionalContent`，`idle` ↔ 非 `idle` 时 `Button` 子树换身份重建、宽度不补间。布局过渡由 macOS 腿的 in-flight 像素判据钉住（`idle → loading`：animated 臂有中间帧、Reduce Motion 臂为 0；中间帧不单独区分宽度补间与配件符号淡入），覆盖面见 `docs/components/stateful-button.md`《判据覆盖面》。⚠️ 本组件**有意不引入常驻自转动效**：loading 用一个静态符号占配件槽，让 loading → success / failure 成为一次真正的 `.contentTransition(.symbolEffect(.replace))`（`#408` 落地的通路，Reduce Motion 下退化为 `ContentTransition.identity`）；需要连续转圈的场景走 `AsyncButton`。"
     },
     {
       "component": "Steps",

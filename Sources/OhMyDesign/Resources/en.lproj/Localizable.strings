@@ -6,8 +6,10 @@
 "Alert" = "Alert";
 "Collapsed" = "Collapsed";
 "Dismiss" = "Dismiss";
+"Double-tap to confirm" = "Double-tap to confirm";
 "Error" = "Error";
 "Expanded" = "Expanded";
+"Failed" = "Failed";
 "Info" = "Info";
 "Loading" = "Loading";
 "Neutral" = "Neutral";
