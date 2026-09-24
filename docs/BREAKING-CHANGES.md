@@ -84,7 +84,8 @@ Timeline(layout: .alternate) {
 | `.grouped` 有标题的行改挂标题元素 | 原来 `.grouped` 的内容一律合并成一个元素、值挂在上面；现在有标题的行值挂在标题上，时间、描述各自可聚焦。无标题的行不变 |
 | 写了 `status:` 的自定义节点行新增状态播报 | 原来自定义节点行的 `status` 从不播报；现在自定义节点的 init 里 `status` 改为 `StatusLevel? = nil`，**传了才播报**（挂载点同上）。迁移时保留了 `status:` 的行会多读一个状态值；节点里自带 label 的图标请 `.accessibilityHidden(true)`，否则同一状态读两遍 |
 | `.grouped` 下自定义节点、无标题、不传 `status` 的行不再合并 | 原来 `.grouped` 对所有行的内容合并成一个元素；现在只有带状态值的无标题行合并 |
-| `.horizontal` 有标题的行按列读 | 有标题的行的内容在 `.horizontal` 下是一个 `.contain` 容器：VoiceOver 读完本列标题 → 时间 → 描述再到下一列（不加时是先读完各列标题、再读各列时间） |
+| `.horizontal` 按列读 | 有标题的行、以及未合并的无标题行（自定义节点、不传 `status`）的内容在 `.horizontal` 下各是一个 `.contain` 容器；整条横向时间线也是一个 `.contain` 容器，各子视图按列序带 `accessibilitySortPriority`（本列节点 → 本列内容 → 下一列）。VoiceOver 读完本列（未隐藏的自定义节点、标题、时间、描述）再到下一列；原来先读完各列标题、再读各列时间，未隐藏的头像节点排在所有列的内容之前。⚠️ 无障碍树多一层匿名分组容器 |
+| 默认圆点 + 无标题 + 空内容的行 | `TimelineItem(status: .danger) {}` 的状态值挂在一个无 label、0×0 的元素上（iOS `axe` 读数 `GenericElement value='Error'`）；VoiceOver 能否聚焦 0×0 元素未验证。要播报状态请给内容或改用带标题的 init |
 | `content:` 多视图竖排、间距 0 | PR 1 起已生效，组合式 API 下不变 |
 
 ## 未发布（相对 `v0.11.0`）——Issue #422：新增 `Tree`

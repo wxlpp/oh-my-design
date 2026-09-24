@@ -24,19 +24,20 @@ Timeline(layout: TimelineLayout = .vertical, @ViewBuilder content: () -> Content
 
 | init | 节点 | 结构件 | `status` |
 |---|---|---|---|
-| `TimelineItem(step:status:content:)` | 默认圆点 | 无 | `StatusLevel = .info`：决定圆点色相，恒播报 |
-| `TimelineItem(step:status:node:content:)` | 自定义 | 无 | `StatusLevel? = nil`：只管无障碍，传了才播报 |
-| `TimelineItem(_:time:description:step:status:content:)` | 默认圆点 | 标题 → 时间 → 描述 → 富内容（缺省空） | 同第一行 |
-| `TimelineItem(_:time:description:step:status:node:content:)` | 自定义 | 同上（无富内容写 `content: {}`） | 同第二行 |
+| ① `TimelineItem(step:status:content:)` | 默认圆点 | 无 | `StatusLevel = .info`：决定圆点色相，恒播报 |
+| ② `TimelineItem(step:status:node:content:)` | 自定义 | 无 | `StatusLevel? = nil`：只管无障碍，传了才播报 |
+| ③ `TimelineItem(_:time:description:step:status:content:)` | 默认圆点 | 标题 → 时间 → 描述 → 富内容（缺省空） | 同第一行 |
+| ④ `TimelineItem(_:time:description:step:status:node:content:)` | 自定义 | 同上（无富内容写 `content: {}`） | 同第二行 |
 
 | 参数 | 类型 | 说明 |
 |---|---|---|
 | `title` | `LocalizedStringKey` | `.coreFont(.callout)` + `contentPrimary`，标题元素（`.isHeader`）。数据驱动标题用插值（`"\(name) pushed \(n) commits"`）；纯运行期文本（无可本地化部分）不走标题，放进 `content:` 写 `Text(verbatim:)` |
 | `time` | `Text?` | 格式化数据，如 `Text(date, style: .relative)`；`.coreFont(.footnote)` + `contentSecondary` |
 | `description` | `LocalizedStringKey?` | `.coreFont(.footnote)` + `contentSecondary` |
-| `step` | `Int?` | 该行的步骤号，供阶段 API 使用；纯活动流不写 |
+| `step` | `Int?` | 该行的步骤号，PR 3 起生效；本 PR 仅存储。纯活动流不写 |
 | `node` | `@ViewBuilder` | 自定义节点，收到 `24×24pt` 提议，节点盒取报告尺寸、下限 24pt |
-| `content` | `@ViewBuilder` | 行内容；并列的多个视图竖排、左对齐、间距 0 |
+| `content`（init ①②，无结构件） | `@ViewBuilder` | 行内容；并列的多个视图竖排、左对齐、间距 0 |
+| `content`（init ③④，结构件） | `@ViewBuilder` | 描述下方的富内容；与标题 / 时间 / 描述同在 `VStack(spacing: CoreSpacing.xxs)` 里，并列的多个视图间距 `xxs` |
 
 行身份由 SwiftUI 结构身份 / 调用方 `ForEach` 的 id 决定（不再有 `id:` 参数）。
 
@@ -154,6 +155,7 @@ Timeline(layout: .grouped) { rows }   // node: 槽在此形态下不生效
 - **`.grouped`**：`VStack(spacing: CoreSpacing.md)`，只摆内容子视图与非行子视图，不摆节点子视图、不画连线。
 - **配对**：容器按解析顺序把「节点紧跟内容」认作一行；孤立的节点 / 内容子视图（行被拆开时）按非行子视图摆放，
   不会被丢掉或落到容器中心。连线按行的顺序号取，隔着非行子视图照样连到下一行。
+- 连线画在节点与内容**之下**（容器先发射连线、再发射行的子视图）：节点溢出盒外、压在中轴上的部分不被连线色覆盖。
 - RTL 下整体水平镜像（自定义 `Layout` 自动镜像）。
 - 节点与内容在行的 body 里各包一个容器（节点 `ZStack`、内容 `VStack(alignment: .leading, spacing: 0)`）：`node:` 闭包什么都不产出时保留 24pt 空盒（该行上下的连线在空盒处断开 24pt），并列多个视图时叠在同一个盒里居中；
   `content:` 里并列的多个视图竖排；空内容（`content: {}` 或 `if` 不成立）得到 0 高的内容，行照常成对、节点照常绘制。
@@ -193,13 +195,31 @@ Timeline(layout: .grouped) { rows }   // node: 槽在此形态下不生效
   自定义节点的 init 传了 `status:` 才播报状态（挂载点同上）；此时节点里自带 label 的图标（`Image(systemName:)` 会读出符号名）
   请隐藏，否则同一状态读两遍。不传则不播报（与 `#420` 前「自定义节点不播报」一致）。
 - 结构件标题带 `.isHeader`，VoiceOver 转子可按条目跳转。
-- `.horizontal`：有标题的行的内容子视图额外 `.accessibilityElement(children: .contain)`，使读序**按列**（本列标题 → 时间 → 描述，再下一列）；
-  值仍挂在标题元素上（`.contain` 的容器本身不承载值——那种挂法 VoiceOver 读不到）。其余布局不加。
+- `.horizontal`：读序**按列**（本列节点 → 标题 → 时间 → 描述，再下一列）。做法两层：
+  - 有标题的行、以及未合并的无标题行（自定义节点、不传 `status`）的内容子视图额外 `.accessibilityElement(children: .contain)`；
+    值仍挂在标题元素上（`.contain` 的容器本身不承载值——那种挂法 VoiceOver 读不到）；
+  - 整条横向时间线是一个 `.contain` 容器，每个子视图带 `accessibilitySortPriority`（纯函数 `TimelineStackLayout.readingPriorities(slots:partCount:)`：
+    按槽序递减、行内节点先于内容、非行子视图占一个槽）。不这样做时，未隐藏的自定义节点（头像）在几何上高于所有内容，会排在所有列的内容之前。
+    优先级是施在已有子视图上的修饰，不重组子视图，单遍布局不变。
+  其余布局不加。
+- **默认圆点 + 无标题 + 空内容**（`TimelineItem(status: .danger) {}`）：状态值挂在一个无 label、0×0 的元素上
+  （读数见下）；VoiceOver 能否聚焦它未验证。要播报状态请给内容，或改用带标题的 init。
 - 值的取法与挂载点是纯函数 `Timeline.accessibility(status:hasCustomNode:hasTitle:)`，由 `TimelineCompositionTests` 逐格覆盖。
+
+### 接线判据覆盖到哪
+
+- **iOS 腿（进程内无障碍树）**：`UIHostingController` 的 `accessibilityElements` 在托管窗口里读得到 SwiftUI 的无障碍节点。
+  `TimelineCompositionTests` 据此核：标题元素的 label / 值 / `.isHeader`、无标题默认圆点行合并成一个带值元素、
+  自定义节点不传 `status` 的行不合并也无值、横向语境下内容各成 `.contain` 容器（用 `timelineLayoutContext = .horizontal`
+  直接渲染行，不经 `ScrollView`）。
+- **`.horizontal` 的整体读序没有进程内判据**：`ScrollView` 的 `PlatformGroupContainer` 在单测进程里不给出子节点，
+  排序优先级只能靠下面的 `axe` 手工读数；机器判据只有纯函数 `readingPriorities` 与源码接线判据。
+- **macOS 腿**：`NSHostingView` 只给出根 `AXGroup`（KVC 读 `accessibilityChildren`），读不到子树。两条腿都跑源码接线判据：
+  内容槽各分支挂着合并 / 值 / `.contain`，横向容器挂着优先级与 `.contain`，每个辅助修饰落到对应的 SwiftUI 修饰。
 
 ### 不在 CI 的手工读数
 
-iOS 26.4 模拟器、画廊 `PREVIEW_COMPONENT_ID=timeline`、`axe describe-ui`（`#420` PR 2 读数）。⚠️ 整树输出**包含**
+iOS 26.4 模拟器、画廊 `PREVIEW_COMPONENT_ID=timeline`、`axe describe-ui`（`#420` PR 2 读数；整树输出也列出屏幕外的元素）。⚠️ 整树输出**包含**
 `.accessibilityHidden(true)` 的元素，判「隐藏没隐藏」只用 `--point` 命中测试。
 
 - **默认圆点与连线不可命中**：`--point` 落在圆点 / 连线上，命中的是根 `Group`（整屏帧），不是圆点元素。
@@ -210,3 +230,10 @@ iOS 26.4 模拟器、画廊 `PREVIEW_COMPONENT_ID=timeline`、`axe describe-ui`�
 - **`.horizontal` 读序**：三列、每列标题 + 时间。只做标题挂值时，整树顺序是三个标题在前、三个时间在后（按几何行读）；
   给内容加 `.contain` 后顺序变为「标题 1、时间 1、标题 2、时间 2 …」，`--point` 命中标题仍带值（`Heading '已创建' value='Info'`）⇒ 采用后者。
 - 自定义节点里调用方已 `.accessibilityHidden(true)` 的图标（部署日志）`--point` 不可命中。
+- **`.horizontal` 活动流**（画廊里的横向形态：非行标题 `Today`、两行 40pt 头像 + 标题 + 时间、一行无标题默认圆点、
+  一行不传 `status` 的无标题头像行 `Kai`）。只给内容加 `.contain`、不加排序优先级时：`Image 'Evan'`、`Image 'Mia'`、`Image 'Kai'`
+  排在最前，其后才是 `Today` 与各列内容。加排序优先级后整树为一个分组：`Today` → `Image 'Evan'` → 分组[`Heading 'Evan pushed 3 commits'`、`2h ago`]
+  → `Image 'Mia'` → 分组[…] → `StaticText 'CI summary from server: 3 checks passed' value='Info'` → `Image 'Kai'` → 分组[`Kai`、`left a review`]。
+  只有标题行的三列横向形态仍按列读（多一层匿名分组），`--point` 命中标题仍带值（`Heading '已创建' value='Info'`）。
+- **默认圆点 + 无标题 + 空内容**：画廊里 `TimelineItem(status: .danger) {}` 在整树里是 `GenericElement`，无 label、`value='Error'`、帧 0×0
+  （在屏幕外，未做 `--point`）；下一行 `StaticText 'Next row' value='Success'` 正常。
