@@ -34,7 +34,7 @@ Timeline(layout: TimelineLayout = .vertical, @ViewBuilder content: () -> Content
 | `title` | `LocalizedStringKey` | `.coreFont(.callout)` + `contentPrimary`，标题元素（`.isHeader`）。数据驱动标题用插值（`"\(name) pushed \(n) commits"`）；纯运行期文本（无可本地化部分）不走标题，放进 `content:` 写 `Text(verbatim:)` |
 | `time` | `Text?` | 格式化数据，如 `Text(date, style: .relative)`；`.coreFont(.footnote)` + `contentSecondary` |
 | `description` | `LocalizedStringKey?` | `.coreFont(.footnote)` + `contentSecondary` |
-| `step` | `Int?` | 该行的步骤号，PR 3 起生效；本 PR 仅存储。纯活动流不写 |
+| `step` | `Int?` | 该行的步骤号；当前仅存储，阶段 API 落地后生效。纯活动流不写 |
 | `node` | `@ViewBuilder` | 自定义节点，收到 `24×24pt` 提议，节点盒取报告尺寸、下限 24pt |
 | `content`（init ①②，无结构件） | `@ViewBuilder` | 行内容；并列的多个视图竖排、左对齐、间距 0 |
 | `content`（init ③④，结构件） | `@ViewBuilder` | 描述下方的富内容；与标题 / 时间 / 描述同在 `VStack(spacing: CoreSpacing.xxs)` 里，并列的多个视图间距 `xxs` |
@@ -201,6 +201,7 @@ Timeline(layout: .grouped) { rows }   // node: 槽在此形态下不生效
   - 整条横向时间线是一个 `.contain` 容器，每个子视图带 `accessibilitySortPriority`（纯函数 `TimelineStackLayout.readingPriorities(slots:partCount:)`：
     按槽序递减、行内节点先于内容、非行子视图占一个槽）。不这样做时，未隐藏的自定义节点（头像）在几何上高于所有内容，会排在所有列的内容之前。
     优先级是施在已有子视图上的修饰，不重组子视图，单遍布局不变。
+  - `.horizontal` 下直接子视图（`TimelineItem` 或非行子视图）的 `accessibilitySortPriority` 由容器接管：调用方在直接子视图上自设的排序优先级与容器的哪层生效**未验证、不保证**；行内容内部自设的优先级被该行的 `.contain` 限定在本列，不受影响。整条横向的容器级 `.contain` 是否必需也未验证（去掉它只有源码判据红、无 axe 读数），当作保险层保留。
   其余布局不加。
 - **默认圆点 + 无标题 + 空内容**（`TimelineItem(status: .danger) {}`）：状态值挂在一个无 label、0×0 的元素上
   （读数见下）；VoiceOver 能否聚焦它未验证。要播报状态请给内容，或改用带标题的 init。
