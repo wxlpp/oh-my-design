@@ -53,8 +53,10 @@ FLOORS = {
     # enumcases +4（idle / loading / success / failure）。#418：components +1（SlideToConfirm）。
     # #282 批 A：components +4（Metaballs / DotOrbit / Voronoi / SmokeRing）、enums +4（各一个档位枚举）、enumcases +12（3 × 4）。
     # #282 批 B：components +4（Swirl / SimplexNoise / ColorPanels / StarNest）、enums +4、enumcases +12（3 × 4）。
-    "colors": 124, "components": 107, "enums": 69, "enumcases": 227,
-    "protocols": 6, "viewext": 50, "styleext": 15, "others": 29,
+    # #368：protocols +1（GlassSymbolStyle）、components +1（PlainGlassSymbolStyle）、
+    # others +1（GlassSymbolStyleConfiguration）、viewext +1（View.glassSymbolStyle）。
+    "colors": 124, "components": 108, "enums": 69, "enumcases": 227,
+    "protocols": 7, "viewext": 51, "styleext": 15, "others": 30,
 }
 
 # 组件判定：conformance 列表里出现这些名字之一，或以 Style 结尾。

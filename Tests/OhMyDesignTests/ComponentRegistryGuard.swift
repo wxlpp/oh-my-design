@@ -54,14 +54,9 @@ struct ComponentRegistryGuard {
 
     // MARK: - 缓办台账：步骤 2 枚举未完成的条目（PR #297 终审 I-2）
 
-    static let pendingStep2FollowUpIssue: String? = "#368"
+    static let pendingStep2FollowUpIssue: String? = nil
 
-    /// ⚠️ **`#279` 加进 `GlassSymbol`**（`OhMyDesignShaders`）：它是本 target 里唯一候选形态
-    /// **会引入承载内容的子视图**的一件（成就徽章用例的「加等级环 / 加绶带文字」按三分法属槽差异、
-    /// 本该计入 ≥2），而同 target 另外五件背景是单层全幅装饰、槽与排布两轴结构上为空
-    /// ⇒ 正当落 tiebreaker。`#279` 是扫描根收口 task、**没做**停止规则要求的候选枚举
-    /// ⇒ 与 `#270` 那 6 条同因，同挂承接 issue。
-    static let knownPendingStep2Enumeration: Set<String> = ["GlassSymbol"]
+    static let knownPendingStep2Enumeration: Set<String> = []
 
     static func pendingStep2Components(in entries: [Entry]) -> Set<String> {
         Set(entries.filter { $0.decidedBy == "pendingStep2" }.map(\.component))

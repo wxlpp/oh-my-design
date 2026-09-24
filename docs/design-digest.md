@@ -1022,6 +1022,12 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 
 - **`GlassSymbol`** *: View* — 渲染成折射玻璃的 SF Symbol。
 
+### `GlassSymbolStyle.swift`
+
+- **`PlainGlassSymbolStyle`** *: GlassSymbolStyle* — 默认外观：只渲染符号本体，不加任何附加层。
+- *protocol* **`GlassSymbolStyle`** — `GlassSymbol` 外观的扩展点，形态对齐 Apple `ButtonStyle` 与本仓的 `RatingStyle`： 在符号本体周围加等级标签、进度环这类附加层。
+- *struct* **`GlassSymbolStyleConfiguration`** — 传给 `GlassSymbolStyle.makeBody` 的上下文：已渲染好的折射符号本体与背衬基色。
+
 ### `Halftone.swift`
 
 - *enum* **`HalftoneDot`**: `.fine`, `.regular`, `.coarse` — 网点粗细。
@@ -1089,7 +1095,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 
 # Modifier / Transition 入口点
 
-共 50 个（按 `Host.member` 去重，含参重载算一条）。
+共 51 个（按 `Host.member` 去重，含参重载算一条）。
 
 | target | 入口 | 说明 |
 |---|---|---|
@@ -1141,6 +1147,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | `OhMyDesignEffects` | `.spray` on `View` | `trigger` 变化时向上喷出一束符号粒子。 |
 | `OhMyDesignEffects` | `.swoosh` on `Transition` | 带动态模糊的穿行转场（默认从右侧进、左侧出）。 |
 | `OhMyDesignShaders` | `.glassOrb` on `View` | 在本视图上放一枚跟手的玻璃珠放大镜。 |
+| `OhMyDesignShaders` | `.glassSymbolStyle` on `View` | 为子树中的所有 `GlassSymbol` 设置外观。 |
 | `OhMyDesignShaders` | `.halftone` on `View` | 把本视图印成半调网屏。 |
 | `OhMyDesignShaders` | `.refractiveGlass` on `View` | 把本视图渲染成一片折射玻璃。 |
 
@@ -1187,11 +1194,11 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | controlsize | 5 | 5 |
 | motion | 4 | 4 |
 | colors | 124 | 124 |
-| components | 107 | 107 |
+| components | 108 | 108 |
 | enums | 69 | 69 |
 | enumcases | 227 | 227 |
-| protocols | 6 | 6 |
-| viewext | 50 | 50 |
+| protocols | 7 | 7 |
+| viewext | 51 | 51 |
 | styleext | 15 | 15 |
-| others | 29 | 29 |
+| others | 30 | 30 |
 
