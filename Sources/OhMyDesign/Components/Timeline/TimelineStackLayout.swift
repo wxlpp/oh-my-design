@@ -79,7 +79,7 @@ struct TimelineStackLayout: Layout {
             return Self.nodeBox(reported: subview.sizeThatFits(Self.nodeProposal))
         }
         let column = Self.nodeColumnWidth(boxWidths: self.rowIndices.map { boxes[$0].width })
-        let connectors = self.connectorIndices()
+        let connectors = Self.connectorIndices(slots: self.slots, layout: self.layout, partCount: self.partCount)
         switch self.layout {
         case .alternate:
             return self.arrangeAlternate(width: width, column: column, boxes: boxes, connectors: connectors, subviews: subviews)
@@ -104,15 +104,6 @@ struct TimelineStackLayout: Layout {
         switch slot {
         case .row(_, let content): content
         case .free(let index): index
-        }
-    }
-
-    private func connectorIndices() -> [[Int]] {
-        var next = self.partCount
-        return Self.segments(slots: self.slots).map { segment in
-            let pieces = self.layout == .alternate ? segment.free.count + 1 : 1
-            defer { next += pieces }
-            return Array(next..<(next + pieces))
         }
     }
 
@@ -308,12 +299,34 @@ extension TimelineStackLayout {
         return segments
     }
 
-    nonisolated static func connectorCount(slots: [Slot], layout: TimelineLayout) -> Int {
-        let segments = Self.segments(slots: slots)
-        switch layout {
-        case .alternate: return segments.reduce(0) { $0 + $1.free.count + 1 }
-        case .vertical, .horizontal: return segments.count
-        case .grouped: return 0
+    nonisolated static func connectorPieces(slots: [Slot], layout: TimelineLayout) -> [(segment: Segment, pieces: Int)] {
+        guard layout != .grouped else { return [] }
+        return Self.segments(slots: slots).map { segment in
+            (segment, layout == .alternate ? segment.free.count + 1 : 1)
+        }
+    }
+
+    nonisolated static func connectorIndices(slots: [Slot], layout: TimelineLayout, partCount: Int) -> [[Int]] {
+        var next = partCount
+        return Self.connectorPieces(slots: slots, layout: layout).map { entry in
+            defer { next += entry.pieces }
+            return Array(next..<(next + entry.pieces))
+        }
+    }
+
+    nonisolated static func segmentFraction(progress: TimelineProgress?, nextStep: Int?) -> CGFloat {
+        guard let progress, let nextStep else { return 0 }
+        return progress.phase(forStep: nextStep) != .upcoming ? 1 : 0
+    }
+
+    nonisolated static func connectorFractions(
+        slots: [Slot], steps: [Int?], progress: TimelineProgress?, layout: TimelineLayout
+    ) -> [CGFloat] {
+        Self.connectorPieces(slots: slots, layout: layout).flatMap { entry in
+            let fraction = Self.segmentFraction(
+                progress: progress, nextStep: steps.indices.contains(entry.segment.to) ? steps[entry.segment.to] : nil
+            )
+            return [CGFloat](repeating: fraction, count: entry.pieces)
         }
     }
 

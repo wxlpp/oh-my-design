@@ -8,10 +8,12 @@
 "Applies to filtered results only" = "Applies to filtered results only";
 "Collapse" = "Collapse";
 "Collapsed" = "Collapsed";
+"Completed" = "Completed";
 "Dismiss" = "Dismiss";
 "Error" = "Error";
 "Expand" = "Expand";
 "Expanded" = "Expanded";
+"In Progress" = "In Progress";
 "Info" = "Info";
 "Loading" = "Loading";
 "Neutral" = "Neutral";
@@ -23,5 +25,6 @@
 "Success" = "Success";
 "Tap to dismiss" = "Tap to dismiss";
 "Untitled" = "Untitled";
+"Upcoming" = "Upcoming";
 "Verification code" = "Verification code";
 "Warning" = "Warning";

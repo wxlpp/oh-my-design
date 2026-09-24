@@ -313,7 +313,7 @@ Timeline(layout: .horizontal, progress: .inProgress(at: 2)) {
 - **不共用类型**：`Steps` 的阶段是其内部 `enum StepsProgress`（`Sources/OhMyDesign/Components/Steps/Steps.swift` 逐字
   `enum StepsProgress: Equatable {`），两者不互相引用。`Steps` 本 issue 不改一个字。
 - **可共用的**：动效 token（`CoreMotionToken.reveal`）与已到达连线的着色通路（`.tint`，Steps 逐字 `Rectangle().fill(.tint)`）；
-  两边的连线归属规则**同义**（§4.1）。
+  `step` 连续时两边的连线归属规则**同义**（§4.1；`Steps` 按行序、这里按 `step`）。
 
 ## 2. a：四种布局保留，`TimelineAlternateRowLayout` 的几何判据延续
 
@@ -419,16 +419,16 @@ P7 读数（macOS 托管窗口 390×844、`ScrollView` 内、`-O`，两轮取后
 
 **阶段真值表**（`s` = 该行的 `step`，`k` = `inProgress(at:)` 的参数）：
 
-| `progress` | 行阶段（`step == nil` 的行一律 `nil`） | 位置 `P`（§6.2） |
+| `progress` | 行阶段（`step == nil` 的行一律 `nil`） | 位置 `P_step`（`step` 空间，定义见 §6.2；PR 4 动效用） |
 |---|---|---|
 | 不传（纯活动流） | `nil`（不读 `step`） | 不适用 |
-| `.notStarted` | `upcoming` | 首个带 `step` 的行之前（−1，不着色） |
-| `.inProgress(at: k)` | `s < k` → `completed`；`s == k` → `inProgress`；`s > k` → `upcoming` | 见下 |
-| `.completed` | `completed` | 末个带 `step` 的行 |
+| `.notStarted` | `upcoming` | 最小 `step` − 1 |
+| `.inProgress(at: k)` | `s < k` → `completed`；`s == k` → `inProgress`；`s > k` → `upcoming` | `k` |
+| `.completed` | `completed` | 最大 `step` + 1 |
 
 **连线段归属**（段 = 解析序中相邻两个**行**之间，跨过非行子视图）：段着色看它**通向的那一行**——后一行 `completed` 或 `inProgress`
-⇒ `.tint`；否则 `dividerDefault`。纯活动流全部 `dividerDefault`（**= 旧实现**）。这与 `Steps` 的连线规则同义
-（`Steps.swift` 逐字 `self.progress(for: index) == .done`，段后一侧已完成才着色），也与 reui 的 `has-[+[data-completed]]` 同义（看下一项）。
+⇒ `.tint`；否则 `dividerDefault`。纯活动流全部 `dividerDefault`（**= 旧实现**）。`step` 连续时，这与 `Steps` 的连线规则同义
+（`Steps` 按行序、这里按 `step`；`Steps.swift` 逐字 `self.progress(for: index) == .done`，段后一侧已完成才着色），也与 reui 的 `has-[+[data-completed]]` 同义（看下一项）。
 ⚠️ 第 1 版写「逐行显式阶段 ⇒ 连线着色无定义」是错的：「看后一行」这条规则对任意阶段组合都有定义；U1 各选项的差别在单调性，
 不在可定义性（§12 U1）。
 
@@ -444,9 +444,10 @@ P7 读数（macOS 托管窗口 390×844、`ScrollView` 内、`-O`，两轮取后
 - **着色层**：已到达段用 `.tint`（U11 已按证据定案：与 `Steps` 同源、调用方 `.tint(_:)` 可改；按下一行 `status` 着色会让活动流的
   danger / success 混排连线五颜六色，与「阶段决定连线、状态决定色相」的正交分工冲突），底线 `dividerDefault`，宽 `CoreBorderWidth.thin`。
 
-**位置 `P`**：容器从各行 `containerValues` 读到 `(配对序号 j, step, 阶段)`，`P` = 最后一个「已到达」行（`completed` 或 `inProgress`）
-的配对序号，没有则 −1。静态时段 `j`（行 `j` → 行 `j+1`）的着色比例 `f_j = clamp(P − j, 0, 1) ∈ {0, 1}`，与上面「看后一行」逐段等价
-（单调时；非单调时以逐段规则为准、`P` 只驱动动效）。
+**位置 `P`**：以 §6.2 的 `step` 空间定义为准（`P_step`，上表第三列）；本节早先的「配对序号空间」写法已由 §6.2 取代。
+静态（PR 3）段系数不经 `P`，与 `phase(forStep:)` 同源、逐个整数判定：段 `j`（行 `j` → 行 `j+1`）的系数
+= 后一行 `step` 非 `nil` 且 `progress.phase(forStep: s_{j+1}) != .upcoming` ? 1 : 0——就是上面「看后一行」这条规则本身。
+连续的 `P_step` 与插值系数只在 PR 4 的推进动效里引入（整数判定避免 `step` 取极值时 `CGFloat` 精度把相邻两个 `step` 判成同一点）。PR 4 引入 `P_step` 时另须处理整数溢出：`.notStarted` 的「最小 `step` − 1」与 `.completed` 的「最大 `step` + 1」在 `Int.min` / `Int.max` 下会 trap。
 
 ### 4.2 默认圆点的形态（色相仍由 `status` 经 `Timeline.nodeColor(for:in:)` 决定，U3）
 
@@ -454,10 +455,13 @@ P7 读数（macOS 托管窗口 390×844、`ScrollView` 内、`-O`，两轮取后
 |---|---|
 | `nil`（活动流） | 实心圆 Ø10（**旧实现原样**） |
 | `completed` | 实心圆 Ø10（与活动流逐点相同） |
-| `inProgress` | 实心圆 Ø10 + 同色外环（Ø18、线宽 `CoreBorderWidth.thick`、不透明度待视觉评审，草案 0.4）；仍在 24 盒内 |
+| `inProgress` | **靶心**：实心圆 Ø10 + 透明间隙 + 同色**实线**外环（不透明，与圆点同色同对比度）；外环外径 = 10 + 2 ×（间隙 `CoreSpacing.xxs` + 线宽 `CoreBorderWidth.thick`）= 18；仍在 24 盒内 |
 | `upcoming` | 空心圆 Ø10，线宽 `CoreBorderWidth.thick`，同色 |
 
 - 浅色 `warning` 仍取 `statusAttentionForeground`（`#398` 的对比度修正对三种形态都成立）。
+- 进行中外环的间隙是**挖空**：外环是 `strokeBorder` 画的环、圆点与环之间什么都不画，间隙露出的是 `Timeline` 身后的任意背景；
+  不画一圈背景色，因为 `Timeline` 可能放在卡片、带色表面等非默认背景上，画一圈固定背景色会在那里露出色块。
+  外环与圆点同色、不降不透明度 ⇒ 外环对背景的对比度与实心圆点同档（≥ 3:1）。
 - **进行中是静态强调，不做呼吸 / 脉冲**（§6.5）。
 - 自定义 `node:` **不叠加任何阶段画法**：调用方读 `@Environment(\.timelinePhase)` 自行决定（U10）。
 
@@ -917,7 +921,9 @@ macOS `swift test`（读 `Test run with N tests` 总数）、iOS `xcodebuild -sc
 | **U8** | 状态 + 阶段挂在哪 | 有 `title` 挂**标题元素**（a4）；无 `title` 挂**合并后的内容元素**（a2）；默认圆点隐藏 | 用户拍板 | P10：a4 下行内其它元素保持独立可聚焦；a2 把行内按钮变 `custom_actions`；挂节点元素与基线同病（P9） | §7.3、§9.3 |
 | **U12** | `TimelineItem` 登记分类 | `prescriptive` / `tiebreaker` / `needsExtensionPoint: false` ⇒ J-2 仍 **16**；公约 D1 范例处加注「形状范例、非 J-2 实例」；`ComponentJudgeRulesTests` 的 `TimelineItem` 夹具注明为合成夹具（均为 PR 2 登记改动） | 用户拍板 | §8.4：步骤 2 只找到 1 个站得住的非皮肤候选 | §8.1、§8.2、§8.4、§9.2 |
 | **U13** | 数据驱动标题 | 只给 `LocalizedStringKey`；纯运行期文本走 `content:` + `Text(verbatim:)`。未采纳：`StringProtocol` 重载、`title: Text` | 用户拍板 | 公约 §4：B 类新增用 `LocalizedStringKey`；插值可本地化动词、运行期值原样代入 | §1.2、§1.6、§8.2 |
-| **U3** | 未开始 / 进行中的默认圆点 | 色相仍取 `status`；未开始 = 同色空心环；进行中 = 实心 + 同色外环 | 用户拍板（批量） | 保 `status` 与阶段正交；中性灰会让「未开始的 danger」读不出 danger | §4.2 |
+| **U3** | 未开始 / 进行中的默认圆点 | 色相仍取 `status`；未开始 = 同色空心环；进行中 = **靶心**（实心 Ø10 + 挖空间隙 `CoreSpacing.xxs` + 同色实线外环 `CoreBorderWidth.thick`，外径 18） | 用户拍板（批量）；外环形态 PR 3 终审后用户拍板 | 保 `status` 与阶段正交；中性灰会让「未开始的 danger」读不出 danger；外环不降不透明度才能与圆点同档 ≥ 3:1，间隙挖空避免非默认背景上露色块 | §4.2 |
+| **U19** | 状态 × 阶段的矛盾组合（如 `danger` + `upcoming`） | 保持正交，不禁止、不改色；文档说明组合含义由调用方决定（例：「有风险的未到里程碑」） | 用户拍板（PR 3 终审后） | 正交是 U3 的前提；运行期校验没有不打断渲染的报错通道 | §4.1、§4.2 |
+| **U20** | `.grouped` + `progress:` | 保留阶段播报：屏幕上不显示阶段（无节点、无连线），VoiceOver 仍读出阶段键 | 用户拍板（PR 3 终审后） | 挂载点只看有无标题、与布局无关（§7.3） | §7.3 |
 | **U4** | 入场重播 | 每个身份只播一次 | 用户拍板（批量） | P4：可见性回调双向；重播读作「刚到达」 | §6.3 |
 | **U5** | RM 下的入场 | 完全不播 | 用户拍板（批量） | 入场不承载信息 | §6.4 |
 | **U9** | 节点下方最短连线 `m` | `CoreSpacing.sm`（8pt） | 用户拍板（批量） | §3.3 | §3.3、§8.3 |

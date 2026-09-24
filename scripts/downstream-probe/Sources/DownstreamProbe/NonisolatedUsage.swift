@@ -220,3 +220,10 @@ nonisolated func countTreeSearchMatches(_ query: String) -> Int {
 nonisolated func readTreeRowClickBehaviors() -> [TreeRowClickBehavior] {
     TreeRowClickBehavior.allCases.filter { $0 != .select }
 }
+
+// Issue #420：`TimelineProgress` / `TimelinePhase` 是 `nonisolated` 的公开枚举，`phase(forStep:)` 是其上的纯函数；
+// 下游可在非 MainActor 语境里构造、比较、放进 Set、按 step 算阶段。
+nonisolated func timelinePhases(steps: [Int], progress: TimelineProgress) -> [TimelinePhase] {
+    let known: Set<TimelineProgress> = [.notStarted, .inProgress(at: 1), .completed]
+    return known.contains(progress) ? steps.map { progress.phase(forStep: $0) } : TimelinePhase.allCases
+}

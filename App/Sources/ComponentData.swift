@@ -145,7 +145,7 @@ extension ComponentMeta {
         ComponentMeta(id: "steps", name: "Steps", description: "步骤条：4 种呈现（steps / segmentedBar / navigation / text）× 点状 / 数字指示器", category: .indicator) {
             StepsPreview()
         },
-        ComponentMeta(id: "timeline", name: "Timeline", description: "时间线：4 种排布（vertical / alternate / horizontal / grouped），节点 + 连线 + 内容", category: .indicator) {
+        ComponentMeta(id: "timeline", name: "Timeline", description: "时间线：4 种排布（vertical / alternate / horizontal / grouped），节点 + 连线 + 内容；可选阶段（已完成 / 进行中 / 未开始）", category: .indicator) {
             TimelinePreview()
         },
 
@@ -1762,7 +1762,27 @@ private struct TimelinePreview: View {
                 TimelineItem(status: .danger) {}
                 TimelineItem(status: .success) { Text(verbatim: "Next row").coreFont(.callout) }
             }
+            // 带阶段：订单进度（已完成实心、进行中靶心、未开始空心；已到达连线着 .tint）。
+            Timeline(progress: .inProgress(at: 2)) { PreviewSnapshotFixtures.timelineOrderRows }
+            // 带阶段的自定义节点：阶段外观由节点自己读 `timelinePhase` 决定。
+            Timeline(progress: .inProgress(at: 1)) {
+                TimelineItem("打包", step: 0) { TimelinePhaseIcon() } content: {}
+                TimelineItem("出库", step: 1) { TimelinePhaseIcon() } content: {}
+                TimelineItem("派送", step: 2) { TimelinePhaseIcon() } content: {}
+            }
+            .tint(Color.statusSuccessEmphasis)
+            Timeline(layout: .horizontal, progress: .inProgress(at: 2)) { PreviewSnapshotFixtures.timelineRoadmapRows }
         }
+    }
+}
+
+private struct TimelinePhaseIcon: View {
+    @Environment(\.timelinePhase) private var phase
+
+    var body: some View {
+        Image(systemName: self.phase == .completed ? "checkmark.circle.fill" : (self.phase == .inProgress ? "clock.fill" : "circle"))
+            .foregroundStyle(self.phase == .upcoming ? Color.contentSubtle : Color.statusSuccessEmphasis)
+            .accessibilityHidden(true)
     }
 }
 
