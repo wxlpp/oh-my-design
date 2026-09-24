@@ -17,10 +17,11 @@ import AppKit
 /// 导航栏 / 工具栏；本组件是可内联摆放的独立控件（筛选栏 / 侧栏列）。
 /// 该替代方案在 `docs/component-registry.json` 的本组件条目里已评估并否决。
 ///
-/// ⚠️ **原生控件不随 frame 撑满**：iOS 实测 `intrinsicContentSize.height = 28`，
-/// 在 28 / 36 / 44 三档 frame 下绘制带恒为同一高度且垂直居中；macOS `NSSearchField`
-/// 同形（`.large` intrinsic 28）。⇒ 视觉高度取控件自然高，**44pt 触控下限由外层
-/// 包装层承担**（见 `body` 里的 `frame(minHeight:)` + `contentShape`）。
+/// 纵向取固有高度（下限 44pt 触控区），放进不限高的容器也不会被拉伸，调用方不需要 `fixedSize`；
+/// 外层 `.frame(height:)` 只改外框，原生搜索框与命中区不会随之变高。
+/// ⚠️ 别去掉包装层的 `fixedSize(vertical)`：iOS `UISearchTextField` 的绘制带随 frame 撑满，
+/// 去掉后在不限高容器里会被纵向拉伸（macOS `NSSearchField` 本身不拉伸）。
+/// invalid 描边叠在 representable 自身的 bounds 上，两端都贴合绘制带。
 public struct SearchField: View {
     /// 创建搜索输入框 / Creates a search input field.
     ///
@@ -47,8 +48,18 @@ public struct SearchField: View {
             onSubmit: self.onSubmit,
             focusRequests: self.focusRequests
         )
+        .fieldAccessibility()
         .frame(maxWidth: .infinity)
+        .overlay {
+            if FieldAppearance.resolve(isEnabled: self.isEnabled, validation: self.validation, isFocused: false) == .invalid {
+                Capsule()
+                    .strokeBorder(Color.statusDangerForeground, lineWidth: CoreBorderWidth.thin)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
         .frame(minHeight: CoreControlMetrics.height(for: .regular))
+        .fixedSize(horizontal: false, vertical: true)
         .contentShape(Rectangle())
         .onTapGesture { self.focusRequests += 1 }
     }
@@ -56,6 +67,8 @@ public struct SearchField: View {
     @Binding private var text: String
     private let placeholder: String
     private let onSubmit: ((String) -> Void)?
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.fieldValidation) private var validation
 
     /// 单调递增的聚焦请求计数。包装层的 44pt 命中区被点到时 +1，
     /// 由 representable 转成 `becomeFirstResponder()`——原生控件只占中间那一条，
@@ -78,6 +91,7 @@ private struct NativeSearchField: UIViewRepresentable {
 
     func makeUIView(context: Context) -> UISearchTextField {
         let field = UISearchTextField()
+        field.returnKeyType = .search
         field.delegate = context.coordinator
         field.addTarget(context.coordinator, action: #selector(Coordinator.editingChanged(_:)), for: .editingChanged)
         field.setContentHuggingPriority(.defaultLow, for: .horizontal)

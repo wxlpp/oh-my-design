@@ -10,7 +10,6 @@ public struct PinCode: View {
     let onComplete: ((String) -> Void)?
 
     @FocusState private var isFocused: Bool
-    @Environment(\.controlSize) private var controlSize
     @Environment(\.isEnabled) private var isEnabled
 
     /// - Parameters:
@@ -60,6 +59,8 @@ public struct PinCode: View {
         TextField("", text: self.$value)
             .focused(self.$isFocused)
             .textFieldStyle(.plain)
+            .foregroundStyle(Color.clear)
+            .tint(Color.clear)
             .autocorrectionDisabled(true)
             #if os(iOS)
             .textContentType(.oneTimeCode)
@@ -67,6 +68,7 @@ public struct PinCode: View {
             #endif
             .fixedSize()
             .opacity(0.01)
+            .clipShape(Rectangle().size(.zero))
             .accessibilityHidden(true)
             .onChange(of: self.value) { oldValue, newValue in
                 self.processInput(newValue, previousValue: oldValue)
@@ -75,38 +77,28 @@ public struct PinCode: View {
 
     // MARK: - Cell rendering
 
-    private var cellSize: CGFloat {
-        CoreControlMetrics.height(for: self.controlSize)
-    }
-
-    @ViewBuilder
     private func cell(at index: Int) -> some View {
         let character = Self.character(at: index, in: self.value)
         let isCurrent = self.isFocused
             && self.isEnabled
             && index == Self.focusedIndex(valueCount: self.value.count, length: self.length)
-        let shape = CoreShape.rounded(CoreRadius.medium)
 
-        Text(Self.displayText(for: character, isSecure: self.isSecure))
-            .coreFont(.title2)
-            .foregroundStyle(self.isEnabled ? Color.contentPrimary : Color.contentDisabled)
-            .frame(width: self.cellSize, height: self.cellSize)
-            .background {
-                shape.fill(Color.surfaceInteractive)
-            }
-            .overlay {
-                shape.strokeBorder(
-                    isCurrent ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.borderMuted),
-                    lineWidth: isCurrent ? CoreBorderWidth.thick : CoreBorderWidth.thin
-                )
-            }
+        return PinCodeCell(character: character, isSecure: self.isSecure, isCurrent: isCurrent)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Text("Verification code", bundle: .module))
+            .fieldAccessibility(fallbackLabel: Text("Verification code", bundle: .module))
             .accessibilityValue(Text(verbatim: Self.accessibilityValueText(index: index + 1, count: self.length, character: character, isSecure: self.isSecure)))
             .accessibilityAddTraits(isCurrent ? .isSelected : [])
             .accessibilityAction {
                 self.isFocused = true
             }
+    }
+
+    static func cellBorderStyle(for appearance: FieldAppearance) -> AnyShapeStyle {
+        switch appearance {
+        case .invalid: AnyShapeStyle(Color.statusDangerForeground)
+        case .focused: AnyShapeStyle(.tint)
+        case .normal, .disabled: AnyShapeStyle(Color.borderMuted)
+        }
     }
 
     // MARK: - Processing entry (unit-testable via `@testable import`)
@@ -161,6 +153,45 @@ public struct PinCode: View {
         let position = Self.positionText(index: index, count: count)
         guard !isSecure, let character else { return position }
         return "\(position), \(character)"
+    }
+}
+
+// MARK: - PinCodeCell
+
+struct PinCodeCell: View {
+    let character: Character?
+    let isSecure: Bool
+    let isCurrent: Bool
+
+    @Environment(\.controlSize) private var controlSize
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.fieldValidation) private var validation
+
+    var body: some View {
+        let shape = CoreShape.rounded(CoreRadius.medium)
+        let appearance = FieldAppearance.resolve(isEnabled: self.isEnabled, validation: self.validation, isFocused: self.isCurrent)
+        let cellSize = CoreControlMetrics.height(for: self.controlSize)
+
+        Text(PinCode.displayText(for: self.character, isSecure: self.isSecure))
+            .coreFont(.title2)
+            .foregroundStyle(self.isEnabled ? Color.contentPrimary : Color.contentDisabled)
+            .frame(width: cellSize, height: cellSize)
+            .background {
+                shape.fill(Color.surfaceInteractive)
+            }
+            .overlay {
+                shape.strokeBorder(
+                    PinCode.cellBorderStyle(for: appearance),
+                    lineWidth: self.isCurrent ? CoreBorderWidth.thick : CoreBorderWidth.thin
+                )
+            }
+            .background {
+                if self.isCurrent && appearance == .invalid {
+                    CoreShape.rounded(CoreRadius.medium + CoreBorderWidth.thicker)
+                        .strokeBorder(Color.statusDangerForeground.opacity(0.3), lineWidth: CoreBorderWidth.thicker)
+                        .padding(-CoreBorderWidth.thicker)
+                }
+            }
     }
 }
 

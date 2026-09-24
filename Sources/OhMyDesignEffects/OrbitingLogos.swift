@@ -1,6 +1,28 @@
 import OhMyDesign
 import SwiftUI
 
+// MARK: - 布局形态（Issue #312 · 形态 D2）
+
+/// `OrbitingLogos` 的布局形态。
+///
+/// ⚠️ **本枚举是 `#312` 给 `OrbitingLogos` 补的样式扩展点**（形态 D2 配置枚举）——
+/// 每个 case 对应判定时计入的一个业界候选，来源记在 `docs/component-registry.json`
+/// 本组件条目的 `notes` 里。
+///
+/// ⚠️ **「配置枚举可演进」不是零代价**：本枚举**非 `@frozen`**，加 case 对下游任何
+/// 穷举 `switch` 都是 source-breaking（下游要写 `@unknown default` 才免疫）。
+public nonisolated enum OrbitingLogosLayout: Sendable, Equatable, CaseIterable {
+    /// 默认：现状——全部条目均匀落在最外一圈点环上。
+    case outerRing
+    /// 多轨道：条目按序分居到不同半径的同心圈上。
+    /// 业界来源：Magic UI `OrbitingCircles` 的两个不同 `radius` 实例并列。
+    case multiRing
+    /// 椭圆轨道：四圈点环与条目一并沿横向压扁，整件成椭圆。
+    /// 业界来源：Animata "Orbiting Items 3D" 的 `radiusX` / `radiusY`。
+    /// ⚠️ **明确不做**：来源里的倾角与透视两个维度本轮都不开，见组件文档的取舍说明。
+    case ellipse
+}
+
 // MARK: - 驱动层（读环境、定策略、决定建不建 TimelineView）
 
 /// 四圈同心点环持续自转，调用方的 logo 均匀落在最外环上随之巡游，
@@ -13,6 +35,7 @@ where Data.Element: Identifiable {
     private let items: Data
     private let colors: [Color]
     private let rotationPeriod: Double
+    private let layout: OrbitingLogosLayout
     private let logo: (Data.Element) -> Logo
     private let center: Center
 
@@ -32,18 +55,21 @@ where Data.Element: Identifiable {
     ///     读不出"整件冻结"——一个旋钮被重载成了开关，与本仓 J-1 的口味相左。
     ///     ⇒ **如需分离，另开档位**（一个描述"这件动到什么程度"的枚举），别再往
     ///     `rotationPeriod` 上叠语义。
+    ///   - layout: 轨道布局形态，见 `OrbitingLogosLayout`。默认 `.outerRing`（现状）。
     ///   - logo: 每个条目画成什么。
     ///   - center: 中心视图。
     public init(
         _ items: Data,
         colors: [Color] = [],
         rotationPeriod: Double = OrbitingLogos.defaultRotationPeriod,
+        layout: OrbitingLogosLayout = .outerRing,
         @ViewBuilder logo: @escaping (Data.Element) -> Logo,
         @ViewBuilder center: () -> Center
     ) {
         self.items = items
         self.colors = colors
         self.rotationPeriod = rotationPeriod
+        self.layout = layout
         self.logo = logo
         self.center = center()
     }
@@ -65,6 +91,7 @@ where Data.Element: Identifiable {
                 turns: OrbitRing.restingPhase,
                 feature: OrbitRing.restingFeature,
                 layers: .contentOnly,
+                layout: self.layout,
                 logo: self.logo,
                 center: self.center
             )
@@ -75,6 +102,7 @@ where Data.Element: Identifiable {
                 turns: OrbitRing.restingPhase,
                 feature: OrbitRing.restingFeature,
                 layers: .full,
+                layout: self.layout,
                 logo: self.logo,
                 center: self.center
             )
@@ -84,6 +112,7 @@ where Data.Element: Identifiable {
                 items: self.items,
                 colors: self.colors,
                 rotationPeriod: self.rotationPeriod,
+                layout: self.layout,
                 logo: self.logo,
                 center: self.center
             )
@@ -99,6 +128,7 @@ where Data.Element: Identifiable {
     let items: Data
     let colors: [Color]
     let rotationPeriod: Double
+    let layout: OrbitingLogosLayout
     let logo: (Data.Element) -> Logo
     let center: Center
 
@@ -110,6 +140,7 @@ where Data.Element: Identifiable {
                 turns: OrbitRing.turns(at: context.date, period: self.rotationPeriod),
                 feature: OrbitRing.feature(at: context.date, logoCount: self.items.count),
                 layers: .full,
+                layout: self.layout,
                 logo: self.logo,
                 center: self.center
             )
@@ -132,12 +163,33 @@ where Data.Element: Identifiable {
     let turns: Double
     let feature: (index: Int, progress: Double)
     let layers: OrbitLayers
+    let layout: OrbitingLogosLayout
     let logo: (Data.Element) -> Logo
     let center: Center
 
     @Environment(\.lowPowerModeOverride) private var lowPowerModeOverride
     @Environment(\.scenePhaseOverride) private var scenePhaseOverride
     @Environment(\.scenePhase) private var systemScenePhase
+
+    init(
+        items: Data,
+        colors: [Color],
+        turns: Double,
+        feature: (index: Int, progress: Double),
+        layers: OrbitLayers,
+        layout: OrbitingLogosLayout = .outerRing,
+        logo: @escaping (Data.Element) -> Logo,
+        center: Center
+    ) {
+        self.items = items
+        self.colors = colors
+        self.turns = turns
+        self.feature = feature
+        self.layers = layers
+        self.layout = layout
+        self.logo = logo
+        self.center = center
+    }
 
     var body: some View {
         let perRing = self.ringDotCount
@@ -182,10 +234,14 @@ where Data.Element: Identifiable {
 
     private func logoPoint(at index: Int, seats: Int, side: Double, middle: CGPoint) -> CGPoint {
         guard !self.items.isEmpty else { return middle }
+        let ring = OrbitRing.ring(forLogo: index, layout: self.layout)
         let angle = OrbitRing.logoAngle(
             logoIndex: index, logoCount: self.items.count, dotsPerRing: seats, turns: self.turns
+        ) + Double(ring) * 0.4
+        return OrbitRing.point(
+            angle: angle, radius: OrbitRing.ringRadius(ring: ring, size: side, layout: self.layout), center: middle,
+            aspect: OrbitRing.aspect(for: self.layout)
         )
-        return OrbitRing.point(angle: angle, radius: OrbitRing.ringRadius(ring: 0, size: side), center: middle)
     }
 
     private func rings(perRing: Int, side: Double, middle: CGPoint, featurePoint: CGPoint) -> some View {
@@ -204,12 +260,13 @@ where Data.Element: Identifiable {
         Canvas { context, _ in
             guard perRing > 0, side > 0 else { return }
             let tintShading = context.resolve(.style(.tint))
+            let aspect = OrbitRing.aspect(for: self.layout)
             for ring in 0..<OrbitRing.ringCount {
-                let radius = OrbitRing.ringRadius(ring: ring, size: side)
+                let radius = OrbitRing.ringRadius(ring: ring, size: side, layout: self.layout)
                 let diameter = OrbitRing.dotDiameter(ring: ring, size: side)
                 for index in 0..<perRing {
                     let angle = OrbitRing.angle(index: index, of: perRing, turns: self.turns, ring: ring)
-                    let seat = OrbitRing.point(angle: angle, radius: radius, center: middle)
+                    let seat = OrbitRing.point(angle: angle, radius: radius, center: middle, aspect: aspect)
                     let dot = OrbitRing.pushed(
                         seat,
                         awayFrom: featurePoint,

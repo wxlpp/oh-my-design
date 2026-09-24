@@ -11,7 +11,7 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Content: View
 
     @State private var selection: ID?
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.coreMotionPresentation) private var motionPresentation
 
     private static var pageDotHitInset: CGFloat {
         (CoreControlMetrics.height(for: .regular) - CoreSpacing.xs) / 2
@@ -69,7 +69,7 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Content: View
     // MARK: - 自动轮播
 
     private func tickAutoAdvance() async {
-        guard self.autoAdvance, !self.reduceMotion, self.interval > .zero else { return }
+        guard self.autoAdvance, self.motionPresentation == .animated, self.interval > .zero else { return }
         let ids = self.ids
         guard ids.count > 1 else { return }
         do {
@@ -78,7 +78,7 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Content: View
             return
         }
         guard !Task.isCancelled else { return }
-        withAnimation {
+        withAnimation(CoreMotionToken.scroll.animation(for: self.motionPresentation)) {
             self.selection = Self.nextID(after: self.selection, in: ids)
         }
     }
@@ -97,7 +97,7 @@ public struct Carousel<Data: RandomAccessCollection, ID: Hashable, Content: View
             ForEach(Array(self.ids.enumerated()), id: \.element) { index, id in
                 let isCurrent = id == self.selection
                 Button {
-                    withAnimation {
+                    withAnimation(CoreMotionToken.scroll.animation(for: self.motionPresentation)) {
                         self.selection = id
                     }
                 } label: {

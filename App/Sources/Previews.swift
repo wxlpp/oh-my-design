@@ -31,6 +31,12 @@ import OhMyDesign
         Banner(level: .success) { Text("Success message") }
         Banner(level: .warning) { Text("Warning message") }
         Banner(level: .danger) { Text("Danger message") }
+        Banner(level: .neutral) { Text("Neutral message") }
+        Banner(level: .info, title: "Update available", message: "Restart the app to finish installing version 2.4.") {
+            Button("Restart now") {}
+                .buttonStyle(.solid(role: .primary))
+                .controlSize(.small)
+        } onDismiss: {}
     }
     .padding()
 }
@@ -65,8 +71,10 @@ import OhMyDesign
 
 #Preview("Avatar") {
     HStack(spacing: CoreSpacing.md) {
-        Avatar(name: "Evan")
-        Avatar(name: "OhMyDesign")
+        Avatar(name: "Evan").controlSize(.small).clipShape(Circle())
+        Avatar(name: "OhMyDesign").clipShape(Circle())
+        Avatar(name: "Ada").controlSize(.extraLarge).clipShape(Circle())
+        Avatar(name: "Linus", size: .fixed(64)).clipShape(Circle())
     }
     .padding()
 }
@@ -81,33 +89,6 @@ import OhMyDesign
         )
     }
     .padding()
-}
-
-#Preview("Sidebar") {
-    VStack(alignment: .leading, spacing: CoreSpacing.md) {
-        SidebarSection(title: "Core", showsChevron: false) {
-            SidebarNavigationRow(systemImage: "calendar", title: "Today", isSelected: true) {}
-            SidebarNavigationRow(systemImage: "tray.full", title: "Inbox", isSelected: false) {}
-        }
-
-        SidebarSection(title: "Library") {
-            SidebarDocumentRow(systemImage: "doc.text", title: "Exam Sprint", detail: "47 days") {}
-            SidebarTagRow(title: "Math") {}
-        }
-
-        SidebarSection(title: "Tools", showsChevron: false) {
-            SidebarUtilityRow(systemImage: "gearshape", title: "Settings") {}
-            SidebarUtilityRow(systemImage: "trash", title: "Trash", trailingSystemImage: "arrow.up.right") {}
-            // `#64` 形态 D2：`.textOnly` 拆掉 leading 槽；候选 2 = 本 case + 既有尾图标参数。
-            // ⚠️ `.textOnly` 下 systemImage 不渲染 ⇒ 约定统一写 ""（见 docs/components/sidebar.md）。
-            SidebarUtilityRow(systemImage: "", title: "Archive", presentation: .textOnly) {}
-            SidebarUtilityRow(systemImage: "", title: "Settings", trailingSystemImage: "chevron.forward", presentation: .textOnly) {}
-        }
-
-        SidebarStatusFooter(title: "Synced", detail: "Updated just now")
-    }
-    .padding()
-    .background(Color.surfaceSidebar)
 }
 
 #Preview("UnderlinedTabBar") {
@@ -136,6 +117,17 @@ import OhMyDesign
         .toastHost(edge: .top, presentation: .centeredHUD)
 }
 
+#Preview("Toast · title + description + action") {
+    ToastSnapshotHarness(rich: ToastItem(
+        title: "Conversation archived",
+        description: "It moves back to the inbox if you undo within a few seconds.",
+        level: .neutral,
+        duration: .persistent,
+        action: ToastAction("Undo") {}
+    ))
+    .toastHost(edge: .top)
+}
+
 #Preview("Toast · fullWidthBanner bottom") {
     ToastSnapshotHarness()
         .toastHost(edge: .bottom, presentation: .fullWidthBanner)
@@ -144,6 +136,7 @@ import OhMyDesign
 /// Toast snapshot demo：按钮点击触发 toast 显示，初始状态展示场景脚手架。
 private struct ToastSnapshotHarness: View {
     @Environment(\.toastHost) private var toast
+    var rich: ToastItem?
 
     var body: some View {
         VStack(spacing: CoreSpacing.md) {
@@ -154,18 +147,19 @@ private struct ToastSnapshotHarness: View {
             Button("Success") { self.toast?.show("Success: demo", level: .success) }
             Button("Warning") { self.toast?.show("Warning: demo", level: .warning) }
             Button("Danger") { self.toast?.show("Danger: demo", level: .danger) }
+            Button("Neutral") { self.toast?.show("Neutral: demo", level: .neutral) }
         }
         .padding(CoreSpacing.lg)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.surfaceCanvas)
-        .task { self.toast?.show("Toast snapshot", level: .info) }
+        .task {
+            if let rich = self.rich {
+                self.toast?.show(rich)
+            } else {
+                self.toast?.show("Toast snapshot", level: .info)
+            }
+        }
     }
-}
-
-#Preview("BottomInputBar") {
-    // 与 ComponentData 的条目共用同一个宿主——两处必须一致，否则 demo 里看到的
-    // 与快照流水线出的图会是两个东西。
-    BottomInputBarPreview()
 }
 
 // MARK: - Three-in-one components
@@ -280,6 +274,11 @@ private struct ToastSnapshotHarness: View {
         Card(padding: CoreSpacing.md, alignment: .center) {
             Text("居中 + 紧凑内边距").coreFont(.subheadline)
         }
+        Card {
+            Card {
+                Text("嵌套 Card：elevated").coreFont(.subheadline)
+            }
+        }
     }
     .padding()
     .background(Color.surfaceCanvas)
@@ -351,6 +350,7 @@ private struct ToastSnapshotHarness: View {
         ProgressView(value: 0.6, label: { Text("Downloading") }, currentValueLabel: { Text("60%") })
             .progressViewStyle(.core)
             .tint(.red)
+        ProgressView(value: 0.6).progressViewStyle(.coreCircular).tint(.red)
         Label("Sync", systemImage: "arrow.triangle.2.circlepath").labelStyle(.core).tint(.blue)
         DisclosureGroup("Details", isExpanded: .constant(true)) {
             Text("Additional information goes here.").foregroundStyle(Color.contentSecondary)
@@ -416,18 +416,74 @@ private struct SkeletonPreviewsPreviewGallery: View {
 }
 
 
+// 快照宿主在挂载后才重排 / 展开版面，屏外的行随后变为可见会触发入场、截到第 0 帧；文档快照只要终态，Timeline 预览固定 `.resting`。
 #Preview("Timeline") {
-    Timeline(items: [
+    Timeline {
         TimelineItem(status: .success) {
             Text("审核通过").coreFont(.callout)
-        },
+        }
         TimelineItem(status: .warning) {
             Text("即将过期提醒").coreFont(.callout)
-        },
+        }
         TimelineItem(status: .danger) {
             Text("处理失败").coreFont(.callout)
-        },
-    ])
+        }
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+    .environment(\.coreMotionPresentationOverride, .resting)
+}
+
+#Preview("Timeline Activity") {
+    // 活动流：40pt 头像大于 24pt 下限，撑宽节点列；分组标题与纯运行期摘要是非行子视图 / 无标题行。
+    Timeline { PreviewSnapshotFixtures.timelineActivityRows }
+        .padding()
+        .background(Color.surfaceCanvas)
+        .environment(\.coreMotionPresentationOverride, .resting)
+}
+
+#Preview("Timeline Deploy Log") {
+    // 部署日志：自定义图标节点 + `status:`，状态随标题播报，图标自身的 label 已隐藏。
+    Timeline { PreviewSnapshotFixtures.timelineDeployRows }
+        .padding()
+        .background(Color.surfaceCanvas)
+        .environment(\.coreMotionPresentationOverride, .resting)
+}
+
+#Preview("Timeline Phases") {
+    // 带阶段：订单进度（纵向，默认圆点三形态 + 已到达连线着 .tint）与路线图（横向）。
+    VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+        Timeline(progress: .inProgress(at: 2)) { PreviewSnapshotFixtures.timelineOrderRows }
+        Timeline(layout: .horizontal, progress: .inProgress(at: 2)) { PreviewSnapshotFixtures.timelineRoadmapRows }
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+    .environment(\.coreMotionPresentationOverride, .resting)
+}
+
+#Preview("Tree") {
+    VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+        Tree(
+            PreviewSnapshotFixtures.treeNodes,
+            children: \.children,
+            expanded: .constant(["design", "tokens"]),
+            selection: .constant(["icons"]),
+            selectionMode: .multiple,
+            checked: .constant(["color"])
+        ) { node in
+            Text(verbatim: node.name).coreFont(.callout)
+        }
+        Tree(
+            PreviewSnapshotFixtures.treeNodes,
+            children: \.children,
+            expanded: .constant(["design", "tokens", "tests"]),
+            selection: .constant(["spacing"])
+        ) { node in
+            Label(node.name, systemImage: node.children == nil ? "doc" : "folder").coreFont(.callout)
+        }
+        .treeStyle(.navigator)
+        .controlSize(.small)
+    }
     .padding()
     .background(Color.surfaceCanvas)
 }
@@ -438,22 +494,20 @@ private struct SkeletonPreviewsPreviewGallery: View {
     // 结构上暴露不出这个 case。
     ScrollView {
         VStack(alignment: .leading, spacing: CoreSpacing.lg) {
-            Timeline(
-                items: [
-                    TimelineItem(status: .info) {
-                        Color.statusAccentEmphasis.frame(width: 220, height: 32)
-                    },
-                    TimelineItem(status: .success) { Text("短").coreFont(.callout) },
-                    TimelineItem(status: .warning) { Text("再一条").coreFont(.callout) },
-                ],
-                layout: .alternate
-            )
-            Timeline(items: PreviewSnapshotFixtures.timelineItems, layout: .horizontal)
-            Timeline(items: PreviewSnapshotFixtures.timelineItems, layout: .grouped)
+            Timeline(layout: .alternate) {
+                TimelineItem(status: .info) {
+                    Color.statusAccentEmphasis.frame(width: 220, height: 32)
+                }
+                TimelineItem(status: .success) { Text("短").coreFont(.callout) }
+                TimelineItem(status: .warning) { Text("再一条").coreFont(.callout) }
+            }
+            Timeline(layout: .horizontal) { PreviewSnapshotFixtures.timelineRows }
+            Timeline(layout: .grouped) { PreviewSnapshotFixtures.timelineRows }
         }
         .padding()
     }
     .background(Color.surfaceCanvas)
+    .environment(\.coreMotionPresentationOverride, .resting)
 }
 
 #Preview("Timeline Alternate Widths") {
@@ -469,7 +523,7 @@ private struct SkeletonPreviewsPreviewGallery: View {
     // @3x 占 30px ⇒ 中心落在 x.5；1pt 连线 @3x 占 3px ⇒ 中心落在整数。两者奇偶必然不同，
     // 差半个像素消不掉。真正的回归长什么样有参照：第 3 轮那次是 **7.2pt**（= (24-10)/2）。
     //
-    // ⇒ 「不会冻结」由 `TimelineAlternateRowLayout` **无存储状态**这一结构事实保证（槽宽每次
+    // ⇒ 「不会冻结」由 `TimelineStackLayout` **无存储状态**这一结构事实保证（槽宽每次
     // `sizeThatFits` / `placeSubviews` 都从 proposal 现算），不由本预览保证。留着它是因为
     // 「不同宽度下各自居中 + 连线穿过圆点」本身值得看 —— 第 4 轮的 7pt 偏移正是在这张图上
     // 被量出来的。
@@ -479,7 +533,7 @@ private struct SkeletonPreviewsPreviewGallery: View {
                 Text(verbatim: "容器宽 \(Int(width))pt")
                     .coreFont(.caption)
                     .foregroundStyle(Color.contentSecondary)
-                Timeline(items: PreviewSnapshotFixtures.timelineItems, layout: .alternate)
+                Timeline(layout: .alternate) { PreviewSnapshotFixtures.timelineRows }
                     .frame(width: width)
                     .background(Color.surfaceRaised)
             }
@@ -487,6 +541,7 @@ private struct SkeletonPreviewsPreviewGallery: View {
     }
     .padding()
     .background(Color.surfaceCanvas)
+    .environment(\.coreMotionPresentationOverride, .resting)
 }
 
 #Preview("Spinning Presentations") {
@@ -528,13 +583,92 @@ enum PreviewSnapshotFixtures {
         ]
     }
 
-    static var timelineItems: [TimelineItem] {
+    @ViewBuilder
+    static var timelineRows: some View {
+        TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) }
+        TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) }
+        TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) }
+    }
+
+    /// 活动流参考形态：非行分组标题 + 头像节点的标题行 + 纯运行期文本的无标题行。
+    @ViewBuilder
+    static var timelineActivityRows: some View {
+        Text(verbatim: "Today")
+            .coreFont(.footnote)
+            .foregroundStyle(Color.contentSecondary)
+        ForEach(Self.timelineActivityEvents, id: \.actor) { event in
+            TimelineItem("\(event.actor) pushed \(event.count) commits", time: Text(verbatim: event.time)) {
+                Avatar(name: event.actor, size: .fixed(40))
+            } content: {}
+        }
+        TimelineItem {
+            Text(verbatim: "CI summary from server: 3 checks passed").coreFont(.callout)
+        }
+    }
+
+    static var timelineActivityEvents: [(actor: String, count: Int, time: String)] {
+        [("Evan", 3, "2h ago"), ("Mia", 2, "5h ago")]
+    }
+
+    /// 部署日志参考形态：逐项 success / danger 的自定义图标节点，状态随标题播报。
+    @ViewBuilder
+    static var timelineDeployRows: some View {
+        ForEach(Self.timelineDeploys, id: \.version) { deploy in
+            TimelineItem(
+                "Deployed \(deploy.version)", time: Text(verbatim: deploy.time), status: deploy.ok ? .success : .danger
+            ) {
+                Image(systemName: deploy.ok ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                    .foregroundStyle(deploy.ok ? Color.statusSuccessEmphasis : Color.statusDangerEmphasis)
+                    .accessibilityHidden(true)
+            } content: {
+                Text(verbatim: deploy.commit).coreFont(.caption).monospaced()
+            }
+        }
+    }
+
+    /// 订单进度参考形态：每行写 `step`，阶段由容器的 `progress` 决定。
+    @ViewBuilder
+    static var timelineOrderRows: some View {
+        TimelineItem("已下单", time: Text(verbatim: "09:00"), step: 0)
+        TimelineItem("已付款", time: Text(verbatim: "09:02"), step: 1)
+        TimelineItem("配送中", description: "预计今天 18:00 前送达", step: 2)
+        TimelineItem("已签收", step: 3)
+    }
+
+    /// 路线图参考形态（横向）。
+    @ViewBuilder
+    static var timelineRoadmapRows: some View {
+        TimelineItem("Q1 Alpha", step: 0)
+        TimelineItem("Q2 Beta", step: 1)
+        TimelineItem("Q3 GA", description: "Public launch", step: 2)
+        TimelineItem("Q4 v2", step: 3)
+    }
+
+    static var timelineDeploys: [(version: String, time: String, ok: Bool, commit: String)] {
+        [("1.4.0", "09:12", true, "a1b2c3d"), ("1.4.1", "11:40", false, "e4f5a6b"), ("1.4.2", "12:05", true, "c7d8e9f")]
+    }
+
+    static var treeNodes: [SnapshotTreeNode] {
         [
-            TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) },
-            TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) },
-            TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) },
+            SnapshotTreeNode(id: "design", name: "Design", children: [
+                SnapshotTreeNode(id: "tokens", name: "Tokens", children: [
+                    SnapshotTreeNode(id: "color", name: "Color", children: nil),
+                    SnapshotTreeNode(id: "spacing", name: "Spacing", children: nil),
+                ]),
+                SnapshotTreeNode(id: "icons", name: "Icons", children: nil),
+            ]),
+            SnapshotTreeNode(id: "readme", name: "README.md", children: nil),
+            SnapshotTreeNode(id: "tests", name: "Tests", children: [
+                SnapshotTreeNode(id: "unit", name: "Unit", children: nil),
+            ]),
         ]
     }
+}
+
+struct SnapshotTreeNode: Identifiable {
+    let id: String
+    let name: String
+    let children: [SnapshotTreeNode]?
 }
 
 #Preview("Rating") {
@@ -604,11 +738,115 @@ enum PreviewSnapshotFixtures {
     .background(Color.surfaceCanvas)
 }
 
+#Preview("StatefulButton") {
+    VStack(alignment: .leading, spacing: CoreSpacing.md) {
+        ForEach(StatefulButtonState.allCases, id: \.self) { state in
+            StatefulButton("Submit", state: state) { }
+                .buttonStyle(.solid())
+        }
+        StatefulButton("Send message") {
+            try await Task.sleep(for: .milliseconds(1200))
+        }
+        .buttonStyle(.light())
+    }
+    .padding()
+    .frame(width: 320)
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("SlideToConfirm") {
+    VStack(alignment: .leading, spacing: CoreSpacing.md) {
+        SlideToConfirm("Slide to delete account") { }
+        SlideToConfirm("Slide to pay") { }
+            .controlSize(.large)
+            .coreAccent(.blue)
+        SlideToConfirm("Slide to confirm") { }
+            .disabled(true)
+    }
+    .padding()
+    .frame(width: 320)
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("TagGroup") {
+    struct Item: Identifiable, Hashable { let id: String }
+    let languages = ["Swift", "Kotlin", "Rust", "TypeScript", "Go"].map(Item.init(id:))
+    return VStack(alignment: .leading, spacing: CoreSpacing.md) {
+        TagGroup(languages, selection: .constant(["Swift", "Rust"]), disabled: ["Go"], color: .contentPrimary) {
+            Text($0.id)
+        }
+        TagGroup(languages, selection: .constant(["Kotlin"]), selectionMode: .single, color: .contentPrimary) {
+            Text($0.id)
+        }
+        .coreAccent(.blue)
+    }
+    .padding()
+    .frame(width: 320)
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("FormField") {
+    VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+        FormField("Full name", description: "Shown on your public profile.") {
+            TextField("Jane Appleseed", text: .constant(""))
+                .textFieldStyle(.roundedBorder)
+                .fieldAccessibility()
+        }
+        .fieldRequirement(.required)
+
+        FormField("Email") {
+            TextField("you@example.com", text: .constant("jane@"))
+                .textFieldStyle(.roundedBorder)
+                .fieldAccessibility()
+        }
+        .fieldRequirement(.required)
+        .fieldValidation(.invalid("Enter a valid email address."))
+
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            FormField("City", layout: .inline) {
+                TextField("Cupertino", text: .constant(""))
+                    .textFieldStyle(.roundedBorder)
+                    .fieldAccessibility()
+            }
+            FormField("Postal code", layout: .inline) {
+                TextField("95014", text: .constant("950"))
+                    .textFieldStyle(.roundedBorder)
+                    .fieldAccessibility()
+            }
+            .fieldRequirement(.required)
+            .fieldValidation(.invalid("Enter a 5-digit postal code."))
+        }
+        .formFieldLabelColumn()
+    }
+    .padding()
+    .frame(width: 360)
+    .background(Color.surfaceCanvas)
+}
+
 #Preview("Descriptions") {
     Descriptions(header: "Order") {
         LabeledContent("Status") { Text("Active") }
         LabeledContent("Total") { Text("$42.00") }
         LabeledContent("Placed") { Text("2026-07-20") }
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
+#Preview("Pressable Button Styles") {
+    VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+        InsetGroupedSection(header: ".pressableRow") {
+            Button {} label: {
+                SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: "Wi-Fi") {
+                    SettingsRowChevron()
+                }
+            }
+            .buttonStyle(.pressableRow)
+        }
+        Button {} label: {
+            Card { Text("Weekly report") }
+        }
+        .buttonStyle(.pressableCard)
     }
     .padding()
     .background(Color.surfaceCanvas)
@@ -679,6 +917,26 @@ private struct CarouselPreviewsPreviewGallery: View {
                 .padding(.horizontal, CoreSpacing.xs)
         }
     }
+}
+
+#Preview("AnchoredBadge") {
+    VStack(alignment: .leading, spacing: CoreSpacing.xxl) {
+        HStack(spacing: CoreSpacing.xl) {
+            Avatar(name: "Evan", size: .fixed(CoreSpacing.xxxxl)).clipShape(Circle())
+                .anchoredBadge(.dot, hostShape: .circle)
+            Avatar(name: "Aurora", size: .fixed(CoreSpacing.xxxxl)).clipShape(Circle())
+                .anchoredBadge(.count(120, max: 99), hostShape: .circle)
+            Avatar(name: "OhMyDesign", size: .fixed(CoreSpacing.huge)).clipShape(Circle())
+                .anchoredBadge(.text("NEW"), hostShape: .circle)
+        }
+        HStack(spacing: CoreSpacing.xxl) {
+            Image(systemName: "bell.fill").font(.title).anchoredBadge(.dot)
+            Image(systemName: "envelope.fill").font(.title).anchoredBadge(.count(7))
+            Image(systemName: "gift.fill").font(.title).anchoredBadge(.text("NEW"), placement: .topLeading)
+        }
+    }
+    .padding(CoreSpacing.xl)
+    .background(Color.surfaceCanvas)
 }
 
 #Preview("Spinning") {

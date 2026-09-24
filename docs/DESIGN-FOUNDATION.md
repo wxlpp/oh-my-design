@@ -26,6 +26,7 @@ OhMyDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 | `CoreElevation` | HIG 的分层原则——层级优先靠 material（毛玻璃）与 separator 表达，阴影只用于真正悬浮的内容（popover / 菜单） |
 | `SurfaceColors` / `ContentColors` / `BorderColors` / `FillColors` | 直接改指系统语义色 API（`systemGroupedBackground` 族、`label` 族、`separator` 族、`systemFill` 族），随系统外观与对比度设置自动更新 —— ⚠️ **本行已失真**（PR #262 第 3 轮终审 I-1）：`FillColors` 现含三个**非系统色**的派生 / 定值 token —— `skeletonBase` / `skeletonHighlight`（#162）与 `specularHighlight`（#262）。 |
 | `InteractionColors.accent` 及衍生族 | 改指 `Color.inkPrimary`（墨色），衍生态用 `Color.mix(with: .surfaceBase)` / `.opacity()` 对 `accent` 本身调制，见下节 |
+| `CoreMotionToken` | 以 SwiftUI `.snappy` / `.smooth` 弹簧族为基础；Reduce Motion 按 HIG「以淡变替代位移」处理，见下节「动效」 |
 | `StatusColors` / `secondaryAccent` / `neutralAccent` | **显式定案：不改指系统色**——Apple HIG 没有"5 态状态色板"或"第二强调色"的系统概念，继续由 `ColorGrade`（第 1 层资源调色板）供色 |
 
 ## 各 token 家族的取值理由
@@ -36,7 +37,7 @@ OhMyDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 
 ### 圆角（`CoreRadius` + `CoreShape`）
 
-`none 0 / small 6 / medium 10 / large 16 / xLarge 22`。HIG 没有 `.none` 档（直角通常靠省略圆角实现），`.none` 是 OhMyDesign 扩展，方便在统一类型签名下表达"无圆角"。`xLarge`(22) 当前零消费，是为 Dialog / Modal / Sheet 类容器预留的标度，不是缺陷——库内目前没有这类容器，也没有发现现有场景本该用 22pt 却被迫停在 16pt。
+`none 0 / small 6 / medium 10 / large 16 / xLarge 22`。HIG 没有 `.none` 档（直角通常靠省略圆角实现），`.none` 是 OhMyDesign 扩展，方便在统一类型签名下表达"无圆角"。`xLarge`(22) 当前零消费，是为 Dialog / Modal 类容器预留的标度，不是缺陷——库内目前没有这类容器，也没有发现现有场景本该用 22pt 却被迫停在 16pt。**Sheet 不用它**：iOS 26 的浮动 sheet 圆角由系统决定、与屏幕圆角同心，`coreSheetPresentation(background:)` 有意不设 `presentationCornerRadius`（`#382` 视觉评审：22pt 与系统浮动 sheet 不同心）。
 
 **`.continuous` 角样式必须经 `CoreShape.rounded(_:)` 统一出口**：只改半径数值拿不到 Apple 的 squircle 观感，角样式要在每个 `RoundedRectangle` 构造点显式指定，漏一处就是一处风格不一致的元素。`Sources` 内裸 `RoundedRectangle(` 调用已收敛为 0（唯一例外是 `CoreShape.rounded` 自身的实现）。`ConcentricRectangle`（iOS 26+）为嵌套于已知容器的元素预留，容器侧配合 `.containerShape(_:)` 声明——当前零采纳，同样是"标度先于需求"而非遗漏。
 
@@ -56,7 +57,7 @@ OhMyDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
 
 - `SurfaceColors`：`surfaceCanvas` / `surfaceRaised` / `surfaceElevated` 三档统一走 `systemGroupedBackground` 族（`systemGroupedBackground` / `secondarySystemGroupedBackground` / `tertiarySystemGroupedBackground`），`surfaceCanvasInset` 改指 `FillColors.tertiaryFill`——其官方 HIG 语义（输入字段/搜索栏/按钮）与实际消费点（头像环、进度条轨道）精确对应。
 - `ContentColors`：全部指向系统 `label` 族（`label` / `secondaryLabel` / `tertiaryLabel` / `quaternaryLabel` / `placeholderText` / `link`）；`contentInverse` / `contentOnDanger` / `contentOnEmphasis` **仍**固定为 `.white`——它们的消费点均为**固定饱和色**背景（状态色 emphasis、调用方传入的 tile 底色），白字对比度可靠。⚠️ **`contentOnAccent` 已于 2026-09-08 改为 `.systemBackground`**（随主题反转）：accent 墨色化后它压在墨底上，白字在浅色模式下不可读。⇒ 这四个 token **不再同值**，按消费点区分：坐在 `accent` 上的走 `contentOnAccent`，坐在固定饱和色上的走 `contentOnEmphasis`。
-- `BorderColors`：`separator` / `opaqueSeparator` 两族。`borderFocus` / `borderSelected` **在 `0.2.0` 就已指向 `accent`**（各自独立的固定蓝 colorset 是更早的 Issue #93 删的，不是本次改造）；它们的指向始终不变，但实际取值随 `accent` 走——⚠️ 2026-09-08 起 `accent` 是**墨色**（`inkPrimary`），不再是宿主 `AccentColor`；`focusRing` 与 Sidebar 选中态因此读环境 `\.coreAccent`。 `borderSubtle` 取 `separator.opacity(0.28)` 而非直接等于 `opaqueSeparator`，是为了保持 `subtle(0.28) < muted(0.42) < default(1.0) < strong` 的既有强弱梯度，避免与字面顺序倒挂。
+- `BorderColors`：`separator` / `opaqueSeparator` 两族。`borderFocus` / `borderSelected` **在 `0.2.0` 就已指向 `accent`**（各自独立的固定蓝 colorset 是更早的 Issue #93 删的，不是本次改造）；它们的指向始终不变，但实际取值随 `accent` 走——⚠️ 2026-09-08 起 `accent` 是**墨色**（`inkPrimary`），不再是宿主 `AccentColor`；`focusRing` 因此读环境 `\.coreAccent`。 `borderSubtle` 取 `separator.opacity(0.28)` 而非直接等于 `opaqueSeparator`，是为了保持 `subtle(0.28) < muted(0.42) < default(1.0) < strong` 的既有强弱梯度，避免与字面顺序倒挂。
 - `FillColors`：`systemFill` 族四档（`systemFill` / `secondarySystemFill` / `tertiarySystemFill` / `quaternarySystemFill`），本就是系统色，未改动。
 
 ⚠️ **`MaskColors` 不属于本节（`#276` 新增，一个 token）**：`Color.maskOpaque` 是给 `.mask { … }` 用的**不透明基色**，唯一契约是 **α = 1**。它**不是一个颜色决定**——`mask` 只吃 alpha 通道，RGB 不参与合成（实测 `.mask { Color.black }` 与 `.mask { Color.white }` 逐字节相同），取白是任意的。
@@ -103,6 +104,15 @@ OhMyDesign `0.2.0` 及之前以 GitHub 的 [Primer Primitives](https://github.co
    **三条的失败消息**从「塌缩 / 完全隐形 / 不可辨」改成「指向了同一个 `Color`」
    （**测试名只改了 `macOSCanvasStandsApart` 一条**，另两条的 `@Test` 标题仍是「…不同色」
    ——它们描述的就是身份层，本来没错），**断言一律不动**。
+
+**surface 有效层级（`#382`）在 macOS 上的后果**：`.surface(_:)` 让嵌套的 `content` / `grouped` /
+`card` 取 `surfaceElevated`，而 `surfaceElevated`（`tertiarySystemGroupedBackground`）与 `surfaceCard`
+在 AppKit 下同桥到 `controlBackgroundColor` ⇒ raised 与 elevated 取值相同。有描边的角色嵌套时靠描边区分；
+**`grouped` 嵌套 `grouped` 在 macOS 无视觉区分，登记为已知限制**（规则见 `docs/components/surface.md`）。
+
+**elevated 在两种外观下的读感相反，这是有意的**：`surfaceElevated` = `tertiarySystemGroupedBackground`，
+浅色下（`#F2F2F7`）比 raised 的白底**暗**、读作下凹，深色下（`#2C2C2E`）比 raised 的 `#1C1C1E` **亮**、读作浮起。
+这是 Apple 分组背景族第三级的原生语义（设置 App 等同此行为），**不要为了两种外观「一致」去改这个 token**。
 
 ⚠️ **取值这一层的判据一律无条件断言，不做「退化就跳过」的分叉。**
 **理由**：`#120` 描述的退化形态是「塌成**同一** fallback RGBA」——同值但**不透明**，
@@ -173,10 +183,23 @@ macOS `NSColor.textColor`。⚠️ macOS 取 `textColor` **而不是** `labelCol
 落不准（`.opacity(0.22)` 实得 `0.1864`）并让实心按钮在 macOS 上透底。
 `AccentDerivationTests.derivationPreservesOpacity`（α > 0.95）是这个选择的机器验证点。
 
-**不再跟随宿主 `AccentColor`。** 宿主换色走 `View.coreAccent(_:)`（`@Entry var coreAccent`），
-四个衍生态自动跟随；静态 `Color.accent` 是环境不可达时的回退值。
-⚠️ **主题色应为近单色（黑 / 白极性）**：`contentOnAccent` 取 `systemBackground`，
-传入饱和色时深色模式下前景会是近黑色压在该饱和色上。本版本不提供 on-accent 环境钩子——后续处置见 `#357`。
+**不再跟随宿主 `AccentColor`。** 宿主换色走 `View.coreAccent(_:on:)`
+（`@Entry var coreAccent` + `@Entry var coreAccentOn`），四个衍生态自动跟随；
+静态 `Color.accent` 是环境不可达时的回退值。
+
+**on-accent 前景（`#357`）。** `coreAccent(_:on:)` 的 `on` 参数可选：缺省（`nil`）时，
+墨色（黑 / 白极性）accent 走 `contentOnAccent` 特判——与 `#356` 之前的静态 token
+**逐字节一致**；其余颜色按 accent 在**当前外观**下解析出的 RGBA 算相对亮度
+`L = 0.2126R + 0.7152G + 0.0722B` 分档，**L < 0.5 → `.white`，否则 `.black`**；
+显式 `on` 原样使用（两档同值）。⚠️ 特判只认解析后 RGB 三通道全部落在 0 / 1 的
+±0.001 内的**纯黑 / 纯白极性**（数学上等价于 L == 0 / L == 1 的容差版；
+通道精确相等会漏判——iOS 上 `label` 深色档换算后不是精确 1.0），饱和色路径不受影响。
+验算：系统蓝 L 两腿都 < 0.5（iOS ≈0.41，macOS ≈0.45）→ 两档白（`#357` 的修复点：
+此前深色档是近黑字压蓝底）；黄 L≈0.93 → 两档黑。消费点：`SolidButtonStyle` 的
+`.primary` 前景（经 `ButtonRoleStyleRole.resolvedOnColor(accent:on:environment:)`）与
+`InkSegmentedControlStyle` 选中段文字。`contentOnAccent` 保留作静态回退——其余四个
+role 的底色是明暗镜像的 `ColorGrade` 色阶，前景仍走它、不吃 `on`。派生公式是 internal
+`Color.onAccent(for:in:)`，与四个 accent 派生态同源的原则一致（单一来源）。
 
 **衍生态混合目标改为 `surfaceBase`（朝向背景），方向与 `#120` 相反。** 墨色处在明度极值，
 「更远离背景」不可能成立（实测用 `.primary` 作基色时明度**零位移**，只剩 α 衰减）。
@@ -207,6 +230,62 @@ macOS `NSColor.textColor`。⚠️ macOS 取 `textColor` **而不是** `labelCol
 - **`selectionBackgroundEmphasis` 改指实心 `accent`**（此前借道 `accentDisabled`）——"强调选中"与"禁用"是两种不同语义，借道禁用色的淡出效果会造成语义倒挂。
 
 **显式定案：`secondaryAccent` / `neutralAccent` 两族保留品牌色阶，不随 accent 动态化。** Apple HIG 没有"第二强调色"或独立的中性强调色系统概念——只有单一的 `AccentColor`。`secondaryAccent` 服务于 `ButtonRoleStyleRole.secondary`（次要按钮角色），是 OhMyDesign 自有的一套品牌色阶，语义上独立于宿主 App 的强调色：即使宿主把 `AccentColor` 换成任意颜色，"次要按钮"仍应保持库自身统一的视觉身份。`neutralAccent` 同理保留 `ColorGrade.grey` 一系而非改指系统灰，是为了避免库内出现两套灰阶互不对应。`light-blue-5` / `grey-5` 等 colorset 本身已带 light/dark 双值，明暗自适应链路与系统色等价，只是取值来自 OhMyDesign 自己的调色板。
+
+### 动效（`CoreMotionToken`，#407）
+
+核心库所有过渡动画只经 `CoreMotionToken` 取（判据 `CoreMotionTokenDisciplineGuard`，SwiftSyntax 逐调用点：
+`withAnimation` / `withTransaction` / `Transaction(animation:)` / `.transaction { }` / `animation(_:value:)` /
+`.animation =` 赋值 / `Animation` 类型的存储值都必须引用 `CoreMotionToken`；曲线字面量只许出现在
+`Tokens/CoreMotionToken.swift`；位移 / 缩放 / 旋转 / `contentTransition` / `symbolEffect` 调用点逐点登记门控理由。
+已知未覆盖的形态写在该判据的文档注释里）。
+
+| token | 曲线 | 时长 | 用途 | 取值理由 |
+|---|---|---|---|---|
+| `press` | `.snappy` | 0.16 s | 按压缩放 / 变暗、按钮内 label ↔ 进度 | 迁移前 4 处按压里 3 处已是 `.snappy(duration: 0.16)`；直接操作的反馈要在手指抬起前落定 |
+| `selection` | `.snappy` | 0.22 s | 分段滑块、下划线标签（含滚到选中项）、勾选 / 单选 | `UnderlinedTabBar` 的现值；比 `press` 慢一档，让「选中项换了」可被跟读 |
+| `reveal` | `.smooth` | 0.25 s | Toast 进出、表单消息、折叠组、加载遮罩 | 与 Toast 退场计时同源（`ToastDefaults` 的移除计时直接取 `CoreMotionToken.reveal.duration`）；出现 / 消失不该回弹 |
+| `scroll` | `.smooth` | 0.35 s | 页级位移：走马灯翻页 | 整页位移行程长，比 `selection` 慢一档；Reduce Motion 下不补间 |
+
+有意不提供 `.bouncy` 档：过冲与墨色 accent 的安静观感冲突，需要时下游直接用 SwiftUI 的曲线。
+
+**Reduce Motion 纪律。** 入口是 `EnvironmentValues.coreMotionPresentation`（复用 `MotionPresentation`：RM 开 ⇒
+`.resting`，否则 `.animated`；只看 RM、不看能耗）。预览与测试用 `\.coreMotionPresentationOverride` 注入固定值，
+`nil`（默认）⇒ 跟随系统。`CoreMotionToken.animation(for:)` 在 `.resting` 下把 `press` /
+`selection` / `reveal` 退为同时长 `easeInOut`（只用于淡变），把 `scroll` 退为 `nil`（直接到位）。位移 / 缩放 /
+旋转本身必须由调用点去掉——**框架不代劳**（#407 实测，见下）：
+
+| 组件 | RM 关 | RM 开 |
+|---|---|---|
+| 按钮背景 / Telegram 玻璃按钮 / `.pressableCard` | 按下缩到 0.94（`.lightButton` / `.circularGlass` / Toast 操作按钮另带 0.9 按下透明度） | 不缩放，按下透明度取 0.7（与样式自带的按下透明度取较小值，不叠乘） |
+| `Toast` | 从贴边一侧滑入滑出；HUD 缩放 0.92 进出 | 原地淡入淡出；滑动松手后停在松手位置淡出；HUD 不缩放 |
+| `SegmentedControl` 滑块、`UnderlinedTabBar` 下划线 | 滑到新位置 | 旧位置淡出、新位置淡入，不途经中间 |
+| `CoreDisclosureGroupStyle` chevron | 旋转 90° | 直接到位 |
+| `.spinning(presentation: .topBar)` | 顶条循环扫动 | 静止居中 |
+| `Skeleton` 扫光 | 循环扫光 | 不扫光（原有） |
+| `Carousel` | 自动轮播、点页点翻页有滚动 | 不自动轮播（原有）、点页点直接到位 |
+| `TagInput` chip 增删、`TagGroup` 标签增删（#409） | 缩放 0.86 + 淡变进出，存活标签连续重排 | 直接出现 / 消失（驱动曲线为 `nil`），转场只剩淡变、缩放恒为 1 |
+| `TagGroup` 选中态切换（#409） | 底色 / 描边 0.22 s 交叉淡变 | **照常淡变**——只有颜色插值、包围盒不变，不是位移类动效 |
+| `anchoredBadge` 计数变化（#408） | `.numericText(value:)` 纵向滚动（方向由框架按当前计数判）+ 胶囊宽度补间 | `ContentTransition.identity`，数字直接替换、宽度直接跳到位 |
+| `anchoredBadge` 出现 / 消失（#408） | 缩放 0.6 → 1 + 淡变 | 纯淡变，不缩放 |
+| `CheckBoxToggleStyle` / `RadioGroup` 指示符（#408） | `.symbolEffect(.replace)` 描画 | `ContentTransition.identity`，直接换图 |
+| `StatefulButton` 四态切换（#417） | 配件符号槽出现 / 消失使按钮变宽，走 `CoreMotionToken.press.transformAnimation(for:)`；槽内符号切换走 `.symbolEffect(.replace)` | 驱动曲线为 `nil` ⇒ 宽度**直接跳到位**（同 #408 的定案：宽度补间等于横向位移）；符号切换退为 `ContentTransition.identity` |
+| `SlideToConfirm` 回弹 / 回位（#418） | 指示器位移走 `CoreMotionToken.reveal.transformAnimation(for:)`（`.smooth` 族）；指示器内箭头 ↔ 进度淡变 | 位移曲线为 `nil` ⇒ 指示器**直接到位**、回位窗口为 0；箭头 ↔ 进度仍淡变（包围盒不变）；拖动跟手与触觉不受影响 |
+| `SlideToConfirm` 文案流光（#418） | 高光带沿文案循环扫过（2.4 s 一周、线性，`TimelineView` + 纯相位函数），方向随布局方向 | **不画流光**（不建 `TimelineView`），文案静止为 `contentSecondary`；禁用 / 执行 / 回位 / 场景不活跃 / 离屏同样不画 |
+
+**框架不替我们降级（FR-1 实测，Xcode 26.4）。** iOS 26.4 模拟器打开系统「减弱动态效果」（屏上同时核对
+`\.accessibilityReduceMotion` 与 `UIAccessibility.isReduceMotionEnabled` 均为 `true`）后录屏逐帧量色块：
+`properties.hasMotion == true` 的自定义 `Transition`、系统 `.move(edge:)` / `.scale`、`withAnimation` 与隐式
+`.animation(_:value:)` 两种驱动下都**照常位移 / 缩放**，`Transition.body` 照常收到 `.willAppear` /
+`.didDisappear`；`symbolEffect(.bounce)` 照常弹、`.contentTransition(.symbolEffect(.replace))` 照常描画、
+`.contentTransition(.numericText())` 照常纵向滚动。macOS 26 上用 `_accessibilityReduceMotion` 注入同样不替换
+（未改本机系统设置）。⇒ SDK 文档对 `hasMotion` 的「会被替换成 opacity」在这些路径上不成立；Effects 各转场文档
+里「两道闸、框架那道在前」的说法已按此更正。
+
+⚠️ **核心库唯一的自有 `Transition` 是 `CollectionItemTransition`**（`Tokens/CoreMotionToken.swift`，#409：
+标签增删用它）。它的 `properties` 显式取 `hasMotion: true`——`animated` 一侧确有缩放；按上一段的实测，
+框架**不会**据此换成 `.opacity`，所以 `resting` / `hidden` 下把缩放摘成恒 1 是本库自己做的
+（判据 `CollectionItemTransitionTests`）。`Transition.properties` 是 `static` 的，承载不了逐实例的呈现裁决，
+因此真正的降级量是 `CollectionItemTransition.scale(for:phase:)` 而不是 `properties`。
 
 ### 状态色（`StatusColors`）
 

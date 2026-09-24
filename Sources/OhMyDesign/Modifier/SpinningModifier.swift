@@ -61,7 +61,7 @@ public struct SpinningModifier: ViewModifier {
                         .transition(.opacity)
                 }
             }
-            .animation(.default, value: self.isActive)
+            .coreAnimation(.reveal, value: self.isActive)
     }
 
     private func inlineBody(_ content: Content) -> some View {
@@ -72,7 +72,7 @@ public struct SpinningModifier: ViewModifier {
                     .transition(.opacity)
             }
         }
-        .animation(.default, value: self.isActive)
+        .coreAnimation(.reveal, value: self.isActive)
     }
 
     private func overlayBody(_ content: Content) -> some View {
@@ -89,7 +89,7 @@ public struct SpinningModifier: ViewModifier {
                     .transition(.opacity)
                 }
             }
-            .animation(.default, value: self.isActive)
+            .coreAnimation(.reveal, value: self.isActive)
     }
 
     @ViewBuilder
@@ -109,17 +109,26 @@ struct TopBarIndicator: View {
     static let period: TimeInterval = 1.1
     private static let trackOpacity: Double = 0.2
 
+    @Environment(\.coreMotionPresentation) private var motionPresentation
+
     var body: some View {
         GeometryReader { proxy in
             let barWidth = proxy.size.width * Self.barWidthRatio
             ZStack(alignment: .leading) {
                 Capsule().fill(self.tint.opacity(Self.trackOpacity))
 
-                TimelineView(.animation) { context in
+                if Self.sweeps(for: self.motionPresentation) {
+                    TimelineView(.animation) { context in
+                        Capsule()
+                            .fill(self.tint)
+                            .frame(width: barWidth)
+                            .offset(x: Self.offset(at: context.date, trackWidth: proxy.size.width))
+                    }
+                } else {
                     Capsule()
                         .fill(self.tint)
                         .frame(width: barWidth)
-                        .offset(x: Self.offset(at: context.date, trackWidth: proxy.size.width))
+                        .offset(x: Self.restingOffset(trackWidth: proxy.size.width))
                 }
             }
         }
@@ -131,6 +140,14 @@ struct TopBarIndicator: View {
     }
 
     static let height: CGFloat = CoreSpacing.xs
+
+    static func sweeps(for presentation: MotionPresentation) -> Bool {
+        presentation == .animated
+    }
+
+    static func restingOffset(trackWidth: CGFloat) -> CGFloat {
+        trackWidth * (1 - Self.barWidthRatio) / 2
+    }
 
     static func offset(at date: Date, trackWidth: CGFloat) -> CGFloat {
         let barWidth = trackWidth * Self.barWidthRatio

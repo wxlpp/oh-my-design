@@ -30,7 +30,7 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 
 1. **资源调色板**（`Colors/ColorGrade.swift`）—— 17 种命名色相 × 10 个色阶（`brand-0`…`yellow-9`），由 `Resources.xcassets` 中的 color set 提供。通过 `Color("...", bundle: .module)` 加载。第 3 层迁到系统色后，本层现仅为 `StatusColors`（24 个状态色 token，Apple 无对应系统概念）与 `InteractionColors` 的 `secondaryAccent` / `neutralAccent` 族（显式定案保留品牌色阶）供色；组件代码中应避免直接使用第 1 层。
 2. **系统色桥接**（`Colors/SystemBackgroundColors.swift`、`SystemLabelColors.swift`）—— 通过 `#if canImport(UIKit)` / `AppKit` 把 `UIColor` / `NSColor` 系统色重新导出为 `Color`，保证同一名称在两端平台都能编译。现在是第 3 层大多数 token 的直接来源。
-3. **语义化 token**——`SurfaceColors`、`ContentColors`、`BorderColors`、`FillColors`、`InteractionColors`、`StatusColors`。命名描述用途而非色相（`surfaceRaised`、`contentPrimary`、`accent`、`accentPressed`、`statusDangerForeground`）。多数 token 直接改指系统语义色（`systemGroupedBackground` 族、`label` 族、`separator` 族、`systemFill` 族），随系统外观 / 对比度设置自动更新；`accent` 是**墨色**——第 2 层新桥接 `Color.inkPrimary`（iOS `label` / macOS `textColor`；⚠️ macOS 取 `textColor` 而非 `labelColor`，后者实测 α = 0.8471 会让每个比例都落不准）。**不再跟随宿主 `Color.accentColor`**；宿主换色走 `View.coreAccent(_:)`（`@Entry var coreAccent`），四个衍生态自动跟随。衍生态用 `Color.mix(with:by:in:)` / `.opacity()` 对 `accent` 调制，**混合目标是 `surfaceBase`（朝向背景）**——墨色处在明度极值，无法「更远离背景」。公式收成 `Color.accentHover(from:)` 等四个 internal `static func`，静态 token 与 `ButtonRoleStyleRole` 都调它，避免两处各写一遍。⚠️ 图表 / tag 走 **`dataAccent`**（系统蓝），刻意不跟随 accent——墨色的环会读成禁用。`secondaryAccent`（现为 `grey7/8/9/2`）/ `neutralAccent` / `StatusColors` 显式定案保留 `ColorGrade` 品牌色阶——Apple HIG 没有"第二强调色"或"5 态状态色板"的系统概念，无桥接目标。
+3. **语义化 token**——`SurfaceColors`、`ContentColors`、`BorderColors`、`FillColors`、`InteractionColors`、`StatusColors`。命名描述用途而非色相（`surfaceRaised`、`contentPrimary`、`accent`、`accentPressed`、`statusDangerForeground`）。多数 token 直接改指系统语义色（`systemGroupedBackground` 族、`label` 族、`separator` 族、`systemFill` 族），随系统外观 / 对比度设置自动更新；`accent` 是**墨色**——第 2 层新桥接 `Color.inkPrimary`（iOS `label` / macOS `textColor`；⚠️ macOS 取 `textColor` 而非 `labelColor`，后者实测 α = 0.8471 会让每个比例都落不准）。**不再跟随宿主 `Color.accentColor`**；宿主换色走 `View.coreAccent(_:)`（`@Entry var coreAccent`），四个衍生态自动跟随。衍生态用 `Color.mix(with:by:in:)` / `.opacity()` 对 `accent` 调制，**混合目标是 `surfaceBase`（朝向背景）**——墨色处在明度极值，无法「更远离背景」。公式收成 `Color.accentHover(from:)` 等 internal `static func`，静态 token 与 `ButtonRoleStyleRole` 都调它，避免两处各写一遍。⚠️ 图表 / tag 走 **`dataAccent`**（系统蓝），刻意不跟随 accent——墨色的环会读成禁用。例外是 `TagGroup` 的**选中态**（底色 / 描边）：那是交互色，从环境 `coreAccent` 派生；tag 的内容色仍由调用方决定。`secondaryAccent`（现为 `grey7/8/9/2`）/ `neutralAccent` / `StatusColors` 显式定案保留 `ColorGrade` 品牌色阶——Apple HIG 没有"第二强调色"或"5 态状态色板"的系统概念，无桥接目标。
 4. **状态功能别名**（`Colors/FunctionalColor.swift`）—— `success`、`info`、`warning`、`danger` 及其现有变体。本层为 `public`，是最高层的 API 表面。
 
    **交互色不在此层**——`accent` / `secondaryAccent` / `neutralAccent` 等走第 3 层 `InteractionColors`。该层曾定义 `Color.primary/secondary/tertiary` 三组，因与 SwiftUI 内建成员同名而遮蔽它们（删除时编译器不报错，只静默改变解析目标），已于 Issue #93 移除。
@@ -76,7 +76,7 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 |---|---|---|
 | `GuardScanRoots.allRoots`（`Tests/OhMyDesignTests/GuardScanRoots.swift`） | Bool 纪律（`BoolExemptionGuard` / `BoolParameterScanner`）、a11y 字面量、NFR-4 的 `@unchecked Sendable` grep | 四个 target 全覆盖 |
 | `GuardScanRoots.newTargetRoots` | `EffectsColorLiteralGuard`（禁色相字面量）、`ChromeTextLiteralGuard`（禁 A 类 chrome 文案）、`ExtensionEntryPointGuard`（扩展成员入口点） | **只有**新 target，有意不回溯改造 OhMyDesign 现状 |
-| `ComponentRegistryGuard` 的 `componentScanRoots`（`#270` 前叫 `coreDesignSources`，当时确是单根） | 组件登记表与 J-2 / J-3 / FR-4 那一串判据 | **`#270` 起直接返回 `GuardScanRoots.allRoots`，四 target 全覆盖**，不另列一份根名（两套根必然漂）。⚠️ 本行原写「仍只有 `Sources/OhMyDesign`、扩它会顶动 AD-4《下游连锁一》那串断言、归 `#255` 处置」——`#270` 落地后**已失真**，`ComponentExtensionPointGuard` 的 `inspected.count`（**实测 16**，本行此前写 11，是更早的失真）在四根下照样成立 |
+| `ComponentRegistryGuard` 的 `componentScanRoots`（`#270` 前叫 `coreDesignSources`，当时确是单根） | 组件登记表与 J-2 / J-3 / FR-4 那一串判据 | **`#270` 起直接返回 `GuardScanRoots.allRoots`，四 target 全覆盖**，不另列一份根名（两套根必然漂）。⚠️ 本行原写「仍只有 `Sources/OhMyDesign`、扩它会顶动 AD-4《下游连锁一》那串断言、归 `#255` 处置」——`#270` 落地后**已失真**，`ComponentExtensionPointGuard` 的 `inspected.count`（**`#312` 落地时确为 17**——`911e15d` 逐字 `#expect(result.inspected.count == 17,`；`39fecab` 移除 `Sidebar` / `BottomInputBar` 后**降到 16**，判据现逐字 `== 16` 并列出这 16 个组件名）在四根下照样成立。⚠️ 本行曾停在 17 未随 `39fecab` 同步 —— **那个数在当时是对的，失真的是这条注记**；⚠️ `docs/components/orbiting-logos.md` 里的「J-2 定义域 **17** 条」是 `#312` 的**历史记账**，正确、不要改成 16 |
 
 ⚠️ 新增 library target 时**必须**把它加进 `GuardScanRoots.targetNames`——该表与
 `Package.swift` 声明的 library target 做双向差集，忘了扩根会当场判红（这是刻意的
@@ -85,11 +85,11 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 
 ### 按钮样式模式
 
-所有按钮样式遵循统一形态：`*ButtonStyle: ButtonStyle` + 在 `ButtonStyle where Self == ...` 上扩展 `static func *Button(role:) -> Self`，通过单个 `ButtonRoleStyleRole` 枚举（`Components/Button/ButtonRoleStyleRole.swift`）参数化。该枚举是 `color` / `activeColor` / `disabledColor` 的唯一来源——新增 role 时应扩展此枚举，而不是为每个样式各自定义调色板。样式从 `@Environment(\.controlSize)` 读取尺寸、从 `\.isEnabled` 决定禁用配色。
+所有按钮样式遵循统一形态：`*ButtonStyle: ButtonStyle` + 在 `ButtonStyle where Self == ...` 上扩展 `static func *Button(role:) -> Self`，通过单个 `ButtonRoleStyleRole` 枚举（`Components/Button/ButtonRoleStyleRole.swift`）参数化。该枚举是 `color` / `activeColor` / `disabledColor` 的唯一来源——新增 role 时应扩展此枚举，而不是为每个样式各自定义调色板。样式从 `@Environment(\.controlSize)` 读取尺寸、从 `\.isEnabled` 决定禁用配色。有意例外：`.pressableRow` / `.pressableCard`（`PressableButtonStyles.swift`）只给调用方 label 叠加按压反馈，不接 role、不读 `controlSize`，理由见 `docs/components/pressable-button-styles.md`。
 
 ⚠️ 本节曾写「重度使用 iOS 26 的 `.glassEffect()`；`LightButtonStyle` 会按 `colorScheme` 分支：暗色用 `glassEffect`，亮色用柔和阴影代替」——**后半句实测为假**（#41 收尾时发现）：`Sources/OhMyDesign/Components/Button/styles/` 下**没有任何按钮样式**直接调用 `.glassEffect`，也**没有任何一个读 `colorScheme`**；`LightButtonStyle.makeBody` 走的是 `buttonChrome` + `buttonBackground(fill: .surfaceInteractive, border: .borderSubtle)` + 链尾 `.opacity`，明暗差异全部来自系统语义色 token 的自动适配，不是代码分支。（该句在 #41 之前的 `95c29cf` 上就已失真，不是 #41 删 `glass` 簇造成的。）
 
-`.glassEffect` 的真实调用面在组件与 modifier 层：`BottomInputBar`、`Carousel`、`SegmentedControl`、`FloatingGlassModifier`、`TelegramGlassButtonModifier`。按钮样式经 `TelegramGlassButtonModifier` 等间接使用。
+`.glassEffect` 的真实调用面在组件与 modifier 层：`Carousel`、`SegmentedControl`、`FloatingGlassModifier`、`TelegramGlassButtonModifier`。按钮样式经 `TelegramGlassButtonModifier` 等间接使用。
 
 ### 组件 style 协议
 
@@ -101,6 +101,8 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 
 新增带样式的组件时复用该形态，不要另立平行模式。
 
+⚠️ 刻意例外：`TreeStyle`（`#429`）是**封闭外观配置**（`public struct` + `.automatic` / `.navigator` 两个静态成员，无公开 init / 属性），不是协议——理由见 `docs/superpowers/specs/2026-09-23-tree-style-design.md` §2.1。除非按那里的兼容路径升级（modifier 改取 `treeStyle(_: any TreeStyle)`，**不是** `some TreeStyle`），勿改成协议。
+
 ### 系统控件 `.core` style 与分组容器（Phase 2 / `0.4.0`）
 
 - **`.core` style 的强调色必须走 `.tint` 通路**：`ProgressView` / `Label` / `DisclosureGroup` 各有一个 `.core` style（`Components/Style/`），**换皮不重造控件**；`makeBody` 中强调色一律经 `TintShapeStyle`（`.tint`）取，**不得写死 `Color.accent`**——否则调用方 `.tint(_:)` 对这些控件静默失效（FR-12）。`Toggle` / `TextField` 有意未提供 `.core` style（前者丢原生手势/haptic，后者 `_body` 私有无公开自定义入口）；设置行里的开关直接用系统 `Toggle` + `.tint`。
@@ -109,7 +111,7 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 
 ### Modifier 约定
 
-可复用的 `ViewModifier` 放在 `Modifier/` 目录下；以 `View` 扩展形式暴露（如 `.bordered(...)`），而不是要求调用方写 `.modifier(BorderModifier(...))`。跨组件复用的纯辅助扩展放在 `Utils/`（目前仅 `ColorExtension.swift`）；只服务单个组件的辅助扩展与组件同文件（如 `.focusedExternally` 在 `BottomInputBar.swift`）。
+可复用的 `ViewModifier` 放在 `Modifier/` 目录下；以 `View` 扩展形式暴露（如 `.bordered(...)`），而不是要求调用方写 `.modifier(BorderModifier(...))`。跨组件复用的纯辅助扩展放在 `Utils/`（目前仅 `ColorExtension.swift`）；只服务单个组件的辅助扩展与组件同文件（private / fileprivate，与组件放在同一个 `.swift` 文件里）。
 
 ### 资源加载
 
@@ -134,6 +136,13 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   `xcodebuild -project App/OhMyDesignPreview.xcodeproj` 手动验证。删除或改名公开符号后
   务必手动确认它仍能构建，否则预览宿主可能已经无法编译却没人发现（trait 删除这类
   manifest 层变更尤其如此——报错发生在依赖解析期，不会在库自身的编译期出现）。
+  ⚠️⚠️ **`** BUILD SUCCEEDED **` 本身证不了任何事**（`#417` 实测）：不带
+  `-destination 'platform=iOS Simulator,id=<UDID>'`、或不清 `App/.derivedData` 时，
+  **App target 会被增量整体跳过**，照样打印 `BUILD SUCCEEDED`。
+  ⇒ 判「预览宿主仍能编译」必须在日志里核到三样：产物是 **`Debug-iphonesimulator`**、
+  出现 **`Compiling ComponentData.swift` / `Compiling Previews.swift`**、
+  以及 **`in target 'OhMyDesignPreview'`** 的步数不是 0（`#417` 那次正确读数是 61 步）。
+  只看退出码与那行 `BUILD SUCCEEDED` 会把「一步没编」读成「编过了」。
 - **`scripts/downstream-probe` 是独立 SwiftPM 包**（自带 `Package.swift`），只有 CI 的
   `downstream-probe` job（`cd scripts/downstream-probe && swift build`）覆盖它。任何
   删除/改名公开符号都必须同步这个包，否则本地 `swift build` 全绿而这个 job 会红。
@@ -303,8 +312,8 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
     输出越长，丢得越多**；全绿的这一遍已经丢掉四成 `started` 行。
     ⚠️ **别按「起止配对」判某条判据跑没跑**：抽一个子集去数往往恰好配得上
     （本轮 `#312：` 前缀的 11 条就是 11/11），那是抽样的产物，不是证据。
-    ⇒ SwiftPM 侧要权威条数走 `swift test --xunit-output <path>`，
-    或只读 `Test run with … tests` 那一行的总数。
+    ⇒ SwiftPM 侧只能读 `Test run with … tests` 那一行的总数。
+    ⚠️ **不要指望 `--xunit-output`**：本仓实测它**不产出文件**（见下方第 5 条末尾）。
 
 - **公开 `static` 成员的 MainActor 隔离棘轮只在 CI 上跑**（`#307`）：本包三个 target
   都开了 `.defaultIsolation(MainActor.self)`，新加的公开 `static` 成员**默认**被卷进
@@ -329,9 +338,9 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   **根本不带 `@MainActor`**（`defaultIsolation` 不作用于外来模块类型的扩展）；
   真实形态是**显式**写 `@MainActor`，或扩展一个自身就是 `@MainActor` 的第三方类型。
 
-### 「退出码 0，却一条测试都没跑」——已实测到的五种形态（`#302`）
+### 「退出码 0，却一条测试都没跑」——已实测到的六种形态（`#302` / `#429`）
 
-⚠️ 五种的共同点：**退出码是成功的**。只看 `$?` 的验证纪律对它们全部免疫，
+⚠️ 六种的共同点：**退出码是成功的**。只看 `$?` 的验证纪律对它们全部免疫，
 必须核对「到底跑了几条」。除第 4 条另有标注外，以下每条都在本仓实测过
 （Swift 6.3 / Xcode 26.4）：
 
@@ -384,9 +393,28 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
    `grep -qE` 的网只当「一条都没跑」的兜底用，**不要**把 console 行数当权威条数。
    ⚠️ 权威条数**不要写「取 `.xcresult`」**（上一版就是这么写的）：`.xcresult` 是 `xcodebuild`
    的产物，`swift test --help` 实测**没有任何产出 `.xcresult` 的选项** ⇒ 读者在 SwiftPM 腿上
-   照那句话**无处可取**。SwiftPM 侧要权威条数走 `swift test --xunit-output <path>`
-   （实测 `--help` 里有：“Path where the xUnit xml file should be generated.”），
-   或把**每个 target 那一行汇总相加**。
+   照那句话**无处可取**。
+   ⚠️⚠️ **但上一版给的替代品 `swift test --xunit-output <path>` 在本仓同样无处可取**
+   （`#408` 实测，2026-09-23）：`--help` 里确有该选项
+   （逐字 “Path where the xUnit xml file should be generated.”），但**跑完不产出任何文件**
+   —— 全量跑一遍、`--filter` 单跑一遍各试一次，都是退出码 0、指定路径上**没有文件**，
+   也**没有任何报错**（裸跑，未经 `rtk`）。
+   ⇒ **SwiftPM 腿目前没有逐条权威结果的取法**，只能读 `Test run with … tests` 那一行的总数
+   （或把每个 target 那一行相加）。失败要指认到具体哪条时，**当场把 console 全文存盘**
+   ——事后没有别的地方可取。
+   ⚠️ **成因未查明，别往下传播猜测**：本仓 `import XCTest` 零命中（`--xunit-output` 是 XCTest
+   时代的旗标），这只是相关性。想做决定性实验时注意：临时加一个 `XCTestCase` 子类**根本编译不过**
+   —— 三个 target 都开了 `.defaultIsolation(MainActor.self)`，报
+   `main actor-isolated initializer 'init()' has different actor isolation from nonisolated
+   overridden declaration`。⇒ 那次尝试**不下结论**，成因仍然是开放问题。
+
+6. **某条测试让 `swift test` 进程中途以退出码 0 退出 ⇒ 后面的测试全部不跑**（`#429` 实测）。
+   形态：托管窗口里经 `sendEvent` 合成 `rightMouseDown` 让 `NSMenu` 进入模态追踪，再在
+   `didBeginTrackingNotification` 里异步 `cancelTracking()` 退出——该测试本身通过，返回后进程退出
+   （退出栈 `swift_task_asyncMainDrainQueue` → `exit`），`EXIT=0`，输出里**没有 `Test run with` 行**；
+   改成同步 `cancelTracking()` 则进程挂住。⇒ 判据：`Test run with` 行必须**存在**且条数对得上基线，
+   只看退出码会判绿。`main` 的 `ci.yml` 没有那道 `grep -qE 'Test run with [1-9]…'` 网 ⇒ 这类测试进了
+   `main` 会在 CI 上判绿、静默丢掉其后全部测试。详情见 `docs/components/tree.md`「右键菜单的真实唤起路径」。
 
 ⚠️ **`#302` 把第 5 条记成了「`--build-system swiftbuild --filter` 静默跑零个测试」——
 复现不出来**（本次在 `main` 与 `epic/shipswift-shaders` 各测一遍）：后者上
@@ -408,9 +436,13 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 
 ### 「更正传播」约定（`#287`）
 
-⚠️ **判据引用不再有机器兜底**：核对「文档里写的『类型 + 点 + 成员』引用真的存在」的
-那条判据（原 `Tests/OhMyDesignTests/JudgementReferenceGuard.swift`）已随注释精简一并
-删除。`docs/` 与本文件里的判据引用现在**全靠人工**——引一条之前先 grep 确认它还在。
+⚠️ **判据引用不再有机器兜底**（`#337` 起部分改观）：核对「文档里写的『类型 + 点 + 成员』
+引用真的存在」的那条判据（原 `Tests/OhMyDesignTests/JudgementReferenceGuard.swift`）已随
+注释精简一并删除。`#337` 已把**活文档里引源码的引用**统一改成「文件 + 逐字引文」形态，
+并装上机器兜底 `Tests/OhMyDesignTests/QuotedEvidenceGuard.swift`（登记「文档 → 源文件 →
+被引原文」三列，逐条回扫原文仍在源文件；`docs/issues/337-census.md` 是普查清单，
+`BareLineRefGate` 同批清零后升级为零容忍）。⚠️ **未登记为引文的符号引用**（判据名、类型 +
+点 + 成员这类）与跨仓引用**仍全靠人工**——引一条之前先 grep 确认它还在。
 
 - ⚠️ **更正 / 撤回一处声称时，必须 grep 该判据名或该理由的关键词，确认三处落点同步**：
   源码注释、`docs/components/*.md`、`docs/component-registry.json` 的 `notes`。

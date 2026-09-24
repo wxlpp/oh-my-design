@@ -62,15 +62,40 @@ RadioGroup(
 
 ## 视觉 Token（与 CheckBox 成对）
 
-- 选中态：`largecircle.fill.circle` SF Symbol，`Color.contentPrimary`
+- 选中态：`circle.inset.filled` SF Symbol，`Color.contentPrimary`
 - 未选中态：`circle` SF Symbol，`Color.contentSecondary`
 - 图标字号：`CoreControlMetrics.iconSize(for: .regular)`（16pt），与 `CheckBoxToggleStyle` 一致
 - 图标 ↔ 文字间距：`CoreSpacing.sm`
 - 命中区：`.frame(minHeight: CoreControlMetrics.height(for: .regular))`（44pt 地板）+ `.contentShape(Rectangle())`，复刻 `CheckBoxToggleStyle` 的手法——单靠 icon + label 的 intrinsic 高度会远低于 44pt，需要显式撑高整行命中区
-- 选中切换动画：`.animation(.easeOut(duration: 0.25), value:)`，与 CheckBox 一致
+- 选中切换动画：`.coreAnimation(.selection, value:)`（#407 前是 0.25 s ease-out），与 CheckBox 一致，无位移；
+  指示符换图走 `.contentTransition(.symbolEffect(.replace))`（#408），圆点以描画方式出现。
+  CheckBox 为此把原来的两张 `Image`（`square` / `checkmark.square.fill`）并成一张——`.replace`
+  只在同一个视图身份上播，`if / else` 两个分支各一张图时换不出效果。
+  Reduce Motion 开启时内容过渡退为 `ContentTransition.identity`（直接换图、不描画），框架不代劳（#407 FR-1 实测）。
+  ⚠️ **invalid 且选中态变化时 `.replace` 播不出来**：invalid + 选中那一路走
+  `.symbolRenderingMode(.palette)`（见下节），与单色那一路是两个 `if` 分支、视图身份不同。
+  有意保留该分支——并成「始终 `.palette` + 两层同色」时 `circle.inset.filled` 实测有 1 LSB 取值差，
+  且同样的写法会让 CheckBox 的勾被同色实心层吃掉（逐通道差到 191）
 - 无障碍：每个选项 `.accessibilityElement(children: .combine)` + `.accessibilityAddTraits(.isButton)`，选中项额外带 `.isSelected`；圆点图标本身纯装饰、`.accessibilityHidden(true)`，避免 SF Symbol 隐式 label（如 "circle"）混入朗读结果
 
+⚠️ **「成对」不等于状态集相同**：CheckBox 自 `#421` 起有**三**个指示符态（多了系统派生的
+mixed，`minus.square.fill`，见 `checkbox.md`），`RadioGroup` 只有选中 / 未选中两态——
+互斥单选没有「部分选中」可言。上面这几行说的是 token 与手法成对，不是态数成对。
+
 > **不响应 `.tint`**：与本仓库 Phase 2 的 `.core` style 系统控件（`ProgressView`/`Label`/`DisclosureGroup`，见 `docs/components/core-control-styles.md`）不同，`RadioGroup` 的选中态颜色**固定用 `Color.contentPrimary`**，不经 `TintShapeStyle`——调用方 `.tint(_:)` 对它不生效。这是与 `CheckBoxToggleStyle` 视觉配对的显式取舍（两者都不引入强调色语义），而非疏漏；需要强调色响应的场景应换用系统 `Picker`/`Toggle` + `.tint`。
+
+## 校验态 / Field validation
+
+`RadioGroup` 与 `CheckBoxToggleStyle` 都读 `.fieldValidation(_:)`（见 `form-field.md`）：
+
+- invalid 时 Radio 的**圆环**与 CheckBox 的方框图标取 `Color.statusDangerForeground`；Radio 选中的实心点
+  仍取 `Color.contentPrimary`（`circle.inset.filled` 走 `.palette`：primary 层是实心点、secondary 层是圆环），
+  避免读成「选中的这一项是错的」。标题文字不变。
+- **disabled**：整行（图标 + 标题）降到 0.4 不透明度，与 `TagGroup` / 按钮样式的禁用态一致；enabled 外观不变。
+  disabled 优先于 invalid：禁用 + invalid 与禁用 + valid 外观一致（不画红色）。
+- 无障碍：错误原因与 `FormField` 的 description 作为 hint 挂在**每个可切换节点**上
+  （Radio 的每一行、CheckBox 的 `Toggle`）；label 保留选项 / Toggle 自身的文字，
+  不替换成字段 label——否则同组的每个选项都会读成同一个字段名。
 
 ## 取舍：为何不用 `.pickerStyle(.radioGroup)`
 

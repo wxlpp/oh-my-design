@@ -49,4 +49,9 @@ public extension Color {
 
     /// 扫光高光色（`.shine()` 这类掠过内容的高光带）。Specular sweep highlight.
     static var specularHighlight: Color { Color.white.opacity(0.45) }
+
+    // MARK: - Badge 角标取色
+
+    /// 锚定徽标（`View.anchoredBadge`）的底色：系统红，与 iOS 系统角标一致，不跟随 accent。
+    static var badgeFill: Color { Color.systemRed }
 }

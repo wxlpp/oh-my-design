@@ -300,8 +300,9 @@ struct FilterTransitionTests {
         let direct = try #require(
             Self.pixels(Self.probeContent.modifier(FilmExposureFilm(progress: 0.5, peak: peak))), "渲染失败"
         )
-        let matchesDirect = Self.framesMatch(midFlight, direct)
-        #expect(matchesDirect, "`animatableData` 没有绑在 `progress` 上，插值改不动绘制")
+        // ⚠️ 相等方向走容差入口（#317），勿改回 framesMatch（那是逐字节的）；不等方向的 framesMatch 照旧。
+        expectBitmapsEquivalent(midFlight, direct, maxChannelDelta: 1,
+                "`animatableData` 没有绑在 `progress` 上，插值改不动绘制")
     }
 
     @Test("快门白场真的画得出来：插到窗口中心，位图必须与两端都不同")
@@ -336,8 +337,8 @@ struct FilterTransitionTests {
             Self.pixels(Self.probeContent.modifier(
                 SnapshotFilm(progress: SnapshotDevelop.shutterCenter, peak: peak))), "渲染失败"
         )
-        let matchesDirect = Self.framesMatch(atShutter, direct)
-        #expect(matchesDirect, "`animatableData` 没有绑在 `progress` 上")
+        expectBitmapsEquivalent(atShutter, direct, maxChannelDelta: 1,
+                "`animatableData` 没有绑在 `progress` 上")
     }
 
     @Test("闪烁真的在明暗往复：曲线上升段的两帧，后一帧必须比前一帧更实")
@@ -794,26 +795,24 @@ struct FilterTransitionTests {
         func body(content: Content, phase: TransitionPhase) -> some View { content }
     }
 
-    @Test("四种转场都显式退出框架的 Reduce Motion 替换（hasMotion == false）")
-    func everyTransitionOptsOutOfTheFrameworkMotionSubstitution() {
+    @Test("四种转场都显式声明无运动（hasMotion == false）")
+    func everyTransitionDeclaresNoMotion() {
         let note = """
-        —— `Transition.properties` 默认 `hasMotion == true`，其语义是「Reduce Motion 开启时
-        把这条转场整个替换成 opacity」。不显式声明 `false` 的话，四种转场的裁决表、
-        类型文档与 `docs/components/*.md` 在运行时**全部是假的**。
+        —— 这四种转场没有几何位移，`properties` 应如实声明 `hasMotion == false`。
+        本断言只核这一声明；框架并不据此在 Reduce Motion 下把转场换成 opacity（#407 实测），
+        RM / 闪烁降级由各自的手写闸负责。
         """
-        #expect(BlurTransition.properties.hasMotion == false, "`blur` 没有退出框架替换 \(note)")
-        #expect(FilmExposureTransition.properties.hasMotion == false, "`filmExposure` 没有退出框架替换 \(note)")
-        #expect(SnapshotTransition.properties.hasMotion == false, "`snapshot` 没有退出框架替换 \(note)")
+        #expect(BlurTransition.properties.hasMotion == false, "`blur` 没有声明无运动 \(note)")
+        #expect(FilmExposureTransition.properties.hasMotion == false, "`filmExposure` 没有声明无运动 \(note)")
+        #expect(SnapshotTransition.properties.hasMotion == false, "`snapshot` 没有声明无运动 \(note)")
         #expect(FlickerTransition.properties.hasMotion == false, """
-        `flicker` 没有退出框架替换 \(note)
-        ⚠️ 它取 `false` 是一次**显式裁决**（留 `true` 会让那道手写闸在 Reduce Motion 路径上
-        变成死代码），两条路的权衡逐字写在 `FilterTransitionSupport.swift` 的
-        《`TransitionProperties.hasMotion`》一节。要改这一位，先改那一节。
+        `flicker` 没有声明无运动 \(note)
+        ⚠️ 它取 `false` 是一次**显式裁决**：Reduce Motion 由本文件那道手写闸处理。
         """)
 
         #expect(Self.DefaultPropertiesProbe.properties.hasMotion, """
         `Transition.properties` 的协议默认值不再是 `hasMotion == true`
-        —— 上面四条 `== false` 于是不再证明任何事（"显式声明"与"什么都没写"不可分辨）。
+        —— 上面四条 `== false` 于是分辨不出"显式声明"与"什么都没写"。
         """)
     }
 

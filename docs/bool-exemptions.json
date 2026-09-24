@@ -13,55 +13,7 @@
   },
   {
     "parameter": "View.floatingGlass#isInteractive",
-    "reason": "⚠️ 不是原样透传：body 内把 Bool 换算成 Glass 值（isInteractive ? Glass.regular.interactive() : Glass.regular，见 FloatingGlassModifier.swift:20），SwiftUI 这一层接的是 Glass 类型，这个 Bool 参数是本仓自己发明的。终局条款先试 (b) 删除：删掉即关闭对系统 interactive 玻璃效果的暴露，属功能删减，(b) 不成立 ⇒ 记入豁免 (a)。3.1 式替代路径（直接收 Glass，或收一个语义枚举再仓内换算成 Glass）结构上可用，属 epic component-contract 收尾时另开任务的仓内改造范围，不是等 Apple 给非 Bool 形态。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-08-13"
-  },
-  {
-    "parameter": "View.sidebarSelectedBackground#isSelected",
-    "reason": "描述行当前是不是选中态，供 modifier 画出选中/未选中背景，属公约第 3 节例外条款所指的状态描述 Bool（对标 ButtonStyleConfiguration.isPressed），不是配置开关。删除不成立——modifier 不知道当前状态就画不出正确外观。永久豁免，不归 #41。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-08-13"
-  },
-  {
-    "parameter": "View.bottomInputBar#autoShowSuggestions",
-    "reason": "控制建议条是否在出现时自动展开。⚠️ **本条 reason 原写「BottomInputBar 按公约 AD-2 排除出登记表（struct 无 public 修饰符），因此没有登记表分类上下文可交叉核对，按裸判据处理」——该前提已被 #221 推翻**：`struct BottomInputBar` 已提为 public、并按判定法登记为 prescriptive/tiebreaker（见 docs/component-registry.json）。现在**有**登记表上下文可交叉核对。删除仍不成立：两种行为都有真实调用方。整个 bottomInputBar 的七个 Bool 应合并成一个配置值类型，改造归属：epic component-contract 收尾时另开任务。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-08-13"
-  },
-  {
-    "parameter": "View.bottomInputBar#wandEnabled",
-    "reason": "是否显示魔杖按钮。删除不成立：按钮的有无是调用方的真实分歧，删掉就是单方面砍掉一种形态。正确形态是 3.2 子视图槽（把按钮交给调用方提供）或并进配置值类型，属破坏性变更，改造归属：epic component-contract 收尾时另开任务。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-08-13"
-  },
-  {
-    "parameter": "View.bottomInputBar#sendEnabled",
-    "reason": "发送按钮是否可用。与 @Environment(\\.isEnabled) 语义重叠（公约 3.4），但输入栏整体不该被 disable、只有发送这一个动作要禁，直接删掉改用 .disabled(true) 会连带整条输入栏的禁用外观。删除不成立，改造留给 epic component-contract 收尾时另开任务决定是拆组件还是收成状态类型。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-08-13"
-  },
-  {
-    "parameter": "View.bottomInputBar#showMenuButton",
-    "reason": "是否显示左侧菜单按钮。与 wandEnabled 同型：删除即单方面砍掉一种真实使用形态，不成立。正确形态是 3.2 子视图槽或并进配置值类型，改造归属：epic component-contract 收尾时另开任务。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-08-13"
-  },
-  {
-    "parameter": "View.bottomInputBar#isRunning",
-    "reason": "描述宿主任务当前是否在运行，输入栏据此把发送按钮换成停止按钮。这是状态描述而非配置开关，删除不成立——输入栏不知道运行态就画不出正确按钮。正确形态是收成一个三态的运行状态枚举（idle/running/stopping），改造归属：epic component-contract 收尾时另开任务。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-08-13"
-  },
-  {
-    "parameter": "View.bottomInputBar#showShuffleButton",
-    "reason": "是否显示随机按钮。与 wandEnabled / showMenuButton 同型：删除即砍掉一种真实形态，不成立。三个按钮显隐开关应一起收成 3.2 子视图槽或一个按钮集合类型，改造归属：epic component-contract 收尾时另开任务。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-08-13"
-  },
-  {
-    "parameter": "View.bottomInputBar#autoFocus",
-    "reason": "出现时是否自动聚焦输入框。⚠️ 这一条是 39.md 简报漏列的第七个 Bool（BottomInputBar.swift:468），由扫描器实测补入。删除不成立：自动聚焦与否是调用场景的真实分歧（弹出式输入要，常驻输入栏不要）。正确形态是走 3.4 环境值或与 externalFocus 合并成一个焦点策略类型，改造归属：epic component-contract 收尾时另开任务。",
+    "reason": "⚠️ 不是原样透传：body 内把 Bool 换算成 Glass 值（逐字 `let glass = self.isInteractive ? Glass.regular.interactive() : Glass.regular`），SwiftUI 这一层接的是 Glass 类型，这个 Bool 参数是本仓自己发明的。终局条款先试 (b) 删除：删掉即关闭对系统 interactive 玻璃效果的暴露，属功能删减，(b) 不成立 ⇒ 记入豁免 (a)。3.1 式替代路径（直接收 Glass，或收一个语义枚举再仓内换算成 Glass）结构上可用，属 epic component-contract 收尾时另开任务的仓内改造范围，不是等 Apple 给非 Bool 形态。",
     "decidedBy": "wxlpp",
     "decidedOn": "2026-08-13"
   },
@@ -86,18 +38,6 @@
   {
     "parameter": "FloatingGlassModifier.init#isInteractive",
     "reason": "与 View.floatingGlass#isInteractive 是同一概念的类型级入口，同样不是透传——body 内把 Bool 换算成 Glass 值（isInteractive ? Glass.regular.interactive() : Glass.regular）。终局条款先试 (b) 删除：删掉即关闭对系统 interactive 玻璃效果的暴露，属功能删减，(b) 不成立 ⇒ 记入豁免 (a)。改造需与 View.floatingGlass 同轮走 3.1 式替代（收 Glass 或语义枚举），归属：epic component-contract 收尾时另开任务。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-08-13"
-  },
-  {
-    "parameter": "SidebarSection.init#showsChevron",
-    "reason": "PRD 点名的已知违规实例。是否显示展开箭头是纯外观旋钮。删除不成立：无箭头的分组标题是真实用法（不可折叠的分组）。正确形态是把可折叠性收成语义类型（如 SidebarSectionDisclosure），改造归属：epic component-contract 收尾时另开任务。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-08-13"
-  },
-  {
-    "parameter": "SidebarNavigationRow.init#isSelected",
-    "reason": "描述该行当前是不是选中态，行据此画出选中背景，属公约第 3 节例外条款所指的状态描述 Bool。删除不成立——行不知道自己选没选中就画不出正确外观（对比原生 List 的 selection binding：本组件刻意不持有 selection，由调用方驱动）。永久豁免，不归 #41。",
     "decidedBy": "wxlpp",
     "decidedOn": "2026-08-13"
   },
@@ -160,36 +100,6 @@
     "reason": "公约第 3 节例外条款**逐字点名**的样本：描述这个 segment 现在是不是选中态，供 style 实现者画出选中/未选中的外观差异。第 2 节要求的形态 A/B 结构性地必然产生这类 Bool。四条替代路径对它全部无意义，终局条款 (b) 的删除路径已被公约显式否决。永久豁免，不归 #41。",
     "decidedBy": "wxlpp",
     "decidedOn": "2026-08-13"
-  },
-  {
-    "parameter": "BottomInputBar.init#wandEnabled",
-    "reason": "是否显示魔杖按钮。⚠️ **这是 struct 侧的第二张 public 参数面**——modifier 侧同名参数 `View.bottomInputBar#wandEnabled` 另有条目，#221 把 `struct BottomInputBar` 提为 public 后二者同时暴露，两条都要在册（守卫按 `Owner.init#param` 计键，不做去重）。删除不成立的理由与 modifier 侧同：按钮的有无是调用方的真实分歧，删掉就是单方面砍掉一种形态。正确形态是 3.2 子视图槽或并进配置值类型，改造归属：epic component-contract 收尾时另开任务。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-09-03"
-  },
-  {
-    "parameter": "BottomInputBar.init#sendEnabled",
-    "reason": "发送按钮是否可用。struct 侧的第二张 public 参数面（说明同 wandEnabled 条）。与 @Environment(\\.isEnabled) 语义重叠（公约 3.4），但输入栏整体不该被 disable、只有发送这一个动作要禁，直接删掉改用 .disabled(true) 会连带整条输入栏的禁用外观。删除不成立。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-09-03"
-  },
-  {
-    "parameter": "BottomInputBar.init#showMenuButton",
-    "reason": "是否显示左侧菜单按钮。struct 侧的第二张 public 参数面（说明同 wandEnabled 条）。与 wandEnabled 同型：删除即单方面砍掉一种真实使用形态。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-09-03"
-  },
-  {
-    "parameter": "BottomInputBar.init#isRunning",
-    "reason": "描述宿主任务当前是否在运行，输入栏据此把发送按钮换成停止按钮。struct 侧的第二张 public 参数面（说明同 wandEnabled 条）。这是**状态描述**而非配置开关，属公约第 3 节例外条款（对标 ButtonStyleConfiguration.isPressed）——删除不成立，输入栏不知道运行态就画不出正确按钮。正确形态是收成三态运行状态枚举（idle/running/stopping）。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-09-03"
-  },
-  {
-    "parameter": "BottomInputBar.init#autoFocus",
-    "reason": "出现时是否自动聚焦输入框。struct 侧的第二张 public 参数面（说明同 wandEnabled 条）。删除不成立：自动聚焦与否是调用场景的真实分歧（弹出式输入要、常驻输入栏不要）。正确形态是走 3.4 环境值或与 externalFocus 合并成焦点策略类型。",
-    "decidedBy": "wxlpp",
-    "decidedOn": "2026-09-03"
   },
   {
     "parameter": "EnergyState.init#isLowPower",

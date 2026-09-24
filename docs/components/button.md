@@ -23,6 +23,12 @@ Apple HIG 风格按钮样式 / Apple HIG-styled button styles.
 
 `ButtonRoleStyleRole`: primary / secondary / tertiary / warning / danger。
 
+**按压反馈**（#407）：`.solidButton` / `.lightButton` / `.circularGlass`（经 `TelegramGlassButtonModifier`）按下时缩到
+`CoreButtonMetrics.pressedScale`（0.94），曲线 `CoreMotionToken.press`（`.snappy`，0.16 s）；Reduce Motion 下不缩放，
+改为按下透明度 0.7，与样式自带的按下透明度（`.lightButton` / `.circularGlass` 0.9、`.solidButton` 0.92）取较小值、不叠乘
+（禁用的 `.circularGlass` 整体 0.4；禁用按钮拿不到按下态）。`.borderless()` 只变色，曲线同为 `CoreMotionToken.press`
+（#407 前是默认时长的 `.easeInOut`）。
+
 ## 预览 / Preview
 
 运行 `scripts/run-snapshots.sh`（默认模式）后，预览图落地 `docs/snapshots/`——但前提是该组件已在 `App/Sources/Previews.swift` 注册（导出文件名形如 `OhMyDesignPreview_<组件名>.png`）；组件源码内自带的 `#Preview` 仅用于开发期本地预览，或经 `KEEP_LIBRARY_SNAPSHOTS=1 scripts/run-snapshots.sh` 导出到本地 scratch 目录做逐组件视觉核对（不写入 docs/snapshots，见 `.claude/epics/semi-mobile-components/phase0-decisions.md` §3）。
@@ -39,13 +45,27 @@ Button("Delete") {}
     .disabled(true)
 ```
 
+## 同族按钮组件
+
+按钮**样式**在本文件；按钮**组件**（自带异步 / 状态语义的 `View`）各有独立文档：
+
+- [`AsyncButton`](../../Sources/OhMyDesign/Components/Button/AsyncButton.swift) —— 把
+  `async` 闭包封成按钮，执行期间用系统 spinner 替换 label；出错走 `onError` 或自动弹 toast。
+- [`StatefulButton`](stateful-button.md) —— idle / loading / success / failure 四态视觉回执，
+  自管与托管两种模式，防重入门闩不看视觉态。何时用哪个见该文档的《与 `AsyncButton` 的分工》。
+- [`SlideToConfirm`](slide-to-confirm.md) —— 滑到底才触发的高代价动作确认（纯距离阈值、
+  执行中进度、完成后回位）。它不是 `ButtonStyle` 可以装饰的 `Button`，但对辅助技术暴露为一个按钮。
+
+前两者是包裹 `Button` 的 `View`，chrome 仍由本文件的 `ButtonStyle` 决定；`SlideToConfirm` 自绘轨道与指示器，
+强调色走 `coreAccent`。
+
 ## 视觉 Token
 
 - 圆角：`Capsule()`（pill 形态）
 - 字号 / padding / icon：由 `@Environment(\.controlSize)` 通过 `CoreControlMetrics` 决定
 - SolidButton 背景：`role.resolvedColor(accent:isEnabled:isPressed:)`，`accent` 取自环境 `\.coreAccent`
   ⚠️ 只有 `.primary` role 跟随 `coreAccent`；其余四个 role 有意留在自有色阶（`secondaryAccent` / `neutralAccent` / `warning*` / `danger*`）
-- SolidButton 前景：`role.onColor`——`.primary` 用 `contentOnAccent`（随主题反转），其余四 role 用 `contentOnEmphasis`（白）
+- SolidButton 前景：`role.resolvedOnColor(accent:on:environment:)`——`.primary` 缺省按 accent 在当前外观下的亮度派生黑 / 白（`View.coreAccent(_:on:)` 的 `on` 参数可覆盖），其余四 role 走 `contentOnAccent`（随主题反转）
 - SolidButton 阴影：`CoreElevation.small`
 - LightButton 暗色：`.glassEffect(.regular)`；亮色：`Color.surfaceInteractive` + `CoreElevation.small`
 - CoreBorderlessButtonStyle 无视觉容器（无背景/边框/阴影），但字号、padding 与命中区仍走 `CoreControlMetrics` token

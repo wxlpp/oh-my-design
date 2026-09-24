@@ -8,8 +8,14 @@ import SwiftUI
 // 这个用法）。若其中任何一个变回 MainActor 隔离，本文件会编译失败。
 
 nonisolated func constructToastItem() -> String {
-    let item = ToastItem(message: "hi", level: .info)
-    return item.message
+    let item = ToastItem(
+        title: "hi",
+        description: "details",
+        level: .info,
+        duration: .persistent,
+        action: ToastAction("Undo") {}
+    )
+    return item.title
 }
 
 nonisolated func readBorderWidth() -> CGFloat {
@@ -63,7 +69,7 @@ nonisolated func useTypographyToken() -> CoreTypography.Token {
 // 在本 target 内，`defaultIsolation` 下它随之成为 MainActor 隔离，故整条
 // CoreElevation 家族无法 nonisolated。详见 updates/92/ci-decision.md。
 
-nonisolated func useToastDefaults() -> TimeInterval {
+nonisolated func useToastDefaults() -> ToastDuration {
     ToastDefaults.duration
 }
 
@@ -151,7 +157,7 @@ nonisolated func useCoreShape() -> some Shape {
 // `SettingsRowMetrics` 改成 `public nonisolated enum` 之后，这段话的每一个分句都已为
 // 假**（PR #304 第 1 轮终审 F-5）。反证就是本函数：6 个成员（含那两个计算属性）跨模块
 // `nonisolated` 逐条读、干净编译。SE-0434 那半句本身也是误引，射程见下方
-// `SidebarTextStyle` 那条更正。
+// F-2 那条更正。
 nonisolated func useSettingsRowMetrics() -> [CGFloat] {
     [
         SettingsRowMetrics.iconSquareSize,
@@ -163,18 +169,8 @@ nonisolated func useSettingsRowMetrics() -> [CGFloat] {
     ]
 }
 
-// ⚠️ **`SidebarTextStyle` 与 `BottomInputBarDefaults` 有意不在本文件**，理由与
-// `CoreElevation.spec(for:)` 那条逐字同源，只是上游不同（#290 实测）：
-// · `SidebarTextStyle.primary/secondary/tertiary` 的初始化表达式是
-//   `Color.contentPrimary` / `.contentMuted` / `.contentSubtle`，而**这些表达式在
-//   模块内求值**——`OhMyDesign` 自己开了 `.defaultIsolation(MainActor.self)`，于是
-//   模块内的色彩层整体是 MainActor 隔离的 ⇒ 一个 `nonisolated` 的静态存储属性
-//   用不了它。给这个 enum 标 `nonisolated` ⇒ `error: main actor-isolated default
-//   value in a nonisolated context`。要解开得先让整个色彩层 `nonisolated`，
-//   那是另一件事。
-//
-//   ⚠️ **上一版这里写「第 3 层语义色是**计算** `static var` 所以隔离，`static let`
-//   才会按 SE-0434 隐式 `nonisolated`」——实测为假，照录更正**（PR #304 终审 F-2）：
+// ⚠️ **F-2 更正：第 3/4 层色彩 token 跨模块反而 `nonisolated` 可达，MainActor 只在
+// 模块内成立**（PR #304 终审 F-2）：
 //   · **判别式不是 `static let` vs 计算 `static var`**。`Color.success` 是
 //     `public static let`（`Sources/OhMyDesign/Colors/FunctionalColor.swift`），
 //     往 `Sources/OhMyDesign/` 塞一个 `nonisolated func { Color.success }` 同样
@@ -184,14 +180,50 @@ nonisolated func useSettingsRowMetrics() -> [CGFloat] {
 //   · **SE-0434 被误引**。提案原文讲的是「global-actor-isolated **value type** 里
 //     `Sendable` 类型的**实例存储属性**，在**定义它的模块内**被当作 `nonisolated`」
 //     ——与 `static` 成员无关，射程也只到模块内。
-//   · **而从下游看这句话是反的**：本文件 `useFunctionalColors()` 与
+//   · **从下游看是 `nonisolated` 可达的**：本文件 `useFunctionalColors()` 与
 //     `PublicVisibility.swift` 的对照面就是活证据——本包（独立消费包）干净重建
 //     零 warning 零 error，其中 `nonisolated func useFunctionalColors()` 直接读
-//     `.success` / `.info` / `.warning` / `.danger`。⇒ 第 3/4 层色彩 token
-//     **跨模块反而是 nonisolated 可达的**，MainActor 只在**模块内**成立。
-//     本条「不可修」成立的理由因此只有一条：`SidebarTextStyle` 的初值表达式
-//     求值发生在**模块内**。
-// · `BottomInputBarDefaults.placeholder` 走 `String(localized:bundle: .module)`,
-//   而 `Bundle.module` 的访问器由 SwiftPM 生成在本 target 内、随 `defaultIsolation`
-//   成为 MainActor 隔离 ⇒ `error: main actor-isolated static property 'module'
-//   can not be referenced from a nonisolated context`。同 `CoreElevation` 家族。
+//     `.success` / `.info` / `.warning` / `.danger`。
+//   ⇒ 模块内以这些 token 作初值的 `nonisolated` 静态存储属性仍会
+//     `error: main actor-isolated default value in a nonisolated context`——初值求值
+//     发生在**模块内**。
+
+nonisolated func readCoreMotionToken() -> (TimeInterval, Animation?) {
+    (CoreMotionToken.reveal.duration, CoreMotionToken.scroll.animation(for: .resting))
+}
+
+// Issue #423：`Tree.searchMatches` 是 `nonisolated public static`，下游在非 MainActor 语境算命中数
+// （空态 / 结果数播报）。两个重载都要可达：写出行内容泛型的、与免写泛型的。
+private struct NonisolatedProbeTreeNode {
+    let id: String
+    let name: String
+    let children: [NonisolatedProbeTreeNode]?
+}
+
+nonisolated func countTreeSearchMatches(_ query: String) -> Int {
+    let roots = [
+        NonisolatedProbeTreeNode(id: "root", name: "Root", children: [
+            NonisolatedProbeTreeNode(id: "leaf", name: "Leaf", children: nil),
+        ]),
+    ]
+    let inferred = Tree.searchMatches(roots, id: \.id, children: \.children, query: query, text: \.name)
+    let spelled = Tree<[NonisolatedProbeTreeNode], String, Text>.searchMatches(
+        roots, id: \.id, children: \.children, query: query, text: { $0.name }
+    )
+    let emptyRow = Tree<[NonisolatedProbeTreeNode], String, EmptyView>.searchMatches(
+        roots, id: \.id, children: \.children, query: query, text: { $0.name }
+    )
+    return inferred.union(spelled).union(emptyRow).count
+}
+
+// Issue #431：`TreeRowClickBehavior` 是 `nonisolated` 的公开枚举，下游可在非 MainActor 语境里存取、比较、枚举。
+nonisolated func readTreeRowClickBehaviors() -> [TreeRowClickBehavior] {
+    TreeRowClickBehavior.allCases.filter { $0 != .select }
+}
+
+// Issue #420：`TimelineProgress` / `TimelinePhase` 是 `nonisolated` 的公开枚举，`phase(forStep:)` 是其上的纯函数；
+// 下游可在非 MainActor 语境里构造、比较、放进 Set、按 step 算阶段。
+nonisolated func timelinePhases(steps: [Int], progress: TimelineProgress) -> [TimelinePhase] {
+    let known: Set<TimelineProgress> = [.notStarted, .inProgress(at: 1), .completed]
+    return known.contains(progress) ? steps.map { progress.phase(forStep: $0) } : TimelinePhase.allCases
+}

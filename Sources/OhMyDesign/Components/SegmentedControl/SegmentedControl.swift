@@ -92,12 +92,13 @@ public struct SegmentedControl<Item: Hashable>: View {
 
     @Binding private var selection: Item
     @Environment(\.segmentedControlStyle) private var style
+    @Environment(\.coreMotionPresentation) private var motionPresentation
 
     private let items: [Item]
     private let title: (Item) -> String
 
     private func select(_ item: Item) {
-        withAnimation(.easeInOut(duration: 0.18)) {
+        withAnimation(CoreMotionToken.selection.animation(for: self.motionPresentation)) {
             self.selection = item
         }
     }
@@ -111,6 +112,9 @@ private struct SwiftUISegmentedControl: View {
     var ink: Bool = false
 
     @Environment(\.coreAccent) private var resolvedAccent
+    @Environment(\.coreAccentOn) private var resolvedOn
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.coreMotionPresentation) private var motionPresentation
     @Namespace private var namespace
 
     var body: some View {
@@ -141,7 +145,13 @@ private struct SwiftUISegmentedControl: View {
                 .background {
                     if segment.isSelected {
                         self.selectedThumb
-                            .matchedGeometryEffect(id: "SegmentedControl.thumb", in: self.namespace)
+                            .matchedGeometryEffect(
+                                id: self.motionPresentation.slidingIndicatorID(
+                                    "SegmentedControl.thumb",
+                                    slot: AnyHashable(segment.index)
+                                ),
+                                in: self.namespace
+                            )
                     }
                 }
         }
@@ -153,7 +163,10 @@ private struct SwiftUISegmentedControl: View {
         for segment: SegmentedControlStyleConfiguration.Segment
     ) -> Color {
         guard segment.isSelected else { return .contentSecondary }
-        return self.ink ? .contentOnAccent : .contentPrimary
+        guard self.ink else { return .contentPrimary }
+        var environment = EnvironmentValues()
+        environment.colorScheme = self.colorScheme
+        return self.resolvedOn ?? Color.onAccent(for: self.resolvedAccent, in: environment)
     }
 
     @ViewBuilder
@@ -207,7 +220,8 @@ public struct PlainSegmentedControlStyle: SegmentedControlStyle {
     }
 }
 
-/// 墨色外观：选中段是实心 `coreAccent` 胶囊 + 反色文字（`contentOnAccent`）。
+/// 墨色外观：选中段是实心 `coreAccent` 胶囊 + on-accent 文字（缺省按 accent 亮度
+/// 派生黑 / 白，`View.coreAccent(_:on:)` 的 `on` 参数可覆盖）。
 ///
 /// ⚠️ **不是默认**——默认仍是 `GlassSegmentedControlStyle`。web 版设计系统用墨色胶囊
 /// 是因为浏览器渲染不了 Liquid Glass，那是渲染基座的代偿而非升级。
@@ -235,7 +249,8 @@ public extension SegmentedControlStyle where Self == PlainSegmentedControlStyle 
 }
 
 public extension SegmentedControlStyle where Self == InkSegmentedControlStyle {
-    /// 墨色外观：实心 accent 胶囊 + 反色文字。
+    /// 墨色外观：实心 accent 胶囊 + on-accent 文字（缺省按 accent 亮度派生黑 / 白，
+    /// `View.coreAccent(_:on:)` 的 `on` 参数可覆盖）。
     nonisolated static var ink: InkSegmentedControlStyle { InkSegmentedControlStyle() }
 }
 

@@ -71,6 +71,15 @@ extension ComponentMeta {
             FloatButtonPreview()
         },
 
+        ComponentMeta(id: "pressable-button-styles", name: "Pressable Button Styles", description: "按压反馈 ButtonStyle：.pressableRow 铺按下底色 / .pressableCard 按下缩放，只装饰 label", category: .button) {
+            PressableButtonStylesPreview()
+        },
+        ComponentMeta(id: "stateful-button", name: "StatefulButton", description: "四态动作按钮：idle / loading / success / failure，自管与托管两种模式，防重入门闩", category: .button) {
+            StatefulButtonPreview()
+        },
+        ComponentMeta(id: "slide-to-confirm", name: "SlideToConfirm", description: "滑到底才触发的高代价动作确认：纯距离阈值、执行中进度、完成后回位", category: .button) {
+            SlideToConfirmPreview()
+        },
         // Form
         ComponentMeta(id: "label-icon", name: "Form Icons", description: "表单图标：LabelIcon / ChevronRightIcon / DangerIcon", category: .form) {
             FormIconsPreview()
@@ -80,9 +89,6 @@ extension ComponentMeta {
         },
         ComponentMeta(id: "search-field", name: "SearchField", description: "搜索输入框 — magnifyingglass + clear button + focus ring", category: .form) {
             SearchFieldPreview()
-        },
-        ComponentMeta(id: "bottom-input-bar", name: "BottomInputBar", description: "底部输入栏 modifier，带自动补全 + 提交逻辑", category: .form) {
-            BottomInputBarPreview()
         },
         ComponentMeta(id: "rating", name: "Rating", description: "Binding<Double> 驱动的星级评分控件，step 参数控制步进粒度", category: .form) {
             RatingPreview()
@@ -99,16 +105,46 @@ extension ComponentMeta {
         ComponentMeta(id: "tag-input", name: "TagInput", description: "标签输入框：Tag chip + 内联 TextField，回车/逗号提交", category: .form) {
             TagInputPreview()
         },
+        ComponentMeta(id: "tag-group", name: "TagGroup", description: "可选标签组：none / single / multiple，禁用集合，选中色跟随 coreAccent", category: .form) {
+            TagGroupPreview()
+        },
+        ComponentMeta(id: "form-field", name: "FormField", description: "字段容器：label + 必填星号 + description + 错误行；.fieldValidation / .fieldRequirement 环境值", category: .form) {
+            FormFieldPreview()
+        },
+        ComponentMeta(id: "form-field-controls-valid", name: "FormField · 控件 valid", description: "PinCode / TagInput / SearchField / CheckBox / RadioGroup 放进 FormField：valid", category: .form) {
+            FormFieldControlsPreview(state: .valid)
+        },
+        ComponentMeta(id: "form-field-controls-invalid", name: "FormField · 控件 invalid", description: "五个控件 invalid：描边 / 图标取 statusDangerForeground，错误原因挂到真实输入节点的 hint", category: .form) {
+            FormFieldControlsPreview(state: .invalid)
+        },
+        ComponentMeta(id: "form-field-controls-plain", name: "FormField · 控件不在 FormField 内", description: "五个控件裸放、无校验态：无障碍 label / hint 与接入前一致", category: .form) {
+            FormFieldControlsPlainPreview()
+        },
+        ComponentMeta(id: "form-field-controls-edge", name: "FormField · 控件边界情形", description: "调用方自带 accessibilityLabel、嵌套 FormField 最近一层生效", category: .form) {
+            FormFieldControlsEdgePreview()
+        },
+        ComponentMeta(id: "form-field-controls-disabled", name: "FormField · 控件 disabled + invalid", description: "disabled 压过 invalid：与 disabled + valid 外观一致，错误原因只留在 hint", category: .form) {
+            FormFieldControlsPreview(state: .disabledInvalid)
+        },
 
         // Indicator
         ComponentMeta(id: "badge", name: "Badge", description: "5 状态等级指示器：info / success / warning / danger / neutral", category: .indicator) {
             BadgePreview()
         },
+        ComponentMeta(id: "anchored-badge", name: "anchoredBadge", description: "View.anchoredBadge(_:placement:hostShape:)：头像 / 图标角上的红点、计数（max+ 截断）、短文本；固定 danger 色，不跟随 accent", category: .indicator) {
+            AnchoredBadgePreview()
+        },
         ComponentMeta(id: "tag", name: "Tag", description: "调用方自定义颜色的分类标签，支持 removable", category: .indicator) {
             TagPreview()
         },
-        ComponentMeta(id: "banner", name: "Banner", description: "通知横幅，支持 info / success / warning / danger 四级", category: .indicator) {
+        ComponentMeta(id: "banner", name: "Banner", description: "通知横幅，五级语义，可带标题 / 动作 / 关闭", category: .indicator) {
             BannerPreview()
+        },
+        ComponentMeta(id: "banner-levels", name: "Banner · 五档 Plain / Bordered", description: "五档语义在分组画布上的 Plain 与 Bordered 外观", category: .indicator) {
+            BannerLevelsPreview(backdrop: .canvas)
+        },
+        ComponentMeta(id: "banner-on-card", name: "Banner · 白底卡片里", description: "同一组五档放进 systemBackground 白底卡片，对照分组画布", category: .indicator) {
+            BannerLevelsPreview(backdrop: .card)
         },
         ComponentMeta(id: "progress-indicator", name: "ProgressIndicator", description: "通用圆形加载指示器，可选文案渲染于 spinner 下方", category: .indicator) {
             ProgressIndicatorGalleryPreview()
@@ -119,7 +155,7 @@ extension ComponentMeta {
         ComponentMeta(id: "steps", name: "Steps", description: "步骤条：4 种呈现（steps / segmentedBar / navigation / text）× 点状 / 数字指示器", category: .indicator) {
             StepsPreview()
         },
-        ComponentMeta(id: "timeline", name: "Timeline", description: "时间线：4 种排布（vertical / alternate / horizontal / grouped），节点 + 连线 + 内容", category: .indicator) {
+        ComponentMeta(id: "timeline", name: "Timeline", description: "时间线：4 种排布（vertical / alternate / horizontal / grouped），节点 + 连线 + 内容；可选阶段（已完成 / 进行中 / 未开始）", category: .indicator) {
             TimelinePreview()
         },
 
@@ -127,11 +163,17 @@ extension ComponentMeta {
         ComponentMeta(id: "avatar", name: "Avatar", description: "头像组件，按名称首字母生成", category: .layout) {
             AvatarPreview()
         },
+        ComponentMeta(id: "size-system", name: "Size System", description: "同一 controlSize 下 Avatar / 文本 / Badge / Tag 同排对齐，五档对照", category: .layout) {
+            SizeSystemPreview()
+        },
         ComponentMeta(id: "list-row", name: "ListRow", description: "3-槽位泛型列表行：leading / label / trailing", category: .layout) {
             ListRowPreview()
         },
         ComponentMeta(id: "carousel", name: "Carousel", description: "走马灯：ScrollView 分页滚动 + 自动轮播 + 页点指示器", category: .layout) {
             CarouselPreview()
+        },
+        ComponentMeta(id: "tree", name: "Tree", description: "层级树：受控展开（Set<ID>）+ 单选 / 多选 + 父节点三态复选框 + W3C Treeview 键盘导航", category: .layout) {
+            TreePreview()
         },
 
         // Container（Phase 2）
@@ -164,6 +206,9 @@ extension ComponentMeta {
         ComponentMeta(id: "core-progressview", name: ".core ProgressView", description: "系统 ProgressView 的 .core style，填充走 .tint", category: .form) {
             CoreProgressViewPreview()
         },
+        ComponentMeta(id: "core-circular-progressview", name: ".coreCircular ProgressView", description: "系统 ProgressView 的环形 .coreCircular style，圆弧走 .tint，nil 进度回退系统 spinner", category: .form) {
+            CoreCircularProgressViewPreview()
+        },
         ComponentMeta(id: "core-label", name: ".core Label", description: "系统 Label 的 .core style，icon 走 .tint", category: .form) {
             CoreLabelPreview()
         },
@@ -172,19 +217,32 @@ extension ComponentMeta {
         },
 
         // Navigation
-        ComponentMeta(id: "sidebar", name: "Sidebar", description: "侧栏导航组件组：section / navigation / utility / document / tag row", category: .navigation) {
-            SidebarPreview()
-        },
         ComponentMeta(id: "underlined-tab-bar", name: "UnderlinedTabBar", description: "下划线式 TabBar，token 化配色 + 选中态指示器", category: .navigation) {
             UnderlinedTabBarPreview()
         },
 
         // Feedback
         ComponentMeta(id: "toast", name: "Toast", description: "Scene-scoped toast host + 队列状态机", category: .feedback, preview: {
-            Text("Toast 通过 `.toastHost(edge:)` modifier 挂载到 WindowGroup 根级别")
-                .font(CoreTypography.Token.footnote.font)
-                .foregroundStyle(Color.contentMuted)
+            ToastLevelPreview()
         }, demoAction: { AnyView(ToastDemoButton()) }),
+        ComponentMeta(id: "toast-rich-capsule", name: "Toast · 标题 + 说明 + 动作", description: "floatingCapsule：title + description + ToastAction，常驻显示便于检视", category: .feedback) {
+            ToastRichPreview(presentation: .floatingCapsule)
+        },
+        ComponentMeta(id: "toast-rich-banner", name: "Toast · fullWidthBanner 动作", description: "fullWidthBanner：title + description + ToastAction", category: .feedback) {
+            ToastRichPreview(presentation: .fullWidthBanner)
+        },
+        ComponentMeta(id: "toast-rich-hud", name: "Toast · centeredHUD 动作", description: "centeredHUD：title + description + ToastAction", category: .feedback) {
+            ToastRichPreview(presentation: .centeredHUD)
+        },
+        ComponentMeta(id: "toast-rich-danger-capsule", name: "Toast · danger 胶囊", description: "floatingCapsule：danger 单行标题（含长单词，检视 AX 字号折行）", category: .feedback) {
+            ToastRichPreview(presentation: .floatingCapsule, sample: ToastPreviewSamples.danger())
+        },
+        ComponentMeta(id: "toast-rich-danger-banner", name: "Toast · danger 横幅", description: "fullWidthBanner：danger 单行标题，外壳延伸进状态栏", category: .feedback) {
+            ToastRichPreview(presentation: .fullWidthBanner, sample: ToastPreviewSamples.danger())
+        },
+        ComponentMeta(id: "toast-rich-danger-hud", name: "Toast · danger HUD", description: "centeredHUD：danger 单行标题，外壳不透底层文字", category: .feedback) {
+            ToastRichPreview(presentation: .centeredHUD, sample: ToastPreviewSamples.danger())
+        },
         ComponentMeta(id: "spinning", name: "Spinning", description: "View.spinning(_:text:presentation:tint:)：overlay 遮罩（阻塞）/ topBar / inline（非阻塞）；取色走 tint: 参数，三个形态一致", category: .feedback) {
             SpinningPreview()
         },
@@ -434,95 +492,366 @@ private struct SearchFieldPreview: View {
     var body: some View { SearchField(text: self.$text) }
 }
 
-/// BottomInputBar 的可交互演示宿主。
-///
-/// ⚠️ **#221 之前这里是一句占位文本**（「通过 `.bottomInputBar` modifier 使用，
-/// 非独立 View」），使 BottomInputBar 成为本库**唯一在 demo 里看不到的组件**。
-///
-/// ⚠️ **演示走 modifier 而不是直接构造 struct**——这是有意的，理由是
-/// **suggestions 只存在于 modifier 面**：`BottomInputBarModifier` 才渲染
-/// `BottomInputBarSuggestionsView`，`BottomInputBar.body` 只有 `mainRow`。
-/// 直接构造 struct 时 `isShowingSuggestions` 只影响魔杖按钮的 a11y traits，
-/// **视觉上不会有任何建议条出现或消失**。任务书要求 demo「非空 suggestions +
-/// 能看到显隐」，只有 modifier 面兑现得了。
-struct BottomInputBarPreview: View {
-    @State private var submitted: [String] = []
-    @State private var isRunning = false
+private let sizeLadder: [(String, ControlSize)] = [
+    ("mini", .mini), ("small", .small), ("regular", .regular), ("large", .large), ("extraLarge", .extraLarge),
+]
 
-    private static let suggestions = ["续写下一段", "换个风格", "润色文字", "生成对话"]
+private struct SizeLadderRow<Content: View>: View {
+    let label: String
+    @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: CoreSpacing.sm) {
-            if self.submitted.isEmpty {
-                Text("点输入框左侧的魔杖按钮可展开 / 收起建议条；输入并提交后内容会列在这里。")
-                    .font(CoreTypography.Token.footnote.font)
-                    .foregroundStyle(Color.contentMuted)
-            } else {
-                ForEach(Array(self.submitted.enumerated()), id: \.offset) { _, line in
-                    Text(line).font(CoreTypography.Token.footnote.font)
-                }
-            }
-
-            Toggle("模拟运行中（发送按钮变停止）", isOn: self.$isRunning)
-                .font(CoreTypography.Token.footnote.font)
-
-            Spacer(minLength: CoreSpacing.xl)
+        HStack(spacing: CoreSpacing.md) {
+            Text(verbatim: self.label)
+                .coreFont(.caption)
+                .foregroundStyle(Color.contentSecondary)
+                .frame(width: 72, alignment: .leading)
+            self.content()
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .padding()
-        .bottomInputBar(
-            suggestions: Self.suggestions,
-            placeholder: "说点什么",
-            autoShowSuggestions: true,
-            isRunning: self.isRunning,
-            onStop: { self.isRunning = false },
-            onSubmit: { text in
-                guard text.isEmpty == false else { return }
-                self.submitted.append(text)
-            }
-        )
     }
 }
 
 private struct BadgePreview: View {
     var body: some View {
-        HStack(spacing: CoreSpacing.sm) {
-            Badge("Info", variant: .info)
-            Badge("Success", variant: .success)
-            Badge("Warning", variant: .warning)
-            Badge("Danger", variant: .danger)
-            Badge("Neutral")
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            HStack(spacing: CoreSpacing.sm) {
+                Badge("Info", variant: .info)
+                Badge("Success", variant: .success)
+                Badge("Warning", variant: .warning)
+                Badge("Danger", variant: .danger)
+                Badge("Neutral")
+            }
+            ForEach(sizeLadder, id: \.0) { label, size in
+                SizeLadderRow(label: label) {
+                    Badge("Beta", variant: .info)
+                    Badge("Draft", variant: .warning, outlined: true)
+                }
+                .controlSize(size)
+            }
         }
     }
 }
 
 private struct TagPreview: View {
+    @State private var removedCount = 0
+
     var body: some View {
-        HStack(spacing: CoreSpacing.sm) {
-            Tag("bug", color: .red)
-            Tag("enhancement", color: .blue)
-            Tag("good first issue", color: .purple)
-            Tag("doc", color: .cyan, removable: true, onRemove: {})
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            HStack(spacing: CoreSpacing.md) {
+                Tag("removable", color: .blue, removable: true, onRemove: { self.removedCount += 1 })
+                Text(verbatim: "Removed: \(self.removedCount)")
+                    .coreFont(.caption)
+                    .foregroundStyle(Color.contentSecondary)
+                    .accessibilityIdentifier("tag-removed-count")
+            }
+            HStack(spacing: CoreSpacing.sm) {
+                Tag("bug", color: .red)
+                Tag("enhancement", color: .blue)
+                Tag("good first issue", color: .purple)
+                Tag("doc", color: .cyan, removable: true, onRemove: {})
+            }
+            ForEach(sizeLadder, id: \.0) { label, size in
+                SizeLadderRow(label: label) {
+                    Tag("bug", color: .red)
+                    Tag("doc", color: .cyan, removable: true, onRemove: {})
+                }
+                .controlSize(size)
+            }
+        }
+    }
+}
+
+private struct TagGroupPreviewItem: Identifiable, Hashable {
+    let id: String
+}
+
+private struct TagGroupPreview: View {
+    @State private var single: Set<String> = ["Weekly"]
+    @State private var multiple: Set<String> = ["Swift", "Rust"]
+    @State private var withDisabled: Set<String> = ["Go"]
+    @State private var accented: Set<String> = ["Design"]
+    @State private var sized: Set<String> = ["On"]
+    @State private var mutable: [TagGroupPreviewItem] = ["Alpha", "Bravo", "Charlie", "Delta"].map(TagGroupPreviewItem.init(id:))
+    @State private var mutableSelection: Set<String> = ["Bravo"]
+    // 单调递增，不用 count —— 「加、删中间、再加」会让 count + 1 撞出两个同名 ID，
+    // 而 TagGroup 的契约要求 data 内 ID 唯一。
+    @State private var mutableSerial = 0
+
+    private let ranges = ["Daily", "Weekly", "Monthly", "Yearly"].map(TagGroupPreviewItem.init(id:))
+    private let languages = ["Swift", "Kotlin", "Rust", "TypeScript", "Python"].map(TagGroupPreviewItem.init(id:))
+    private let platforms = ["iOS", "macOS", "Go", "watchOS"].map(TagGroupPreviewItem.init(id:))
+    private let teams = ["Design", "Engineering", "Research"].map(TagGroupPreviewItem.init(id:))
+    private let toggles = ["On", "Off"].map(TagGroupPreviewItem.init(id:))
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            self.row("none") {
+                TagGroup(self.languages, selection: .constant(["Swift"]), selectionMode: .none, color: .contentPrimary) {
+                    Text($0.id)
+                }
+            }
+            self.row("single") {
+                TagGroup(self.ranges, selection: self.$single, selectionMode: .single, color: .contentPrimary) {
+                    Text($0.id)
+                }
+                Text(verbatim: "Selected: \(self.single.sorted().joined(separator: ", "))")
+                    .coreFont(.caption)
+                    .foregroundStyle(Color.contentSecondary)
+                    .accessibilityIdentifier("tag-group-single-selection")
+            }
+            self.row("multiple") {
+                TagGroup(self.languages, selection: self.$multiple, color: .contentPrimary) {
+                    Text($0.id)
+                }
+            }
+            self.row("disabled") {
+                TagGroup(self.platforms, selection: self.$withDisabled, disabled: ["Go", "watchOS"], color: .contentPrimary) {
+                    Text($0.id)
+                }
+            }
+            self.row("coreAccent(.blue)") {
+                TagGroup(self.teams, selection: self.$accented, color: .contentPrimary) {
+                    Text($0.id)
+                }
+                .coreAccent(.blue)
+            }
+            self.row("增删转场") {
+                TagGroup(self.mutable, selection: self.$mutableSelection, color: .contentPrimary) {
+                    Text($0.id)
+                }
+                HStack(spacing: CoreSpacing.sm) {
+                    Button {
+                        self.mutableSerial += 1
+                        self.mutable.append(TagGroupPreviewItem(id: "tag\(self.mutableSerial)"))
+                    } label: {
+                        Text(verbatim: "Append")
+                    }
+                    .buttonStyle(.light())
+                    .accessibilityIdentifier("tag-group-append")
+
+                    Button {
+                        guard self.mutable.count > 1 else { return }
+                        self.mutable.remove(at: self.mutable.count / 2)
+                    } label: {
+                        Text(verbatim: "Remove middle")
+                    }
+                    .buttonStyle(.light())
+                    .accessibilityIdentifier("tag-group-remove-middle")
+                }
+            }
+            ForEach(sizeLadder, id: \.0) { label, size in
+                SizeLadderRow(label: label) {
+                    TagGroup(self.toggles, selection: self.$sized, color: .contentPrimary) {
+                        Text($0.id)
+                    }
+                }
+                .controlSize(size)
+            }
+        }
+    }
+
+    private func row(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+            Text(verbatim: title)
+                .coreFont(.caption)
+                .foregroundStyle(Color.contentSecondary)
+            content()
         }
     }
 }
 
 private struct BannerPreview: View {
+    @State private var dismissed: Set<String> = []
+
     var body: some View {
-        VStack(spacing: CoreSpacing.sm) {
-            Banner(level: .info) { Text("Info message") }
-            Banner(level: .success) { Text("Success message") }
-            Banner(level: .warning) { Text("Warning message") }
-            Banner(level: .danger) { Text("Danger message") }
+        ScrollView {
+            VStack(spacing: CoreSpacing.sm) {
+                Banner(level: .info) { Text("Info message") }
+                Banner(level: .success) { Text("Success message") }
+                Banner(level: .warning) { Text("Warning message") }
+                Banner(level: .danger) { Text("Danger message") }
+                Banner(level: .neutral) { Text("Neutral message") }
+                self.fullBanner(id: "plain-info", level: .info, style: PlainBannerStyle())
+                self.fullBanner(id: "plain-neutral", level: .neutral, style: PlainBannerStyle())
+                self.fullBanner(id: "bordered-danger", level: .danger, style: BorderedBannerStyle())
+                self.fullBanner(id: "bordered-neutral", level: .neutral, style: BorderedBannerStyle())
+                Banner(level: .info) { Text("Info bordered") }
+                    .bannerStyle(BorderedBannerStyle())
+                if !self.dismissed.isEmpty {
+                    Button("Restore dismissed banners") { self.dismissed.removeAll() }
+                        .buttonStyle(.borderless(role: .primary))
+                }
+            }
+            .padding(.vertical, CoreSpacing.lg)
         }
+    }
+
+    @ViewBuilder
+    private func fullBanner(id: String, level: StatusLevel, style: some BannerStyle) -> some View {
+        if !self.dismissed.contains(id) {
+            Banner(level: level, title: "Update available", message: "Restart the app to finish installing version 2.4.") {
+                Button("Restart now") {}
+                    .buttonStyle(.solid(role: level == .danger ? .danger : .primary))
+                    .controlSize(.small)
+                Button("Later") {}
+                    .buttonStyle(.borderless(role: .primary))
+                    .controlSize(.small)
+            } onDismiss: {
+                self.dismissed.insert(id)
+            }
+            .bannerStyle(style)
+        }
+    }
+}
+
+private struct BannerLevelsPreview: View {
+    enum Backdrop {
+        case canvas
+        case card
+    }
+
+    let backdrop: Backdrop
+
+    private static let levels: [(StatusLevel, String)] = [
+        (.info, "Info message"),
+        (.success, "Success message"),
+        (.warning, "Warning message"),
+        (.danger, "Danger message"),
+        (.neutral, "Neutral message"),
+    ]
+
+    var body: some View {
+        switch self.backdrop {
+        case .canvas:
+            self.stack
+        case .card:
+            self.stack
+                .padding(CoreSpacing.md)
+                .background(Color.surfaceBase, in: CoreShape.rounded(CoreRadius.large))
+        }
+    }
+
+    private var stack: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            self.group("Plain") {
+                ForEach(Self.levels, id: \.1) { level, text in
+                    Banner(level: level) { Text(verbatim: text) }
+                }
+            }
+            self.group("Bordered") {
+                ForEach(Self.levels, id: \.1) { level, text in
+                    Banner(level: level) { Text(verbatim: text) }
+                }
+                .bannerStyle(BorderedBannerStyle())
+            }
+        }
+    }
+
+    private func group(_ title: String, @ViewBuilder content: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+            Text(verbatim: title)
+                .coreFont(.caption)
+                .foregroundStyle(Color.contentSecondary)
+            content()
+        }
+    }
+}
+
+private struct SizeSystemPreview: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            ForEach(sizeLadder, id: \.0) { label, size in
+                SizeLadderRow(label: label) {
+                    Avatar(name: "Evan").clipShape(Circle())
+                    Text(verbatim: "Evan")
+                        .coreFont(CoreControlMetrics.compactFontToken(for: size))
+                        .foregroundStyle(Color.contentPrimary)
+                    Badge("Pro", variant: .success)
+                    Tag("design", color: .blue, removable: true, onRemove: {})
+                }
+                .controlSize(size)
+            }
+        }
+    }
+}
+
+private struct AnchoredBadgePreview: View {
+    @State private var count = 9
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xxl) {
+            HStack(spacing: CoreSpacing.xxl) {
+                Image(systemName: "bell.fill")
+                    .font(.title)
+                    .foregroundStyle(Color.contentSecondary)
+                    .anchoredBadge(.count(self.count, max: 999))
+                Button("−1") { self.count -= 1 }
+                Button("+1") { self.count += 1 }
+                Button("9") { self.count = 9 }
+                Button("99") { self.count = 99 }
+            }
+            .buttonStyle(.light())
+            HStack(spacing: CoreSpacing.xxl) {
+                self.avatar("Evan", side: CoreSpacing.xxxxl)
+                    .anchoredBadge(.dot, hostShape: .circle)
+                self.avatar("Aurora", side: CoreSpacing.xxxxl)
+                    .anchoredBadge(.count(120, max: 99), hostShape: .circle)
+                self.avatar("Design", side: CoreSpacing.xxxxl)
+                    .anchoredBadge(.count(3), placement: .bottomTrailing, hostShape: .circle)
+                self.avatar("OhMyDesign", side: CoreSpacing.huge)
+                    .anchoredBadge(.text("NEW"), hostShape: .circle)
+            }
+            HStack(spacing: CoreSpacing.xxl) {
+                Image(systemName: "bell.fill")
+                    .font(.title)
+                    .foregroundStyle(Color.contentSecondary)
+                    .anchoredBadge(.dot)
+                Image(systemName: "envelope.fill")
+                    .font(.title)
+                    .foregroundStyle(Color.contentSecondary)
+                    .anchoredBadge(.count(7))
+                Image(systemName: "tray.fill")
+                    .font(.title)
+                    .foregroundStyle(Color.contentSecondary)
+                    .anchoredBadge(.count(0))
+                Image(systemName: "gift.fill")
+                    .font(.title)
+                    .foregroundStyle(Color.contentSecondary)
+                    .anchoredBadge(.text("NEW"), placement: .topLeading)
+                Image(systemName: "message.fill")
+                    .font(.title)
+                    .foregroundStyle(Color.contentSecondary)
+                    .anchoredBadge(.count(120))
+            }
+        }
+        .padding(CoreSpacing.lg)
+    }
+
+    private func avatar(_ name: String, side: CGFloat) -> some View {
+        Avatar(name: name, size: .fixed(side))
+            .clipShape(Circle())
     }
 }
 
 private struct AvatarPreview: View {
     var body: some View {
-        HStack(spacing: CoreSpacing.md) {
-            Avatar(name: "Evan")
-            Avatar(name: "OhMyDesign")
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            ForEach(sizeLadder, id: \.0) { label, size in
+                SizeLadderRow(label: label) {
+                    Avatar(name: "Evan").clipShape(Circle())
+                    Avatar(name: "OhMyDesign").clipShape(Circle())
+                    AvatarGroup {
+                        Avatar(name: "Ada")
+                        Avatar(name: "Linus")
+                        Avatar(name: "Grace")
+                        Avatar(name: "Alan")
+                    }
+                }
+                .controlSize(size)
+            }
+            SizeLadderRow(label: ".fixed(64)") {
+                Avatar(name: "Evan", size: .fixed(64)).clipShape(Circle())
+            }
         }
     }
 }
@@ -540,41 +869,108 @@ private struct ListRowPreview: View {
     }
 }
 
-private struct SidebarPreview: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: CoreSpacing.md) {
-            SidebarSection(title: "Core", showsChevron: false) {
-                SidebarNavigationRow(systemImage: "calendar", title: "Today", isSelected: true) {}
-                SidebarNavigationRow(systemImage: "tray.full", title: "Inbox", isSelected: false) {}
-            }
-
-            SidebarSection(title: "Library") {
-                SidebarDocumentRow(systemImage: "doc.text", title: "Exam Sprint", detail: "47 days") {}
-                SidebarTagRow(title: "Math") {}
-            }
-
-            SidebarSection(title: "Tools", showsChevron: false) {
-                SidebarUtilityRow(systemImage: "gearshape", title: "Settings") {}
-                SidebarUtilityRow(systemImage: "trash", title: "Trash", trailingSystemImage: "arrow.up.right") {}
-                // `#64` 形态 D2：`.textOnly` 拆掉 leading 槽；候选 2 = 本 case + 既有尾图标参数。
-                // ⚠️ `.textOnly` 下 systemImage 不渲染 ⇒ 约定统一写 ""（见 docs/components/sidebar.md）。
-                // 该约定**不承重**：`SidebarLeadingSlotRenderTests.textOnlyIgnoresSystemImage`
-                // 以位图证明取任何值渲染都相同，写 "" 只是卫生。
-                SidebarUtilityRow(systemImage: "", title: "Archive", presentation: .textOnly) {}
-                SidebarUtilityRow(systemImage: "", title: "Settings", trailingSystemImage: "chevron.forward", presentation: .textOnly) {}
-            }
-
-            SidebarStatusFooter(title: "Synced", detail: "Updated just now")
-        }
-        .background(Color.surfaceSidebar)
-    }
-}
-
 private struct UnderlinedTabBarPreview: View {
     let items = ["Tab 1", "Tab 2", "Tab 3"]
     @State private var selection = "Tab 1"
     var body: some View {
         UnderlinedTabBar(items: self.items, selection: self.$selection, title: { $0 })
+    }
+}
+
+// MARK: - ToastLevelPreview
+
+private struct ToastLevelPreview: View {
+    @Environment(\.toastHost) private var toast
+
+    private let levels: [(label: String, level: StatusLevel)] = [
+        ("Info", .info),
+        ("Success", .success),
+        ("Warning", .warning),
+        ("Danger", .danger),
+        ("Neutral", .neutral),
+    ]
+
+    var body: some View {
+        VStack(spacing: CoreSpacing.md) {
+            Text("Toast 通过 `.toastHost(edge:)` modifier 挂载到 WindowGroup 根级别")
+                .font(CoreTypography.Token.footnote.font)
+                .foregroundStyle(Color.contentMuted)
+            FlowLayout(spacing: CoreSpacing.sm) {
+                ForEach(self.levels, id: \.label) { entry in
+                    Button(entry.label) {
+                        self.toast?.show("\(entry.label) message", level: entry.level)
+                    }
+                    .buttonStyle(.light(role: .secondary))
+                    .controlSize(.small)
+                }
+            }
+            FlowLayout(spacing: CoreSpacing.sm) {
+                Button("Description + action") {
+                    self.toast?.show(ToastPreviewSamples.archived(duration: .seconds(5)))
+                }
+                Button("Persistent") {
+                    self.toast?.show(ToastPreviewSamples.archived(duration: .persistent))
+                }
+                Button("Dismiss all") {
+                    self.toast?.dismissAll()
+                }
+            }
+            .buttonStyle(.light(role: .secondary))
+            .controlSize(.small)
+        }
+    }
+}
+
+// MARK: - ToastRichPreview
+
+private enum ToastPreviewSamples {
+    static func archived(duration: ToastDuration) -> ToastItem {
+        ToastItem(
+            title: "Conversation archived",
+            description: "It moves back to the inbox if you undo within a few seconds.",
+            level: .neutral,
+            duration: duration,
+            action: ToastAction("Undo") {}
+        )
+    }
+
+    static func danger() -> ToastItem {
+        ToastItem(title: "Connection interrupted", level: .danger, duration: .persistent)
+    }
+}
+
+private struct ToastRichPreview: View {
+    let presentation: ToastPresentation
+    var sample: ToastItem = ToastPreviewSamples.archived(duration: .persistent)
+
+    var body: some View {
+        ToastRichPreviewContent(sample: self.sample)
+            .frame(maxWidth: .infinity, minHeight: 320, maxHeight: .infinity)
+            .toastHost(edge: .top, presentation: self.presentation)
+    }
+}
+
+private struct ToastRichPreviewContent: View {
+    let sample: ToastItem
+    @Environment(\.toastHost) private var toast
+
+    var body: some View {
+        VStack(spacing: CoreSpacing.md) {
+            Text("Persistent toast with title, description and action.")
+                .font(CoreTypography.Token.footnote.font)
+                .foregroundStyle(Color.contentMuted)
+            Button("Show again") {
+                self.toast?.dismissAll()
+                self.toast?.show(ToastItem(
+                    title: self.sample.title, description: self.sample.description,
+                    level: self.sample.level, duration: .persistent, action: self.sample.action
+                ))
+            }
+            .buttonStyle(.light(role: .secondary))
+            .controlSize(.small)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .task { self.toast?.show(self.sample) }
     }
 }
 
@@ -596,6 +992,8 @@ private struct ToastDemoButton: View {
 // MARK: - Phase 2 Container Previews
 
 private struct CardPreview: View {
+    @State private var sheetDemo: CardSheetDemo?
+
     var body: some View {
         VStack(spacing: CoreSpacing.md) {
             Card {
@@ -609,7 +1007,76 @@ private struct CardPreview: View {
             Card(padding: CoreSpacing.md, alignment: .center) {
                 Text("居中 + 紧凑内边距").coreFont(.subheadline)
             }
+            Card {
+                VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                    Text("外层 Card：raised").coreFont(.headline)
+                    Card {
+                        #if os(macOS)
+                        Text("内层 Card：elevated，无投影，保留描边").coreFont(.subheadline)
+                        #else
+                        Text("内层 Card：elevated，无投影、无描边").coreFont(.subheadline)
+                        #endif
+                    }
+                    Card(kind: .grouped) {
+                        Text("内层 grouped：elevated").coreFont(.subheadline)
+                    }
+                    Button("系统 sheet（无预设，挂在外层 Card 内）") {
+                        self.sheetDemo = .plain
+                    }
+                    .buttonStyle(.solid(role: .secondary))
+                    .sheet(item: self.$sheetDemo) { demo in
+                        CardSheetContent(demo: demo)
+                            .cardSheetPreset(demo)
+                            .presentationDetents([.medium, .large])
+                    }
+                }
+            }
+            HStack(spacing: CoreSpacing.sm) {
+                Button("预设 .system") { self.sheetDemo = .system }
+                    .buttonStyle(.solid(role: .primary))
+                Button("预设 .raised") { self.sheetDemo = .raised }
+                    .buttonStyle(.solid(role: .primary))
+            }
         }
+    }
+}
+
+private enum CardSheetDemo: String, Identifiable {
+    case plain
+    case system
+    case raised
+
+    var id: String { self.rawValue }
+}
+
+private extension View {
+    @ViewBuilder
+    func cardSheetPreset(_ demo: CardSheetDemo) -> some View {
+        switch demo {
+        case .plain: self
+        case .system: self.coreSheetPresentation(background: .system)
+        case .raised: self.coreSheetPresentation(background: .raised)
+        }
+    }
+}
+
+private struct CardSheetContent: View {
+    let demo: CardSheetDemo
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.md) {
+            Text("Sheet：\(self.demo.rawValue)").coreFont(.headline)
+            Text(self.demo == .plain
+                ? "无预设：层级从宿主继承（挂在外层 Card 内）。"
+                : "coreSheetPresentation：内容层级为 raised。")
+                .coreFont(.subheadline)
+                .foregroundStyle(Color.contentSecondary)
+            Card {
+                Text("Sheet 内的 Card").coreFont(.subheadline)
+            }
+        }
+        .padding(CoreSpacing.lg)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }
 
@@ -673,6 +1140,58 @@ private struct InsetGroupedSectionPreview: View {
             }
         }
         .tint(.green)
+    }
+}
+
+private struct CoreCircularProgressViewPreview: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+            HStack(spacing: CoreSpacing.xl) {
+                ForEach([0.0, 0.25, 0.6, 1.0], id: \.self) { value in
+                    ProgressView(value: value, label: { EmptyView() }, currentValueLabel: { Text(value, format: .percent) })
+                        .progressViewStyle(.coreCircular)
+                }
+            }
+            HStack(spacing: CoreSpacing.xl) {
+                ProgressView(value: 0.6).progressViewStyle(.coreCircular).controlSize(.small)
+                ProgressView(value: 0.6).progressViewStyle(.coreCircular).tint(.red)
+                ProgressView(value: 0.6).progressViewStyle(.coreCircular).controlSize(.large)
+                ProgressView().progressViewStyle(.coreCircular)
+            }
+        }
+    }
+}
+
+private struct PressableButtonStylesPreview: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+            InsetGroupedSection(header: ".pressableRow", footer: "第二行为禁用态。") {
+                Button {} label: {
+                    SettingsRow(icon: .init(systemName: "wifi", background: .blue), title: "Wi-Fi") {
+                        Text("HomeNetwork").foregroundStyle(Color.contentSecondary)
+                        SettingsRowChevron()
+                    }
+                }
+                .buttonStyle(.pressableRow)
+                Button {} label: {
+                    SettingsRow(icon: .init(systemName: "lock.fill", background: .gray), title: "Passcode") {
+                        SettingsRowChevron()
+                    }
+                }
+                .buttonStyle(.pressableRow)
+                .disabled(true)
+            }
+            Text(".pressableCard").coreFont(.footnote).foregroundStyle(Color.contentSecondary)
+            Button {} label: {
+                Card {
+                    VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                        Text("Weekly report").coreFont(.headline)
+                        Text("Tap to open the detail").foregroundStyle(Color.contentSecondary)
+                    }
+                }
+            }
+            .buttonStyle(.pressableCard)
+        }
     }
 }
 
@@ -845,27 +1364,279 @@ private struct PinCodePreview: View {
 
 private struct RadioGroupPreview: View {
     @State private var selection = "pro"
+    @State private var accepted = false
+
+    private let options = [
+        RadioOption(value: "basic", title: "Basic"),
+        RadioOption(value: "pro", title: "Pro"),
+        RadioOption(value: "enterprise", title: "Enterprise"),
+    ]
+
     var body: some View {
-        RadioGroup(
-            selection: self.$selection,
-            options: [
-                RadioOption(value: "basic", title: "Basic"),
-                RadioOption(value: "pro", title: "Pro"),
-                RadioOption(value: "enterprise", title: "Enterprise"),
-            ]
-        )
+        VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+            RadioGroup(selection: self.$selection, options: self.options)
+            Toggle("Accept terms", isOn: self.$accepted)
+                .toggleStyle(CheckBoxToggleStyle())
+            Separator()
+            Toggle("Disabled, on", isOn: .constant(true))
+                .toggleStyle(CheckBoxToggleStyle())
+                .disabled(true)
+            Toggle("Disabled, off", isOn: .constant(false))
+                .toggleStyle(CheckBoxToggleStyle())
+                .disabled(true)
+            RadioGroup(selection: .constant("pro"), options: self.options)
+                .disabled(true)
+        }
     }
 }
 
 private struct TagInputPreview: View {
     @State private var tags: [String] = ["bug", "enhancement"]
+    @State private var mutable: [String] = ["alpha", "bravo", "charlie", "delta", "echo"]
+    @State private var mutableSerial = 0
     var body: some View {
         // Phase 3 / #173 视觉复查发现：默认 tagColor（.contentSecondary）经 Tag 的
         // `.opacity(0.12)` 背景公式，在暗色纯黑画布上对比度接近不可辨——这是 Tag 既有
         // 公式对中性色的固有表现，不是本次改动引入的缺陷（组件默认值本身不在本任务改动
         // 范围内）。画廊演示改用更有辨识度的 .blue，让暗色变体清晰可读；调用方仍可自由
         // 传入任意颜色，含中性色。
-        TagInput(tags: self.$tags, placeholder: "Add tag", tagColor: .blue)
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            TagInput(tags: self.$tags, placeholder: "Add tag", tagColor: .blue)
+
+            VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                Text(verbatim: "增删转场（稳定 chip 身份）")
+                    .coreFont(.caption)
+                    .foregroundStyle(Color.contentSecondary)
+                TagInput(tags: self.$mutable, placeholder: "Add tag", tagColor: .blue)
+                HStack(spacing: CoreSpacing.sm) {
+                    Button {
+                        self.mutableSerial += 1
+                        self.mutable.append("tag\(self.mutableSerial)")
+                    } label: {
+                        Text(verbatim: "Append")
+                    }
+                    .buttonStyle(.light())
+                    .accessibilityIdentifier("tag-input-append")
+
+                    Button {
+                        guard self.mutable.count > 1 else { return }
+                        self.mutable.remove(at: self.mutable.count / 2)
+                    } label: {
+                        Text(verbatim: "Remove middle")
+                    }
+                    .buttonStyle(.light())
+                    .accessibilityIdentifier("tag-input-remove-middle")
+                }
+            }
+        }
+    }
+}
+
+private struct FormFieldPreview: View {
+    @State private var name = ""
+    @State private var email = "jane@"
+    @State private var team = "Design"
+    @State private var city = ""
+    @State private var postalCode = "950"
+    @State private var host = "example"
+    @State private var port = "80800"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+            FormField("Full name", description: "Shown on your public profile.") {
+                TextField("Jane Appleseed", text: self.$name)
+                    .textFieldStyle(.roundedBorder)
+                    .fieldAccessibility()
+            }
+            .fieldRequirement(.required)
+
+            FormField("Email", description: "We never share your address.") {
+                TextField("you@example.com", text: self.$email)
+                    .textFieldStyle(.roundedBorder)
+                    .fieldAccessibility()
+            }
+            .fieldRequirement(.required)
+            .fieldValidation(self.emailValidation)
+
+            FormField("Password") {
+                SecureField("Password", text: .constant("abc"))
+                    .textFieldStyle(.roundedBorder)
+                    .fieldAccessibility()
+            }
+            .fieldValidation(.invalid("Use at least 12 characters, including a number and a symbol, and avoid words that appear in your name or email address."))
+
+            FormField("Team", description: "Managed by your administrator.") {
+                TextField("Team", text: self.$team)
+                    .textFieldStyle(.roundedBorder)
+                    .foregroundStyle(Color.contentDisabled)
+                    .fieldAccessibility()
+            }
+            .fieldValidation(.invalid("Disabled wins over invalid."))
+            .disabled(true)
+
+            Text(verbatim: "Inline layout")
+                .coreFont(.headline)
+                .foregroundStyle(Color.contentSecondary)
+
+            VStack(alignment: .leading, spacing: CoreSpacing.md) {
+                FormField("City", description: "Used for shipping estimates.", layout: .inline) {
+                    TextField("Cupertino", text: self.$city)
+                        .textFieldStyle(.roundedBorder)
+                        .fieldAccessibility()
+                }
+
+                FormField("Postal code", layout: .inline) {
+                    TextField("95014", text: self.$postalCode)
+                        .textFieldStyle(.roundedBorder)
+                        .fieldAccessibility()
+                }
+                .fieldRequirement(.required)
+                .fieldValidation(self.postalCode.count == 5 ? .valid : .invalid("Enter a 5-digit postal code."))
+            }
+            .formFieldLabelColumn()
+
+            InsetGroupedSection(header: "Server", dividerInset: .textAligned) {
+                FormField("Host", layout: .inline) {
+                    TextField("example.com", text: self.$host)
+                        .textFieldStyle(.plain)
+                        .fieldAccessibility()
+                }
+                .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
+                .padding(.vertical, CoreSpacing.sm)
+
+                FormField("Port", layout: .inline) {
+                    TextField("443", text: self.$port)
+                        .textFieldStyle(.plain)
+                        .fieldAccessibility()
+                }
+                .fieldValidation(self.port.count <= 5 && (Int(self.port) ?? 0) <= 65535 ? .valid : .invalid("Port must be 65535 or lower."))
+                .padding(.horizontal, SettingsRowMetrics.horizontalPadding)
+                .padding(.vertical, CoreSpacing.sm)
+            }
+            .formFieldLabelColumn()
+        }
+    }
+
+    private var emailValidation: FieldValidation {
+        let parts = self.email.split(separator: "@", omittingEmptySubsequences: false)
+        return parts.count == 2 && parts[1].contains(".")
+            ? .valid
+            : .invalid("Enter a valid email address.")
+    }
+}
+
+private struct FormFieldControlsPreview: View {
+    enum Mode {
+        case valid
+        case invalid
+        case disabledInvalid
+    }
+
+    let state: Mode
+
+    @State private var code = "12"
+    @State private var tags = ["design", "ios"]
+    @State private var query = "release"
+    @State private var accepted = false
+    @State private var plan = "basic"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            FormField("Verification code", description: "Sent to your phone.") {
+                PinCode(value: self.$code, length: 6)
+            }
+            .fieldRequirement(.required)
+            .fieldValidation(self.validation("The code has expired."))
+
+            FormField("Labels", description: "Press Return or comma to add.") {
+                TagInput(tags: self.$tags, placeholder: "Add tag")
+            }
+            .fieldValidation(self.validation("Add at most 3 labels."))
+
+            FormField("Filter") {
+                SearchField(text: self.$query, placeholder: "Search releases")
+            }
+            .fieldValidation(self.validation("No results match this filter."))
+
+            FormField("Terms") {
+                Toggle("I accept the terms of service", isOn: self.$accepted)
+                    .toggleStyle(CheckBoxToggleStyle())
+            }
+            .fieldRequirement(.required)
+            .fieldValidation(self.validation("Accept the terms to continue."))
+
+            FormField("Plan", description: "You can change it later.") {
+                RadioGroup(
+                    selection: self.$plan,
+                    options: [
+                        RadioOption(value: "basic", title: "Basic"),
+                        RadioOption(value: "pro", title: "Pro"),
+                    ],
+                    axis: .horizontal,
+                    spacing: CoreSpacing.lg
+                )
+            }
+            .fieldValidation(self.validation("Pro is unavailable in your region."))
+        }
+        .disabled(self.state == .disabledInvalid)
+    }
+
+    private func validation(_ reason: LocalizedStringResource) -> FieldValidation {
+        self.state == .valid ? .valid : .invalid(reason)
+    }
+}
+
+private struct FormFieldControlsPlainPreview: View {
+    @State private var code = "12"
+    @State private var tags = ["design"]
+    @State private var query = "release"
+    @State private var accepted = false
+    @State private var plan = "basic"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            PinCode(value: self.$code, length: 4)
+            TagInput(tags: self.$tags, placeholder: "Add tag")
+            SearchField(text: self.$query, placeholder: "Search releases")
+            Toggle("I accept the terms of service", isOn: self.$accepted)
+                .toggleStyle(CheckBoxToggleStyle())
+            RadioGroup(
+                selection: self.$plan,
+                options: [RadioOption(value: "basic", title: "Basic"), RadioOption(value: "pro", title: "Pro")],
+                axis: .horizontal
+            )
+        }
+    }
+}
+
+private struct FormFieldControlsEdgePreview: View {
+    @State private var code = ""
+    @State private var query = ""
+    @State private var accepted = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            FormField("Filter") {
+                SearchField(text: self.$query, placeholder: "Search releases")
+                    .accessibilityLabel(Text(verbatim: "Caller search label"))
+            }
+            .fieldValidation(.invalid("Filter is invalid."))
+
+            FormField("Terms") {
+                Toggle("I accept the terms of service", isOn: self.$accepted)
+                    .toggleStyle(CheckBoxToggleStyle())
+                    .accessibilityLabel(Text(verbatim: "Caller toggle label"))
+            }
+            .fieldValidation(.invalid("Terms are required."))
+
+            FormField("Outer", description: "Outer description.") {
+                FormField("Inner", description: "Inner description.") {
+                    PinCode(value: self.$code, length: 4)
+                }
+                .fieldValidation(.invalid("Inner is wrong."))
+            }
+            .fieldValidation(.invalid("Outer is wrong."))
+        }
     }
 }
 
@@ -942,12 +1713,13 @@ private struct StepsPreview: View {
 }
 
 private struct TimelinePreview: View {
-    private static var items: [TimelineItem] {
-        [
-            TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) },
-            TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) },
-            TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) },
-        ]
+    @ViewBuilder
+    private static var rows: some View {
+        TimelineItem(status: .info) { Text("已创建").coreFont(.callout) }
+        TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) }
+        TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) }
+        TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) }
+        TimelineItem(status: .neutral) { Text("已归档").coreFont(.callout) }
     }
 
     // ⚠️ `.alternate` 与 `.horizontal` 的几何**只在渲染时可见**，`swift build` / `swift test`
@@ -956,31 +1728,71 @@ private struct TimelinePreview: View {
     // 恰恰是在内容固有宽度超过半槽时才会破。
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.lg) {
-            Timeline(items: Self.items)
-            Timeline(
-                items: [
-                    TimelineItem(status: .info) {
-                        // 本槽位存在的意义是「非文本的定高内容」，用真实的附件行
-                        // 而不是一块纯色，才看得出 `.alternate` 的对齐。
-                        HStack(spacing: CoreSpacing.xs) {
-                            Image(systemName: "paperclip")
-                                .foregroundStyle(Color.contentSecondary)
-                            Text(verbatim: "合同终稿.pdf").coreFont(.footnote)
-                            Text(verbatim: "2.4 MB").coreFont(.caption)
-                                .foregroundStyle(Color.contentSubtle)
-                        }
-                        .padding(.horizontal, CoreSpacing.sm)
-                        .frame(width: 220, height: 32, alignment: .leading)
-                        .background(Color.surfaceRaised, in: CoreShape.rounded(CoreRadius.small))
-                    },
-                    TimelineItem(status: .success) { Text("短").coreFont(.callout) },
-                    TimelineItem(status: .warning) { Text("再一条").coreFont(.callout) },
-                ],
-                layout: .alternate
-            )
-            Timeline(items: Self.items, layout: .horizontal)
-            Timeline(items: Self.items, layout: .grouped)
+            Timeline { Self.rows }
+            Timeline(layout: .alternate) {
+                TimelineItem(status: .info) {
+                    // 本槽位存在的意义是「非文本的定高内容」，用真实的附件行
+                    // 而不是一块纯色，才看得出 `.alternate` 的对齐。
+                    HStack(spacing: CoreSpacing.xs) {
+                        Image(systemName: "paperclip")
+                            .foregroundStyle(Color.contentSecondary)
+                        Text(verbatim: "合同终稿.pdf").coreFont(.footnote)
+                        Text(verbatim: "2.4 MB").coreFont(.caption)
+                            .foregroundStyle(Color.contentSubtle)
+                    }
+                    .padding(.horizontal, CoreSpacing.sm)
+                    .frame(width: 220, height: 32, alignment: .leading)
+                    .background(Color.surfaceRaised, in: CoreShape.rounded(CoreRadius.small))
+                }
+                TimelineItem(status: .success) { Text("短").coreFont(.callout) }
+                TimelineItem(status: .warning) { Text("再一条").coreFont(.callout) }
+            }
+            Timeline(layout: .horizontal) {
+                TimelineItem("已创建", time: Text(verbatim: "07-20 10:00"), status: .info)
+                TimelineItem("审核通过", time: Text(verbatim: "07-21 14:30"), status: .success)
+                TimelineItem("已归档", time: Text(verbatim: "07-25 08:00"), status: .neutral)
+            }
+            Timeline(layout: .grouped) {
+                Self.rows
+                // `.grouped` 不摆节点：这枚星形图标不显示、也不进无障碍树（调用方未隐藏它）。
+                TimelineItem { Image(systemName: "star.fill") } content: { Text("自定义节点行").coreFont(.callout) }
+            }
+            Timeline { PreviewSnapshotFixtures.timelineActivityRows }
+            Timeline { PreviewSnapshotFixtures.timelineDeployRows }
+            // `.horizontal` 活动流：头像节点未隐藏；末列是不传 status 的无标题自定义节点行（内容不合并）。
+            Timeline(layout: .horizontal) {
+                PreviewSnapshotFixtures.timelineActivityRows
+                TimelineItem { Avatar(name: "Kai", size: .fixed(40)) } content: {
+                    Text(verbatim: "Kai").coreFont(.callout)
+                    Text(verbatim: "left a review").coreFont(.footnote)
+                }
+            }
+            // 默认圆点 + 无标题 + 空内容的行。
+            Timeline {
+                TimelineItem(status: .danger) {}
+                TimelineItem(status: .success) { Text(verbatim: "Next row").coreFont(.callout) }
+            }
+            // 带阶段：订单进度（已完成实心、进行中靶心、未开始空心；已到达连线着 .tint）。
+            Timeline(progress: .inProgress(at: 2)) { PreviewSnapshotFixtures.timelineOrderRows }
+            // 带阶段的自定义节点：阶段外观由节点自己读 `timelinePhase` 决定。
+            Timeline(progress: .inProgress(at: 1)) {
+                TimelineItem("打包", step: 0) { TimelinePhaseIcon() } content: {}
+                TimelineItem("出库", step: 1) { TimelinePhaseIcon() } content: {}
+                TimelineItem("派送", step: 2) { TimelinePhaseIcon() } content: {}
+            }
+            .tint(Color.statusSuccessEmphasis)
+            Timeline(layout: .horizontal, progress: .inProgress(at: 2)) { PreviewSnapshotFixtures.timelineRoadmapRows }
         }
+    }
+}
+
+private struct TimelinePhaseIcon: View {
+    @Environment(\.timelinePhase) private var phase
+
+    var body: some View {
+        Image(systemName: self.phase == .completed ? "checkmark.circle.fill" : (self.phase == .inProgress ? "clock.fill" : "circle"))
+            .foregroundStyle(self.phase == .upcoming ? Color.contentSubtle : Color.statusSuccessEmphasis)
+            .accessibilityHidden(true)
     }
 }
 
@@ -1568,4 +2380,335 @@ private struct GlassSymbolDemo: View {
             }
         }
     }
+}
+
+private struct GalleryTreeNode: Identifiable {
+    let id: String
+    let name: String
+    let children: [GalleryTreeNode]?
+}
+
+private struct TreePreview: View {
+    private static let roots: [GalleryTreeNode] = [
+        GalleryTreeNode(id: "design", name: "Design", children: [
+            GalleryTreeNode(id: "tokens", name: "Tokens", children: [
+                GalleryTreeNode(id: "color", name: "Color", children: nil),
+                GalleryTreeNode(id: "spacing", name: "Spacing", children: nil),
+                GalleryTreeNode(id: "motion", name: "Motion", children: nil),
+            ]),
+            GalleryTreeNode(id: "icons", name: "Icons", children: nil),
+        ]),
+        GalleryTreeNode(id: "readme", name: "README.md", children: nil),
+        GalleryTreeNode(id: "tests", name: "Tests", children: [
+            GalleryTreeNode(id: "unit", name: "Unit", children: nil),
+            GalleryTreeNode(id: "snapshot", name: "Snapshot", children: nil),
+        ]),
+    ]
+
+    // ⚠️ 键盘导航在模拟器上只有接了硬件键盘才走得到；这一屏是它唯一的人工检查点。
+    @State private var expanded: Set<String> = Tree<[GalleryTreeNode], String, Text>.expandedIDs(
+        TreePreview.roots, id: \.id, children: \.children, toDepth: 2
+    )
+    @State private var selection: Set<String> = []
+    @State private var checked: Set<String> = ["color"]
+    @State private var activated: String = "—"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                Text(verbatim: "单选 / single").coreFont(.footnote).foregroundStyle(Color.contentSecondary)
+                Tree(
+                    Self.roots,
+                    children: \.children,
+                    expanded: self.$expanded,
+                    selection: self.$selection,
+                    onActivate: { self.activated = $0 }
+                ) { node in
+                    Text(verbatim: node.name).coreFont(.callout)
+                }
+            }
+            VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                Text(verbatim: "多选 + 三态复选框 / multiple + tri-state checkbox")
+                    .coreFont(.footnote).foregroundStyle(Color.contentSecondary)
+                Tree(
+                    Self.roots,
+                    children: \.children,
+                    expanded: self.$expanded,
+                    selection: self.$selection,
+                    selectionMode: .multiple,
+                    checked: self.$checked
+                ) { node in
+                    Text(verbatim: node.name).coreFont(.callout)
+                }
+            }
+            VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                Text(verbatim: "导航器 / navigator（.treeStyle(.navigator) + .controlSize(.small) + .rowClickBehavior(.selectAndToggleExpansion) + 单选，VS Code Explorer 式：单击替换选中；单击文件夹行即展开 / 折叠，再点已选中的文件夹保持选中）")
+                    .coreFont(.footnote).foregroundStyle(Color.contentSecondary)
+                ExplorerTreePreview()
+            }
+            Text(verbatim: "expanded=\(self.expanded.sorted()) selection=\(self.selection.sorted()) checked=\(self.checked.sorted()) activated=\(self.activated)")
+                .coreFont(.caption)
+                .foregroundStyle(Color.contentSubtle)
+        }
+    }
+}
+
+private struct GalleryFileNode: Identifiable {
+    enum GitStatus { case modified, untracked }
+
+    let id: String
+    let name: String
+    let children: [GalleryFileNode]?
+    var git: GitStatus?
+}
+
+private struct ExplorerTreePreview: View {
+    static let roots: [GalleryFileNode] = [
+        GalleryFileNode(id: "Sources", name: "Sources", children: [
+            GalleryFileNode(id: "Sources/Tree", name: "Tree", children: [
+                GalleryFileNode(id: "Sources/Tree/Tree.swift", name: "Tree.swift", children: nil, git: .modified),
+                GalleryFileNode(id: "Sources/Tree/TreeCore.swift", name: "TreeCore.swift", children: nil),
+                GalleryFileNode(id: "Sources/Tree/TreeStyle.swift", name: "TreeStyle.swift", children: nil, git: .untracked),
+            ]),
+            GalleryFileNode(id: "Sources/Resources", name: "Resources", children: [
+                GalleryFileNode(id: "Sources/Resources/Localizable.strings", name: "Localizable.strings", children: nil),
+            ]),
+        ]),
+        GalleryFileNode(id: "docs", name: "docs", children: [
+            GalleryFileNode(id: "docs/tree.md", name: "tree.md", children: nil, git: .modified),
+            GalleryFileNode(id: "docs/component-registry.json", name: "component-registry.json", children: nil),
+        ]),
+        GalleryFileNode(id: "Package.swift", name: "Package.swift", children: nil),
+        GalleryFileNode(id: "README.md", name: "README.md", children: nil),
+    ]
+
+    @State private var expanded: Set<String> = Tree<[GalleryFileNode], String, Text>.expandedIDs(
+        ExplorerTreePreview.roots, id: \.id, children: \.children, toDepth: 3
+    )
+    @State private var selection: Set<String> = ["Sources/Tree/TreeStyle.swift"]
+    @State private var lastMenuAction: String = "—"
+    @State private var query: String = ""
+
+    private var isSearching: Bool {
+        !self.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var matchCount: Int {
+        Tree.searchMatches(Self.roots, id: \.id, children: \.children, query: self.query, text: \.name).count
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+            TextField("Filter files", text: self.$query)
+                .textFieldStyle(.roundedBorder)
+                .controlSize(.small)
+            self.explorer
+            if self.isSearching, self.matchCount == 0 {
+                ContentUnavailableView.search(text: self.query)
+            }
+            if self.isSearching {
+                Text(verbatim: "命中 / matches: \(self.matchCount)（直接命中的节点数，不计只作上下文保留的祖先 / 后代）")
+                    .coreFont(.caption)
+                    .foregroundStyle(Color.contentSecondary)
+            }
+            Text(verbatim: "搜索 / filter: \"\(self.query)\" — expanded=\(self.expanded.sorted())（搜索期间不写）")
+                .coreFont(.caption)
+                .foregroundStyle(Color.contentSubtle)
+            Text(verbatim: "右键菜单 / context menu: \(self.lastMenuAction)")
+                .coreFont(.caption)
+                .foregroundStyle(Color.contentSubtle)
+        }
+        .task(id: self.query) {
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled, self.isSearching else { return }
+            AccessibilityNotification.Announcement("\(self.matchCount) matches").post()
+        }
+    }
+
+    private var explorer: some View {
+        Tree(
+            Self.roots,
+            children: \.children,
+            expanded: self.$expanded,
+            selection: self.$selection,
+            selectionMode: .single
+        ) { node in
+            HStack(spacing: CoreSpacing.xs) {
+                Label {
+                    Text(verbatim: node.name, highlighting: self.query)
+                        .foregroundStyle(Self.tint(for: node.git) ?? Color.contentPrimary)
+                        .lineLimit(1)
+                } icon: {
+                    Image(systemName: Self.icon(for: node))
+                        .foregroundStyle(Color.contentSecondary)
+                }
+                .coreFont(.callout)
+                Spacer(minLength: 0)
+                if let git = node.git {
+                    Text(verbatim: Self.letter(for: git))
+                        .coreFont(.caption)
+                        .foregroundStyle(Self.tint(for: git) ?? Color.contentSecondary)
+                }
+            }
+        }
+        .searchFilter(self.query, text: \.name)
+        .rowClickBehavior(.selectAndToggleExpansion)
+        .rowContextMenu { targets in
+            Button("New File", systemImage: "doc.badge.plus") {
+                self.lastMenuAction = "New File in \(targets.sorted())"
+            }
+            Button("Rename", systemImage: "pencil") {
+                self.lastMenuAction = "Rename \(targets.sorted())"
+            }
+            .disabled(targets.count != 1)
+            Divider()
+            Button("Delete \(targets.count) item(s)", systemImage: "trash", role: .destructive) {
+                self.lastMenuAction = "Delete \(targets.sorted())"
+            }
+        }
+        .treeStyle(.navigator)
+        .controlSize(.small)
+        .padding(.vertical, CoreSpacing.xs)
+        .surface(.content)
+    }
+
+    private static func icon(for node: GalleryFileNode) -> String {
+        guard node.children == nil else { return "folder" }
+        switch (node.name as NSString).pathExtension {
+        case "swift": return "swift"
+        case "md": return "doc.richtext"
+        case "json": return "curlybraces"
+        default: return "doc"
+        }
+    }
+
+    private static func letter(for status: GalleryFileNode.GitStatus) -> String {
+        switch status {
+        case .modified: "M"
+        case .untracked: "U"
+        }
+    }
+
+    private static func tint(for status: GalleryFileNode.GitStatus?) -> Color? {
+        switch status {
+        case .modified: .warning
+        case .untracked: .success
+        case nil: nil
+        }
+    }
+}
+
+// MARK: - StatefulButtonPreview
+
+private struct StatefulButtonPreview: View {
+    @State private var hosted: StatefulButtonState = .idle
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("自管：点击后自动走完四态 / Self-managed")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                StatefulButton("Send message") {
+                    try await Task.sleep(for: .milliseconds(1200))
+                }
+                .buttonStyle(.solid())
+                StatefulButton("Always fails") {
+                    try await Task.sleep(for: .milliseconds(800))
+                    throw StatefulButtonPreviewError()
+                }
+                .buttonStyle(.light())
+            }
+
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("托管：视觉态由调用方写 / Host-managed")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                StatefulButton("Upload", state: self.hosted) {
+                    self.hosted = .loading
+                    do {
+                        try await Task.sleep(for: .milliseconds(900))
+                        self.hosted = .success
+                    } catch {
+                        self.hosted = .idle
+                        throw error
+                    }
+                }
+                .buttonStyle(.solid())
+                Picker("State", selection: self.$hosted) {
+                    Text(verbatim: "idle").tag(StatefulButtonState.idle)
+                    Text(verbatim: "loading").tag(StatefulButtonState.loading)
+                    Text(verbatim: "success").tag(StatefulButtonState.success)
+                    Text(verbatim: "failure").tag(StatefulButtonState.failure)
+                }
+                .pickerStyle(.segmented)
+            }
+
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("四态静息对照 / Four resting states")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                ForEach(StatefulButtonState.allCases, id: \.self) { state in
+                    StatefulButton("Submit", state: state) { }
+                        .buttonStyle(.solid())
+                }
+            }
+        }
+    }
+}
+
+private struct StatefulButtonPreviewError: LocalizedError {
+    var errorDescription: String? { "Demo failure" }
+}
+
+// MARK: - SlideToConfirmPreview
+
+private struct SlideToConfirmPreview: View {
+    @State private var deleted = 0
+    @State private var failures = 0
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("滑到尽头松手才执行 / Slide all the way to confirm")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                SlideToConfirm("Slide to delete account") {
+                    try await Task.sleep(for: .milliseconds(1200))
+                    self.deleted += 1
+                }
+                Text(verbatim: "Confirmed \(self.deleted)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("action 抛错同样回位 / Failure also returns")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                SlideToConfirm("Slide to pay") {
+                    try await Task.sleep(for: .milliseconds(800))
+                    self.failures += 1
+                    throw SlideToConfirmPreviewError()
+                }
+                .controlSize(.large)
+                .coreAccent(.blue)
+                Text(verbatim: "Failed \(self.failures)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("宿主禁用 / Disabled by host")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                SlideToConfirm("Slide to confirm") { }
+                    .disabled(true)
+            }
+        }
+    }
+}
+
+private struct SlideToConfirmPreviewError: LocalizedError {
+    var errorDescription: String? { "Demo failure" }
 }

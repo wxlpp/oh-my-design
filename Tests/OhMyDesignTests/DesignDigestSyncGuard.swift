@@ -25,7 +25,7 @@ struct DesignDigestSyncGuard {
         "if counts.get(key, 0) != expected"
 
     nonisolated static let expectedFloorKeys: Set<String> = [
-        "spacing", "radius", "border", "typography", "elevation", "controlsize",
+        "spacing", "radius", "border", "typography", "elevation", "controlsize", "motion",
         "colors", "components", "enums", "enumcases", "protocols",
         "viewext", "styleext", "others",
     ]

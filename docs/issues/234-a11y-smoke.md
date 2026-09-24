@@ -1,5 +1,7 @@
 # a11y 运行期冒烟记录
 
+> ⚠️ **`Sidebar` 组件组与 `BottomInputBar` 已从本仓整体移除**（见 `docs/BREAKING-CHANGES.md`）。本文件涉及它们的记录按原样保留为历史；其中的逐字引文不再登记进 `QuotedEvidenceGuard`，源码可从 git 历史取回。
+
 承接 [#234](https://github.com/wxlpp/oh-my-design/issues/234)（`#99` 列的 VoiceOver 运行时冒烟）。
 
 **日期**：2026-09-07 · **器材**：iPhone 17 Pro / iOS 26.4 模拟器，预览宿主
@@ -42,7 +44,7 @@ respring 后重启 App **仍然没有 VoiceOver 光标、没有字幕面板**。
 | `accessibilityHint` | ✅ | `help` |
 | 自定义动作 | ✅ | `custom_actions` |
 | 启用 / 禁用 | ✅ | `enabled` |
-| **角色型 trait**（`.isHeader` / `.isButton` / adjustable） | ✅ | 经 `role` / `role_description` 透出。实测：`[heading] label='NOTIFICATIONS'` 来自 `SectionHeader.swift:27` 的 `.accessibilityAddTraits(.isHeader)`；`[button] label='Menu'` 来自 `CoreMenuButton.swift:143` 的 `.accessibilityAddTraits(.isButton)`（它不是 `Button`）；`[slider]` 来自 `.accessibilityAdjustableAction` |
+| **角色型 trait**（`.isHeader` / `.isButton` / adjustable） | ✅ | 经 `role` / `role_description` 透出。实测：`[heading] label='NOTIFICATIONS'` 来自 `SectionHeader.swift` 的 `.accessibilityAddTraits(.isHeader)`；`[button] label='Menu'` 来自 `CoreMenuButton.swift` 的 `.accessibilityAddTraits(.isButton)`（它不是 `Button`）；`[slider]` 来自 `.accessibilityAdjustableAction` |
 | **状态型 trait**（`.isSelected` / `.updatesFrequently`） | ❌ | AXe 的 JSON **没有 traits 字段**（实测字段全集 16 个：`AXFrame` `AXLabel` `AXUniqueId` `AXValue` `children` `content_required` `custom_actions` `enabled` `frame` `help` `pid` `role` `role_description` `subrole` `title` `type`） |
 
 ⚠️ **这个二分要限定射程**（第 2 轮 S-3）：更准的说法是「AXe 只透出被投影到
@@ -50,7 +52,7 @@ respring 后重启 App **仍然没有 VoiceOver 光标、没有字幕面板**。
 `.disabled` 产生的状态**能**看到（`enabled=false`）；而**既非角色也非状态**的 trait
 （`.allowsDirectInteraction` / `.causesPageTurn` / `.isModal` 等）两行都不覆盖——本仓没用到，
 所以上表只对**本仓用到的 trait** 成立。
-⚠️ **最好的例证是 `Radio.swift:82` 与 `Carousel.swift:115`**：它们一次调用里传
+⚠️ **最好的例证是 `Radio.swift` 与 `Carousel.swift`**：两者的 `.accessibilityAddTraits` 传 `[.isButton, .isSelected] : .isButton` 的三元形态，一次调用里传
 `[.isButton, .isSelected]` ⇒ **同一次调用一半可见、一半不可见**。
 | **朗读顺序 / 分组 / 转子** | ❌ | 需要真 VoiceOver |
 | **实际读出的语音** | ❌ | 同上 |
@@ -70,13 +72,14 @@ respring 后重启 App **仍然没有 VoiceOver 光标、没有字幕面板**。
 `SegmentedControl` 默认的 `GlassSegmentedControlStyle`
 在 iOS 走原生 `UISegmentedControl`，树里是 `[tab] label='One' value=1`——选中态经 `AXValue`
 透出来了，那是**系统控件自带的语义**；而同一组件的 `PlainSegmentedControlStyle`
-（走 SwiftUI + `SegmentedControl.swift:147` 的 `.isSelected`）dump 出来是光秃秃的
+（走 SwiftUI + `SegmentedControl.swift` 的 `.accessibilityAddTraits(segment.isSelected ? .isSelected : [])`）dump 出来是光秃秃的
 `[button] label='One'`、**无 value** ⇒ 与 `UnderlinedTabBar` 同一个盲区。
 **同一组件、两种 style，一种透出一种不透出。**
 
-⚠️ **同形态还有六处**，本记录一律判不了：`PinCode.swift:106`（文档下面那段 PinCode dump
-同样看不到当前格的 `.isSelected`）、`SegmentedControl.swift:147`、`Sidebar.swift:109`、
-`BottomInputBar.swift:151`、`Radio.swift:82`、`Carousel.swift:115`。
+⚠️ **同形态还有六处**，本记录一律判不了：`PinCode.swift`（`.accessibilityAddTraits(isCurrent ? .isSelected : [])`；文档下面那段 PinCode dump
+同样看不到当前格的 `.isSelected`）、`SegmentedControl.swift`、`Sidebar.swift`、
+`BottomInputBar.swift`（`.accessibilityAddTraits(self.isShowingSuggestions ? .isSelected : [])`）、
+`Radio.swift`、`Carousel.swift`。
 
 **可用的证实手段**（本次都没走，登记）：Accessibility Inspector 以 Simulator 为目标
 （直接显示 `Button, Selected`）；或加一个 UI test target 用 `XCUIElement.isSelected`
@@ -128,9 +131,9 @@ SearchField 详情页
 ```
 
 ⚠️⚠️ **`[text field] label='Search'` 不是 catalog 的 `"Search"` 键**（第 2 轮 I-1）：
-画廊是 `SearchField(text: self.$text)`（`App/Sources/ComponentData.swift:418`），
-吃的是 init 的**默认参数** `placeholder: String = "Search"`（`SearchField.swift:18`，
-**普通字面量**）。`SearchField.swift:40` 那条 `String(localized: "Search", bundle: .module)`
+画廊是 `SearchField(text: self.$text)`（`App/Sources/ComponentData.swift`），
+吃的是 init 的**默认参数** `placeholder: String = "Search"`（`SearchField.swift`，
+**普通字面量**）。`SearchField.swift` 里那条 `String(localized: "Search", bundle: .module)`
 **只在 `placeholder.isEmpty` 时才走**，画廊没触发。
 内层的 `"search"`（`:91`）同理没触发——`Clear Search` 里那个大写 `Search` 是**调用方传的值**。
 ⇒ `#222` 那**四个字面量**里，`"Search"` 与内层 `"search"` 两个**本次都没碰到**（`"%@ complete"` 属 `ProgressBar`，画廊无条目）。
@@ -214,7 +217,7 @@ AXe 的 `AXValue` 是**一个字段投影**，不是整棵 AX 树——文档自
 | `RatingDisplay(value: 4)` / `(3.5)` | 不挂 | true | 泛型元素 | `4 of 5` / `3.5 of 5` ✅ |
 
 ⚠️ **这不是「单变量对照」**（第 2 轮 I-2，第一版如此写、与自己上一段「值也不同」直接冲突）：
-`.disabled(true)` 相对启用态**改了四样**——不挂 `RatingAdjustableModifier`（`Rating.swift:188-197`）、
+`.disabled(true)` 相对启用态**改了四样**——不挂 `RatingAdjustableModifier`（`Rating.swift`）、
 `isEnabled` 走进 `.gesture(isEnabled:)`、AX `enabled` 变 `false`、值 4 vs 3.5 / step 1 vs 0.5。
 **要三行合看，逐个混杂各由哪一对打破**：
 
@@ -248,9 +251,9 @@ AXe 的 `AXValue` 是**一个字段投影**，不是整棵 AX 树——文档自
 
 1. **实际朗读**（语音、顺序、分组、转子、hint 是否被念）—— 需要 VoiceOver；
    ⚠️ **先试 Accessibility Inspector**（可直接以 Simulator 为目标，能 Speak），再谈真机。
-2. **状态型 traits** —— AXe 的树不给。`.isSelected` **七处**（`UnderlinedTabBar:128` / `PinCode:106` /
-   `SegmentedControl:147` / `Sidebar:109` / `BottomInputBar:151` / `Radio:82` / `Carousel:115`）
-   加 `.updatesFrequently` 一处（`SpinningModifier.swift:128`）＝ **八处**。
+2. **状态型 traits** —— AXe 的树不给。`.isSelected` **七处**（`UnderlinedTabBar` / `PinCode` /
+   `SegmentedControl` / `Sidebar` / `BottomInputBar` / `Radio` / `Carousel`）
+   加 `.updatesFrequently` 一处（`SpinningModifier.swift`）＝ **八处**。
    可用手段：Accessibility Inspector / UI test 里的 `XCUIElement.isSelected`。
    ⚠️ **走不通的那条也登记**：拿 macOS `AXUIElement` 遍历 `Simulator.app` 窗口读不到 iOS 内容。
 3. **手势交互**（三指滚动、双击激活、可调元素的上下滑）—— 需要真 VoiceOver。

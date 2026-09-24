@@ -21,12 +21,14 @@ public struct RingChart<Value: ChartValue>: View {
     /// - Parameters:
     ///   - goal: 满环对应的值。⚠️ **不从数据里推**——活动环的语义是"完成度"，
     ///     目标是外部设定的，用数据最大值当目标会让"全部未达标"看起来像"有人满环"。
+    ///   - layout: 布局形态，默认 `.rings`（现状：同心进度环）。见下方《布局形态扩展点》。
     public init(
         _ values: [Value],
         goal: Double,
         title: LocalizedStringResource? = nil,
         tint: Color = .accent,
-        colors: [Color] = []
+        colors: [Color] = [],
+        layout: RingChartLayout = .rings
     )
 
     /// 逐环取色，按下标轮转。默认空数组 ⇒ 退回 `tint` 的透明度阶梯。
@@ -38,6 +40,9 @@ public struct RingChart<Value: ChartValue>: View {
 
     /// 同心环的建议上限。**超出即截断**，与 `NetworkGraph` 同一条 FR-20 原则。
     public nonisolated static var recommendedRingLimit: Int { 6 }
+
+    /// `.segmentedRings` 每环切成的段数，固定为 10。
+    public nonisolated static var segmentCount: Int { 10 }
 }
 ```
 
@@ -49,6 +54,72 @@ public protocol ChartValue: Identifiable, Sendable {
     var value: Double { get }
 }
 ```
+
+## 布局形态扩展点（`#312` · 形态 D2）
+
+```swift
+public nonisolated enum RingChartLayout: Sendable, Equatable, CaseIterable {
+    case rings           // 默认：同心进度环（现状形态）
+    case bars            // 并排线性进度条（业界来源：Ant Design Progress type="line"）
+    case segmentedRings  // 分段同心环（业界来源：Ant Design Progress 的 steps 属性）
+    case stackedBar      // 堆叠条（业界来源：GitLab Pajamas 的 stacked column）
+}
+
+RingChart(rings, goal: 500, layout: .segmentedRings)
+```
+
+⚠️ **`.segmentedRings` 与 `.rings` 共用同一份环几何**（半径、环宽、进度）——差别只是把连续的
+进度弧切成 `RingChart.segmentCount`（固定 10）段离散段，段间留 4° 角隙，线帽从 `.round`
+换成 `.butt`（round cap 会把缝隙吃掉）。判据
+`RingChartLayoutFormTests.segmentedRingsSharesGeometryWithRings` 钉住这条不变量。
+
+⚠️ **`segmentCount` 是固定值，不可配置**——Ant Design 的 `steps` 原本可由调用方指定，
+这里定死是有意的取舍：保持 `RingChartLayout` 无关联值、`CaseIterable` 可合成。
+事后改成可配是 source-breaking（加关联值），须走一次 BREAKING-CHANGES 登记。
+
+⚠️ **`.bars` / `.stackedBar` 都不画连续弧**：`.bars` 是 N 行独立的水平 `Capsule` 进度条
+（轨道 `trackColor(at:)`、进度 `ringColor(at:)`，进度条从行内 **leading 起**、按比例延伸，
+行内**垂直居中**，条高上限 24pt——不是「宽度居中」，`ZStack(alignment: .leading)` 决定的是
+起点而不是居中）；
+`.stackedBar` 是一条水平轨道（`trackColor(at: 0)`，条高同样封顶 24pt）上从左至右依次
+叠放 N 段（段宽按 `RingChart.stackedWidths(progresses:trackWidth:)` 均分总宽，段间
+overlay 一条 `CoreBorderWidth.thick` 宽的 `Color.surfaceBase` 分隔线读出段界），
+**语义仍是「完成度」**：轨道总长代表 N × goal，段序 = 值序。
+
+⚠️ **取色函数不随 layout 变化**：四个 layout 共用同一份 `ringBaseColor(at:)` /
+`trackColor(at:)` / `ringColor(at:)`——`RingChartColorsGuard` 的三条不变量对四个 layout
+都原样成立，判据 `RingChartLayoutFormTests.colorFunctionsAreIndependentOfLayout` 另行钉住。
+
+⚠️ **加 case 是 source-breaking**：`RingChartLayout` 非 `@frozen`，下游穷举 `switch`
+不写 `@unknown default` 就会编译红 ⇒ 加 case 要走 BREAKING-CHANGES 登记
+（这仍比形态 B 的 public 协议可撤——那个发出去就收不回）。
+
+判据（`Tests/OhMyDesignChartsTests/RingChartLayoutFormTests.swift`）：
+`filledSegmentsRoundsToNearest` / `filledSegmentsHandlesNonFiniteAndNegative`
+（`RingChart.filledSegments(progress:segments:)`，四舍五入 + 非有限规则）、
+`stackedWidthsSumsWithinTrack` / `stackedWidthsHandlesDegenerateInput`
+（`RingChart.stackedWidths(progresses:trackWidth:)`）、
+`barRowsAreDistinctAndOrdered` / `barRowsHandlesDegenerateSize`
+（`RingChart.barRows(count:size:)`）、
+`renderPlanIsNilOnInvalidGoal` / `renderPlanIsNilOnEmptyValues` /
+`renderPlanTruncatesToRecommendedLimit`
+——这三条走 `renderPlan(size:)`，即 `body` 实际消费的几何数据。
+
+⚠️ **`renderPlan(size:)` 的相等性比较够不到 `body` 里 `switch self.layout { … }` 那一步**
+（终审 I-2）：`RingChartPlan` 带 `layout` 字段，「四个 layout 给出互异的 plan」这类断言
+只因该字段不同就恒真——实测把 `case .bars:` 改成调 `ringsView(...)` 全套原判据仍绿。
+`renderPlanDiffersAcrossLayouts` 已删除；真正检查「view 路径按 layout 画出不同像素」的是
+`Tests/OhMyDesignChartsTests/ChartLayoutBitmapTests.swift` 的
+`RingChartLayoutBitmapTests.layoutsRenderDistinctBitmaps`（四个 layout 两两位图不同）与
+`ringsMatchesTheDefaultLayout`（`.rings` 与不传 `layout:` 逐像素容差等价）。
+
+### 为什么是形态 D2（配置枚举）而不是 public 协议
+
+`#312` 有一条**排序约束**：在 `D-299-1` 的修订回路走完前**不得走形态 B**
+—— public 协议受祖父条款约束、**发布后不可撤**，而枚举与槽**可演进**。
+`RingChart` 是四个图表里**已确证**若 `D-299-1` 扩宽会翻落点的一条（见下方 `#299` 重判小节），
+这正是本组件优先选 D2 而非 public 协议的直接理由。
+逐条见 `docs/contract-defects.md` 的 `D-299-1` 与 `#312`。
 
 ## AD-F 退化输入契约
 
@@ -266,9 +337,11 @@ URL 见 `docs/component-registry.json` 本条的 `notes`，此处只列骨架）
 ⇒ **非皮肤且未被作用域排除的候选数 = 3 ≥ 2** ⇒ (A) 不成立、成因② ⇒ 按步骤 3 门槛
 「(A) 不成立 ⇒ 重跑步骤 2」重跑一次 ⇒ 落**出口 1**：语义组件、需要扩展点。
 
-⚠️ **扩展点尚未落地**：按 `Toast` 与 #59 的同款成法登记进
-`ComponentExtensionPointGuard.knownMissingExtensionPoints`，实现移交 **`#312`**。
-这不是「塞回红名单让判据闭嘴」—— 该集合的成文语义就是「**有承接 issue 的**已知缺口」。
+⚠️ **扩展点已由 `#312` 落地**（形态 D2 配置枚举 `RingChartLayout`，四个 case），
+本条已从 `ComponentExtensionPointGuard.knownMissingExtensionPoints` 移出
+（曾按 `Toast` 与 #59 的同款成法暂登记在那里）。
+⚠️ **有意不发 public 协议**（形态 B）：`D-299-1` 的修订回路未走完前不得发布不可撤的协议，
+配置枚举可演进。判据：`RingChartLayoutFormTests`。
 
 ⚠️ **公约缺口 `D-299-1`（宿主平台框架承担的候选，作用域条款援引不了）；`#315` 终审 C-2
 要求逐条重判，本条是四个图表里**至少**会被它翻转的一条**（⚠️ 不是「唯一」会翻的一条 —— 依据见 `docs/contract-defects.md` 的 `D-299-1`）：**候选 1（并排线性进度条）命中** ——
@@ -280,6 +353,10 @@ URL 见 `docs/component-registry.json` 本条的 `notes`，此处只列骨架）
 这正是 `D-299-1`《代价如实记录》那段说的「四个图表的落点可能要重判」，本条是四条里**已确证会翻**
 的一条（⚠️ 不是「唯一」会翻的一条，见上），也是 `#312` 应优先选形态 D（槽 / 枚举可演进）
 而不是形态 B（public 协议不可撤）的直接理由。
+⚠️ **`#312` 的处置**：`RingChartLayout` 是在上面这条「若扩宽则会翻」的状态下发布的。届时 `kind`
+改 `prescriptive`、`styleEnum` 保留 `RingChartLayout`（删 public 类型是破坏性变更，只能保留或弃用）；
+祖父条款逐字只保护已发布的公开样式协议、不覆盖 D2 枚举 ⇒ 缺口登记为
+`docs/contract-defects.md` 的 `D-312-1`。`#312` 重核维持「至少」口径，不写回「唯一」。
 本轮按公约字面走，`D-299-1` **未被用来改本条落点**，缺口另走修订回路。
 ⚠️ **上面这句只管 `D-299-1`，不是全称句**（`#315` 终审 C-1）：同批新开的 `D-299-2` **是**
 `OrbitingLogos` 落点的决定性依据，本轮**确实**被用来定了那一条的落点，见

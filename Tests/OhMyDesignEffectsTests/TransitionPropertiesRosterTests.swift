@@ -18,8 +18,7 @@ struct TransitionPropertiesRoster {
                 "`hasMotion` 恒为 false —— 下面 8 条 `== true` 不作数")
         #expect(Self.DefaultPropertiesProbe.properties.hasMotion, """
         `Transition.properties` 的协议默认值不再是 `hasMotion == true`
-        —— 本文件与三簇文档里所有「默认值是 true，所以未声明者被框架换成 opacity」
-        的论证都要重新走一遍。
+        —— 下面「显式声明 vs 继承默认值」的区分要重新核对。
         """)
 
         // MARK: 有真实几何运动 ⇒ `true`（8 条）
@@ -43,20 +42,15 @@ struct TransitionPropertiesRoster {
 
     static func gateNote(_ name: String) -> Comment {
         Comment(rawValue: """
-        \(name) 的 `hasMotion` 变成了 `false` —— 那是在对系统说"本转场不含运动"，
-        Reduce Motion 下 SwiftUI 将**不再**把它替换成 `.opacity`，
-        该转场的无障碍降级就只剩它自己那道手写闸。本簇的取值理由与「内层闸是不可达兜底」
-        的记账写在该类型的 `properties` 文档注释里 —— 若这是有意的改动，先改那一节。
+        \(name) 的 `hasMotion` 变成了 `false` —— 那是在声明"本转场不含运动"，与它的几何运动不符。
+        本断言只核声明；Reduce Motion 降级由该转场自己那道手写闸负责（框架不替换，#407 实测）。
         """)
     }
 
     static func optOutNote(_ name: String) -> Comment {
         Comment(rawValue: """
-        \(name) 没有退出框架的 Reduce Motion 替换（`hasMotion` 不再是 `false`）——
-        `Transition.properties` 默认 `hasMotion == true`，其语义是「Reduce Motion 开启时
-        整条转场被换成 `.opacity`」⇒ 该转场自己那道手写闸会当场变成**死代码**，
-        而它是这条转场在 RM 下的**唯一**保护。完整权衡见
-        `FilterTransitionSupport.swift` 的《`TransitionProperties.hasMotion`》一节。
+        \(name) 的 `hasMotion` 不再是 `false` —— 该转场没有几何运动，应如实声明无运动。
+        本断言只核声明；框架并不据此做 opacity 替换（#407 实测）。
         """)
     }
 }

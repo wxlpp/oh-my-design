@@ -108,4 +108,34 @@ public extension Color {
             Color(nsColor: .linkColor)
         #endif
     }
+
+    /// 系统红，桥接 `UIColor.systemRed` / `NSColor.systemRed`，随外观与对比度设置自动适配。
+    static var systemRed: Color {
+        #if canImport(UIKit)
+            Color(uiColor: .systemRed)
+        #else
+            Color(nsColor: .systemRed)
+        #endif
+    }
+
+    /// 系统黄，桥接 `UIColor.systemYellow` / `NSColor.systemYellow`，随外观与对比度设置自动适配。
+    static var systemYellow: Color {
+        #if canImport(UIKit)
+            Color(uiColor: .systemYellow)
+        #else
+            Color(nsColor: .systemYellow)
+        #endif
+    }
+
+    /// 不透明的中浅灰，桥接 `UIColor.systemGray5`，明暗两种外观 α 均为 1。
+    /// macOS 无 `systemGray5`，取同样两档都不透明、且比窗口背景高一档的
+    /// `NSColor.unemphasizedSelectedContentBackgroundColor`——这是外观近似而非语义等价，
+    /// 增强对比度与 vibrancy 下的表现未经验证。
+    static var systemGray5: Color {
+        #if canImport(UIKit)
+            Color(uiColor: .systemGray5)
+        #else
+            Color(nsColor: .unemphasizedSelectedContentBackgroundColor)
+        #endif
+    }
 }

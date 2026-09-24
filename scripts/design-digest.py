@@ -19,15 +19,40 @@ TARGETS = ["OhMyDesign", "OhMyDesignEffects", "OhMyDesignCharts", "OhMyDesignSha
 # 有人看一眼再改数。随源码变动时连同 PR 正文写明增减理由。
 FLOORS = {
     "spacing": 11, "radius": 5, "border": 5, "typography": 12,
-    "elevation": 4, "controlsize": 5,
+    "elevation": 4, "controlsize": 5, "motion": 4,
     # 2026-09-08 设计系统配色回灌：colors +3（inkPrimary / dataAccent / dataAccentSubtle）、
     # components +1（InkSegmentedControlStyle）、viewext +1（View.coreAccent）、
     # styleext +3（SegmentedControlStyle 的 .glass / .plain / .ink 三个静态入口）。
     # 2026-09-14 shader 集成（stage-2 移植）：TARGETS 加 OhMyDesignShaders ⇒
     # components 91→97（6 个 public struct: View）、enums 30→41、enumcases 110→144、
     # viewext 41→44（View.refractiveGlass / glassOrb / halftone）、others 29→30。
-    "colors": 118, "components": 97, "enums": 41, "enumcases": 144,
-    "protocols": 6, "viewext": 44, "styleext": 12, "others": 30,
+    # #312：enums +5（五个 …Layout 配置枚举）、enumcases +18（4 + 4 + 4 + 3 + 3）。
+    # #375：enumcases +1（StatusLevel.neutral）。
+    # #378：enums +1（AvatarSize）、enumcases +2（.automatic / .fixed）。
+    # #379：colors +2（systemRed / badgeFill）、enums +3（AnchoredBadgeContent / AnchoredBadgePlacement /
+    # AnchoredBadgeHostShape）、enumcases +9（3 + 4 + 2）、viewext +1（View.anchoredBadge）。
+    # #373：components +1（FormField）、enums +3（FieldValidation / FieldRequirement / FormFieldLayout）、
+    # enumcases +6（2 + 2 + 2）、viewext +4（fieldValidation / fieldRequirement / fieldAccessibility / formFieldLabelColumn）。
+    # #381：components +3（CoreCircularProgressViewStyle / PressableRowButtonStyle /
+    # PressableCardButtonStyle）、styleext +3（.coreCircular / .pressableRow / .pressableCard）。
+    # #377：enums +1（ToastDuration）、enumcases +2（.seconds / .persistent）、others +1（ToastAction）。
+    # #382：viewext +1（View.coreSheetPresentation）。
+    # #382：enums +1（CoreSheetBackground）、enumcases +2（.system / .raised）、viewext +1（View.coreSheetPresentation）。
+    # #380：components +1（TagGroup）、enums +1（TagGroupSelectionMode）、enumcases +3（none / single / multiple）。
+    # #398：colors +2（systemGray5 / statusNeutralSubtle）。
+    # #407：motion 新节 4（press / selection / reveal / scroll）、enums +1（CoreMotionToken）、
+    # enumcases +4（同上四档）、viewext +1（View.coreAnimation）。
+    # #422：components +1（Tree）、enums +1（TreeSelectionMode）、enumcases +2（single / multiple）。
+    # #429：viewext +1（View.treeStyle）、others +1（TreeStyle，封闭 struct，不是协议也不是枚举）。
+    # #423：colors +2（systemYellow / searchMatchBackground）；Tree.searchFilter 与 Text.init(verbatim:highlighting:) 不在任何计数节里。
+    # #431：enums +1（TreeRowClickBehavior）、enumcases +2（select / selectAndToggleExpansion）；Tree.rowClickBehavior 不在任何计数节里。
+    # #420：TimelineItem 由数据载体 struct 变为 View ⇒ others −1、components +1。
+    # #420 PR 3：enums +2（TimelineProgress / TimelinePhase）、enumcases +6（3 + 3）；
+    # Timeline.init(layout:progress:content:) 与 EnvironmentValues.timelinePhase 不在任何计数节里。
+    # #417：components +1（StatefulButton）、enums +1（StatefulButtonState）、
+    # enumcases +4（idle / loading / success / failure）。#418：components +1（SlideToConfirm）。
+    "colors": 124, "components": 99, "enums": 61, "enumcases": 203,
+    "protocols": 6, "viewext": 50, "styleext": 15, "others": 29,
 }
 
 # 组件判定：conformance 列表里出现这些名字之一，或以 Style 结尾。
@@ -243,11 +268,27 @@ def elevation_specs(root):
     return rows
 
 
+def motion_tokens(root):
+    src = read(os.path.join(root, "Sources/OhMyDesign/Tokens/CoreMotionToken.swift"))
+    lines = src.split("\n")
+    start = next(i for i, l in enumerate(lines) if "enum CoreMotionToken" in l)
+    cases = enum_cases(lines, start)
+    durations = dict(re.findall(r"case\s+\.(\w+):\s*([\d.]+)", src.split("public var duration")[1].split("public var animation")[0]))
+    curve_body = src.split("public var animation: Animation")[1].split("public func animation")[0]
+    curves = {}
+    for names, curve in re.findall(r"case\s+([.\w,\s]+):\s*\.(\w+)\(", curve_body):
+        for name in re.findall(r"\.(\w+)", names):
+            curves[name] = curve
+    return [(name, durations.get(name, "—"), curves.get(name, "—"), summarise(doc)) for name, doc in cases]
+
+
 def control_metrics(root):
     src = read(os.path.join(root, "Sources/OhMyDesign/Tokens/CoreControlMetrics.swift"))
     order = ["mini", "small", "regular", "large", "extraLarge"]
     table = {}
-    for func in ["height", "horizontalPadding", "verticalPadding", "fontToken", "iconSize"]:
+    for func in ["height", "horizontalPadding", "verticalPadding", "fontToken", "iconSize",
+                 "compactHorizontalPadding", "compactVerticalPadding", "compactFontToken",
+                 "compactIconSize", "compactMinHeight", "compactCornerRadius", "avatarDiameter"]:
         segment = src.split(f"public static func {func}(")[1].split("\n    }")[0]
         for size, value in re.findall(r"case\s+\.(\w+):\s*(?:return\s+)?([\w.]+)", segment):
             if size in order:
@@ -468,6 +509,17 @@ def main():
         add(f"| `.{name}` | {radius} | {y_off} |")
     add("")
 
+    motion = motion_tokens(root)
+    counts["motion"] = len(motion)
+    add(f"## `CoreMotionToken`（{len(motion)} 档，经 `.coreAnimation(_:value:)` 或 `animation(for:)` 取）\n")
+    add("Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting` 下前三档退为同时长 "
+        "`easeInOut`（只用于淡变），`scroll` 退为不补间；位移 / 缩放 / 旋转本身由调用点去掉，框架不代劳。\n")
+    add("| token | 时长 (s) | 曲线 | 用途 |")
+    add("|---|---|---|---|")
+    for name, duration, curve, doc in motion:
+        add(f"| `CoreMotionToken.{name}` | {duration} | `.{curve}` | {doc} |")
+    add("")
+
     metrics = control_metrics(root)
     counts["controlsize"] = len(metrics)
     add(f"## `CoreControlMetrics`（按 SwiftUI `ControlSize`，{len(metrics)} 档）\n")
@@ -477,6 +529,17 @@ def main():
         add(
             f"| `.{size}` | {row.get('height','—')} | {row.get('horizontalPadding','—')} "
             f"| {row.get('verticalPadding','—')} | {row.get('fontToken','—')} | {row.get('iconSize','—')} |"
+        )
+    add("")
+    add("紧凑 chip（`Badge` / `Tag`）与头像（`Avatar` / `AvatarGroup`）：\n")
+    add("| ControlSize | compact h-padding | compact v-padding | compact font | compact icon "
+        "| compact min height（iOS 表；macOS 另一张，见源码） | compact radius | avatar diameter |")
+    add("|---|---|---|---|---|---|---|---|")
+    for size, row in metrics:
+        add(
+            f"| `.{size}` | {row.get('compactHorizontalPadding','—')} | {row.get('compactVerticalPadding','—')} "
+            f"| {row.get('compactFontToken','—')} | {row.get('compactIconSize','—')} "
+            f"| {row.get('compactMinHeight','—')} | {row.get('compactCornerRadius','—')} | {row.get('avatarDiameter','—')} |"
         )
     add("")
 

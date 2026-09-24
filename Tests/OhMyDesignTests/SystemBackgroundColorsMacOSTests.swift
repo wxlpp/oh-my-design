@@ -179,7 +179,7 @@ struct SystemBackgroundColorsMacOSTests {
                 对它们断言 `α > 0` 恒真、是噪声。「它们必须不透明」由
                 `SurfaceKindAlphaContractGuard` 守（`#345`）。
                 ⚠️ **本条射程只到 token**：`SurfaceKind` → token 的映射层
-                （`SurfaceModifier` 的 `background`）被改坏时本条照绿，
+                （`SurfaceKind.background(at:)`）被改坏时本条照绿，
                 那一层同样由 `SurfaceKindAlphaContractGuard` 守。
                 """)
                 #expect(a < 1, """

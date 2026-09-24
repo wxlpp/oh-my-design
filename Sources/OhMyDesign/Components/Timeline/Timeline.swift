@@ -1,352 +1,674 @@
 import SwiftUI
 
-// MARK: - TimelineItem
-
-/// `Timeline` 单条节点的数据载体。
-public struct TimelineItem: Identifiable {
-    public let id: UUID
-    let status: StatusLevel
-    let node: AnyView?
-    let content: AnyView
-
-    /// 使用默认圆点节点构造。
-    ///
-    /// - Parameters:
-    ///   - id: stable identity，缺省由 `UUID()` 生成。
-    ///   - status: 节点状态，决定默认圆点颜色，缺省 `.info`。
-    ///   - content: 节点右侧内容，任意视图。
-    public init<Content: View>(
-        id: UUID = UUID(),
-        status: StatusLevel = .info,
-        @ViewBuilder content: () -> Content
-    ) {
-        self.id = id
-        self.status = status
-        self.node = nil
-        self.content = AnyView(content())
-    }
-
-    /// 使用自定义节点视图构造（替代默认圆点）。
-    ///
-    /// - Parameters:
-    ///   - id: stable identity，缺省由 `UUID()` 生成。
-    ///   - status: 节点状态。当 `node` 已显式提供时，`status` 只作为语义标记保留
-    ///     （例如未来筛选/排序场景），不再驱动默认圆点颜色——颜色完全由 `node` 自身决定。
-    ///   - node: 自定义节点视图（图标 / 头像等），完全替代默认圆点，不叠加任何强制颜色。
-    ///     **尺寸约束**：节点方框固定 24×24pt（`Timeline.nodeColumnWidth`）且**不裁剪**——
-    ///     自定义 node 应 ≤ 24×24；更大的视图（如 32–40pt 头像）会上下溢出方框、上沿侵入
-    ///     上一行、下沿被连线穿过。需要更大节点时请自行把内容缩放到 24pt（如
-    ///     `.frame(width: 24, height: 24)` + `.clipShape(Circle())`），或等节点列高度自适应
-    ///     的后续增强（归 Phase 3 视觉评审裁决）。
-    ///   - content: 节点右侧内容，任意视图。
-    public init<Node: View, Content: View>(
-        id: UUID = UUID(),
-        status: StatusLevel = .info,
-        @ViewBuilder node: () -> Node,
-        @ViewBuilder content: () -> Content
-    ) {
-        self.id = id
-        self.status = status
-        self.node = AnyView(node())
-        self.content = AnyView(content())
-    }
-}
-
 // MARK: - TimelineLayout
 
 /// `Timeline` 的**整体排布形态**——与 `TimelineItem` 的 `node:` 外观槽**正交**：
 /// 本枚举决定「这组节点怎么排」，`node:` 决定「单个节点画成什么」。
-public enum TimelineLayout: Sendable, Equatable {
-    /// 默认：左侧固定节点列 + 右侧内容，节点间竖向连线（现状形态）。
+public nonisolated enum TimelineLayout: Sendable, Equatable {
+    /// 默认：左侧节点列 + 右侧内容，节点间竖向连线（现状形态）。
     case vertical
     /// 左右交替：内容在中轴两侧交替排布。
     /// 业界来源：Ant Design Timeline 的 `mode="alternate"`。
     case alternate
-    /// 横向：节点沿水平轴排列，内容在节点下方。
+    /// 横向：节点沿水平轴排列，节点间有连线，内容在节点下方。
     /// 业界来源：PowerPoint SmartArt 的 Basic Timeline / Final Cut Pro 的横向事件时间线。
     case horizontal
     /// 无连线的分组列表：删掉节点列与连线，只留内容；本形态下 `TimelineItem.node:` 槽不生效。
     case grouped
 }
 
+// MARK: - TimelineProgress / TimelinePhase
+
+/// 带阶段的时间线推进到哪里：与每行的 `step` 一起决定各行阶段与连线着色。
+public nonisolated enum TimelineProgress: Sendable, Hashable {
+    /// 全部带 `step` 的行处于 `.upcoming`。
+    case notStarted
+    /// `step` 小于参数的行已完成、等于的行进行中、大于的行未开始；参数不等于任何行的 `step` 时没有进行中的行。
+    case inProgress(at: Int)
+    /// 全部带 `step` 的行已完成。
+    case completed
+
+    /// 给定 `step` 的阶段。
+    ///
+    /// - Parameter step: 行的步骤号。
+    /// - Returns: 该行的阶段。
+    public func phase(forStep step: Int) -> TimelinePhase {
+        switch self {
+        case .notStarted: .upcoming
+        case .completed: .completed
+        case .inProgress(let current):
+            step < current ? .completed : (step == current ? .inProgress : .upcoming)
+        }
+    }
+}
+
+/// 一行在带阶段时间线里的阶段；只决定默认圆点形态、连线着色与无障碍播报，色相仍由 `status` 决定。
+public nonisolated enum TimelinePhase: Sendable, Hashable, CaseIterable {
+    /// 已完成：实心圆点，通向它的连线着 `.tint`。
+    case completed
+    /// 进行中：实心圆点 + 隔一圈透明间隙的同色实线外环，通向它的连线着 `.tint`。
+    case inProgress
+    /// 未开始：同色空心圆点，通向它的连线为底线色。
+    case upcoming
+}
+
 // MARK: - Timeline
 
 /// **材质层**: 内容. **表面角色**: 内容.
-public struct Timeline: View {
-    let items: [TimelineItem]
+///
+/// 组合式时间线：直接子视图里的 `TimelineItem` 是行（自己画节点），其余子视图（分组标题、页脚等）
+/// 是没有节点的非行子视图。
+public struct Timeline<Content: View>: View {
     let layout: TimelineLayout
+    let progress: TimelineProgress?
+    let content: Content
 
+    @State private var motion: TimelineMotion?
+    @State private var isMounting = true
+    @Environment(\.coreMotionPresentation) private var presentation
+
+    /// 构造时间线。
+    ///
     /// - Parameters:
-    ///   - items: 时间线节点数据，按数组顺序排列。
-    ///   - layout: 整体排布形态，默认 `.vertical`（现状形态）⇒ **现有调用方零影响**。
-    ///     ⚠️ `.grouped` 下 `TimelineItem.node:` 槽不生效，见 `TimelineLayout` 的正交性说明。
-    public init(items: [TimelineItem], layout: TimelineLayout = .vertical) {
-        self.items = items
+    ///   - layout: 整体排布形态，默认 `.vertical`。⚠️ `.grouped` 下 `TimelineItem` 的 `node:` 槽不生效。
+    ///   - content: 行（`TimelineItem`）与非行子视图，按声明顺序排布。
+    public init(layout: TimelineLayout = .vertical, @ViewBuilder content: () -> Content) {
         self.layout = layout
+        self.progress = nil
+        self.content = content()
+    }
+
+    /// 构造带阶段的时间线：各行阶段由 `progress` 与该行自己的 `step` 决定，`step` 为 `nil` 的行没有阶段。
+    ///
+    /// 通向已完成 / 进行中行的连线着 `.tint`（未设置时取宿主 App 的 AccentColor，不随 `coreAccent`），其余连线为底线色。
+    ///
+    /// - Parameters:
+    ///   - layout: 整体排布形态，默认 `.vertical`。
+    ///   - progress: 推进位置。
+    ///   - content: 行（`TimelineItem`，按声明顺序写递增的 `step`）与非行子视图。
+    public init(layout: TimelineLayout = .vertical, progress: TimelineProgress, @ViewBuilder content: () -> Content) {
+        self.layout = layout
+        self.progress = progress
+        self.content = content()
     }
 
     public var body: some View {
-        switch self.layout {
-        case .vertical: self.verticalBody
-        case .alternate: self.alternateBody
-        case .horizontal: self.horizontalBody
-        case .grouped: self.groupedBody
+        Group(subviews: self.content
+            .environment(\.timelineLayoutContext, self.layout)
+            .environment(\.timelineProgressContext, self.progress)
+            .environment(\.timelinePhase, nil)
+            .environment(\.timelineMotion, self.motion)
+            .environment(\.timelineMountWindowOpen, self.isMounting)
+        ) { subviews in
+            let slots = TimelineStackLayout.pairParts(roles: subviews.map { $0.containerValues.timelinePart?.role })
+            let steps = Self.steps(subviews, slots: slots)
+            Group {
+                switch self.layout {
+                case .vertical, .alternate:
+                    self.stack(subviews, slots: slots, steps: steps)
+                case .horizontal:
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        self.stack(subviews, slots: slots, steps: steps)
+                    }
+                case .grouped:
+                    VStack(alignment: .leading, spacing: CoreSpacing.md) {
+                        ForEach(subviews) { subview in
+                            if subview.containerValues.timelinePart?.role != .node {
+                                subview.frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                    }
+                }
+            }
+            .onChange(of: TimelineMotion(progress: self.progress, steps: steps), initial: true) { _, target in
+                self.advance(to: target)
+            }
         }
-    }
-
-    private var verticalBody: some View {
-        VStack(alignment: .leading, spacing: CoreSpacing.none) {
-            ForEach(self.items) { item in
-                TimelineRowView(item: item, isLast: Self.isLastItem(item, in: self.items))
+        .onAppear {
+            RunLoop.main.perform(inModes: [.common]) {
+                MainActor.assumeIsolated {
+                    self.isMounting = false
+                }
             }
         }
     }
 
-    private var alternateBody: some View {
-        VStack(spacing: CoreSpacing.none) {
-            ForEach(Array(self.items.enumerated()), id: \.element.id) { index, item in
-                TimelineAlternateRowView(
-                    item: item,
-                    isLast: Self.isLastItem(item, in: self.items),
-                    contentSide: index.isMultiple(of: 2) ? .leading : .trailing
+    private func advance(to target: TimelineMotion?) {
+        guard self.motion != nil, target != nil else {
+            self.motion = target
+            return
+        }
+        withAnimation(CoreMotionToken.reveal.animation(for: self.presentation)) {
+            self.motion = target
+        }
+    }
+
+    private func stack(
+        _ subviews: SubviewsCollection, slots: [TimelineStackLayout.Slot], steps: [Int?]
+    ) -> some View {
+        let priorities = self.layout == .horizontal
+            ? TimelineStackLayout.readingPriorities(slots: slots, partCount: subviews.count)
+            : nil
+        let pieces = TimelineStackLayout.connectorMotionPieces(
+            slots: slots, steps: steps, progress: self.motion?.progress ?? self.progress, layout: self.layout
+        )
+        let position = self.motion?.position
+        return TimelineStackLayout(layout: self.layout, slots: slots, partCount: subviews.count) {
+            ForEach(pieces.indices, id: \.self) { index in
+                TimelineConnector(
+                    piece: pieces[index], position: position ?? 0, target: position,
+                    axis: self.layout == .horizontal ? .horizontal : .vertical
                 )
             }
+            ForEach(Array(subviews.enumerated()), id: \.element.id) { index, subview in
+                subview
+                    .timelineSortPriority(priorities?[index])
+            }
         }
+        .timelineContained(priorities != nil)
     }
 
-    struct AlternateRowMetrics: Equatable {
-        let slotWidth: CGFloat
-        let nodeCenterX: CGFloat
-        let rowWidth: CGFloat
+    private static func steps(_ subviews: SubviewsCollection, slots: [TimelineStackLayout.Slot]) -> [Int?] {
+        slots.map { slot in
+            guard case .row(let node, _) = slot, subviews.indices.contains(node) else { return nil }
+            return subviews[node].containerValues.timelinePart?.step
+        }
     }
+}
+
+// MARK: - 静态取值 / Static metrics
+
+extension Timeline where Content == EmptyView {
+    typealias AlternateRowMetrics = TimelineStackLayout.AlternateRowMetrics
 
     nonisolated static func alternateRowMetrics(forRowWidth rowWidth: CGFloat) -> AlternateRowMetrics {
-        let fixed = Self.nodeColumnWidth + 2 * CoreSpacing.md
-        guard rowWidth.isFinite else {
-            return AlternateRowMetrics(slotWidth: 0, nodeCenterX: fixed / 2, rowWidth: fixed)
-        }
-        let slot = Swift.max(0, (rowWidth - fixed) / 2)
-        let width = Swift.max(rowWidth, fixed)
-        return AlternateRowMetrics(slotWidth: slot, nodeCenterX: width / 2, rowWidth: width)
+        TimelineStackLayout.alternateRowMetrics(forRowWidth: rowWidth, nodeColumnWidth: Self.minimumNodeExtent)
     }
 
     nonisolated static func alternateSlotWidth(forRowWidth rowWidth: CGFloat) -> CGFloat {
         Self.alternateRowMetrics(forRowWidth: rowWidth).slotWidth
     }
 
-    private var horizontalBody: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: CoreSpacing.lg) {
-                ForEach(self.items) { item in
-                    VStack(alignment: .center, spacing: CoreSpacing.sm) {
-                        TimelineNodeView(item: item)
-                        item.content
-                    }
-                }
-            }
-        }
-    }
-
-    private var groupedBody: some View {
-        VStack(alignment: .leading, spacing: CoreSpacing.md) {
-            ForEach(self.items) { item in
-                GroupedRow(item: item)
-            }
-        }
-    }
-
-    static func groupedStatusKey(for item: TimelineItem) -> String? {
-        item.node == nil ? Self.accessibilityLabelKey(for: item.status) : nil
-    }
-
     // MARK: - Layout metrics
 
-    nonisolated static let nodeColumnWidth: CGFloat = 24
+    nonisolated static let minimumNodeExtent: CGFloat = 24
 
     static let nodeDiameter: CGFloat = 10
+
+    static let inProgressRingGap: CGFloat = CoreSpacing.xxs
+
+    static let inProgressRingDiameter: CGFloat = Self.nodeDiameter + 2 * (Self.inProgressRingGap + CoreBorderWidth.thick)
 
     // MARK: - Pure logic (unit-testable via `@testable import`)
 
     @MainActor
-    static func nodeColor(for status: StatusLevel) -> Color {
+    static func nodeColor(for status: StatusLevel, in colorScheme: ColorScheme) -> Color {
         switch status {
         case .info: .statusAccentEmphasis
         case .success: .statusSuccessEmphasis
-        case .warning: .statusAttentionEmphasis
+        case .warning: colorScheme == .light ? .statusAttentionForeground : .statusAttentionEmphasis
         case .danger: .statusDangerEmphasis
+        case .neutral: .contentSecondary
         }
     }
 
-    static func accessibilityLabelKey(for status: StatusLevel) -> String {
+    nonisolated static func accessibilityLabelKey(for status: StatusLevel) -> String {
         switch status {
         case .info: "Info"
         case .success: "Success"
         case .warning: "Warning"
         case .danger: "Error"
+        case .neutral: "Neutral"
         }
     }
 
-    static func isLastItem(_ item: TimelineItem, in items: [TimelineItem]) -> Bool {
-        item.id == items.last?.id
+    nonisolated static func accessibilityLabelKey(for phase: TimelinePhase) -> String {
+        switch phase {
+        case .completed: "Completed"
+        case .inProgress: "In Progress"
+        case .upcoming: "Upcoming"
+        }
+    }
+
+    nonisolated static func accessibility(
+        status: StatusLevel?, hasCustomNode: Bool, hasTitle: Bool, phase: TimelinePhase?
+    ) -> TimelineRowAccessibility {
+        let status = hasCustomNode ? status : (status ?? .info)
+        let keys = [status.map { Self.accessibilityLabelKey(for: $0) }, phase.map { Self.accessibilityLabelKey(for: $0) }]
+            .compactMap { $0 }
+        guard !keys.isEmpty else {
+            return TimelineRowAccessibility(valueKeys: [], mount: .none, combinesContent: false)
+        }
+        if hasTitle {
+            return TimelineRowAccessibility(valueKeys: keys, mount: .title, combinesContent: false)
+        }
+        return TimelineRowAccessibility(valueKeys: keys, mount: .content, combinesContent: true)
     }
 }
 
-// MARK: - TimelineRowView
+// MARK: - TimelineItem
 
-struct TimelineNodeView: View {
-    let item: TimelineItem
+/// `Timeline` 的一行：自己画节点（默认圆点或 `node:` 槽），节点与内容作为两个子视图交给容器排布。
+///
+/// ⚠️ 施在行上的修饰会**分别**作用于节点与内容：布局修饰（`.padding` / `.frame`）与行为修饰
+/// （`.onAppear` / `.task` / `.onTapGesture` / `.contextMenu`）请写进 `content:`；可点击的行把
+/// `Button` / `NavigationLink` 放进 `content:`，不要把整行包进 `Button`。
+public struct TimelineItem<Node: View, Content: View>: View {
+    let step: Int?
+    let status: StatusLevel?
+    let title: LocalizedStringKey?
+    let time: Text?
+    let description: LocalizedStringKey?
+    let node: Node?
+    let content: Content
+
+    @Environment(\.timelineLayoutContext) private var layoutContext
+    @Environment(\.timelineProgressContext) private var progressContext
+    @Environment(\.timelineMotion) private var motion
+
+    /// 富内容 + 默认圆点。
+    ///
+    /// - Parameters:
+    ///   - step: 该行的步骤号，在 `Timeline(progress:)` 内决定本行阶段；纯活动流不写。
+    ///   - status: 决定默认圆点色相，并作为状态值播报在行上，缺省 `.info`。
+    ///   - content: 行内容；并列的多个视图竖排、左对齐、间距 0。
+    public init(
+        step: Int? = nil,
+        status: StatusLevel = .info,
+        @ViewBuilder content: () -> Content
+    ) where Node == EmptyView {
+        self.init(step: step, status: status, title: nil, time: nil, description: nil, node: nil, content: content())
+    }
+
+    /// 富内容 + 自定义节点（图标 / 头像等，替代默认圆点）。
+    ///
+    /// - Parameters:
+    ///   - step: 该行的步骤号，在 `Timeline(progress:)` 内决定本行阶段；纯活动流不写。
+    ///   - status: 传了才把状态值播报在行上；节点里自带 label 的图标请由调用方 `.accessibilityHidden(true)`，
+    ///     否则同一状态读两遍。不传则不播报状态。
+    ///   - node: 自定义节点，收到 24×24pt 的提议；节点盒取它报告的尺寸、下限 24pt，节点列宽取所有节点里最宽的那个。
+    ///   - content: 行内容；并列的多个视图竖排、左对齐、间距 0。
+    public init(
+        step: Int? = nil,
+        status: StatusLevel? = nil,
+        @ViewBuilder node: () -> Node,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.init(step: step, status: status, title: nil, time: nil, description: nil, node: node(), content: content())
+    }
+
+    /// 结构件（标题 → 时间 → 描述 → 富内容）+ 默认圆点。
+    ///
+    /// - Parameters:
+    ///   - title: 标题，`.callout`、作为标题元素（`.isHeader`）并承载状态值。
+    ///   - time: 时间，通常是 `Text(date, style: .relative)` 这类格式化文本。
+    ///   - description: 描述。
+    ///   - step: 该行的步骤号，在 `Timeline(progress:)` 内决定本行阶段；纯活动流不写。
+    ///   - status: 决定默认圆点色相，并作为状态值播报在标题上，缺省 `.info`。
+    ///   - content: 描述下方的富内容，缺省为空。
+    public init(
+        _ title: LocalizedStringKey,
+        time: Text? = nil,
+        description: LocalizedStringKey? = nil,
+        step: Int? = nil,
+        status: StatusLevel = .info,
+        @ViewBuilder content: () -> Content = { EmptyView() }
+    ) where Node == EmptyView {
+        self.init(step: step, status: status, title: title, time: time, description: description, node: nil, content: content())
+    }
+
+    /// 结构件（标题 → 时间 → 描述 → 富内容）+ 自定义节点。无富内容时写 `content: {}`。
+    ///
+    /// - Parameters:
+    ///   - title: 标题，`.callout`、作为标题元素（`.isHeader`）；传了 `status` 时承载状态值。
+    ///   - time: 时间，通常是 `Text(date, style: .relative)` 这类格式化文本。
+    ///   - description: 描述。
+    ///   - step: 该行的步骤号，在 `Timeline(progress:)` 内决定本行阶段；纯活动流不写。
+    ///   - status: 传了才把状态值播报在标题上（节点里自带 label 的图标请由调用方隐藏）；不传则不播报状态。
+    ///   - node: 自定义节点，尺寸规则同 `init(step:status:node:content:)`。
+    ///   - content: 描述下方的富内容。
+    public init(
+        _ title: LocalizedStringKey,
+        time: Text? = nil,
+        description: LocalizedStringKey? = nil,
+        step: Int? = nil,
+        status: StatusLevel? = nil,
+        @ViewBuilder node: () -> Node,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.init(step: step, status: status, title: title, time: time, description: description, node: node(), content: content())
+    }
+
+    private init(
+        step: Int?, status: StatusLevel?, title: LocalizedStringKey?, time: Text?,
+        description: LocalizedStringKey?, node: Node?, content: Content
+    ) {
+        self.step = step
+        self.status = status
+        self.title = title
+        self.time = time
+        self.description = description
+        self.node = node
+        self.content = content
+    }
+
+    public var body: some View {
+        let phase = self.phase
+        TimelineNodeView(
+            status: self.status ?? .info, phase: self.displayedPhase, step: self.step,
+            position: self.motion?.position, node: self.node
+        )
+            .environment(\.timelinePhase, phase)
+            .containerValue(\.timelinePart, TimelinePart(role: .node, step: self.step, status: self.status))
+        self.contentSlot
+            .environment(\.timelinePhase, phase)
+            .containerValue(\.timelinePart, TimelinePart(role: .content, step: self.step, status: self.status))
+    }
+
+    private var phase: TimelinePhase? {
+        guard let step = self.step, let progress = self.progressContext else { return nil }
+        return progress.phase(forStep: step)
+    }
+
+    private var displayedPhase: TimelinePhase? {
+        guard let step = self.step, let progress = self.motion?.progress ?? self.progressContext else { return nil }
+        return progress.phase(forStep: step)
+    }
+
+    private var accessibility: TimelineRowAccessibility {
+        Timeline.accessibility(
+            status: self.status, hasCustomNode: self.node != nil, hasTitle: self.title != nil, phase: self.phase
+        )
+    }
+
+    @ViewBuilder
+    private var contentSlot: some View {
+        let accessibility = self.accessibility
+        if let title = self.title {
+            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
+                Text(title)
+                    .coreFont(.callout)
+                    .foregroundStyle(Color.contentPrimary)
+                    .accessibilityAddTraits(.isHeader)
+                    .timelineAccessibilityValue(accessibility.mount == .title ? accessibility.valueText : nil)
+                if let time = self.time {
+                    time
+                        .coreFont(.footnote)
+                        .foregroundStyle(Color.contentSecondary)
+                }
+                if let description = self.description {
+                    Text(description)
+                        .coreFont(.footnote)
+                        .foregroundStyle(Color.contentSecondary)
+                }
+                self.content
+            }
+            .timelineContained(self.layoutContext == .horizontal)
+        } else {
+            VStack(alignment: .leading, spacing: CoreSpacing.none) {
+                self.content
+            }
+            .timelineCombined(accessibility.combinesContent)
+            .timelineContained(!accessibility.combinesContent && self.layoutContext == .horizontal)
+            .timelineAccessibilityValue(accessibility.mount == .content ? accessibility.valueText : nil)
+        }
+    }
+}
+
+// MARK: - 行内部件 / Row parts
+
+nonisolated struct TimelinePart: Hashable, Sendable {
+    let role: TimelineStackLayout.Role
+    let step: Int?
+    let status: StatusLevel?
+}
+
+nonisolated struct TimelineRowAccessibility: Equatable, Sendable {
+    enum Mount: Equatable, Sendable {
+        case title
+        case content
+        case none
+    }
+
+    let valueKeys: [String]
+    let mount: Mount
+    let combinesContent: Bool
+
+    @MainActor var valueText: String? {
+        guard !self.valueKeys.isEmpty else { return nil }
+        return self.valueKeys
+            .map { String(localized: String.LocalizationValue($0), bundle: .module) }
+            .joined(separator: ", ")
+    }
+}
+
+extension ContainerValues {
+    @Entry var timelinePart: TimelinePart? = nil
+}
+
+extension EnvironmentValues {
+    @Entry var timelineLayoutContext: TimelineLayout? = nil
+    @Entry var timelineProgressContext: TimelineProgress? = nil
+    @Entry var timelineMotion: TimelineMotion? = nil
+    @Entry var timelineMountWindowOpen: Bool = true
+}
+
+private nonisolated struct TimelinePhaseKey: EnvironmentKey {
+    static let defaultValue: TimelinePhase? = nil
+}
+
+public extension EnvironmentValues {
+    /// 本行阶段：在 `Timeline(progress:)` 内、带 `step` 的 `TimelineItem` 的 `node:` 与 `content:` 两个槽里有值，其余为 `nil`。
+    /// 自定义节点据此自行决定阶段外观（默认圆点已按阶段绘制）。
+    internal(set) var timelinePhase: TimelinePhase? {
+        get { self[TimelinePhaseKey.self] }
+        set { self[TimelinePhaseKey.self] = newValue }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func timelineContained(_ contains: Bool) -> some View {
+        if contains {
+            self.accessibilityElement(children: .contain)
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func timelineSortPriority(_ priority: Double?) -> some View {
+        if let priority {
+            self.accessibilitySortPriority(priority)
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func timelineCombined(_ combines: Bool) -> some View {
+        if combines {
+            self.accessibilityElement(children: .combine)
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func timelineAccessibilityValue(_ value: String?) -> some View {
+        if let value {
+            self.accessibilityValue(Text(verbatim: value))
+        } else {
+            self
+        }
+    }
+}
+
+// MARK: - TimelineNodeView
+
+struct TimelineNodeView<Node: View>: View {
+    let status: StatusLevel
+    let phase: TimelinePhase?
+    let step: Int?
+    let position: Double?
+    let node: Node?
+
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        self.nodeContent
-            .frame(width: Timeline.nodeColumnWidth, height: Timeline.nodeColumnWidth)
+        ZStack {
+            self.nodeContent
+        }
+        .modifier(TimelineEntranceModifier())
     }
 
     @ViewBuilder
     private var nodeContent: some View {
-        if let node = self.item.node {
+        if let node = self.node {
             node
         } else {
-            Circle()
-                .fill(Timeline.nodeColor(for: self.item.status))
-                .frame(width: Timeline.nodeDiameter, height: Timeline.nodeDiameter)
-                .accessibilityLabel(
-                    Text(LocalizedStringKey(Timeline.accessibilityLabelKey(for: self.item.status)), bundle: .module)
+            TimelineDefaultDot(
+                color: Timeline.nodeColor(for: self.status, in: self.colorScheme),
+                phase: self.phase, step: self.step, position: self.position ?? 0, target: self.position
+            )
+            .accessibilityHidden(true)
+        }
+    }
+}
+
+private struct TimelineEntranceModifier: ViewModifier {
+    @Environment(\.coreMotionPresentation) private var presentation
+    @Environment(\.timelineMountWindowOpen) private var mountWindowOpen
+    @State private var entrance = TimelineEntrance()
+
+    func body(content: Content) -> some View {
+        let frame = self.entrance.frame
+        content
+            .scaleEffect(frame.scale)
+            .opacity(frame.opacity)
+            .onScrollVisibilityChange(threshold: 0.5) { isVisible in
+                let next = self.entrance.visibilityChanged(
+                    isVisible, mountWindowOpen: self.mountWindowOpen, presentation: self.presentation
                 )
-        }
-    }
-}
-
-private struct TimelineRowView: View {
-    let item: TimelineItem
-    let isLast: Bool
-
-    var body: some View {
-        HStack(alignment: .top, spacing: CoreSpacing.md) {
-            TimelineNodeView(item: self.item)
-
-            self.item.content
-                .padding(.bottom, self.isLast ? CoreSpacing.none : CoreSpacing.lg)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .background(alignment: .topLeading) {
-            if !self.isLast {
-                TimelineConnector()
-                    .padding(.leading, (Timeline.nodeColumnWidth - CoreBorderWidth.thin) / 2)
+                self.entrance = next.entrance
+                guard next.plays else { return }
+                RunLoop.main.perform(inModes: [.common]) {
+                    MainActor.assumeIsolated {
+                        withAnimation(CoreMotionToken.reveal.animation(for: self.presentation)) {
+                            self.entrance.isWaiting = false
+                        }
+                    }
+                }
             }
-        }
     }
 }
 
-private struct TimelineAlternateRowView: View {
-    let item: TimelineItem
-    let isLast: Bool
-    let contentSide: HorizontalEdge
+nonisolated struct TimelineEntrance: Equatable, Sendable {
+    var isWaiting = false
+    var isSettled = false
+
+    var frame: TimelineEntranceFrame {
+        self.isWaiting ? .entering : .resting
+    }
+
+    func visibilityChanged(
+        _ isVisible: Bool, mountWindowOpen: Bool, presentation: MotionPresentation
+    ) -> (entrance: TimelineEntrance, plays: Bool) {
+        guard isVisible, !self.isSettled else { return (self, false) }
+        let plays = TimelineEntranceFrame.plays(mountWindowOpen: mountWindowOpen, presentation: presentation)
+        return (TimelineEntrance(isWaiting: plays, isSettled: true), plays)
+    }
+}
+
+nonisolated struct TimelineEntranceFrame: Equatable, Sendable {
+    var scale: CGFloat
+    var opacity: Double
+
+    static let resting = TimelineEntranceFrame(scale: 1, opacity: 1)
+
+    static let entering = TimelineEntranceFrame(scale: Self.enteringScale, opacity: 0)
+
+    static let enteringScale: CGFloat = 0.86
+
+    static func plays(mountWindowOpen: Bool, presentation: MotionPresentation) -> Bool {
+        !mountWindowOpen && presentation == .animated
+    }
+}
+
+private struct TimelineDefaultDot: View, Animatable {
+    let color: Color
+    let phase: TimelinePhase?
+    let step: Int?
+    var position: Double
+    let target: Double?
+
+    nonisolated var animatableData: Double {
+        get { self.position }
+        set { self.position = newValue }
+    }
 
     var body: some View {
-        TimelineAlternateRowLayout {
-            self.slot(.leading)
-            TimelineNodeView(item: self.item)
-            self.slot(.trailing)
-        }
-        .background(alignment: .top) {
-            if !self.isLast {
-                TimelineConnector()
+        let layers = TimelineStackLayout.dotLayers(
+            phase: self.phase,
+            morph: TimelineStackLayout.dotMorph(step: self.step, position: self.position, target: self.target)
+        )
+        Circle()
+            .strokeBorder(self.color, lineWidth: CoreBorderWidth.thick)
+            .opacity(layers.hollow)
+            .overlay {
+                Circle()
+                    .fill(self.color)
+                    .opacity(layers.fill)
             }
-        }
-    }
-
-    @ViewBuilder
-    private func slot(_ side: HorizontalEdge) -> some View {
-        if side == self.contentSide {
-            self.item.content
-                .padding(.bottom, self.isLast ? CoreSpacing.none : CoreSpacing.lg)
-                .frame(maxWidth: .infinity, alignment: side == .leading ? .trailing : .leading)
-        } else {
-            Color.clear
-                .frame(height: 0)
-                .accessibilityHidden(true)
-        }
+            .frame(width: Timeline.nodeDiameter, height: Timeline.nodeDiameter)
+            .background {
+                Circle()
+                    .strokeBorder(self.color, lineWidth: CoreBorderWidth.thick)
+                    .frame(width: Timeline.inProgressRingDiameter, height: Timeline.inProgressRingDiameter)
+                    .opacity(layers.ring)
+            }
     }
 }
 
-private struct TimelineAlternateRowLayout: Layout {
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let metrics = Self.metrics(for: proposal, subviews: subviews)
-        let heights = Self.subviewHeights(subviews, slotWidth: metrics.slotWidth)
-        return CGSize(width: metrics.rowWidth, height: heights.max() ?? 0)
+private struct TimelineConnector: View, Animatable {
+    let piece: TimelineStackLayout.ConnectorPiece
+    var position: Double
+    let target: Double?
+    let axis: Axis
+
+    @Environment(\.coreMotionPresentation) private var presentation
+
+    nonisolated var animatableData: Double {
+        get { self.position }
+        set { self.position = newValue }
     }
-
-    func placeSubviews(
-        in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
-    ) {
-        guard subviews.count == 3 else { return }
-        let metrics = Timeline.alternateRowMetrics(forRowWidth: bounds.width)
-        let slot = metrics.slotWidth
-        let node = Timeline.nodeColumnWidth
-        let gap = CoreSpacing.md
-
-        subviews[0].place(
-            at: CGPoint(x: bounds.minX, y: bounds.minY), anchor: .topLeading,
-            proposal: ProposedViewSize(width: slot, height: nil)
-        )
-        subviews[1].place(
-            at: CGPoint(x: bounds.minX + metrics.nodeCenterX, y: bounds.minY), anchor: .top,
-            proposal: ProposedViewSize(width: node, height: node)
-        )
-        subviews[2].place(
-            at: CGPoint(x: bounds.minX + slot + gap + node + gap, y: bounds.minY),
-            anchor: .topLeading,
-            proposal: ProposedViewSize(width: slot, height: nil)
-        )
-    }
-
-    private static func metrics(
-        for proposal: ProposedViewSize, subviews: Subviews
-    ) -> Timeline.AlternateRowMetrics {
-        if let width = proposal.width, width.isFinite {
-            return Timeline.alternateRowMetrics(forRowWidth: width)
-        }
-        guard subviews.count == 3 else { return Timeline.alternateRowMetrics(forRowWidth: 0) }
-        let idealSlot = Swift.max(
-            subviews[0].sizeThatFits(.unspecified).width,
-            subviews[2].sizeThatFits(.unspecified).width
-        )
-        let rowWidth = idealSlot * 2 + Timeline.nodeColumnWidth + 2 * CoreSpacing.md
-        return Timeline.alternateRowMetrics(forRowWidth: rowWidth)
-    }
-
-    private static func subviewHeights(_ subviews: Subviews, slotWidth: CGFloat) -> [CGFloat] {
-        guard subviews.count == 3 else { return [] }
-        return [
-            subviews[0].sizeThatFits(ProposedViewSize(width: slotWidth, height: nil)).height,
-            Timeline.nodeColumnWidth,
-            subviews[2].sizeThatFits(ProposedViewSize(width: slotWidth, height: nil)).height,
-        ]
-    }
-}
-
-private struct GroupedRow: View {
-    let item: TimelineItem
 
     var body: some View {
-        let base = self.item.content
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .combine)
-        if let key = Timeline.groupedStatusKey(for: self.item) {
-            base.accessibilityValue(Text(LocalizedStringKey(key), bundle: .module))
-        } else {
-            base
-        }
-    }
-}
-
-private struct TimelineConnector: View {
-    var body: some View {
+        let fraction = self.piece.fraction(position: self.position, target: self.target)
+        let grows = self.presentation == .animated
         Rectangle()
             .fill(Color.dividerDefault)
-            .frame(width: CoreBorderWidth.thin)
-            .frame(maxHeight: .infinity)
-            .padding(.top, Timeline.nodeColumnWidth)
+            .overlay {
+                TimelineConnectorReach(fraction: grows || fraction == 0 ? fraction : 1, axis: self.axis)
+                    .fill(.tint)
+                    .opacity(grows ? 1 : Double(fraction))
+            }
+            .accessibilityHidden(true)
+    }
+}
+
+private struct TimelineConnectorReach: Shape {
+    let fraction: CGFloat
+    let axis: Axis
+
+    nonisolated func path(in rect: CGRect) -> Path {
+        let fraction = Swift.min(1, Swift.max(0, self.fraction))
+        var reached = rect
+        switch self.axis {
+        case .horizontal: reached.size.width *= fraction
+        case .vertical: reached.size.height *= fraction
+        }
+        return Path(reached)
     }
 }
 
@@ -355,110 +677,94 @@ private struct TimelineConnector: View {
 #Preview("Timeline — Light") {
     TimelinePreviewGallery()
         .preferredColorScheme(.light)
+        .environment(\.coreMotionPresentationOverride, .resting)
 }
 
 #Preview("Timeline — Dark") {
     TimelinePreviewGallery()
         .preferredColorScheme(.dark)
+        .environment(\.coreMotionPresentationOverride, .resting)
 }
 
 private struct TimelinePreviewGallery: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: CoreSpacing.xl) {
-                VStack(alignment: .leading, spacing: CoreSpacing.sm) {
-                    Text("默认圆点节点（4 种 StatusLevel 状态色）")
-                        .coreFont(.footnote)
-                        .foregroundStyle(.secondary)
-                    Timeline(items: [
-                        TimelineItem(status: .info) {
-                            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
-                                Text("已创建").coreFont(.callout)
-                                Text("2026-07-20 10:00").coreFont(.footnote).foregroundStyle(.secondary)
-                            }
-                        },
-                        TimelineItem(status: .success) {
-                            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
-                                Text("审核通过").coreFont(.callout)
-                                Text("2026-07-21 14:30").coreFont(.footnote).foregroundStyle(.secondary)
-                            }
-                        },
-                        TimelineItem(status: .warning) {
-                            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
-                                Text("即将过期提醒").coreFont(.callout)
-                                Text("2026-07-23 09:15").coreFont(.footnote).foregroundStyle(.secondary)
-                            }
-                        },
-                        TimelineItem(status: .danger) {
-                            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
-                                Text("处理失败").coreFont(.callout)
-                                Text("2026-07-24 18:45").coreFont(.footnote).foregroundStyle(.secondary)
-                            }
-                        },
-                    ])
+                self.section("默认圆点节点（5 种 StatusLevel 状态色）") {
+                    Timeline {
+                        TimelineItem("已创建", time: Text(verbatim: "2026-07-20 10:00"), status: .info)
+                        TimelineItem("审核通过", time: Text(verbatim: "2026-07-21 14:30"), status: .success)
+                        TimelineItem("即将过期提醒", time: Text(verbatim: "2026-07-23 09:15"), status: .warning)
+                        TimelineItem("处理失败", time: Text(verbatim: "2026-07-24 18:45"), status: .danger)
+                        TimelineItem("已归档", time: Text(verbatim: "2026-07-25 08:00"), status: .neutral)
+                    }
                 }
 
-                VStack(alignment: .leading, spacing: CoreSpacing.sm) {
-                    Text("自定义节点（图标 / 头像替代默认圆点）")
-                        .coreFont(.footnote)
-                        .foregroundStyle(.secondary)
-                    Timeline(items: [
-                        TimelineItem(status: .success) {
+                self.section("自定义节点（图标 / 头像替代默认圆点）") {
+                    Timeline {
+                        TimelineItem("订单已发货", status: .success) {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundStyle(Color.statusSuccessEmphasis)
-                        } content: {
-                            Text("订单已发货").coreFont(.callout)
-                        },
-                        TimelineItem(status: .info) {
+                                .accessibilityHidden(true)
+                        } content: {}
+                        TimelineItem("客服已接入", description: "由「小 A」跟进处理，预计 30 分钟内响应。") {
                             Circle()
                                 .fill(.blue)
                                 .frame(width: 20, height: 20)
-                        } content: {
-                            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
-                                Text("客服已接入").coreFont(.callout)
-                                Text("由「小 A」跟进处理，预计 30 分钟内响应。")
-                                    .coreFont(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
-                        },
-                        TimelineItem(status: .danger) {
+                        } content: {}
+                        TimelineItem("配送异常", status: .danger) {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundStyle(Color.statusDangerEmphasis)
-                        } content: {
-                            Text("配送异常").coreFont(.callout)
-                        },
-                    ])
+                                .accessibilityHidden(true)
+                        } content: {}
+                    }
                 }
 
                 // MARK: `#60` 形态 D2 新增的三种排布
 
                 self.section("交替 · alternate（节点须在**同一条中轴**上，连线贯穿）") {
-                    Timeline(items: Self.statusItems, layout: .alternate)
+                    Timeline(layout: .alternate) { Self.statusRows }
                 }
 
                 self.section("交替 · 单条（无连线）") {
-                    Timeline(items: [Self.statusItems[0]], layout: .alternate)
+                    Timeline(layout: .alternate) {
+                        TimelineItem(status: .info) { Text("已创建").coreFont(.callout) }
+                    }
                 }
 
-                self.section("横向 · horizontal（可横向滚动，无连线）") {
-                    Timeline(items: Self.statusItems, layout: .horizontal)
+                self.section("横向 · horizontal（可横向滚动，节点间有连线）") {
+                    Timeline(layout: .horizontal) { Self.statusRows }
                 }
 
                 self.section("分组 · grouped（无节点列；默认节点项仍播报状态）") {
-                    Timeline(items: Self.statusItems, layout: .grouped)
+                    Timeline(layout: .grouped) { Self.statusRows }
                 }
 
-                self.section("分组 · 自定义节点项（状态播报交还调用方，不臆造）") {
-                    Timeline(
-                        items: [
-                            TimelineItem(status: .success) {
-                                Image(systemName: "checkmark.circle.fill")
-                            } content: {
-                                Text("订单已发货").coreFont(.callout)
-                            },
-                        ],
-                        layout: .grouped
-                    )
+                self.section("阶段 · 订单进度（已完成实心、进行中靶心、未开始空心；已到达连线着 .tint）") {
+                    Timeline(progress: .inProgress(at: 2)) {
+                        TimelineItem("已下单", time: Text(verbatim: "09:00"), step: 0)
+                        TimelineItem("已付款", time: Text(verbatim: "09:02"), step: 1)
+                        TimelineItem("配送中", description: "预计今天 18:00 前送达", step: 2)
+                        TimelineItem("已签收", step: 3)
+                    }
+                }
+
+                self.section("阶段 · 横向路线图（Beta 进行中且有风险：warning + inProgress）") {
+                    Timeline(layout: .horizontal, progress: .inProgress(at: 1)) {
+                        TimelineItem("Q1 Alpha", step: 0, status: .success)
+                        TimelineItem("Q2 Beta", step: 1, status: .warning)
+                        TimelineItem("Q3 GA", step: 2, status: .info)
+                    }
+                }
+
+                self.section("分组 · 自定义节点项（不传 status 不播报状态）") {
+                    Timeline(layout: .grouped) {
+                        TimelineItem {
+                            Image(systemName: "checkmark.circle.fill")
+                        } content: {
+                            Text("订单已发货").coreFont(.callout)
+                        }
+                    }
                 }
             }
             .padding()
@@ -466,13 +772,12 @@ private struct TimelinePreviewGallery: View {
         .background(Color.surfaceCanvas)
     }
 
-    private static var statusItems: [TimelineItem] {
-        [
-            TimelineItem(status: .info) { Text("已创建").coreFont(.callout) },
-            TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) },
-            TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) },
-            TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) },
-        ]
+    @ViewBuilder
+    private static var statusRows: some View {
+        TimelineItem(status: .info) { Text("已创建").coreFont(.callout) }
+        TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) }
+        TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) }
+        TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) }
     }
 
     @ViewBuilder

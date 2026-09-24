@@ -27,10 +27,24 @@ public struct SolidButtonStyle: ButtonStyle {
     }
 
     private var foregroundColor: Color {
-        self.isEnabled ? self.role.onColor : .contentDisabled
+        self.isEnabled
+            ? self.role.resolvedOnColor(
+                accent: self.coreAccent,
+                on: self.coreAccentOn,
+                environment: Self.environment(colorScheme: self.colorScheme)
+            )
+            : .contentDisabled
+    }
+
+    private static func environment(colorScheme: ColorScheme) -> EnvironmentValues {
+        var environment = EnvironmentValues()
+        environment.colorScheme = colorScheme
+        return environment
     }
 
     @Environment(\.coreAccent) private var coreAccent
+    @Environment(\.coreAccentOn) private var coreAccentOn
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.controlSize) private var controlSize
 }

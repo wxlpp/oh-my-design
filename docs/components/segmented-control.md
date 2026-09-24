@@ -16,7 +16,7 @@ Token 化的分段控件 / Token-styled segmented control.
 |---|---|---|
 | `.glass`（默认） | `GlassSegmentedControlStyle` | Liquid Glass 外壳；iOS 走原生 `UISegmentedControl` + `UIGlassEffect` |
 | `.plain` | `PlainSegmentedControlStyle` | 纯色外壳 |
-| `.ink` | `InkSegmentedControlStyle` | 选中段是实心 `coreAccent` 胶囊 + 反色文字 |
+| `.ink` | `InkSegmentedControlStyle` | 选中段是实心 `coreAccent` 胶囊 + on-accent 文字（缺省按 accent 亮度派生黑 / 白，`coreAccent(_:on:)` 的 `on` 参数可覆盖） |
 
 ⚠️ **`.ink` 不是默认**：web 版设计系统用墨色胶囊是因为浏览器渲染不了 Liquid Glass，
 那是渲染基座的代偿而非升级。⚠️ `.ink` 走 SwiftUI 回退路径，**不走** iOS 的原生控件
@@ -55,7 +55,7 @@ SegmentedControl(
 | 外框填充 | 玻璃 | `Capsule` 填 `Color.surfaceInteractive` + `borderSubtle` hairline |
 | segment 间距 | 无（a11y 实测三段连续：30 → 144 → 258 pt，宽 114） | `CoreSpacing.xxs`（实测有 2 pt 缝：142.67 → 144.67） |
 | 字号 | `systemFont(ofSize: 15)` 经 `UIFontMetrics(.body)` | `.coreFont(.callout)` |
-| 切换动画 | UIKit 自己的 | `.easeInOut(duration: 0.18)` + `matchedGeometryEffect` |
+| 切换动画 | UIKit 自己的 | `CoreMotionToken.selection`（`.snappy`，0.22 s）+ `matchedGeometryEffect`；Reduce Motion 下滑块不滑，旧位置淡出、新位置淡入（#407） |
 | thumb 与轨道的明暗 | thumb **更暗**（浅色实测 231 vs 251） | thumb **更亮**（浅色实测 255 vs 228） |
 
 ⚠️ **本节此前的四条与源码不符**，`#233` 顺带更正（逐条对着
@@ -147,7 +147,7 @@ python3 scripts/motion-proof/measure-thumb.py '/tmp/frames/*.png' \
 
 ### 这条判据判不了什么
 
-1. **判不了时长**：`easeInOut` 尾巴很长，末段每帧只挪 1 px，拿它对 `duration: 0.18` 的账会得到不稳的数。
+1. **判不了时长**：`easeInOut` 尾巴很长，末段每帧只挪 1 px，拿它对 `duration: 0.18` 的账会得到不稳的数（本节录屏取于 #407 之前；#407 起曲线是 `CoreMotionToken.selection`）。
 2. **不是 CI 判据**：人工录屏 + 逐帧测量，不在任何腿上。与 `#277` 同族。
 3. **单次、单向（One→Three）、仅浅色**。
 4. **「0 个中间位置 = snap」的前提是采样间隔远小于动画时长**（本次 2–30 ms vs 180 ms）；

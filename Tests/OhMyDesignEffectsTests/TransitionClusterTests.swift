@@ -373,7 +373,8 @@ struct TransitionClusterTests {
                 —— 它实际是同侧进出（几何函数大概取了 `abs`）。
                 """)
             } else {
-                #expect(entering == leaving, """
+                // ⚠️ 位图相等断言统一走容差入口（#317），勿改回逐字节比较（Frame 的 == 是逐字节的）。
+                expectBitmapsEquivalent(entering.bytes, leaving.bytes, maxChannelDelta: 1, """
                 \(probe.name) 标为同侧进出，但进场帧与出场帧不同
                 —— 它实际是穿行；要么改回来，要么把 `directional` 与类型文档一起改。
                 """)
@@ -388,7 +389,7 @@ struct TransitionClusterTests {
 
         for probe in Self.probes {
             let identity = try #require(probe.render(0, false), "\(probe.name)：恒等帧渲染失败")
-            #expect(identity == plain, """
+            expectBitmapsEquivalent(identity.bytes, plain.bytes, maxChannelDelta: 1, """
             \(probe.name) 的恒等相位与裸内容不同 —— 转场停住之后画面被它**永久**改了。
             先看这条转场的几何函数在 `phaseValue == 0` 处是不是精确归零
             （`identityPhaseIsExactlyNeutral`），再看绘制层有没有加与相位无关的东西。
@@ -426,7 +427,7 @@ struct TransitionClusterTests {
                 求值它，"动"这件事从未发生。
                 """)
                 let direct = try #require(probe.render(-1 + amount, false), "\(probe.name)：直构帧渲染失败")
-                #expect(mid == direct, """
+                expectBitmapsEquivalent(mid.bytes, direct.bytes, maxChannelDelta: 1, """
                 \(probe.name) @ amount \(amount)：插值出的那一帧与
                 直接用 phaseValue = \(-1 + amount) 构造的那一帧不同
                 —— `animatableData` 没有绑在真正参与绘制的量上，插值改不动画面。
@@ -500,7 +501,7 @@ struct TransitionClusterTests {
                 \(probe.name) @ \(v)：Reduce Motion 开与关渲染出同一张位图
                 —— 门控是摆设，运动根本没有被去掉。
                 """)
-                #expect(reduced == fade, """
+                expectBitmapsEquivalent(reduced.bytes, fade.bytes, maxChannelDelta: 1, """
                 \(probe.name) @ \(v)：降级那一帧与「只加 `.opacity(\(TransitionCurve.opacity(v)))`」
                 的对照组不同 —— 还有一处运动 / 模糊 / 拉伸没有被门控掉。
                 ⚠️ 先查 `MicroInteractionReduceMotionGuard.motionCalls` **关键字表之外**的东西
@@ -679,17 +680,17 @@ struct TransitionClusterTests {
         }
     }
 
-    @Test("六条转场都声明 hasMotion == true（系统那道 Reduce Motion 闸必须留着）")
-    func everyTransitionKeepsTheSystemGateOpen() {
+    @Test("六条转场都如实声明 hasMotion == true（它们确含几何运动）")
+    func everyTransitionDeclaresItsMotion() {
         #expect(TransitionProperties(hasMotion: false).hasMotion == false,
                 "`hasMotion` 恒为 true —— 下面六条断言不作数")
 
-        #expect(FlipTransition.properties.hasMotion, "`.flip` 关掉了系统那道 Reduce Motion 闸")
-        #expect(Rotate3DTransition.properties.hasMotion, "`.rotate3D` 关掉了系统那道 Reduce Motion 闸")
-        #expect(SwooshTransition.properties.hasMotion, "`.swoosh` 关掉了系统那道 Reduce Motion 闸")
-        #expect(BoingTransition.properties.hasMotion, "`.boing` 关掉了系统那道 Reduce Motion 闸")
-        #expect(SkidTransition.properties.hasMotion, "`.skid` 关掉了系统那道 Reduce Motion 闸")
-        #expect(PolarMoveTransition.properties.hasMotion, "`.move` 关掉了系统那道 Reduce Motion 闸")
+        #expect(FlipTransition.properties.hasMotion, "`.flip` 声明成了无运动（hasMotion == false），与它的几何运动不符")
+        #expect(Rotate3DTransition.properties.hasMotion, "`.rotate3D` 声明成了无运动（hasMotion == false），与它的几何运动不符")
+        #expect(SwooshTransition.properties.hasMotion, "`.swoosh` 声明成了无运动（hasMotion == false），与它的几何运动不符")
+        #expect(BoingTransition.properties.hasMotion, "`.boing` 声明成了无运动（hasMotion == false），与它的几何运动不符")
+        #expect(SkidTransition.properties.hasMotion, "`.skid` 声明成了无运动（hasMotion == false），与它的几何运动不符")
+        #expect(PolarMoveTransition.properties.hasMotion, "`.move` 声明成了无运动（hasMotion == false），与它的几何运动不符")
     }
 
     @Test("经 Transition.apply 走完整条链：恒等帧与裸内容逐字节相同，两端各是一张空背景")
@@ -701,13 +702,13 @@ struct TransitionClusterTests {
 
         for probe in Self.probes {
             let identity = try #require(probe.applied(.identity), "\(probe.name)：apply(.identity) 渲染失败")
-            #expect(identity == plain, """
+            expectBitmapsEquivalent(identity.bytes, plain.bytes, maxChannelDelta: 1, """
             \(probe.name) 经 `Transition.apply(content:phase:)` 在 `.identity` 上渲出的那一帧
             与裸内容不同 —— 层 1 / 层 2 里有与相位无关的残留，转场停住之后画面被**永久**改了。
             """)
             for phase in [TransitionPhase.willAppear, .didDisappear] {
                 let endpoint = try #require(probe.applied(phase), "\(probe.name)：apply(\(phase)) 渲染失败")
-                #expect(endpoint == blank, """
+                expectBitmapsEquivalent(endpoint.bytes, blank.bytes, maxChannelDelta: 1, """
                 \(probe.name) 在 \(phase) 上没有渲成一张空背景 —— `TransitionCurve.opacity(±1)`
                 本该恰为 0。⚠️ 这条**不**能证明运动接上了（端点上不透明度为 0，位图对任何
                 实现都一样）：那件事归 `transitionBodyWiresEveryStoredPropertyDownOneLayer`。

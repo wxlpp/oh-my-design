@@ -68,6 +68,23 @@ struct ToastPresentationRenderTests {
         return maxX >= minX ? maxX - minX + 1 : nil
     }
 
+    private func overlayInkMinX(_ presentation: ToastPresentation) -> Int? {
+        let host = ToastHost()
+        host.show("Hi", level: .neutral)
+        guard let bytes = self.pixels(
+            ToastOverlay(host: host, edge: .top, presentation: presentation).frame(width: Self.containerWidth)
+        ) else { return nil }
+        let w = Int(Self.containerWidth), h = bytes.count / (w * 4)
+        var minX = w
+        for y in 0..<h {
+            for x in 0..<minX where bytes[(y * w + x) * 4 + 3] > 0 {
+                minX = x
+                break
+            }
+        }
+        return minX < w ? minX : nil
+    }
+
     private func rowInk(_ presentation: ToastPresentation, atFraction f: Double) -> Int? {
         let host = ToastHost()
         host.show("Hi", level: .info)
@@ -162,18 +179,19 @@ struct ToastPresentationRenderTests {
 
     @Test("A5b 承重：容器形状真的不同（banner 是矩形，capsule 有圆角）")
     func containerShapeDiffers() {
-        let bannerTop = self.rowInk(.fullWidthBanner, atFraction: 0.06)
-        let bannerMid = self.rowInk(.fullWidthBanner, atFraction: 0.5)
         let capsuleTop = self.rowInk(.floatingCapsule, atFraction: 0.06)
         let capsuleMid = self.rowInk(.floatingCapsule, atFraction: 0.5)
-        for (name, v) in [("bannerTop", bannerTop), ("bannerMid", bannerMid),
-                          ("capsuleTop", capsuleTop), ("capsuleMid", capsuleMid)] {
+        for (name, v) in [("capsuleTop", capsuleTop), ("capsuleMid", capsuleMid)] {
             #expect(v != nil, "\(name) 量测失败 —— 不得当作通过")
         }
-        #expect(bannerTop == bannerMid,
-                "banner 顶行 \(bannerTop ?? -1) ≠ 中行 \(bannerMid ?? -1) —— 它不是矩形（容器形状分支可能被换掉了）")
         #expect((capsuleTop ?? 0) < (capsuleMid ?? 0),
-                "capsule 顶行 \(capsuleTop ?? -1) 未窄于中行 \(capsuleMid ?? -1) —— 圆角没了。⚠️ 本条同时是上一条的非退化前置：证明「顶行<中行」在本平台确实可区分")
+                "capsule 顶行 \(capsuleTop ?? -1) 未窄于中行 \(capsuleMid ?? -1) —— 圆角没了")
+        // banner 外壳无 hairline，玻璃与 `.background` 底色 `ImageRenderer` 都不画 ⇒ 位图里没有轮廓可量，改核形状选择。
+        for isSingleRow in [true, false] {
+            #expect(ToastContainerDecoration.shape(for: .fullWidthBanner, isSingleRow: isSingleRow) == .rectangle)
+            #expect(ToastContainerDecoration.shape(for: .floatingCapsule, isSingleRow: isSingleRow) != .rectangle)
+            #expect(ToastContainerDecoration.shape(for: .centeredHUD, isSingleRow: isSingleRow) != .rectangle)
+        }
     }
 
     // MARK: A10 / A10b —— edge 在 .centeredHUD 下真的无效
@@ -183,7 +201,8 @@ struct ToastPresentationRenderTests {
         let top = self.overlayPixels(.centeredHUD, edge: .top)
         let bottom = self.overlayPixels(.centeredHUD, edge: .bottom)
         #expect(top != nil, "渲染失败 —— 不得当作通过（否则本条会因两张空图而恒真）")
-        expectBitmapsEqual(top, bottom,
+        // ⚠️ 相等断言走容差入口（#317）：toast 文案字形 AA 边在本平台无逐字节确定性。
+        expectBitmapsEquivalent(top, bottom, maxChannelDelta: 1,
                 ".centeredHUD 下 edge 仍在影响渲染 —— 「edge 静默无效」的定案在像素层面为假")
     }
 
@@ -207,10 +226,13 @@ struct ToastPresentationRenderTests {
             #expect(ink != nil, "\(name) ink 量测失败 —— 不得当作通过")
             #expect((ink ?? 0) > 0, "\(name) ink 为 0 —— 渲染为空图，下面的比较会假通过")
         }
-        #expect(banner == Int(Self.containerWidth),
-                "banner 没有撑满容器：\(banner ?? -1) ≠ \(Int(Self.containerWidth))（背景/描边可能没画到矩形边界）")
-        #expect((banner ?? 0) > (capsule ?? 0),
-                "banner 未比 capsule 宽：banner \(banner ?? -1) / capsule \(capsule ?? -1)")
+        // banner 外壳在位图里不可见（见 A5b），改量内容的左缘：banner 不留外侧水平边距，只剩内容内边距。
+        let bannerMinX = self.overlayInkMinX(.fullWidthBanner)
+        let capsuleMinX = self.overlayInkMinX(.floatingCapsule)
+        #expect((Int(CoreSpacing.md)...Int(CoreSpacing.md) + 2).contains(bannerMinX ?? -1),
+                "banner 内容左缘 \(bannerMinX ?? -1) 不在内容内边距 \(Int(CoreSpacing.md)) 处 —— banner 没贴容器边")
+        #expect(abs((capsuleMinX ?? -99) - Int(CoreSpacing.lg)) <= 1,
+                "capsule 左缘 \(capsuleMinX ?? -1) 不在外侧边距 \(Int(CoreSpacing.lg)) 处 —— 上一条的对照失效")
         #expect((hud ?? Int.max) < (capsule ?? 0),
                 "hud 未比 capsule 窄：hud \(hud ?? -1) / capsule \(capsule ?? -1)")
     }
@@ -250,5 +272,201 @@ struct ToastPresentationRenderTests {
             #expect(ink != nil, "\(presentation) 渲染失败")
             #expect((ink ?? 0) > 0, "\(presentation) 渲染为空图")
         }
+    }
+    // MARK: action label is never truncated
+
+    private static let probeRed = Color(red: 1, green: 0, blue: 0)
+
+    private func redInk(_ view: some View, dynamicTypeSize: DynamicTypeSize) -> (width: Int, pixels: Int)? {
+        let renderer = ImageRenderer(content: view.dynamicTypeSize(dynamicTypeSize))
+        renderer.scale = 1
+        #if canImport(UIKit)
+        guard let cg = renderer.uiImage?.cgImage else { return nil }
+        #else
+        var rect = CGRect(origin: .zero, size: renderer.nsImage?.size ?? .zero)
+        guard let cg = renderer.nsImage?.cgImage(forProposedRect: &rect, context: nil, hints: nil) else { return nil }
+        #endif
+        let w = cg.width, h = cg.height
+        guard w > 0, h > 0 else { return nil }
+        var buf = [UInt8](repeating: 0, count: w * h * 4)
+        guard let ctx = CGContext(
+            data: &buf, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+        var minX = w, maxX = -1, count = 0
+        for y in 0..<h {
+            for x in 0..<w {
+                let i = (y * w + x) * 4
+                if buf[i + 3] > 128, buf[i] > 180, buf[i + 1] < 90, buf[i + 2] < 90 {
+                    minX = min(minX, x)
+                    maxX = max(maxX, x)
+                    count += 1
+                }
+            }
+        }
+        return maxX >= minX ? (maxX - minX + 1, count) : nil
+    }
+
+    private func standaloneActionInk(
+        _ label: String,
+        dynamicTypeSize: DynamicTypeSize,
+        backdrop: Color = .clear
+    ) -> (width: Int, pixels: Int)? {
+        self.redInk(
+            Button {} label: { Text(label).fontWeight(.semibold) }
+                .buttonStyle(.light(role: .primary))
+                .controlSize(.small)
+                .fixedSize()
+                .coreAccent(Self.probeRed)
+                .padding(CoreSpacing.lg)
+                .background(backdrop),
+            dynamicTypeSize: dynamicTypeSize
+        )
+    }
+
+    private func toastActionInk(
+        _ presentation: ToastPresentation,
+        label: String,
+        dynamicTypeSize: DynamicTypeSize
+    ) -> (width: Int, pixels: Int)? {
+        let host = ToastHost()
+        host.show(ToastItem(
+            title: "A long toast title that will not fit on a single line here",
+            description: "Supporting description text that wraps across two lines at most.",
+            level: .neutral,
+            action: ToastAction(label) {}
+        ))
+        return self.redInk(
+            ToastOverlay(host: host, edge: .top, presentation: presentation)
+                .frame(width: Self.containerWidth)
+                .coreAccent(Self.probeRed),
+            dynamicTypeSize: dynamicTypeSize
+        )
+    }
+
+    @Test(
+        "动作按钮在三种形态、常规与 AX5 字号下都不被截断（AX5 允许折行）",
+        arguments: [DynamicTypeSize.large, .accessibility5]
+    )
+    func actionLabelIsNotTruncated(dynamicTypeSize: DynamicTypeSize) {
+        let label = "Undo archive"
+        let bare = self.standaloneActionInk(label, dynamicTypeSize: dynamicTypeSize)
+        let onRaised = self.standaloneActionInk(label, dynamicTypeSize: dynamicTypeSize, backdrop: .surfaceRaised)
+        guard let bare, let onRaised, bare.pixels > 0, onRaised.pixels > 0 else {
+            Issue.record("参照按钮没画出探针色 —— 量测失效，不得当作通过")
+            return
+        }
+        for presentation in ToastPresentation.allCases {
+            guard let ink = self.toastActionInk(presentation, label: label, dynamicTypeSize: dynamicTypeSize) else {
+                Issue.record("\(presentation) @ \(dynamicTypeSize)：toast 里找不到动作文字")
+                continue
+            }
+            // HUD 外壳底色不透明；`ImageRenderer` 画不画玻璃里的底色随运行环境而变，字形抗锯齿边的墨量随之两取一。
+            let reference = presentation == .centeredHUD && abs(ink.pixels - onRaised.pixels) < abs(ink.pixels - bare.pixels)
+                ? onRaised : bare
+            let ratio = Double(ink.pixels) / Double(reference.pixels)
+            #expect(abs(ratio - 1) <= 0.05,
+                    "\(presentation) @ \(dynamicTypeSize)：动作文字墨量 \(ink.pixels) / 完整 \(reference.pixels) —— 字形缺失，被截断")
+            if !dynamicTypeSize.isAccessibilitySize {
+                #expect(abs(ink.width - reference.width) <= 1,
+                        "\(presentation) @ \(dynamicTypeSize)：动作文字宽 \(ink.width) ≠ 完整宽 \(reference.width) —— 常规字号下动作应单行完整显示")
+            }
+        }
+    }
+
+    @Test("截断判据的非退化前置：被挤压的动作文字确实量得出更窄")
+    func truncationProbeDetectsSqueeze() {
+        let full = self.standaloneActionInk("Undo everything", dynamicTypeSize: .large)
+        let squeezed = self.redInk(
+            Button {} label: { Text("Undo everything").lineLimit(1) }
+                .buttonStyle(.light(role: .primary))
+                .controlSize(.small)
+                .frame(width: 60)
+                .coreAccent(Self.probeRed)
+                .padding(CoreSpacing.lg),
+            dynamicTypeSize: .large
+        )
+        guard let full, let squeezed else {
+            Issue.record("量测失效")
+            return
+        }
+        #expect(Double(squeezed.pixels) < Double(full.pixels) * 0.95,
+                "挤压后墨量 \(squeezed.pixels) 未明显少于完整墨量 \(full.pixels) —— 墨量判据分辨不出截断")
+    }
+    // MARK: action hit area
+
+    private func renderedSize(_ view: some View, dynamicTypeSize: DynamicTypeSize = .large) -> CGSize? {
+        let renderer = ImageRenderer(content: view.dynamicTypeSize(dynamicTypeSize))
+        renderer.scale = 1
+        #if canImport(UIKit)
+        return renderer.uiImage?.size
+        #else
+        return renderer.nsImage?.size
+        #endif
+    }
+
+    @Test("动作按钮命中区 ≥ 44×44，且不改变按钮在布局中的占位", arguments: ["Undo", "OK"])
+    func actionHitAreaIsAtLeast44WithoutGrowingLayout(label: String) {
+        let hit = self.renderedSize(
+            Button {} label: { Text(label).fontWeight(.semibold) }
+                .buttonStyle(ToastActionButtonStyle())
+                .controlSize(.small)
+        )
+        let footprint = self.renderedSize(
+            Button {} label: { Text(label).fontWeight(.semibold) }
+                .buttonStyle(ToastActionButtonStyle())
+                .controlSize(.small)
+                .padding(-ToastActionButtonStyle.hitOutset)
+        )
+        let light = self.renderedSize(
+            Button {} label: { Text(label).fontWeight(.semibold) }
+                .buttonStyle(.light(role: .primary))
+                .controlSize(.small)
+        )
+        guard let hit, let footprint, let light else {
+            Issue.record("渲染失败 —— 不得当作通过")
+            return
+        }
+        #expect(hit.width >= ToastActionButtonStyle.minimumHitSide && hit.height >= ToastActionButtonStyle.minimumHitSide,
+                "命中区 \(hit) 小于 44×44")
+        #expect(footprint == light, "布局占位 \(footprint) ≠ 紧凑外观 \(light) —— 命中区扩展撑大了 toast")
+    }
+
+    // MARK: accessibility-size line limits
+
+    @Test("行数：常规字号标题 1 行、说明 2 行；AX1+ 均不限")
+    func lineLimitsFollowDynamicType() {
+        #expect(ToastView.lineLimits(for: .large) == (1, 2))
+        #expect(ToastView.lineLimits(for: .xxxLarge) == (1, 2))
+        #expect(ToastView.lineLimits(for: .accessibility1) == (nil, nil))
+        #expect(ToastView.lineLimits(for: .accessibility5) == (nil, nil))
+    }
+
+    private func toastHeight(description: String, dynamicTypeSize: DynamicTypeSize) -> CGFloat? {
+        let host = ToastHost()
+        host.show(ToastItem(title: "Archived", description: description, level: .neutral))
+        return self.renderedSize(
+            ToastOverlay(host: host, edge: .top, presentation: .floatingCapsule)
+                .frame(width: Self.containerWidth),
+            dynamicTypeSize: dynamicTypeSize
+        )?.height
+    }
+
+    @Test("说明在常规字号封顶 2 行，在 AX1+ 随内容增高")
+    func descriptionGrowsOnlyAtAccessibilitySizes() {
+        let short = String(repeating: "A longer description that keeps going. ", count: 3)
+        let long = String(repeating: "A much longer description that keeps going. ", count: 6)
+        let regularShort = self.toastHeight(description: short, dynamicTypeSize: .large)
+        let regularLong = self.toastHeight(description: long, dynamicTypeSize: .large)
+        let axShort = self.toastHeight(description: short, dynamicTypeSize: .accessibility1)
+        let axLong = self.toastHeight(description: long, dynamicTypeSize: .accessibility1)
+        guard let regularShort, let regularLong, let axShort, let axLong else {
+            Issue.record("渲染失败 —— 不得当作通过")
+            return
+        }
+        #expect(regularLong == regularShort, "常规字号下两段都超过 2 行，应同样封顶：短 \(regularShort) / 长 \(regularLong)")
+        #expect(axLong > axShort, "AX1 下说明应完整显示：短 \(axShort) / 长 \(axLong)")
     }
 }

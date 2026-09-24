@@ -6,7 +6,7 @@
 > `v0.4.0`（2026-07-24，Phase 2 新组件）、`v0.4.1`（2026-07-24，非破坏性收尾）、
 > `v0.5.0`（2026-07-24，文本入参统一——含破坏性变更）、
 > `v0.6.0`（2026-07-25，Separator.Inset 改名 + ProgressBar 弃用 + SettingsRowMetrics 公开——含破坏性变更）、
-> `v0.7.0`（2026-07-26，`semi-mobile-components` epic 10 新组件 + ProgressIndicator 增强/spinning + 收口的取色修正——纯新增，无破坏性变更）、
+> `v0.7.0`（2026-07-27，`semi-mobile-components` epic 10 新组件 + ProgressIndicator 增强/spinning + 收口的取色修正——纯新增，无破坏性变更）、
 > `v0.8.0`（2026-08-16，`component-contract` epic：把 5 组压扁成 Bool 的 API 还原成语义类型——**含破坏性变更**）、
 > `v0.9.0`（2026-09-01，形态 D2 扩展点落地（`#59` / `#60` / `#64` / `#65`）+ 守卫（`#48`）+
 > 可达类型登记表（`#72` / `#216`）：7 个已有 init / modifier 各加一个带默认值的形态参数
@@ -15,9 +15,589 @@
 > `NetworkGraph` 布局扩展点（`#312`）+ 删除 `SurfaceKind.overlay`（`#238`）+ NFR-7 能耗策略表
 > 下沉（`#271`）+ 画廊场景化配色 + `coredesign-leftover-closeout` epic（`#220`）
 > ——**含破坏性变更，所有 `import` 都要改**；本版共 7 个章节，见下）。
+> `v0.11.0`（2026-09-22，`heroui-absorption` epic（`#372`）：`FormField` / `TagGroup` / `anchoredBadge` / `.coreCircular` / 按压样式 / `coreSheetPresentation` 等新增，Toast / Banner / `StatusLevel` / 尺寸体系 / surface 层级增强 + 移除 `Sidebar` / `BottomInputBar` + `coreAccent` on-accent 通路（`#357`）+ 五组件布局扩展点（`#312`）+ `ui-followups` epic（`#397`）——**含破坏性变更**；本版共 11 个章节，见下）。
 > ⚠️ 本清单**失真过两次**：早期版本写「本库当前无外部版本 tag」（`v0.1.0` 之前成立、之后未同步）；
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
+
+## 未发布（相对 `v0.11.0`）——Issue #420：Timeline 组合式 API
+
+本节随 `#420` 的 4 个 PR 逐步追加。
+
+### PR 1：容器级布局与横向连线（公开签名不变）
+
+`Timeline(items:layout:)` / `TimelineItem` 的签名一个都没变；变的是渲染：
+
+| 变化 | 影响 |
+|---|---|
+| `.horizontal` 画节点间连线 | 原来横向节点之间是空白，现在横轴上有一条 `dividerDefault`、`CoreBorderWidth.thin` 的连线（从前一节点盒右沿到后一节点盒左沿）。含 `.horizontal` 的快照会变 |
+| 大于 24pt 的自定义节点撑宽节点列 / 撑高本行 | 原来节点方框固定 24×24、不裁剪，大节点溢出、侵入上一行、被连线穿过；现在节点盒取节点报告尺寸（下限 24），节点列宽取最宽节点，行高与连线端点按节点盒实际边沿算。≤ 24×24 的节点外观不变 |
+| 内容高 < 16pt 的非末行变高 | 行高由 `max(24, 内容高 + lg)` 改为 `max(盒高 + CoreSpacing.sm, 内容高 + CoreSpacing.lg)`，保证节点下方至少留 8pt 连线；内容高 ≥ 16pt 时不变；更矮的内容行多出 `min(8, 16 − 内容高)`（0–8pt；内容高 10 的行由 26pt 变 32pt）。⚠️ macOS 上 `.coreFont(.callout)` 单行文字的行高不到 16pt，这类行也会变高 |
+| `.alternate` 固定宽的超宽内容改为向外溢出 | 两侧内容照旧收到槽宽提议：文字照旧按槽宽换行、落在槽内（与原来相同）。按槽宽排版后仍宽于槽的**固定宽**元素（如 `.frame(width: 220)`、`.fixedSize()` 文字）：左槽原来向右溢出、盖住中轴上的节点，现在向左（远离中轴）溢出，节点与连线不被遮挡，但越出容器的部分会被屏幕 / `ScrollView` 裁掉；右槽本来就向外溢出，不变。需要完整显示的宽元素请改成可换行 / 可收缩的内容 |
+| `content:` 里并列的多个视图统一竖排、左对齐、无间距 | 现在包在一个 `VStack(alignment: .leading, spacing: 0)` 里，三种布局一致。原来按布局各不相同：`.vertical` 被展平进行里的 `HStack`，左右并排；`.horizontal` 已是竖排，但彼此隔 `CoreSpacing.sm`、逐个居中；`.alternate` 整行不显示（旧布局只接受恰好 3 个子视图）。要并排请自己写 `HStack` |
+| 空节点 / 多视图节点 | 现在：`node:` 闭包什么都不产出（如 `if` 不成立）时保留 24pt 空盒、内容与其他行对齐，该行上下的连线在空盒处断开 24pt；`node:` 里并列多个视图时叠在同一个节点盒里居中。原来按布局各不相同：`.vertical` 空节点整格消失、内容左移到节点列，多视图节点拆成并排的多个 24pt 格；`.horizontal` 多视图节点竖直堆叠成多个 24pt 格；`.alternate` 两种情况都整行不显示 |
+| `TimelineLayout` 标为 `nonisolated` | 可在非主 actor 语境里取用、比较；对已有调用点无影响 |
+
+### PR 2：组合式 API（**破坏性**）
+
+**移除**：`Timeline(items:layout:)`、数据载体 `struct TimelineItem: Identifiable` 及其两个 init（`id:status:content:` /
+`id:status:node:content:`）、`id:` 参数。旧写法编译失败（`[TimelineItem]` 不再是合法类型：`TimelineItem` 现为泛型 `View`），不会静默换义。
+
+**新增**：
+
+| 符号 | 说明 |
+|---|---|
+| `Timeline<Content: View>` | `init(layout: TimelineLayout = .vertical, @ViewBuilder content: () -> Content)` |
+| `TimelineItem<Node: View, Content: View>: View` | 四个 init：`(step:status:content:)`、`(step:status:node:content:)`、`(_:time:description:step:status:content:)`、`(_:time:description:step:status:node:content:)`；`title` / `description` 为 `LocalizedStringKey`，`time` 为 `Text?`，`step: Int? = nil` |
+
+`scripts/api-surface-diff.sh 99c6f48`（PR 1 合入态）读数：删除 `TimelineItem.ID` / `TimelineItem.id` /
+`init(id:status:node:content:)` / `init(id:status:content:)` / `Timeline.init(items:layout:)`；新增 `TimelineItem.Body` / `body` /
+`init(step:status:node:content:)` / `init(step:status:content:)` / `init(_:time:description:step:status:node:content:)` /
+`init(_:time:description:step:status:content:)` / `Timeline.init(layout:content:)`。
+
+**迁移**（机械）：
+
+```swift
+// 之前
+Timeline(items: [
+    TimelineItem(status: .success) { Text("审核通过") },
+    TimelineItem(status: .info) { Image(systemName: "star") } content: { Text("自定义") },
+], layout: .alternate)
+
+// 之后：数组 → @ViewBuilder，去掉逗号与 id:
+Timeline(layout: .alternate) {
+    TimelineItem(status: .success) { Text("审核通过") }
+    TimelineItem { Image(systemName: "star") } content: { Text("自定义") }   // 自定义节点不写 status 就不播报
+}
+```
+
+数据驱动时用 `ForEach(items) { item in TimelineItem(…) }`；存成属性的 `[TimelineItem]` 改成 `@ViewBuilder` 计算属性。
+
+**可见 / 可听的行为变化**：
+
+| 变化 | 影响 |
+|---|---|
+| 施在行上的修饰对节点与内容**各施一次** | 行的 body 产出节点、内容两个子视图。**布局**（`.padding` / `.frame` / `.offset`）：节点盒与内容各加一次，节点盒变大会撑宽整列（`.padding(10)` 让节点盒 24→44）——写进 `content:`。**视觉**（`.opacity` / `.background` / `.redacted` / `.transition` / `.accessibilityHidden`）：节点与内容一起生效（原来碰不到节点），`.background` 会铺成两块。**行为**（`.onAppear` / `.task` / `.onTapGesture` / `.contextMenu` / `.swipeActions`）：**挂两次**，`.onAppear` / `.task` **执行两次**——勿施在行上，写进 `content:` 或施在 `Timeline` 外层 |
+| 整行包 `Button` 不受支持 | `Button { … } label: { TimelineItem(…) }` 对容器是非行子视图：节点与内容竖叠、没有节点列、连线着色跳过它，点击区域覆盖节点。可点击的部分请把 `Button` / `NavigationLink` 放进 `content:` |
+| 被包进 `VStack` 等容器的行 | 降级为非行子视图，节点与内容仍可见（各布局下的样子见 `docs/components/timeline.md`） |
+| 默认圆点不再是无障碍元素 | 原来是一个独立的 10×10 元素（`label='Info'`，与内容分离；`.horizontal` 下五个状态元素排在五条内容之前）。现在圆点隐藏，状态作为值挂在行上：有标题的行挂**标题元素**，无标题的行挂**合并后的内容元素**（内容 `.accessibilityElement(children: .combine)`，内容里的按钮改走「操作」转子） |
+| `.grouped` 有标题的行改挂标题元素 | 原来 `.grouped` 的内容一律合并成一个元素、值挂在上面；现在有标题的行值挂在标题上，时间、描述各自可聚焦。无标题的行不变 |
+| 写了 `status:` 的自定义节点行新增状态播报 | 原来自定义节点行的 `status` 从不播报；现在自定义节点的 init 里 `status` 改为 `StatusLevel? = nil`，**传了才播报**（挂载点同上）。迁移时保留了 `status:` 的行会多读一个状态值；节点里自带 label 的图标请 `.accessibilityHidden(true)`，否则同一状态读两遍 |
+| `.grouped` 下自定义节点、无标题、不传 `status` 的行不再合并 | 原来 `.grouped` 对所有行的内容合并成一个元素；现在只有带状态值的无标题行合并 |
+| `.horizontal` 按列读 | 有标题的行、以及未合并的无标题行（自定义节点、不传 `status`）的内容在 `.horizontal` 下各是一个 `.contain` 容器；整条横向时间线也是一个 `.contain` 容器，各子视图按列序带 `accessibilitySortPriority`（本列节点 → 本列内容 → 下一列）。VoiceOver 读完本列（未隐藏的自定义节点、标题、时间、描述）再到下一列；原来先读完各列标题、再读各列时间，未隐藏的头像节点排在所有列的内容之前。⚠️ 无障碍树多一层匿名分组容器 |
+| 默认圆点 + 无标题 + 空内容的行 | `TimelineItem(status: .danger) {}` 的状态值挂在一个无 label、0×0 的元素上（iOS `axe` 读数 `GenericElement value='Error'`）；VoiceOver 能否聚焦 0×0 元素未验证。要播报状态请给内容或改用带标题的 init |
+| `content:` 多视图竖排、间距 0 | PR 1 起已生效，组合式 API 下不变 |
+
+### PR 3：阶段（纯新增）
+
+已有公开符号一个都没变；不传 `progress` 的时间线外观与无障碍与 PR 2 完全相同（行写了 `step` 也不生效）。新增：
+
+| 符号 | 说明 |
+|---|---|
+| `Timeline.init(layout:progress:content:)` | 带阶段的时间线：各行阶段由 `progress` 与该行 `step` 决定 |
+| `TimelineProgress` | `.notStarted` / `.inProgress(at: Int)` / `.completed`（`nonisolated`、`Sendable`、`Hashable`）；`phase(forStep:)` 返回给定 `step` 的阶段 |
+| `TimelinePhase` | `.completed` / `.inProgress` / `.upcoming`（`nonisolated`、`Sendable`、`Hashable`、`CaseIterable`） |
+| `EnvironmentValues.timelinePhase` | `TimelinePhase?`，公开只读（`internal(set)`）；在带 `step` 的行的 `node:` 与 `content:` 两槽里有值 |
+
+`step` 在带 `progress` 的时间线里开始生效（PR 2 起已可写）。带阶段时的外观：通向已完成 / 进行中行的连线着 `.tint`
+（**未设置 `.tint` 时取宿主 App 的 AccentColor**，macOS 为用户系统强调色；不是本库墨色 `accent`，`.coreAccent(_:)` 改不了它）；
+默认圆点进行中为靶心（实心圆点 + 透明间隙 + 同色实线外环）、未开始为空心环；
+行的无障碍值在状态键后接阶段键（`Completed` / `In Progress` / `Upcoming`，模块 `Localizable.strings` 新增这三个 key）。
+
+### PR 4：动效（公开签名不变）
+
+公开符号一个都没变；静止帧与 PR 3 相同（同宿主重渲比对，唯一差异是一颗横向首列圆点的亚像素取整，来自入场修饰在静止态下的恒等变换）。可见的变化在过渡过程中：
+
+- **阶段推进**：`progress` 变化时连线沿线生长（回退从远端收）、默认圆点在空心 / 靶心 / 实心之间插值，取 `CoreMotionToken.reveal`；
+  系统「减弱动态效果」开启时连线不生长、改为逐段淡入淡出。调用方自己在 `withAnimation` 里改 `progress` 时，组件用自己的曲线覆盖。
+- **节点入场**：挂载后才变为可见的行（滚入、追加、容器长大露出），节点缩放 0.86 → 1 并淡入；挂载时已在屏上的行（没有滚动宿主时即挂载时的全部行）
+  不播 ⇒ `ImageRenderer` 导出仍是终态。「减弱动态效果」下不播。挂载后改变可见区域再立刻截图的工具会截到入场第 0 帧，
+  用这类工具出图时请注入 `.environment(\.coreMotionPresentationOverride, .resting)`。
+
+## 未发布（相对 `v0.11.0`）——Issue #422：新增 `Tree`
+
+**纯新增，不是破坏。** 已有公开符号一个都没变。新增的公开符号：
+
+| 符号 | 说明 |
+|---|---|
+| `Tree<Data, ID, RowContent>` | 层级树组件：`init(_:id:children:expanded:selection:selectionMode:checked:onActivate:content:)`，另有 `Data.Element: Identifiable` 时省略 `id:` 的便利 init |
+| `TreeSelectionMode` | 行选择模式枚举：`.single` / `.multiple`（`nonisolated`、`Hashable`、`Sendable`、`CaseIterable`） |
+| `Tree.expandedIDs(_:id:children:toDepth:)` | `nonisolated` 静态函数，预算「默认展开到第 N 层」的集合（**根为第 1 层**）；两个同名重载：主类型上一个，`where RowContent == EmptyView` 的扩展上一个（调用处可写 `Tree.expandedIDs(...)` 不带泛型） |
+| `TreeStyle`（`#429`） | `Tree` 的行外观预设，**封闭配置**（`public struct`，无公开 init / 属性 / `Equatable`）：`nonisolated` 静态成员 `.automatic`（默认）/ `.navigator`（整行选中、悬停、缩进参考线、中性色 chevron） |
+| `View.treeStyle(_:)`（`#429`） | 为子树中的所有 `Tree` 设置行外观。**只写 `.treeStyle(.navigator)` 形态**；不要写 `TreeStyle.navigator`、不要把 `TreeStyle` 存成属性——将来升协议时这两种写法编译不过 |
+| `Tree.rowContextMenu(_:)`（`#429`） | builder 方法，为整行（含缩进区）挂右键菜单，返回改了这一项的同一棵树；`Tree` 仍是三个泛型参数。菜单以目标 ID 集合生成：右键的行已选中时为「选中 ∩ 当前可见行」，否则只是这一行。不调用时不挂菜单 |
+| `Tree.searchFilter(_:text:)`（`#423`） | builder 方法，按调用方持有的搜索词过滤行：留下命中 ∪ 祖先 ∪ 后代，临时展开到每个命中；搜索期间的展开 / 折叠不写 `expanded`，搜索词为空（去首尾空白后）即恢复。匹配规则固定：不区分大小写 / 变音符 / 全半角的子串 |
+| `Tree.searchMatches(_:id:children:query:text:)`（`#423`） | `nonisolated` 静态函数，返回搜索词**直接命中**的节点 ID，与 `searchFilter` 同一实现；供宿主算命中数、显示空态、播报结果数。`where RowContent == EmptyView` 上另有免写行内容泛型的同名重载（与 `expandedIDs` 同形） |
+| `Text.init(verbatim:highlighting:)`（`#423`） | 以原文显示并高亮与搜索词匹配的片段（加粗 + `searchMatchBackground` 底色），与 `searchFilter` 同一条匹配规则；仅当传入相同的搜索词与文案时片段与过滤一致 |
+| `Color.searchMatchBackground` / `Color.systemYellow`（`#423`） | 搜索命中底色（第 3 层，系统黄 × 0.35，暗色 × 0.20）与它的第 2 层来源（桥接 `UIColor` / `NSColor.systemYellow`） |
+| `TreeRowClickBehavior`（`#431`） | 单击父行的行为枚举：`.select`（默认，只选中）/ `.selectAndToggleExpansion`（选中并取反展开态）（`nonisolated`、`Hashable`、`Sendable`、`CaseIterable`） |
+| `Tree.rowClickBehavior(_:)`（`#431`） | builder 方法，设置单击父行的行为，返回改了这一项的同一棵树。不调用时与此前相同（`.select`） |
+
+模块 `Localizable.strings` 新增两个 key：`"Expand"` / `"Collapse"`（chevron 的无障碍标签，说的是动作）。
+`#423` 再加一个：`"Applies to filtered results only"`（搜索期间父行复选框的无障碍提示）。
+`"Expanded"` / `"Collapsed"` 此前已由 `CoreDisclosureGroupStyle` 登记，本次复用。
+
+**下游要改什么：通常不用改。** 唯一可能碰到的是**类型名歧义**：下游自己的模块（或它依赖的另一个库）
+若也声明了名为 `Tree` 的类型，同时 `import OhMyDesign` 的文件里裸写 `Tree` 会报
+`'Tree' is ambiguous for type lookup`。改成模块限定名（`OhMyDesign.Tree` 或 `MyModule.Tree`）即可。
+`TreeSelectionMode` 同理，但名字更少见。
+
+**行为（`#429`，同属本未发布小节）：`Tree` 读环境 `controlSize`。** 宿主祖先设了 `.controlSize(.small)`
+（或 `.mini` / `.large` / `.extraLarge`）时，Tree 的行距、缩进、chevron 与复选框字形随档位变化
+（macOS `.small` 行距 22；iOS 各档行距保底 44）；默认 `.regular` 与此前逐项相同。推导表见 tree.md「外观」。
+`CheckBoxToggleStyle` 的公开行为不变。
+
+**行为（`#429`）：命中区扩到整行。** 此前点选区在缩进之内，点缩进区不选中；现在缩进区也选中该行。
+默认外观 `.automatic` 的像素不变（与此前逐像素对照过），**RTL 下展开态的 chevron 除外**（见下条修正）。
+
+**修正（`#429`）：RTL 下展开态的 chevron 朝上。** `#422` 在 RTL 下把旋转角取成 -90°，与系统对字形和旋转的
+RTL 镜像叠加后展开态画成朝上；现在两种书写方向都转 90°，RTL 下展开态朝下。
+
+**行为（`#429`）：展平渲染 + `LazyVStack`，行不再是 `DisclosureGroup` 的 label。** 可见行按深度优先展平成一列，
+放在 `ScrollView` 里时只构建视口附近的行。静态外观与此前逐像素相同（两条腿、128 格矩阵、偏差 0）。
+iOS 的无障碍树有四处变化（iOS `axe describe-ui` 前后对照，详见 tree.md「无障碍与触控」；**macOS 未对照**）：
+视口外的行**不再出现在无障碍树里**，滚进视口才出现；每棵树多一个匿名分组容器；父行复选框的元素类型从
+`Button` 变为 `CheckBox`（与叶行一致）；放在 `ScrollView` 里时行内容里 `Label` 的图标成为独立的图像元素。
+其余元素的类型、label、value、位置不变（同为 iOS 读数）。**下游要改什么：不用改**（公开 API 不变）；依赖「整棵树的行都在无障碍树里」
+的 UI 测试需先把目标行滚进视口。
+
+**新增行为（`#423`）：搜索过滤。** 只在调用了 `searchFilter(_:text:)` 且搜索词非空时生效，其余情况与此前相同。
+搜索期间键盘、`Cmd/Ctrl+A`、右键菜单与焦点只作用于可见行；**父行复选框的三态仍按全部叶后代显示，点击只勾选 / 取消
+被过滤保留的叶后代**（按「保留的叶子是否全勾」翻转，范围外的勾选值不变；不搜索时仍级联全部叶后代）。无结果时不画任何行、
+不显示空态（宿主用 `searchMatches` 判空）。**下游要改什么：不用改。** 可能碰到的是**名字歧义**：下游若自己给 `Color` 扩展了
+`systemYellow` / `searchMatchBackground`，或给 `Text` 扩展了同签名的 `init(verbatim:highlighting:)`，会报重复声明或歧义，
+改名或用模块限定即可。
+
+**新增行为（`#431`）：单击父行可同时展开 / 折叠。** 只在调用了 `.rowClickBehavior(.selectAndToggleExpansion)` 时生效：
+单击父行（行内容或缩进区）选中该行，**另外**取反该行的展开态。`.single` 下再点已选中的父行是「保持选中 + 切换展开」
+（VS Code 式）；`.multiple` 下仍按逐行切换移出选中、展开态照样取反。叶行与 `.select` 下再点已选中的行仍取消选中。
+chevron、复选框、叶行与键盘不受影响；行内容里调用方自己的 `Button` 等控件先接到点击（`Link` 未测），不选中也不切换展开；
+搜索期间的展开只写临时 overlay、不写 `expanded`。开启后父行带无障碍提示 "Activate to expand or collapse"。
+**行为（`#431`，所有调用方）：** 单击行与点 chevron 改为按点击当时的展开态归约（数据与搜索词仍取渲染时的值）——
+折叠动画期间点到正在淡出的行或它的 chevron，这一击什么都不改，也不把键盘焦点拿进树。
+此前按该行渲染时的快照归约，会选中这个已不可见的行（按代码推断，`.select` 下未实测）；`.selectAndToggleExpansion` 下
+按快照归约还会把旧展开态写回，搜索期间实测刚折叠的父行被重新展开——本次一并避开。**下游要改什么：不用改。**
+可能碰到的是**类型名歧义**：下游若也声明了 `TreeRowClickBehavior`，同 `Tree` 一条的处置。
+
+行为契约（两套独立状态、键盘表、Reduce Motion 取值、搜索过滤、单击父行、已知缺口 `#427` / `#428`）见
+[tree.md](components/tree.md)。
+
+## 未发布（相对 `v0.11.0`）——Issue #421：CheckBox 增读系统 mixed 态
+
+**行为新增，不是破坏。** 公开符号一个都没变（`CheckBoxToggleStyle` 仍是无参构造、无配置项），
+off / on 两态在 normal / disabled / invalid 三种外观下与改动前的实现**逐像素对照过**。
+新增的是第三个态：`CheckBoxToggleStyle.makeBody` 现在读 `configuration.isMixed`。
+
+| 位置 | 之前 | 现在 |
+|---|---|---|
+| `CheckBoxToggleStyle` 指示符 | **仅按 `configuration.isOn` 二选一**（`square` / `checkmark.square.fill`），不区分 mixed | 三态：`square` / `minus.square.fill` / `checkmark.square.fill`，mixed 压过 `isOn` |
+| mixed 的取色 | （无此态） | `contentPrimary`，与 on 同为「已作用」；off 仍是 `contentSecondary` |
+| `.coreAnimation(.selection, value:)` 的触发值 | `configuration.isOn` | 三态枚举——否则 off ↔ mixed 不补间 |
+
+**下游要改什么：不用改。** 旧调用点（`Toggle(_:isOn:)`）只会产生 on / off，画出来一字未变。
+想要 mixed 的调用点用系统的 `Toggle(sources:isOn:label:)`——它从一组 `Binding<Bool>` 自动派生
+on / mixed / off，本库不新增任何入参（公开 API 无 Bool 入参这条不破）。示例见
+[checkbox.md](components/checkbox.md)。
+
+⚠️ 已经在用 `Toggle(sources:)` 的调用点会**看到外观变化**：那一行原先按 `isOn`（mixed 下
+实测为 `false`）画成空方框，现在画 `minus.square.fill`。点击行为一字未动——实测 mixed 下
+`isOn.toggle()` 把整组绑定写成全 `true`（全选），读数见 [checkbox.md](components/checkbox.md)。
+
+**Reduce Motion 开启时**：三态之间的符号替换与原来两态同路——`ContentTransition.identity`，
+直接换图、不描画。静息外观与 RM 开关无关。
+
+## 未发布（相对 `v0.11.0`）——Issue #418：`SlideToConfirm` 滑动确认
+
+**纯新增，无破坏性变更。** 已有公开符号一个都没动。
+
+新增公开符号：
+
+| 符号 | 说明 |
+|---|---|
+| `struct SlideToConfirm<Label: View>: View` | 滑到底才触发的高代价动作确认 |
+| `SlideToConfirm.init(action:label:)` | 自定义 label |
+| `SlideToConfirm.init(_:action:)`（`Label == Text`） | `LocalizedStringKey` 文案 |
+
+新增本地化键 `Double-tap to confirm`（替代按钮的操作提示）；执行态与播报复用既有的 `Loading` / `Success` / `Failed`。
+
+外观取 iOS「滑动来关机」：Liquid Glass 胶囊轨道、白色圆形指示器（两种外观下都是白的）、箭头取 `coreAccent`、
+文案在指示器右侧剩余区域并带流光（Reduce Motion 下不画）。`coreAccentOn` 不参与本组件。
+
+行为要点（给接入方的提醒，不是对既有行为的改变）：阈值是**纯距离**，没有速度补偿——
+从其他滑动确认实现迁来的用户「甩一下」不会触发；RTL 下轨道镜像（从右往左滑）；
+视图离屏（例如导航返回）会取消 `action` 所在的任务，不可中断的工作请在 `action` 内另起非结构化 `Task`。
+
+## 未发布（相对 `v0.11.0`）——Issue #417：`StatefulButton` 四态动作按钮
+
+**纯新增，无破坏性变更。** 已有公开符号一个都没动，`AsyncButton` 未改。
+
+新增公开符号：
+
+| 符号 | 说明 |
+|---|---|
+| `enum StatefulButtonState`（`.idle` / `.loading` / `.success` / `.failure`） | 四态视觉态；`Sendable, Hashable, CaseIterable` |
+| `StatefulButtonState.defaultDwell` | `success` / `failure` 停留时长默认值，`.seconds(2)` |
+| `struct StatefulButton<Label: View>: View` | 四态动作按钮 |
+| `StatefulButton.init(successDwell:failureDwell:action:label:)` | 自管模式 |
+| `StatefulButton.init(state:action:label:)` | 托管模式 |
+| `StatefulButton.init(_:successDwell:failureDwell:action:)`（`Label == Text`） | 自管 + `LocalizedStringKey` 文案 |
+| `StatefulButton.init(_:state:action:)`（`Label == Text`） | 托管 + `LocalizedStringKey` 文案 |
+
+新增本地化键：`Failed`（`Sources/OhMyDesign/Resources/en.lproj/Localizable.strings`；
+`Loading` / `Success` 两个键已存在，本次复用）。下游若自带 `.strings` 覆盖本库文案，需要补这个键。
+
+## 未发布（相对 `v0.11.0`）——Issue #409：TagGroup / TagInput 增删与选中动画
+
+**行为变更（无签名破坏）。** 公开符号的签名一个都没变；`Tag` 一字未动。
+
+| 位置 | 之前 | 现在 |
+|---|---|---|
+| `TagInput` 的 chip 身份 | `ForEach(Array(tags.enumerated()), id: \.offset)` —— 删中间项时消失的恒是**末位** id、下标 ≥ 删除位置的每个 id 被重新绑定到邻居的值 ⇒ 退场动画落在最后一个 chip、中间几个原地换 label | 「标签值 + 该值的出现序号」—— 值唯一时消失的身份正是被点的那一项，没有任何身份换值 |
+| `TagInput` chip 增删 | 无动画，瞬间增删 | 缩放 0.86 + 淡变进出，存活标签连续重排（`CoreMotionToken.reveal`，0.25 s `.smooth`） |
+| `TagGroup` 标签增删 | 无动画 | 同上 |
+| `TagGroup` 选中态切换 | 无动画，底色 / 描边瞬变 | 0.22 s 交叉淡变（`CoreMotionToken.selection`） |
+
+**Reduce Motion 开启时**：两处增删的驱动曲线为 `nil` ⇒ 直接出现 / 消失，`FlowLayout` 不做补间重排，
+转场只剩淡变（缩放在每一相恒为 1）。`TagGroup` 的**选中态切换照常淡变**——只有颜色插值、包围盒不变，
+不属于要降级的位移 / 缩放类动效。
+
+**下游可能受影响的两处**（都不是编译期破坏）：
+
+- 数组里有**重复值**时：删掉某个重复值的**任一次**出现，`ForEach` 的身份集合只少一个
+  `(值, 最大序号)`、没有任何新增（排在前面的同值身份被原样复用）⇒ 数据结果正确，但**退场动画播在
+  该值的最后一次出现上**，不一定是用户点的那一个。异值标签不受影响。
+  ⚠️ 「身份完全稳定」只在**输入数组里值唯一**时成立——`allowDuplicates: false`（默认）只约束
+  提交路径，外部绑定照样可以写进重复值。
+- `TagGroup` 的 `data` 在下游被频繁整体替换（例如每次搜索都换一批标签）时，现在会播增删动画；
+  不想要动画的调用点可注入 `.environment(\.coreMotionPresentationOverride, .hidden)`。
+## 未发布（相对 `v0.11.0`）——Issue #408：原生符号 / 数字动效接入小件
+
+**行为变更（无签名破坏）。** 公开符号的签名一个都没变；静息外观也不变——`anchoredBadge` 取了
+**八种内容 / 宿主外形组合**（红点、`count` 的 9 / 99 / 截断、`text`、不显示各一种矩形宿主，
+另加红点与 `count` 各一种圆形宿主；**不是**八种内容 × 两种外形的全矩阵），CheckBox / RadioGroup
+取 enabled / disabled / invalid，都与改动前的实现逐像素对照过。变的是「状态切换时怎么动」：
+
+| 位置 | 之前 | 现在 |
+|---|---|---|
+| `anchoredBadge(.count(_))` 计数变化 | 数字直接突变 | `.contentTransition(.numericText(value:))` 纵向滚动，方向由框架按当前计数自己判（增加向上、减少向下） |
+| `anchoredBadge` 徽标出现 / 消失 | 直接出现 / 消失 | 缩放（0.6 → 1）+ 淡变，走 `CoreMotionToken.reveal`；转场挂在徽标本身，锚点是徽标中心 |
+| `CheckBoxToggleStyle` 勾选切换 | 两张 `Image`（`square` / `checkmark.square.fill`）交叉淡变 | 一张 `Image` + `.contentTransition(.symbolEffect(.replace))`，勾以描画方式出现 |
+| `RadioGroup` 选中切换 | 同一张 `Image` 换 `systemName` + 交叉淡变 | 同上，加 `.contentTransition(.symbolEffect(.replace))` |
+
+⚠️ `RadioGroup` 在 **invalid 且选中态发生变化**时符号替换播不出来：invalid + 选中走
+`.symbolRenderingMode(.palette)`（实心点 `contentPrimary` / 圆环 `statusDangerForeground`，`#374` 的取舍），
+与单色分支是两个 `if` 分支、视图身份不同。有意保留该分支——把它并成「始终 `.palette` + 两层同色」时，
+`circle.inset.filled` 实测有 1 LSB 的取值差、`checkmark.square.fill` 的勾会被同色实心层吃掉（逐通道差到 191）。
+
+**Reduce Motion 开启时**（静息外观不变；只影响开启了「减弱动态效果」的用户）：
+
+| 位置 | RM 开的行为 |
+|---|---|
+| 计数变化 | `ContentTransition.identity`：数字直接替换，不滚动、不模糊；胶囊宽度也**不补间**（位数变化时直接跳到新宽度——补间等于横向位移，不该在 RM 下发生） |
+| 徽标出现 / 消失 | 纯淡变，不缩放 |
+| CheckBox / RadioGroup 指示符 | `ContentTransition.identity`：直接换图，不描画 |
+
+## 未发布（相对 `v0.11.0`）——Issue #407：动效 token 与 Reduce Motion 纪律
+
+**行为变更（无签名破坏）。** 公开符号的签名一个都没变；新增 `CoreMotionToken`、`EnvironmentValues.coreMotionPresentation`、
+`EnvironmentValues.coreMotionPresentationOverride`（`nil` ⇒ 跟随系统）、`View.coreAnimation(_:value:)`。核心库所有过渡曲线改经 `CoreMotionToken` 取，下列时长 / 曲线随之变化：
+
+| 位置 | 之前 | 现在 |
+|---|---|---|
+| `.pressableRow` / `.pressableCard` 按下 | `.easeOut(duration: 0.15)` | `CoreMotionToken.press`（`.snappy`，0.16 s） |
+| `.borderless()` 按下变色 | `.easeInOut`（默认时长） | `CoreMotionToken.press` |
+| `SegmentedControl` 切换 | `.easeInOut(duration: 0.18)` | `CoreMotionToken.selection`（`.snappy`，0.22 s） |
+| `UnderlinedTabBar` 把选中项滚到中间 | `.snappy(duration: 0.2)` | `CoreMotionToken.selection`（`.snappy`，0.22 s） |
+| `CheckBox` / `RadioGroup` 选中切换 | `.easeOut(duration: 0.25)` | `CoreMotionToken.selection` |
+| `FormField` 校验消息 / 说明切换 | `.easeInOut(duration: 0.2)` | `CoreMotionToken.reveal`（`.smooth`，0.25 s） |
+| `.disclosureGroupStyle(.core)` 展开 | `.snappy`（默认时长） | `CoreMotionToken.reveal` |
+| `Carousel` 翻页（自动轮播与点页点） | `withAnimation`（`.default`） | `CoreMotionToken.scroll` |
+| `Toast` 进出 | `.easeInOut(duration: 0.25)` | `CoreMotionToken.reveal`（时长不变，曲线换成 `.smooth`） |
+| `Skeleton` 占位 ↔ 内容、`.spinning(_:)` 出现 / 消失 | `.animation(.default, …)` | `CoreMotionToken.reveal` |
+
+按钮背景、`TelegramGlassButtonModifier`、`AsyncButton`、`UnderlinedTabBar` 选中切换的曲线原本就是
+`CoreMotionToken` 对应档位的值，不变。
+
+**Reduce Motion 开启时的新行为**（静息外观不变；只影响开启了「减弱动态效果」的用户）：
+
+| 位置 | 之前（RM 开） | 现在（RM 开） |
+|---|---|---|
+| `.solidButton` / `.lightButton` / `.circularGlass` / `TelegramGlassButtonModifier` / Toast 操作按钮 按下 | 缩到 0.94 | 不缩放，按下透明度 0.7（与样式自带的 0.9 / 0.92 取较小值，不叠乘） |
+| `Toast` 进出 / 退场 | 滑入滑出、退场位移 60pt、HUD 缩放 0.92 | 原地淡入淡出；滑动松手后停在松手位置淡出；HUD 不缩放 |
+| `SegmentedControl` 滑块、`UnderlinedTabBar` 下划线 | 滑到新位置 | 原地淡变，不途经中间 |
+| `.disclosureGroupStyle(.core)` chevron | 旋转补间 | 直接到位 |
+| `.spinning(_:presentation: .topBar)` 顶条 | 循环扫动 | 静止居中 |
+| `Carousel` 点页点、`UnderlinedTabBar` 滚到选中项 | 滚动补间 | 直接到位 |
+| 上面所有淡变类动画 | 各自的曲线 | 同时长 `easeInOut` |
+
+## `0.11.0`（2026-09-22）——Issue #399：浮层与层级（Toast / `floatingGlass` / `.surface`）
+
+**视觉变更（无签名破坏）。** 公开符号的签名一个都没变；以下是默认外观的变化：
+
+| 位置 | 之前 | 现在 |
+|---|---|---|
+| `Toast` danger 图标 | `exclamationmark.octagon` | **`exclamationmark.circle`**（与 `Banner` 的 circle 族成组，Toast 保持描线） |
+| `Toast` 在 AX 字号（AX1+） | 图标单独占一列，文字列变窄，长单词会从中间折断 | 图标独占标题上方一行（字号上限 `accessibility1`），文字列拿到整条宽度；常规字号外观不变 |
+| `.toastHost(presentation: .fullWidthBanner)` 外壳 | 四周 hairline，止于安全区 | **无 hairline**，底色与玻璃延伸进所贴那条边的安全区（顶部即状态栏），左右与贴边那侧的玻璃高光边推出屏幕 |
+| `.toastHost(presentation: .centeredHUD)` 外壳 | 64% 背景色 + 玻璃，叠在文字上透字 | 底色改为不透明 `surfaceRaised`，保留玻璃边缘与 hairline |
+| `.surface(.content)` / `.surface(.card)` / `Card()` 嵌套到 elevated 层（**仅 iOS**） | `borderMuted` 描边 | **无描边**（与 `.grouped` 合流）；raised / base 层不变；macOS 不变 |
+
+- `.floatingCapsule` 与公开入口 `.floatingGlass(in:isInteractive:)`（含 `FloatButton` 的扩展样式）外观不变。
+- macOS 上 `surfaceCard` 与 `surfaceElevated` 同色，描边是嵌套的唯一线索，所以 elevated 层的描边在 macOS 上保留。
+
+## `0.11.0`（2026-09-22）——Issue #400：输入控件的校验 / 禁用 / 尺寸外观
+
+**视觉与布局变更（无签名破坏，无公开 API 增减）。**
+
+| 控件 / 状态 | 之前 | 现在 |
+|---|---|---|
+| `CheckBoxToggleStyle` / `RadioGroup` 在 `.disabled(true)` 下 | 与 enabled 外观相同 | 整行（图标 + 标题）降到 0.4 不透明度；enabled 外观逐像素不变 |
+| `RadioGroup` invalid 且选中 | 圆环与实心点都取 `statusDangerForeground` | 只有圆环取 danger，实心点保持 `contentPrimary` |
+| `TagInput` invalid | 只在输入框下面画一条 80pt 起的红线 | 整个字段底部一条横跨全宽的红色基线 |
+| `PinCode` invalid 且获焦的那一格 | 2pt 红边 | 2pt 红边 + 格外 4pt `statusDangerForeground` 30% 光晕（不占布局） |
+| `PinCode` 有值时（浅色最明显） | 中间两格的空隙里透出淡淡的数字 | 不再透出，获焦编辑与选区高亮时也不透出（隐藏输入框的文字 / 光标取透明色，并在几何上裁掉） |
+| `SearchField` 放进不限高的容器（iOS） | 被纵向拉伸到容器高度 | 取固有高度 44pt；macOS 本来就不拉伸，布局不变 |
+| `SearchField` 由调用方显式给高度，如 `.frame(height: 60)`（iOS） | 原生搜索框（绘制带与命中区）被撑到 60pt | 外层框仍是 60pt，原生搜索框保持 44pt、垂直居中；44pt 之外的上下各 8pt 是空白，点按不聚焦。macOS 前后都是原生固有高度 |
+
+- **迁移**：一般不需要；之前为规避拉伸加的 `.fixedSize(horizontal: false, vertical: true)` 可以删掉（留着也无害）。
+  ⚠️ **原生搜索框的高度没有恢复手段**：外层再包 `.frame(height:)` / `.frame(maxHeight: .infinity)` 只会放大外面那层
+  框，原生搜索框的绘制带与命中区都停在 44pt，不会跟着变高。依赖旧的「给多高就画多高」的调用点（如用
+  `.frame(height: 60)` 画一条加高搜索条）需要自行包一个 `UISearchTextField` / `.searchable`，本库不提供开关。想让禁用的 CheckBox / Radio 保持不变淡的旧观感，没有开关——这是有意对齐系统控件的行为。
+
+## `0.11.0`（2026-09-22）——Issue #398：Banner 圆角与 neutral 不透明底色、Timeline 浅色 warning 圆点
+
+**视觉变更（无签名破坏）。** 新增公开 token：`Color.systemGray5`（第 2 层）、`Color.statusNeutralSubtle`（第 3 层）。
+
+| 外观 | 之前 | 现在 |
+|---|---|---|
+| `Banner` 容器（`PlainBannerStyle` / `BorderedBannerStyle`） | 直角矩形 | `CoreRadius.medium`（10pt）连续圆角；Bordered 描边沿同一圆角形状内描。内容布局与尺寸不变；形状这一项只改变四角像素（该对照在 neutral 底色变更之后测得，底色变更见下一行） |
+| `Banner` `.neutral` 背景 | `tertiaryFill`（半透明，随背后底色变深浅） | `statusNeutralSubtle` → `systemGray5`（不透明；iOS 浅 `#E5E5EA` / 深 `#2C2C2E`，macOS 取 `unemphasizedSelectedContentBackgroundColor`——外观近似而非语义等价，增强对比度与 vibrancy 下的表现未经验证） |
+| `Timeline` 浅色 `warning` 默认圆点 | `statusAttentionEmphasis`（`#D1A72D`，对分组背景约 2.0:1） | `statusAttentionForeground`（`#9A6700`，对分组背景 4.36:1）；暗色不变 |
+
+- **迁移（保留旧观感）**：想要直角或旧的半透明 neutral 底色，写一个自定义 `BannerStyle`（`makeBody` 里用
+  `Rectangle()` 背景、neutral 取 `Color.tertiaryFill`），经 `.bannerStyle(_:)` 注入。
+- 截图 / 快照基线比对 Banner 的下游需要重录；Timeline 只有浅色 warning 圆点变化。
+
+## `0.11.0`（2026-09-22）——Issue #382：surface 有效层级 + `coreSheetPresentation(background:)`
+
+**行为变更（无签名破坏）。** `.surface(_:)` 现在按环境里的有效层级取背景（规则见
+`docs/components/surface.md`）：
+
+| 调用形态 | 之前 | 现在 |
+|---|---|---|
+| `content` / `grouped` / `card` 嵌套在另一个 `content` / `grouped` / `card`（含 `Card`、`InsetGroupedSection`）里 | `surfaceCard` | **`surfaceElevated`**（`tertiarySystemGroupedBackground`） |
+| 顶层或 `.surface(.canvas)` / `.surface(.canvasSubtle)` 之下的 `content` / `grouped` / `card` | `surfaceCard` | 不变——⚠️ **前提是它不在一个挂在 surface 内部的普通 `.sheet` / `.popover` 里**：弹层内容继承宿主层级（实测），这时 sheet 里「看起来是顶层」的卡片也会取 `surfaceElevated` |
+| `panel` / `sidebar` / `control` / `floating` / `canvas` / `canvasSubtle` | 各自现值 | 不变 |
+| `Card` 自身有效层级为 elevated（上面第一行的情形，含 `coreSheetPresentation` 内容里的 `Card`） | 按 `elevation` 出投影（默认 `.small`） | **不出投影**，显式传 `.medium` / `.large` 也不出 |
+
+- **迁移（逐项保留旧观感）**：想让某个嵌套处保持旧的 `surfaceCard` 外观，不要再用 `.surface`，改写成与旧
+  `.surface(.content)` 逐项相同的手写链——背景、1pt 描边、圆角、裁切都一致，且不写层级：
+
+  ```swift
+  let shape = CoreShape.rounded(CoreRadius.medium)
+  content
+      .background(shape.fill(Color.surfaceCard))
+      .overlay(shape.strokeBorder(Color.borderMuted, lineWidth: CoreBorderWidth.thin)) // `.grouped` 删掉这一行
+      .clipShape(shape)
+  ```
+
+  嵌套的 `Card` 同理：`content.padding(CoreSpacing.lg).frame(maxWidth: .infinity, alignment: .leading)` +
+  上面三行 + `.coreShadow(.small)`（即旧 `Card` 的全部修饰链）。
+- 两个**不等价**的捷径及其代价：
+  - 内层外包 `.surface(.canvas)`：层级确实重置、内层回到 `surfaceCard`，但 canvas 角色会在内层**外接矩形**上
+    铺一层 `surfaceCanvas`（无圆角）——内层卡片的四个圆角处露出画布色（浅色 `#F2F2F7` 落在白色外层卡片上、
+    深色为黑），它与内层之间若有 padding 则露出一整圈。
+  - 内层改用 `.background(Color.surfaceCard)`：底色对了，但**丢掉描边、圆角与裁切**（直角、无描边）。
+- macOS 上 `surfaceCard` 与 `surfaceElevated` 同值，背景像素不变；投影收起在 macOS 同样生效。
+- 新增（纯新增）：`View.coreSheetPresentation(background:)` 与 `enum CoreSheetBackground`（`.system` / `.raised`）。
+
+## `0.11.0`（2026-09-22）——Issue #377：Toast 标题 / 说明 / 动作、`ToastDuration`、计时状态机
+
+**破坏性变更（源码）。** 新旧签名映射：
+
+| 旧 | 新 |
+|---|---|
+| `ToastItem.message: String` | `ToastItem.title: String` |
+| `ToastItem(id:message:level:duration:)` | `ToastItem(id:title:description:level:duration:action:)` |
+| `ToastItem.duration: TimeInterval` | `ToastItem.duration: ToastDuration` |
+| `ToastHost.show(_ message:level:duration:)`，`duration: TimeInterval` | `ToastHost.show(_ title:description:level:duration:)`，`duration: ToastDuration` |
+| `ToastDefaults.duration: TimeInterval`（`3`） | `ToastDefaults.duration: ToastDuration`（`.seconds(3)`） |
+
+迁移：
+
+```swift
+// 旧
+host.show("Saved", level: .success, duration: 5)
+let item = ToastItem(message: "Saved", duration: 2)
+print(item.message)
+// 新
+host.show("Saved", level: .success, duration: .seconds(5))
+let item = ToastItem(title: "Saved", duration: .seconds(2))
+print(item.title)
+```
+
+- 位置实参调用 `show("…")` / `show("…", level:)` 不受影响；只有 `message:` 标签、读 `.message`、
+  传 `TimeInterval` 时长与把 `ToastDefaults.duration` 当 `TimeInterval` 用的调用点需要改。
+- 行为变化：旧版 `duration <= 0` 会立即关闭；新版 `.seconds` 的非正值（含 NaN）按缺省 3 秒处理，
+  `.seconds(.infinity)` 等同新增的 `.persistent`。
+- 新增（非破坏）：`ToastItem.description`、`ToastAction`、`ToastDuration.persistent`、`ToastHost.dismissAll()`；
+  按住 / 拖拽暂停计时。
+
+## `0.11.0`（2026-09-22）——Issue #376：Banner 补齐 title / actions / dismiss
+
+**破坏性变更（自定义 style 行为 + 无障碍结构）；编译期无信号。**
+
+1. **`BannerStyleConfiguration` 新增 `title: Text?`、`actions: AnyView?`、`dismiss: (() -> Void)?`**。
+   该类型没有公开 init，新增字段不破坏编译；`label` 仍是正文槽、语义不变。但**自定义 `BannerStyle`
+   若不渲染这三个字段，经新便利 init `Banner(level:title:message:actions:onDismiss:)` 传入的标题、
+   动作与关闭钮会被静默丢弃**。迁移：在 `makeBody` 里按需渲染它们，并让动作与关闭钮保持为独立按钮：
+
+   ```swift
+   struct MyBannerStyle: BannerStyle {
+       func makeBody(configuration: Configuration) -> some View {
+           VStack(alignment: .leading) {
+               HStack(alignment: .top) {
+                   VStack(alignment: .leading) {
+                       configuration.title?.font(.headline)
+                       configuration.label
+                   }
+                   .accessibilityElement(children: .combine)
+                   Spacer()
+                   if let dismiss = configuration.dismiss {
+                       Button(action: dismiss) { Image(systemName: "xmark") }
+                           .accessibilityLabel("Dismiss")
+                   }
+               }
+               configuration.actions
+           }
+       }
+   }
+   ```
+
+2. **内建 style 不再把整条 Banner 合并为单一无障碍元素**。此前 `PlainBannerStyle` /
+   `BorderedBannerStyle` 对整条施加 `.accessibilityElement(children: .combine)`，图标对 VoiceOver 隐藏。
+   现在：图标 + 标题 + 正文合并为一个元素，并且**图标读出状态**（Info / Success / Warning / Error /
+   Neutral，与 `Timeline` 同一组键）；动作按钮与关闭钮是各自独立的可聚焦节点，经 `accessibilitySortPriority`
+   排在正文之后（内容 → 动作 → 关闭）。
+   只有正文的旧调用点**视觉布局不变**（尺寸与像素有回归测试对照旧实现）；变化只在无障碍：
+   VoiceOver 读法由「正文」变为「状态、正文」；在 `label` 槽里放了按钮的
+   调用点，该按钮仍被合并进内容元素——请改用 `actions` 槽让它成为独立节点。UI 测试若按旧的合并
+   label 查找 Banner，需要同步。
+
+## `0.11.0`（2026-09-22）——Issue #378：Badge / Tag / Avatar 尺寸体系 + `AvatarSize`
+
+**破坏性变更（布局 + 函数引用）。**
+
+1. **`Avatar` 改为固定直径（布局破坏，编译期无信号）**。此前 `Avatar` 是 `.resizable()` 的位图，
+   尺寸完全由外部 `.frame` 决定；现在它按 `size: AvatarSize` 渲染固定边长——缺省 `.automatic`
+   随环境 `\.controlSize` 取 `CoreControlMetrics.avatarDiameter(for:)`（mini 20 / small 24 /
+   regular 32 / large 40 / extraLarge 48），外部 `.frame` **不再拉伸**它，只决定摆放位置。
+   迁移：写过 `.frame(width: d, height: d)` 来定头像尺寸的调用点改为 `size: .fixed(d)`：
+
+   ```swift
+   // 旧
+   Avatar(name: "Alice").frame(width: 100, height: 100).clipShape(Circle())
+   // 新
+   Avatar(name: "Alice", size: .fixed(100)).clipShape(Circle())
+   ```
+
+   不带 `.frame` 的调用点：旧版按 `.resizable()` + `.aspectRatio(contentMode: .fill)` 占满父布局提议的空间，
+   新版在 `.regular` 档为 32pt；需要保持 48pt 的请写 `.fixed(48)` 或 `.controlSize(.extraLarge)`。
+2. **`Avatar.init(name:)` → `Avatar.init(name:size:)`**（`size` 带默认值 `.automatic`）：
+   已应用的调用点 `Avatar(name:)` 源码零改动；**未应用的函数引用** `Avatar.init(name:)` 不再存在，
+   改为闭包 `{ Avatar(name: $0) }`。
+3. **`Badge` / `Tag` 跟随 `\.controlSize`（视觉变化，非 API 破坏）**：`.regular`（缺省）档取值与旧版一致；
+   但处在 `.controlSize(.small)` 等非缺省环境里的 Badge / Tag 会随之缩放。要保持旧外观，在它们上面
+   显式加 `.controlSize(.regular)`。
+4. **可删除 `Tag` 变矮（视觉变化）**：关闭钮外围的可见 `CoreSpacing.xxs` 内边距移除、关闭钮不再撑高行，
+   `removable: true` 的 Tag 在各档都与普通 Tag 等高（regular 档因此比旧版矮）；点击热区大小不变。
+5. **`AvatarGroup` 非 regular 档的几何变化（视觉变化）**：交叠量改为直径的 1/4（mini -6→-5、
+   extraLarge -10→-12，其余不变）；`+N` / 计数徽标文字随档缩放（regular 仍为 `.caption`）。
+
+新增公开符号：`AvatarSize`（`.automatic` / `.fixed(CGFloat)`）；`CoreControlMetrics.compactFontToken(for:)` /
+`compactHorizontalPadding(for:)` / `compactVerticalPadding(for:)` / `compactIconSize(for:)` /
+`compactMinHeight(for:)` / `compactCornerRadius(for:)` /
+`avatarDiameter(for:)` / `avatarInitialFontSize(forDiameter:)`。
+
+## `0.11.0`（2026-09-22）——Issue #375：`StatusLevel` 新增 `.neutral`
+
+**源码破坏性变更。** `public enum StatusLevel` 新增 `case neutral`（中性提示，取内容 / 填充语义色，
+不取状态色）。本包以源码形式分发、不开 library evolution，下游对 `StatusLevel` 写的 **exhaustive `switch`**
+（逐个列出 `.info` / `.success` / `.warning` / `.danger`、不带 `default`）会在升级后编译失败：
+`switch must be exhaustive`。
+
+- 迁移：在该 `switch` 里补一个 `case .neutral:` 分支（推荐，按中性语义给出取值）；或加 `default:`。
+- 只构造 / 比较 `StatusLevel` 值、或把它传给 `Banner` / `ToastHost.show` / `TimelineItem` 的调用点**不受影响**。
+- 本库内的三处消费者已同步，neutral 一律「图标 / 节点 `contentSecondary`、正文 `contentPrimary`」：
+  `Banner`（背景 `tertiaryFill`、描边 `borderDefault`，图标 `bell.fill`）、`Toast`（图标 `bell`）、`Timeline`
+  （圆点 `contentSecondary`，VoiceOver 文案键 `"Neutral"`，已登记进 `en.lproj/Localizable.strings`）。
+
+## `0.11.0`（2026-09-22）——移除 `Sidebar` 与 `BottomInputBar` 组件
+
+**破坏性变更。** 这两个组件不再属于本库，整体删除（不迁到其他 target）；需要它们的调用方请在
+自己的代码里维护一份。被移除的公开符号：
+
+| 组件 | 移除的公开符号 |
+|---|---|
+| `BottomInputBar` | `struct BottomInputBar`（`init(isShowingSuggestions:placeholder:wandEnabled:sendEnabled:showMenuButton:isRunning:autoFocus:externalFocus:onActivate:onStop:onSubmit:)`）、`enum BottomInputBarDefaults`（`placeholder`）、`View.bottomInputBar(suggestions:placeholder:autoShowSuggestions:wandEnabled:sendEnabled:showMenuButton:isRunning:showShuffleButton:autoFocus:externalFocus:onActivate:onStop:onSubmit:)` |
+| `Sidebar` | `SidebarSection`（`init(title:showsChevron:content:)`）、`SidebarNavigationRow`（`init(title:isSelected:action:leading:)` 与 `init(systemImage:title:isSelected:action:)`）、`SidebarUtilityRow`（`init(systemImage:title:trailingSystemImage:presentation:action:)`）、`enum SidebarUtilityRowPresentation`（`.iconLeading` / `.textOnly`）、`SidebarDocumentRow`（`init(systemImage:title:detail:action:)`）、`SidebarTagRow`（`init(title:action:)`）、`SidebarStatusFooter`（`init(title:detail:statusColor:)`）、`enum SidebarTextStyle`（`primary` / `secondary` / `tertiary`）、`View.sidebarSelectedBackground(_:)` |
+
+- 随组件一起删除的 internal 实现：`CoreMenuButton` / `CoreMenuButtonStyle`（`BottomInputBar` 的菜单按钮）、
+  `BottomInputBarModifier` / `BottomInputBarSuggestionsView` / `BottomInputBarGlassEffectShape`，
+  以及 `Localizable.strings` 里只被它们使用的 `"iMessage"` / `"Menu"` / `"Send"` / `"Stop"` / `"Suggestions"` 五个键。
+- **保留**（通用 token，不是组件）：`Color.surfaceSidebar` 与 `SurfaceKind.sidebar`（`.surface(.sidebar)`）。
+- `SidebarTextStyle` 的三个成员原是 `.primary` / `.secondary` / `.tertiary` 对
+  `Color.contentPrimary` / `.contentMuted` / `.contentSubtle` 的别名，迁移时直接改用这三个 token。
+- 登记表 / 台账同步：`docs/component-registry.json` 移除 7 条（`BottomInputBar` 与 6 个 `Sidebar*`），
+  `docs/bool-exemptions.json` 移除 15 条豁免，`docs/mainactor-static-exemptions.txt` 移除 4 条
+  （`SidebarTextStyle.*` 与 `BottomInputBarDefaults.placeholder`）。
+
+## `0.11.0`（2026-09-22）——Issue #312：五个组件的布局形态扩展点
+
+**含破坏性变更（与 `v0.9.0` 那 7 处、`0.10.0` 的 `NetworkGraph` 同形）** —— 五个 `init` 各新增一个
+带默认值的 `layout:` 参数：
+
+| 组件 | 新参数（默认 = 现状画法） | 参数位置 |
+|---|---|---|
+| `RadarChart` | `layout: RadarChartLayout = .polygon` | 末尾 |
+| `RingChart` | `layout: RingChartLayout = .rings` | 末尾（`colors:` 之后） |
+| `ActivityHeatmap` | `layout: ActivityHeatmapLayout = .weeks` | 末尾（`calendar:` 之后） |
+| `BeforeAfterSlider` | `layout: BeforeAfterSliderLayout = .overlay` | `labels:` 之后、`before:` 闭包之前 |
+| `OrbitingLogos` | `layout: OrbitingLogosLayout = .outerRing` | `rotationPeriod:` 之后、`logo:` 闭包之前 |
+
+- **对已应用的调用点零影响**：参数带默认值且位于闭包参数之前，尾随闭包写法照常编译。
+- **对未应用的函数引用是破坏性变更**：把这些 `init` 当函数值取，或写死不含 `layout:` 的完整签名时，类型变了。
+- **新增 public 类型** `RadarChartLayout`（`.polygon` / `.parallel` / `.radialBars` / `.bars`）、
+  `RingChartLayout`（`.rings` / `.bars` / `.segmentedRings` / `.stackedBar`）、
+  `ActivityHeatmapLayout`（`.weeks` / `.monthCalendar` / `.monthTracks` / `.dailyColumns`）、
+  `BeforeAfterSliderLayout`（`.overlay` / `.sideBySide` / `.stacked`）、
+  `OrbitingLogosLayout`（`.outerRing` / `.multiRing` / `.ellipse`），另新增
+  `RingChart.segmentCount`（`.segmentedRings` 的分段数，固定为 10）。
+  ⚠️ 五个枚举都**非 `@frozen`** ⇒ **将来加 case 也是破坏性变更**（下游穷举 `switch` 不写
+  `@unknown default` 就编译红），届时要在本文件另起一条。
+- **默认 case 即本版之前的画法**：不传 `layout:` 时走默认 case，调用方观感不变。
+
+理由与判定过程见 `docs/components/{radar-chart,ring-chart,activity-heatmap,before-after-slider,orbiting-logos}.md`
+与登记表各条 `notes`；`OrbitingLogos` 的落点裁定见 `docs/contract-defects.md` 的 `## #312` 节。
+
+## `0.11.0`（2026-09-22）——Issue #357：`coreAccent` on-accent 通路
+
+**源码兼容，行为有变。** `View.coreAccent(_:)` 增加可选 `on` 参数
+（`coreAccent(_ color: Color, on: Color? = nil)`）——与 `v0.9.0` 那 7 处同形：
+对已应用调用点零影响，对未应用的函数引用是破坏性变更。
+
+- **`on` 缺省（`nil`）时自动选前景**：墨色（黑 / 白极性）accent 走 `contentOnAccent`
+  特判——与 `0.10.0` 的静态 token **逐字节相同**；其余颜色按 accent 在当前外观下的
+  相对亮度分档，`L = 0.2126R + 0.7152G + 0.0722B`，L < 0.5 → `.white`，否则 `.black`。
+  消费点：`SolidButtonStyle` 的 `.primary` 前景（新公开
+  `ButtonRoleStyleRole.resolvedOnColor(accent:on:environment:)`）与
+  `InkSegmentedControlStyle` 选中段文字。
+  ⚠️ **行为变化**：`0.10.0` 章节登记的「主题色应为近单色」约束解除——
+  `.coreAccent(<饱和色>)` 下深色模式前景不再是近黑字压饱和底，而是按亮度自动反色
+  （系统蓝两档白字、黄两档黑字）；显式 `on` 则原样使用。
+- **`contentOnAccent` 保留**作静态回退；其余四个 role 的底色是明暗镜像的
+  `ColorGrade` 色阶，前景仍走 `contentOnAccent`、不吃 `on`。
+- 新增 `@Entry var coreAccentOn: Color? = nil`（`nil` = 缺省派生）。
 
 ## `0.10.0`（2026-09-09）——仓库与模块改名为 OhMyDesign
 
@@ -103,7 +683,7 @@
   `Localizable.strings` 的 `"Clear %@"`；`.focusRing` 撤除（系统自绘焦点态）。
 - **Sidebar 选中态扁平化**：去 `floatingGlass` + `borderSelected` 描边 + `coreShadow(.medium)`，
   改为 `accentSubtleBackground` 填充。这是对 `#226`「保持现状」的改判，
-  依据是 `#226` 自己写下的重议条件（见 `docs/components/sidebar.md`）。
+  依据是 `#226` 自己写下的重议条件（原记在 `docs/components/sidebar.md`，该文档已随组件移除，可从 git 历史取回）。
 - **`ListRow` 竖向 padding 12 → 8**（本处调用改 `CoreSpacing.sm`，
   **未动共享的 `CoreControlMetrics.verticalPadding`**）。44pt 触控下限不变
   ⇒ 单行行观感不变，只有多行 / 带副标题的行收紧。
@@ -712,7 +1292,7 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
 - **`CheckBox` / `Radio` 未选中态取色**（Issue #189）：从硬编码 `Color.gray`（`systemGray`，固定不透明）改为语义 token `Color.contentSecondary`（桥接系统 `.secondaryLabel`）。`CheckBox` 自 `v0.1.0` 发布，本次一并对齐（两组件文档均声明「同一套 token」，只改其一会造成成对组件视觉分叉）。观感变化：纯色背景下肉眼几乎不可辨；在 raised/tinted 背景上因 `.secondaryLabel` 的半透明特性会有轻微原生混色，并新增 Increase Contrast 无障碍适配——属修正硬编码色、非破坏。
 - **`DynamicTypeLayoutTests` 补 Rating/Radio/TagInput/Timeline 大字号断言**（Issue #188）：仅测试新增。
 
-## `0.7.0`（`semi-mobile-components` epic 收尾，2026-07-26）
+## `0.7.0`（`semi-mobile-components` epic 收尾，2026-07-27）
 
 **非破坏性** —— 全部为纯新增，无删除/改名/签名变更，对下游零破坏，无需迁移。
 
@@ -816,7 +1396,7 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
 | `Blossom` package trait | #118 | **无替代**。下游若在 `Package.swift` 里写 `.package(url: "...", traits: ["Blossom"])`，升级后会在**依赖解析期**报 unknown-trait 错误——报错发生在 SwiftPM manifest 解析层，**不是编译错误**，下游不一定能第一时间把这个报错与本次升级关联起来，请特别注意。若需要强调色主题化，改用宿主 App 自己的 `AccentColor` 资源（见下方「改名的 token」表外的语义色变更） |
 | `CoreGradient.brand` / `.cta` / `.canvas` | #118 | `brand` / `cta` → `Color.accent`；`canvas` → `Color.surfaceCanvas`。三者此前都是 `AnyShapeStyle`，默认主题下本就退化为对应纯色，替换后视觉不变 |
 | `CoreRadius.smallPlus`（4pt，删除前库内零调用点） | #119 / #121 | 就近改用 `CoreRadius.small`（6pt） |
-| `CoreRadius.mediumPlus`（8pt，删除前唯一调用点 `Sidebar.swift:157,411`） | #119 / #121 | 库内实际迁移选择改用 `CoreRadius.medium`（10pt）；若下游场景确实需要介于 `small`(6) 与 `large`(16) 之间的中间档，参考同一选择 |
+| `CoreRadius.mediumPlus`（8pt，删除前仅有的两处调用点在 `Sidebar.swift`） | #119 / #121 | 库内实际迁移选择改用 `CoreRadius.medium`（10pt）；若下游场景确实需要介于 `small`(6) 与 `large`(16) 之间的中间档，参考同一选择 |
 | `CoreControlMetrics.primerVerticalPadding(for:)` | #119 / #121 | `CoreControlMetrics.verticalPadding(for:)`——原 escape hatch 是为了精确命中 Primer 的非 `CoreSpacing` 档位（6/10/14pt），新标度下不再需要 |
 | `CoreTypography` 的全部 `*LineSpacing` / `*Tracking` 静态量（如 `bodyMediumLineSpacing` / `bodyMediumTracking`，每个旧尺寸档位各一对） | #119 | **无需替代**——新实现直接取系统 `Font.TextStyle`，行高与字距由系统决定，调用方不应再手动施加这两项 |
 | `CoreTypography.Spec.scales` 开关、`Token.fixedFont` | #119 | 无替代——旧的"是否随 Dynamic Type 缩放"开关被删除，新 12 档 token 全部缩放，没有不缩放的例外 |

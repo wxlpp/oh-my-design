@@ -78,8 +78,10 @@ struct ComponentRegistryGuard {
     static let knownStyleAnnotationRows: [String: Set<String>] = [
         "Button": ["SolidButtonStyle", "LightButtonStyle", "CoreBorderlessButtonStyle"],
         "FloatButton": ["ExtendedFloatButtonStyle", "CircularGlassButtonStyle"],
+        "Pressable Button Styles": ["PressableRowButtonStyle", "PressableCardButtonStyle"],
         ".core Control Styles": [
-            "CoreProgressViewStyle", "CoreLabelStyle", "CoreDisclosureGroupStyle", "CoreLabeledContentStyle",
+            "CoreProgressViewStyle", "CoreCircularProgressViewStyle", "CoreLabelStyle", "CoreDisclosureGroupStyle",
+            "CoreLabeledContentStyle",
         ],
     ]
 
@@ -92,28 +94,23 @@ struct ComponentRegistryGuard {
         "ParticleTransition": "particle",
     ]
 
-    static let knownReadmeContainerPrefixes: [String: String] = ["Sidebar": "Sidebar"]
+    static let knownReadmeContainerPrefixes: [String: String] = [:]
 
     // MARK: - README 行 → 登记条目的聚合映射（`#48` G-3）
 
     static let readmeCoverageStructuralExemptions: [String: Set<String>] = [
-        "Button": ["AsyncButton"],
+        "Button": ["AsyncButton", "StatefulButton"],
         "FloatButton": ["FloatingGlassModifier", "TelegramGlassButtonModifier"],
     ]
 
     static let readmeRowCoverage: [String: (entries: Set<String>, reason: String)] = [
-        "Sidebar": (
-            ["SidebarSection", "SidebarNavigationRow", "SidebarUtilityRow",
-             "SidebarDocumentRow", "SidebarTagRow", "SidebarStatusFooter"],
-            "Sidebar 行覆盖全部子行；子行不单列索引"
-        ),
         "SettingsRow": (
             ["SettingsRow", "SettingsRowChevron"],
             "SettingsRow 行覆盖它的内部部件 SettingsRowChevron"
         ),
         "Button": (
-            ["AsyncButton"],
-            "Button 行覆盖 AsyncButton（同一按钮族的异步变体）"
+            ["AsyncButton", "StatefulButton"],
+            "Button 行覆盖 AsyncButton 与 StatefulButton（同一按钮族的异步变体与四态变体）"
         ),
         "spinning": (
             ["SpinningModifier"],
@@ -126,6 +123,10 @@ struct ComponentRegistryGuard {
         "Skeleton": (
             ["SkeletonLine", "SkeletonRect", "SkeletonCircle"],
             "三种骨架形状写在 Skeleton 行的括号里，而解析器在首个括号处截断、不递归解析括号内容"
+        ),
+        "Timeline": (
+            ["Timeline", "TimelineItem"],
+            "Timeline 行覆盖它的行类型 TimelineItem（组合式 API 的伴生 View，文档同在 timeline.md）"
         ),
         "FloatButton": (
             ["FloatingGlassModifier", "TelegramGlassButtonModifier"],
@@ -323,8 +324,8 @@ struct ComponentRegistryGuard {
         #expect(Set(entries.map(\.component)).count == entries.count,
                 "登记表存在重名 component 条目——差集判据会把重名静默吞掉")
 
-        #expect(entries.filter { $0.repo == "ohmydesign" }.count == 68,
-                "OhMyDesign 侧条目数不是 68（#270 扩扫描根到三个 target，Effects 11 + Charts 4 共 15 条按判定法补录后由 47 变为 62；#279 扩到第四根 OhMyDesignShaders，按判定法补录 6 条后由 62 变为 68——点名 8 个但实测进 components 的是 6 个：Starfield 随 #281 整件删除、RefractiveGlass 不是 `public struct: View` 而是入口点）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
+        #expect(entries.filter { $0.repo == "ohmydesign" }.count == 67,
+                "OhMyDesign 侧条目数不是 67（`#270` / `#279` 扩扫描根到 Effects / Charts / Shaders 并按判定法补录；`#380` 新增 TagGroup 后由 56 变为 57，`#422` 新增 Tree 后变为 58，`#420` TimelineItem 成为公开 View 后变为 59，`#417` StatefulButton、`#418` SlideToConfirm 各 +1；与 shaders epic 合并后为 67）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
         #expect(entries.filter { $0.repo == "storyui" }.count == 25,
                 "StoryUI 侧条目数不是 25——CI 无法跨仓核对源码，这条固定计数断言是 #43 落地前唯一挡「静默删条目」的机器判据，不得放宽为 print")
 
@@ -561,7 +562,7 @@ struct ComponentRegistryGuard {
         let unresolvedMessage = """
         README 组件索引里这些候选名，既不在登记表也不在任何已知豁免清单（墓碑 / 排除 / \
         style 注记 / 辅助类型 / 别名 / 容器前缀）里，是本判据存在的理由——正是这类「新增 \
-        README 行但没登记」曾经放过 Toast / BottomInputBar：\n\(unresolved.joined(separator: "\n"))
+        README 行但没登记」曾经放过 Toast：\n\(unresolved.joined(separator: "\n"))
         """
         #expect(unresolved.isEmpty, "\(unresolvedMessage)")
 

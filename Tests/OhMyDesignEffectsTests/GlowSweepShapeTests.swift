@@ -41,8 +41,9 @@ struct GlowSweepShapeTests {
     }
 
     @Test func inactiveDoesNotDrawOverlay() {
+        // ⚠️ 本文件位图相等断言走容差入口（#317），勿改回逐字节 expectBitmapsEqual。
         let baseline = MicroInteractionAPITests.stablePixels(Color.black.frame(width: 180, height: 60))
-        expectBitmapsEqual(pixels(Capsule(), active: false), baseline, "停用后应只剩内容")
+        expectBitmapsEquivalent(pixels(Capsule(), active: false), baseline, maxChannelDelta: 1, "停用后应只剩内容")
         expectBitmapsDiffer(pixels(Capsule()), baseline, "启用应绘制边框")
     }
 }

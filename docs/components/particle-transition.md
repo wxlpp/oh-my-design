@@ -82,7 +82,7 @@ public extension Transition where Self == ParticleTransition {
 当时的 `ParticleBurstLayer` 是普通 `View`——不 conform `Animatable`、无 `TimelineView`
 ⇒ **中间进度根本到不了**（SwiftUI 只插值可动画属性，不插值 `Canvas` 的绘制内容），
 而两个端点的 alpha 恒为 0 ⇒ **粒子层是死代码**：三个相位下直接渲
-`ParticleTransitionChrome`，与「无粒子层版本」**逐字节相同**。用户实际只看到内容自身的
+`ParticleTransitionChrome`，与「无粒子层版本」**逐字节相同**（#317 起判据走容差）。用户实际只看到内容自身的
 `scaleEffect` + `opacity`，「一圈粒子飞散」从未发生过。
 
 ## 粒子靠什么动起来：`Animatable`
@@ -106,12 +106,12 @@ public extension Transition where Self == ParticleTransition {
 
 - `ParticleTransitionTests.chromeDrawsParticlesMidFlight`（**承重**）——把 SwiftUI 的
   插值步骤原样跑一遍（取两端 `animatableData`、`interpolate(towards:amount:)`、写回），
-  结果必须画得出粒子，且必须与直接用中间进度构造的层**逐字节相同**。
+  结果必须画得出粒子，且必须与直接用中间进度构造的层**逐字节相同**（#317 起判据走容差）。
   走存在类型 `any View & Animatable` ⇒ 撤掉 `Animatable` 一致性是**运行时判红**。
 - `ParticleTransitionTests.particleLayerSurvivesTheWholeTransition`——源码钉住
   overlay 门控恰为 `self.count > 0`，且 `body(content:)` 里不出现 `progress > 0`。
 - `ParticleTransitionTests.chromeAtRealPhasesDrawsNothing`——三个真实相位下 chrome
-  与「粒子数为 0」版逐字节相同（把 `identityFrameDrawsNothing` 从绘制层抬到 chrome 本体；
+  与「粒子数为 0」版逐字节相同（#317 起判据走容差；把 `identityFrameDrawsNothing` 从绘制层抬到 chrome 本体；
   上一版那条从不经过 chrome，对 `if drawsParticles` 分支**零可见性**）。
 - `ParticleTransitionTests.identityFrameDrawsNothing`——绘制层那一层，带"中途必须画得出"的互锁。
 
@@ -123,7 +123,7 @@ public extension Transition where Self == ParticleTransition {
 粒子位置全部由 `index` 派生的**确定性伪随机**给出，不用 `random`——否则每次重绘粒子都会跳，
 且测试无法复现（`Spray` / `Confetti` 已就同一件事立过规矩）。
 
-## Reduce Motion —— ⚠️⚠️ 两道闸，框架那道在前
+## Reduce Motion
 
 结论形态：**不放粒子、不缩放，只留内容自身的淡入淡出**（与 #251 给整个转场簇定的
 「位移 / 旋转类降级为淡入淡出」一致）。⚠️ **不是 no-op**：转场承载的是"这块内容出现 /
@@ -134,39 +134,18 @@ public extension Transition where Self == ParticleTransition {
 文件同时登记在 `MicroInteractionReduceMotionGuard` 的 `approvedEarlyExit` 与
 `approvedFormTwo` 两份名单上（双向差集守着，新领一张豁免必须改那两份名单）。
 
-⚠️⚠️ **上一版这一节只有上面那两段，读起来像"降级是那道 `guard` 做的"——
-那句话在运行时是假的，照录更正**（#292）：
+**降级就是这道 `guard` 做的**。本类型声明 `hasMotion == true`，SDK 文档称这类转场在 Reduce Motion 下
+会被框架整条替换成 `.opacity`；⚠️ 本节原写「按该语义预期框架那道闸先触发、内层 `guard` 在生产路径上
+不可达」，**实测为假**（#407）（iOS 26.4 模拟器系统 RM 开、macOS 26 环境注入 RM；`hasMotion == true` 的转场经 `if` 分支插入 / 移除，`withAnimation` 与隐式 `.animation(_:value:)` 两种驱动下都照常位移，`body` 照常收到 `.willAppear` / `.didDisappear`；取证见 `.claude/epics/motion-foundations/407-plan.md`）。⇒ 经 `.transition(.particle)` 这条正常路径，RM 用户看到的
+淡入淡出就是 `ParticleTransitionChrome` 的早退给的。
 
-| 闸 | 谁 | 何时生效 |
-|---|---|---|
-| **第一道（文档语义上先触发的那道）** | SwiftUI，看 `ParticleTransition.properties.hasMotion` | 本类型声明 `hasMotion == true` ⇒ 按文档语义 **RM 打开时框架把整条转场换成 `.opacity`**，于是**预期** `ParticleTransition.body` 不被求值（**未实测**，见下） |
-| 第二道（兜底） | `ParticleTransitionChrome` 的 `guard !isReduced` | 只在框架**没有**替换时才轮得到 |
-
-⇒ 按该语义**预期**：经 `.transition(.particle)` 这条正常路径，
-`ParticleTransitionChrome` 的 `reduceMotion` 读不到 `true`。
-
-⚠️⚠️ **这是从文档语义推出的预期，不是实测结论**：Apple 原文只承诺
-「that transition **will be replaced by opacity**」，**没有**承诺被替换掉的那条转场的
-`body` 不被求值；框架替换的**时机与范围**同样没有文档承诺（下一节逐字记着）；
-而本仓**没有任何判据**求值过这句话（全仓没有"RM 打开后观察转场实际行为"的判据，
-`TransitionPropertiesRoster` 量的是 `properties` 这个静态值，不是运行时行为）。
-⇒ 承重的结论只有一条：**内层那道 `guard` 不再是可以指望的裁决点**。
-
-### `hasMotion` 取 `true`：裁定、后果与代价
+### `hasMotion` 取 `true`：裁定
 
 **取值理由**：本转场未降级的形态里，一圈粒子真的沿半径飞出去、内容本身还在缩放
 ——**几何位置在动**，不是纯成像滤镜。`properties` 是 `static`、拿不到环境，它能描述的
 只有未降级形态，而那个形态确实含运动；取 `false` 是对系统撒谎，并会把将来所有基于该属性
 的适配一并关掉。⚠️ 这与滤镜簇（`.blur` / `.filmExposure` / `.snapshot` / `.flicker` 取
 `false`）**不是纪律不一致**：那四条没有任何几何位移，本条有。**按事实分类，不按簇统一。**
-
-**内层门控是否可达**：不可达（见上表）。**为什么仍然保留**：`hasMotion` 是一行就能改回
-`false` 的开关（届时内层闸当场从兜底变成唯一保护，而删掉它之后那次改动会**静默**让 RM
-用户看到完整的粒子飞散）；框架替换的时机与范围对 `AnyTransition` 包装、别的平台 / 版本
-没有文档承诺。两道闸的结论一致（都是一次纯淡入淡出），分歧只在"谁做的"。
-
-**代价照录**：别把本仓「RM 降级有判据、全绿」读成"我们亲手把 `.particle` 降级给用户看了"
-——生产里处置它的是 SwiftUI。
 
 ⚠️ **#292 之前本转场是全仓 12 条 `Transition` 里唯一没有声明 `properties` 的那条**：
 取值恰好也是 `true`、屏幕上的行为没错，错的是没有任何东西写下或钉住它，

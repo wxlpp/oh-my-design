@@ -23,6 +23,9 @@ public struct RadioOption<SelectionValue: Hashable & Sendable>: Identifiable, Se
 /// `Binding<SelectionValue>` 驱动的互斥选择组，与 `CheckBoxToggleStyle` 同套 token、方框换圆点。
 public struct RadioGroup<SelectionValue: Hashable & Sendable>: View {
     @Binding private var selection: SelectionValue
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.fieldValidation) private var validation
+    @Environment(\.coreMotionPresentation) private var motionPresentation
     private let options: [RadioOption<SelectionValue>]
     private let axis: Axis
     private let spacing: CGFloat
@@ -65,21 +68,36 @@ public struct RadioGroup<SelectionValue: Hashable & Sendable>: View {
     @ViewBuilder
     private func row(for option: RadioOption<SelectionValue>) -> some View {
         let selected = Self.isSelected(option, in: self.selection)
+        let appearance = FieldAppearance.resolve(isEnabled: self.isEnabled, validation: self.validation, isFocused: false)
         HStack(alignment: .top, spacing: CoreSpacing.sm) {
-            Image(systemName: selected ? "circle.inset.filled" : "circle")
+            self.indicator(selected: selected, appearance: appearance)
                 .font(.system(size: CoreControlMetrics.iconSize(for: .regular)))
-                .foregroundStyle(selected ? Color.contentPrimary : Color.contentSecondary)
+                .contentTransition(self.motionPresentation.symbolReplacement)
                 .accessibilityHidden(true)
             Text(option.title)
         }
+        .opacity(appearance.controlOpacity)
         .frame(minHeight: CoreControlMetrics.height(for: .regular))
         .contentShape(Rectangle())
-        .animation(.easeOut(duration: 0.25), value: selected)
+        .coreAnimation(.selection, value: selected)
         .onTapGesture {
             self.selection = option.value
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+        .fieldAccessibilityHint()
+    }
+
+    @ViewBuilder
+    private func indicator(selected: Bool, appearance: FieldAppearance) -> some View {
+        if selected && appearance == .invalid {
+            Image(systemName: "circle.inset.filled")
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(Color.contentPrimary, appearance.indicatorColor(normal: Color.contentPrimary))
+        } else {
+            Image(systemName: selected ? "circle.inset.filled" : "circle")
+                .foregroundStyle(appearance.indicatorColor(normal: selected ? Color.contentPrimary : Color.contentSecondary))
+        }
     }
 
     static func isSelected(_ option: RadioOption<SelectionValue>, in selection: SelectionValue) -> Bool {

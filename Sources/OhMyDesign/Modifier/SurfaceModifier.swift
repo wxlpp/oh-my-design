@@ -7,6 +7,7 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
     /// 页面级画布。
     case canvas
     /// 内容表面：卡片、分组容器——**浮于画布之上**（背景取 `surfaceRaised`）。
+    /// iOS 上嵌套到 elevated 层时不描边，与 `.grouped` 同观感；macOS 上 raised / elevated 同色，保留描边作嵌套线索。
     /// 列表行不用本 kind，`ListRow` 走 `.surface(.canvas)` 贴画布。
     case content
     /// 交互控件表面：按钮、输入框、分段控件。
@@ -27,39 +28,72 @@ public nonisolated enum SurfaceKind: Sendable, Equatable {
     case card
 }
 
+// MARK: - SurfaceLevel 有效层级
+
+nonisolated enum SurfaceLevel: Int, Sendable, Comparable {
+    case base
+    case raised
+    case elevated
+
+    static func < (lhs: SurfaceLevel, rhs: SurfaceLevel) -> Bool {
+        lhs.rawValue < rhs.rawValue
+    }
+
+    var steppedUp: SurfaceLevel {
+        SurfaceLevel(rawValue: self.rawValue + 1) ?? .elevated
+    }
+}
+
+extension EnvironmentValues {
+    @Entry var surfaceLevel: SurfaceLevel = .base
+}
+
+extension SurfaceKind {
+    func level(inheriting parent: SurfaceLevel) -> SurfaceLevel {
+        switch self {
+        case .canvas, .canvasSubtle: .base
+        case .content, .grouped, .card: parent.steppedUp
+        case .panel, .sidebar, .control, .floating: parent
+        }
+    }
+}
+
 // MARK: - SurfaceKind Token Mapping
 
-// 有意是 internal 而不是 private：`SurfaceKindAlphaContractGuard` 要按 kind 取色（#345）。
+// 有意是 internal 而不是 private：`SurfaceKindAlphaContractGuard` 要按「角色 × 层级」取色（#345）。
 // 改回 private 会让那条判据编译不过，而它守的是「映射层某一行被改成 .clear / 半透明」——
 // token 层的判据（#342）对此假绿。
 extension SurfaceKind {
-    var background: Color {
+    func background(at level: SurfaceLevel) -> Color {
         switch self {
         case .canvas: .surfaceCanvas
-        case .content: .surfaceCard
+        case .content, .grouped, .card: level == .elevated ? .surfaceElevated : .surfaceCard
         case .control: .surfaceInteractive
         case .floating: .surfaceOverlay
-        case .grouped: .surfaceCard
         case .canvasSubtle: .surfaceCanvasSubtle
         case .panel: .surfacePanel
         case .sidebar: .surfaceSidebar
-        case .card: .surfaceCard
         }
     }
 
-    var border: Color {
+    func border(at level: SurfaceLevel) -> Color {
         switch self {
         case .canvas: .clear
-        case .content: .borderMuted
+        case .content, .card: level == .elevated && Self.elevatedDropsContentBorder ? .clear : .borderMuted
         case .control: .borderSubtle
         case .floating: .borderMuted
         case .grouped: .clear
         case .canvasSubtle: .borderMuted
         case .panel: .borderDefault
         case .sidebar: .clear
-        case .card: .borderMuted
         }
     }
+
+    #if canImport(UIKit)
+        static let elevatedDropsContentBorder = true
+    #else
+        static let elevatedDropsContentBorder = false
+    #endif
 
     var cornerRadius: CGFloat {
         switch self {
@@ -80,12 +114,15 @@ extension SurfaceKind {
 
 struct SurfaceModifier: ViewModifier {
     let kind: SurfaceKind
+    @Environment(\.surfaceLevel) private var parentLevel
 
     func body(content: Content) -> some View {
         let shape = CoreShape.rounded(self.kind.cornerRadius)
+        let level = self.kind.level(inheriting: self.parentLevel)
         return content
-            .background(shape.fill(self.kind.background))
-            .overlay(shape.strokeBorder(self.kind.border, lineWidth: CoreBorderWidth.thin))
+            .environment(\.surfaceLevel, level)
+            .background(shape.fill(self.kind.background(at: level)))
+            .overlay(shape.strokeBorder(self.kind.border(at: level), lineWidth: CoreBorderWidth.thin))
             .clipShape(shape)
     }
 }
@@ -93,7 +130,10 @@ struct SurfaceModifier: ViewModifier {
 // MARK: - View Extension
 
 public extension View {
-    /// 一次性施加容器表面 token（背景 + 1pt 描边 + 圆角）。
+    /// 一次性施加容器表面 token（背景 + 1pt 描边 + 圆角），并把有效层级写给子树。
+    ///
+    /// `content` / `grouped` / `card` 的层级为父层级 + 1（封顶 elevated），背景随之取
+    /// `surfaceCard` / `surfaceElevated`；`canvas` / `canvasSubtle` 重置为 base；其余角色沿用父层级。
     ///
     /// - Parameter kind: 容器语义类别 / Container semantic kind.
     /// - Returns: 已应用 surface 装饰的视图 / The view with surface decoration applied.

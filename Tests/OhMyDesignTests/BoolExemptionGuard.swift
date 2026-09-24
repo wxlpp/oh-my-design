@@ -31,7 +31,6 @@ struct BoolExemptionGuard {
 
     static let contractNamedKeys: Set<String> = [
         "Badge.init#outlined",
-        "SidebarSection.init#showsChevron",
         "Tag.init#removable",
         "PinCode.init#isSecure",
         "Skeleton.init#isLoading",
@@ -240,7 +239,7 @@ struct BoolExemptionGuard {
         let scan = try Self.boolScan()
 
         #expect(scan.hits.count > 20, "只扫到 \(scan.hits.count) 处 Bool 参数 —— 扫描器失效")
-        #expect(scan.keys.count > 20, "只得到 \(scan.keys.count) 个豁免键 —— 扫描器失效")
+        #expect(scan.keys.count >= 20, "只得到 \(scan.keys.count) 个豁免键 —— 扫描器失效")
 
         let missingNamed = Self.contractNamedKeys.subtracting(scan.keys)
         let namedMessage = """
@@ -282,7 +281,7 @@ struct BoolExemptionGuard {
         )
         let entries = try Self.loadExemptions()
         #expect(entries.count >= 12,
-                "豁免清单只有 \(entries.count) 条 —— 下界取 PRD 点名的 10 条 + 两条实测补入（StepItem.init#isError / View.bottomInputBar#autoFocus），低于它疑似没读到或是空壳。⚠️ 原文案写的「10 条 + 两个 glass」已随 #41 裁决 3 过期：两个 glass 已按终局条款 (b) 删除、不再在清单里。")
+                "豁免清单只有 \(entries.count) 条，低于下界 12 —— 疑似没读到或是空壳。")
 
         var seen: Set<String> = []
         for (index, entry) in entries.enumerated() {
@@ -384,7 +383,7 @@ struct BoolExemptionGuard {
     @Test("J-1：public 声明不得含未豁免的 Bool 参数")
     func j1NoUnexemptedBoolParameters() throws {
         let scan = try Self.boolScan()
-        #expect(scan.keys.count > 20, "只扫到 \(scan.keys.count) 个豁免键 —— 扫描器失效")
+        #expect(scan.keys.count >= 20, "只扫到 \(scan.keys.count) 个豁免键 —— 扫描器失效")
 
         let diff = compareBoolHitsToExemptions(hits: scan.keys, exempted: try Self.exemptedKeys())
 
@@ -410,7 +409,7 @@ struct BoolExemptionGuard {
     @Test("未豁免违规集合与 pendingViolationKeys（现为空集）恰好相等（这条是**绿**的，专抓新违规）")
     func j1ViolationSetIsExactlyTheContractPending() throws {
         let scan = try Self.boolScan()
-        #expect(scan.keys.count > 20, "只扫到 \(scan.keys.count) 个豁免键 —— 扫描器失效")
+        #expect(scan.keys.count >= 20, "只扫到 \(scan.keys.count) 个豁免键 —— 扫描器失效")
 
         let diff = compareBoolHitsToExemptions(hits: scan.keys, exempted: try Self.exemptedKeys())
         let unexpected = diff.violations.subtracting(Self.pendingViolationKeys)

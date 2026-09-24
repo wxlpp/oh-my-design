@@ -42,12 +42,7 @@ public struct AvatarGroup<Avatars: View>: View {
     @Environment(\.controlSize) private var controlSize
 
     private var overlapOffset: CGFloat {
-        switch self.controlSize {
-        case .mini, .small: return -6
-        case .regular: return -8
-        case .large, .extraLarge: return -10
-        @unknown default: return -8
-        }
+        CoreControlMetrics.avatarGroupOverlap(forDiameter: self.avatarSize)
     }
 
     public var body: some View {
@@ -101,7 +96,7 @@ public struct AvatarGroup<Avatars: View>: View {
 
     private func countBadge(total: Int) -> some View {
         Text(verbatim: total.formatted())
-            .coreFont(.caption)
+            .coreFont(CoreControlMetrics.avatarCountFontToken(for: self.controlSize))
             .foregroundStyle(.secondary)
             .frame(width: self.avatarSize, height: self.avatarSize)
             .background(Circle().fill(Color.surfaceCanvasInset))
@@ -120,7 +115,7 @@ public struct AvatarGroup<Avatars: View>: View {
 
     private func overflowBadge(_ overflow: Int) -> some View {
         Text("+\(overflow)")
-            .coreFont(.caption)
+            .coreFont(CoreControlMetrics.avatarCountFontToken(for: self.controlSize))
             .foregroundStyle(.secondary)
             .frame(width: self.avatarSize, height: self.avatarSize)
             .background(Circle().fill(Color.surfaceCanvasInset))
@@ -129,14 +124,7 @@ public struct AvatarGroup<Avatars: View>: View {
     }
 
     private var avatarSize: CGFloat {
-        switch self.controlSize {
-        case .mini: return 20
-        case .small: return 24
-        case .regular: return 32
-        case .large: return 40
-        case .extraLarge: return 48
-        @unknown default: return 32
-        }
+        CoreControlMetrics.avatarDiameter(for: self.controlSize)
     }
 }
 

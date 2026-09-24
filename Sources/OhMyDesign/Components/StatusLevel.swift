@@ -8,4 +8,6 @@ public nonisolated enum StatusLevel: Sendable, Equatable {
     case success
     case warning
     case danger
+    /// 不带状态倾向的中性提示，取内容 / 填充语义色而非状态色。
+    case neutral
 }

@@ -6,26 +6,26 @@ struct ComponentTextParamGuard {
     static let ownerAliases: [String: String] = [
         "ToastItem": "Toast",
         "ToastHost": "Toast",
+        "ToastAction": "Toast",
         "RadioOption": "RadioGroup",
         "StepItem": "Steps",
         "SegmentedControlStyleConfiguration.Segment": "SegmentedControl",
     ]
 
-    static let knownUnregisteredSymbolParams: Set<String> = [
-        "SidebarDocumentRow.init#systemImage",
-        "SidebarNavigationRow.init#systemImage",
-        "SidebarUtilityRow.init#systemImage",
-        "SidebarUtilityRow.init#trailingSystemImage",
-    ]
-
     static let knownUnmappedOwnerParams: Set<String> = [
         "Color.init#text",
         "SettingsRowIcon.init#systemName",
+        "Text.init#content",
+        "Text.init#query",
     ]
 
     static let knownFunctionSideBareText: Set<String> = [
-        "ToastHost.show#message",
-        "View.bottomInputBar#placeholder",
+        "ToastHost.show#description",
+        "ToastHost.show#title",
+        "Tree.searchFilter#query",
+        "Tree.searchFilter#text",
+        "Tree.searchMatches#query",
+        "Tree.searchMatches#text",
         "View.spray#symbol",
     ]
 
@@ -113,31 +113,14 @@ struct ComponentTextParamGuard {
                 "只扫到 \(scan.bareTextKeys.count) 个裸文本参数 —— 扫描器失效，这不是『零违规』")
         #expect(scan.localizedTextKeys.count > 5,
                 "只扫到 \(scan.localizedTextKeys.count) 个 LSK/LSR 参数 —— 扫描器失效")
-        #expect(registryTextParams == 36,
-                "OhMyDesign 侧 textParams 实测 36 条（#270 扩扫描根后新增 TypewriterText.text 与四个图表的 title，由 31 变为 36），实际 \(registryTextParams) —— 若为预期变化请同步改这个数字")
-        #expect(result.covered.count == 31,
-                "覆盖数实测 31（#270 新增 TypewriterText.init#text，由 30 变为 31），实际 \(result.covered.count)：\(result.covered.keys.sorted())")
+        #expect(registryTextParams == 33,
+                "OhMyDesign 侧 textParams 实测 33 条（`#373` 新增 FormField 的 label / description 后由 27 变为 29；`#376` Banner 便利 init 的 title / message 两条 by-type 使 29 变为 31；`#377` 把 Toast 的 message 改名 title 并新增 description / label 使 31 变为 33），实际 \(registryTextParams) —— 若为预期变化请同步改这个数字")
+        #expect(result.covered.count == 26,
+                "覆盖数实测 26（`#373` 新增 FormField 的 label / description 后由 22 变为 24；`#377` 的 ToastItem title / description、ToastAction label 取代 ToastItem.init#message 使 24 变为 26），实际 \(result.covered.count)：\(result.covered.keys.sorted())")
         #expect(abs(result.covered.count - registryTextParams) * 2 <= registryTextParams,
                 "扫到的覆盖数 \(result.covered.count) 与登记表 \(registryTextParams) 条不在同一量级 —— 两侧口径可能已经脱节")
 
-        withKnownIssue(
-            """
-            FR-4 已知缺口：四条 Sidebar row 的 systemImage / trailingSystemImage 是 SF Symbol 标识符，\
-            与 LabelIcon.systemName 同类，但 #38 只在 LabelIcon 的 notes 里写了裁决、Sidebar 侧没写。\
-            处置：补 notes（见 40 的缺陷报告），不是改判据、不是塞进 textParams。\
-            ⚠️ 承接 **wxlpp/oh-my-story#51** —— 原写作「回 #38 补」，但 **#38 已 CLOSED**，\
-            指向已关闭的 issue 等于移交蒸发（#51 正是为此新开的，其标题即「原『#38 本位』，但 #38 已关闭」）。
-            """
-        ) {
-            #expect(result.violations.isEmpty, "这些裸文本参数没有分类条目：\n\(result.diagnostics.joined(separator: "\n"))")
-        }
-
-        #expect(Set(result.violations) == Self.knownUnregisteredSymbolParams,
-                """
-                FR-4 违规集合变了：实际 \(result.violations)，已知 \(Self.knownUnregisteredSymbolParams.sorted())。\
-                变大 ⇒ 新增了未登记的裸文本参数（上面的 withKnownIssue 会把它静默吞掉，靠本条抓）；\
-                变小 ⇒ 已补登记（承接 wxlpp/oh-my-story#51），同步删除 knownUnregisteredSymbolParams 与上面的 withKnownIssue 块
-                """)
+        #expect(result.violations.isEmpty, "这些裸文本参数没有分类条目：\n\(result.diagnostics.joined(separator: "\n"))")
 
         #expect(result.ghostRegistryParams.isEmpty,
                 "登记表里这些 textParams 在源码里找不到对应参数（改名？改类型？删了？）：\(result.ghostRegistryParams)")
@@ -175,15 +158,14 @@ struct ComponentTextParamGuard {
                 需要人来决定是扩 FR-4 定义域还是移交
                 """)
 
-        #expect(result.localizedByType.count == 17,
+        #expect(result.localizedByType.count == 25,
                 """
-                LSK/LSR 由类型判定的键实测 17 条（`#270` 扩扫描根后由 11 变为 17），实际 \(result.localizedByType.count)：\(result.localizedByType)。\
+                LSK/LSR 由类型判定的键实测 25 条（`#373` 新增 FormField 的 label / description 后由 17 变为 19；`#376` Banner 便利 init 的 title / message 使 19 变为 21；`#420` TimelineItem 的 title / description 使 21 变为 23；`#417` StatefulButton 便利 init 的 titleKey、`#418` SlideToConfirm 便利 init 的 titleKey 使 23 变为 25），实际 \(result.localizedByType.count)：\(result.localizedByType)。\
                 变化意味着有参数在 LSK/LSR 与裸串之间换了类型 —— 要人过目，不能静默
                 """)
-        #expect(result.carrying.count == 11,
+        #expect(result.carrying.count == 8,
                 """
-                text-carrying 键实测 11 条（`#270` 由 9 变 10；`#279` 扩根到 OhMyDesignShaders 后新增 \
-                assertShaderLibraryLoadable#functions，由 10 变为 11），\
+                text-carrying 键实测 8 条（移除 BottomInputBar 后由 10 变为 7；`#279` 扩根到 OhMyDesignShaders 后新增 assertShaderLibraryLoadable#functions，由 7 变为 8），\
                 实际 \(result.carrying.count)：\(result.carrying)。\
                 本桶（Binding<String> / 回调等）不进主判据，但它是**文案经此进入组件**的通道，\
                 静默增长等于 FR-4 的定义域在无人过目的情况下缩小
@@ -296,8 +278,8 @@ struct ComponentTextParamGuard {
                 }
             }
         }
-        #expect(byTypeCount == 6,
-                "by-type 条目实测 6 条（Descriptions.header / SpinningModifier.text + 四个图表的 title），实际 \(byTypeCount)")
+        #expect(byTypeCount == 8,
+                "by-type 条目实测 8 条（Descriptions.header / SpinningModifier.text + 四个图表的 title + Banner.title / Banner.message），实际 \(byTypeCount)")
         #expect(localizedBCount == 0)
         let bcCount = entries.filter { $0.repo == "ohmydesign" }
             .flatMap(\.textParams).count - byTypeCount

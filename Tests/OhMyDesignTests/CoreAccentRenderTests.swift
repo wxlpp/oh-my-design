@@ -99,20 +99,6 @@ struct CoreAccentRenderTests {
         }
     }
 
-    @Test("Sidebar 选中行跟随 coreAccent")
-    func sidebarSelectionFollowsCoreAccent() throws {
-        for scheme in [ColorScheme.light, .dark] {
-            let differs = try #require(
-                Self.differsUnderCoreAccent({
-                    SidebarNavigationRow(systemImage: "house", title: "Home", isSelected: true) {}
-                        .frame(width: 200)
-                }, scheme: scheme),
-                "\(scheme)：渲染失败"
-            )
-            #expect(differs, "\(scheme)：Sidebar 选中行没跟随 .coreAccent")
-        }
-    }
-
     @Test("Ink 分段样式的选中段跟随 coreAccent；Glass / Plain 两个默认样式不跟随")
     func inkSegmentedFollowsCoreAccent() throws {
         func control() -> some View {
@@ -131,6 +117,54 @@ struct CoreAccentRenderTests {
                 "\(scheme)：渲染失败"
             )
             #expect(!plain, "\(scheme)：.plain 分段跟随了 .coreAccent —— 它的选中态本不该吃强调色")
+        }
+    }
+
+    @Test("显式 on 真的流进 solid(.primary) 的前景——缺省派生与显式 on 渲染不同")
+    func explicitOnFlowsThroughModifier() throws {
+        func button(on: Color?) -> some View {
+            Button("Go") {}
+                .buttonStyle(.solid(role: .primary))
+                .coreAccent(.blue, on: on)
+                .frame(width: 120, height: 44)
+        }
+        for scheme in [ColorScheme.light, .dark] {
+            let derived = try #require(
+                Self.pixels(button(on: nil), scheme: scheme),
+                "\(scheme)：渲染失败"
+            )
+            let explicit = try #require(
+                Self.pixels(button(on: .yellow), scheme: scheme),
+                "\(scheme)：渲染失败"
+            )
+            expectBitmapsDiffer(
+                Array(derived), Array(explicit),
+                "\(scheme)：显式 on 没有改变 solid(.primary) 的前景——on 参数没接进样式"
+            )
+        }
+    }
+
+    @Test(".ink 分段选中段文字吃显式 on——缺省派生与显式 on 渲染不同")
+    func inkSegmentedOnFlowsThrough() throws {
+        func control(on: Color?) -> some View {
+            SegmentedControl(items: ["A", "B"], selection: .constant("A"), title: { $0 })
+                .segmentedControlStyle(.ink)
+                .coreAccent(.blue, on: on)
+                .frame(width: 200)
+        }
+        for scheme in [ColorScheme.light, .dark] {
+            let derived = try #require(
+                Self.pixels(control(on: nil), scheme: scheme),
+                "\(scheme)：渲染失败"
+            )
+            let explicit = try #require(
+                Self.pixels(control(on: .yellow), scheme: scheme),
+                "\(scheme)：渲染失败"
+            )
+            expectBitmapsDiffer(
+                Array(derived), Array(explicit),
+                "\(scheme)：显式 on 没有改变 .ink 分段选中段文字——on 参数没接进选中段前景"
+            )
         }
     }
 

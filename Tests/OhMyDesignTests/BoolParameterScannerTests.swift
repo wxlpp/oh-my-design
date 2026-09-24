@@ -110,7 +110,7 @@ struct BoolParameterScannerTests {
             func internalModifier(flag: Bool) {}
         }
         private extension View {
-            func focusedExternally(_ binding: FocusState<Bool>.Binding?) {}
+            func focusedIfPresent(_ binding: FocusState<Bool>.Binding?) {}
         }
         public struct Host {
             static func helper(flag: Bool) -> Bool { flag }
@@ -175,11 +175,11 @@ struct BoolParameterScannerTests {
             }
         }
         public extension View {
-            func sidebarSelectedBackground(_ isSelected: Bool) {}
+            func selectedBackground(_ isSelected: Bool) {}
         }
         """)
         #expect(
-            result.keys == ["Config.Segment.init#isSelected", "View.sidebarSelectedBackground#isSelected"],
+            result.keys == ["Config.Segment.init#isSelected", "View.selectedBackground#isSelected"],
             "实际：\(result.keys.sorted())"
         )
     }

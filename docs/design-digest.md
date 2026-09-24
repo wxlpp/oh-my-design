@@ -64,7 +64,7 @@
    / `.spinning`。
    ⚠️ **`ProgressBar` 已弃用**（全仓唯一一个 `@available(*, deprecated)` 的公开符号），
    改用 `ProgressView(value:).progressViewStyle(.core)`——就是上一条说的 `.core` 通路。**不要用 `Banner` 做浮层，也不要用 `ToastItem` 做常驻信息。**
-8. **Liquid Glass 只出现在 5 处**：`BottomInputBar`、`Carousel`、`SegmentedControl`、
+8. **Liquid Glass 只出现在 4 处**：`Carousel`、`SegmentedControl`、
    `.floatingGlass`、`TelegramGlassButtonModifier`。⚠️ 两个悬浮按钮样式**走的不是同一条**：
    `.circularGlass` 经 `TelegramGlassButtonModifier`，`.extendedFloat` 经 `.floatingGlass`。
    别处不要描述玻璃材质。
@@ -79,8 +79,9 @@
 - 第 3 层大多数 token 直接指系统语义色（`label` / `separator` / `systemFill` /
   `systemGroupedBackground` 族），取值随**外观、增强对比度、平台**在运行期变；
   `accent` 是**墨色**（`inkPrimary`：iOS `label` / macOS `textColor`），不再取宿主
-  `AccentColor`；宿主要换色走 `View.coreAccent(_:)`，四个派生态自动跟随。
+  `AccentColor`；宿主要换色走 `View.coreAccent(_:on:)`，四个派生态自动跟随。
   ⚠️ 图表 / tag 走 `dataAccent`（系统蓝），刻意不跟随 accent——墨色的环会读成禁用。
+  例外：`TagGroup` 的选中态（底色 / 描边）是交互色，从环境 `coreAccent` 派生；tag 内容色仍由调用方决定。
   原型里只能快照某一档。
 - `SystemBackgroundColors` 那 6 个 token 在 **macOS 上全部同值**——分层背景只在 iOS 成立。
 
@@ -140,6 +141,17 @@
 | `.medium` | 4 | 2 |
 | `.large` | 12 | 6 |
 
+## `CoreMotionToken`（4 档，经 `.coreAnimation(_:value:)` 或 `animation(for:)` 取）
+
+Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting` 下前三档退为同时长 `easeInOut`（只用于淡变），`scroll` 退为不补间；位移 / 缩放 / 旋转本身由调用点去掉，框架不代劳。
+
+| token | 时长 (s) | 曲线 | 用途 |
+|---|---|---|---|
+| `CoreMotionToken.press` | 0.16 | `.snappy` | 直接操作的即时反馈：按压缩放 / 变暗、按钮内 label 与进度的切换。 |
+| `CoreMotionToken.selection` | 0.22 | `.snappy` | 选中态切换：分段控件滑块、下划线标签（含把选中项滚到中间）、勾选 / 单选。 |
+| `CoreMotionToken.reveal` | 0.25 | `.smooth` | 出现 / 消失 / 展开：Toast 进出、表单消息、折叠组、加载遮罩。 |
+| `CoreMotionToken.scroll` | 0.35 | `.smooth` | 页级位移：走马灯翻页。 |
+
 ## `CoreControlMetrics`（按 SwiftUI `ControlSize`，5 档）
 
 | ControlSize | height | h-padding | v-padding | font | icon |
@@ -149,6 +161,16 @@
 | `.regular` | 44 | CoreSpacing.lg | CoreSpacing.md | .callout | 16 |
 | `.large` | 50 | CoreSpacing.lg | CoreSpacing.lg | .body | 20 |
 | `.extraLarge` | 56 | CoreSpacing.xl | CoreSpacing.lg | .title2 | 24 |
+
+紧凑 chip（`Badge` / `Tag`）与头像（`Avatar` / `AvatarGroup`）：
+
+| ControlSize | compact h-padding | compact v-padding | compact font | compact icon | compact min height（iOS 表；macOS 另一张，见源码） | compact radius | avatar diameter |
+|---|---|---|---|---|---|---|---|
+| `.mini` | 6 | CoreSpacing.xxs | .caption2 | 10 | 18 | 4 | 20 |
+| `.small` | 7 | CoreSpacing.xxs | .caption | 12 | 21 | 5 | 24 |
+| `.regular` | CoreSpacing.sm | CoreSpacing.xs | .footnote | 14 | nil | CoreRadius.small | 32 |
+| `.large` | CoreSpacing.md | CoreSpacing.xs | .subheadline | 16 | 28 | 7 | 40 |
+| `.extraLarge` | CoreSpacing.lg | CoreSpacing.xs | .callout | 18 | 32 | 8 | 48 |
 
 
 ---
@@ -193,7 +215,7 @@
 | `Color.contentSubtle` | 弱化辅助文本（弱于 `contentMuted`），用于占位 / 装饰文本。 |
 | `Color.contentOnEmphasis` | 在 emphasis 强调背景上的白色文本，用于通用 emphasis 背景（含中性 emphasis）。 |
 
-## `FillColors`（7）
+## `FillColors`（8）
 
 | token | 说明 |
 |---|---|
@@ -204,6 +226,7 @@
 | `Color.skeletonBase` | 骨架屏占位底色。 |
 | `Color.skeletonHighlight` | 骨架屏 shimmer 扫光高光色。 |
 | `Color.specularHighlight` | 扫光高光色（`.shine()` 这类掠过内容的高光带）。 |
+| `Color.badgeFill` | 锚定徽标（`View.anchoredBadge`）的底色：系统红，与 iOS 系统角标一致，不跟随 accent。 |
 
 ## `FunctionalColor`（10）
 
@@ -220,7 +243,7 @@
 | `Color.dangerDisable` | → `.red2` |
 | `Color.dangerHover` | → `.red6` |
 
-## `InteractionColors`（21）
+## `InteractionColors`（22）
 
 | token | 说明 |
 |---|---|
@@ -239,6 +262,7 @@
 | `Color.neutralAccentHover` | → `Color.grey6` |
 | `Color.neutralAccentPressed` | → `Color.grey7` |
 | `Color.neutralAccentDisabled` | → `Color.grey2` |
+| `Color.searchMatchBackground` | 搜索命中片段的底色：系统黄淡染（亮色 35%、暗色 20%），与选中底色（强调色派生）分开，选中行上仍看得出命中。 |
 | `Color.selectionBackground` | 常规选中态背景：低调的强调色淡染。 |
 | `Color.selectionBackgroundEmphasis` | 强调选中态背景：实心 `accent`，与 `contentOnAccent` 前景配对（该前景随主题反转，不再是白字）。 |
 | `Color.hoverBackground` | 中性 hover 底色。 |
@@ -252,7 +276,7 @@
 |---|---|
 | `Color.maskOpaque` | 纯 alpha 遮罩的**不透明**基色（`α = 1`）。 |
 
-## `StatusColors`（24）
+## `StatusColors`（25）
 
 | token | 说明 |
 |---|---|
@@ -280,6 +304,7 @@
 | `Color.statusDoneEmphasis` | 完成实色背景。 |
 | `Color.statusDoneMuted` | 完成弱化背景。 |
 | `Color.statusDoneSubtle` | 完成淡背景。 |
+| `Color.statusNeutralSubtle` | 中性淡背景：不透明的系统灰（`systemGray5`），叠在任何底色上视觉重量都不变。 |
 
 ## `SurfaceColors`（15）
 
@@ -312,7 +337,7 @@
 | `Color.secondarySystemGroupedBackground` | 分组界面主要背景上层内容的颜色。 |
 | `Color.tertiarySystemGroupedBackground` | 内容层叠在分组界面次要背景之上的颜色。 |
 
-## `SystemLabelColors`（11）
+## `SystemLabelColors`（14）
 
 | token | 说明 |
 |---|---|
@@ -327,6 +352,9 @@
 | `Color.separator` | 分隔线颜色，允许下层内容透出，桥接 `UIColor.separator` / `NSColor.separatorColor`。 |
 | `Color.opaqueSeparator` | 不透明的分隔线颜色，完全遮住下层内容（`UIColor.opaqueSeparator`）。 |
 | `Color.link` | 可点击链接文本的颜色，桥接 `UIColor.link` / `NSColor.linkColor`。 |
+| `Color.systemRed` | 系统红，桥接 `UIColor.systemRed` / `NSColor.systemRed`，随外观与对比度设置自动适配。 |
+| `Color.systemYellow` | 系统黄，桥接 `UIColor.systemYellow` / `NSColor.systemYellow`，随外观与对比度设置自动适配。 |
+| `Color.systemGray5` | 不透明的中浅灰，桥接 `UIColor.systemGray5`，明暗两种外观 α 均为 1。 |
 
 
 ---
@@ -341,6 +369,9 @@
 ### `Components/Avatar/Avatar.swift`
 
 - **`Avatar`** *: View* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
+- *enum* **`AvatarSize`** — `Avatar` 的尺寸：跟随环境 `controlSize`，或指定固定直径。
+  - `.automatic` — 按环境 `\.controlSize` 取 `CoreControlMetrics.avatarDiameter(for:)`。
+  - `.fixed` — 固定直径（pt）。负值与非有限值（`.infinity` / `.nan`）按 0 处理。
 
 ### `Components/AvatarGroup/AvatarGroup.swift`
 
@@ -359,15 +390,10 @@
 ### `Components/Banner/Banner.swift`
 
 - **`Banner`** *<Label: View>: View* — 页内信息表面，按状态语义配描边或填充；浮层反馈请改用 `ToastHost`。
-- **`PlainBannerStyle`** *: BannerStyle* — 默认的 Banner 外观：纯色背景 + 同色系前景，无描边。
-- **`BorderedBannerStyle`** *: BannerStyle* — 带同色系描边的 Banner 外观：背景 + `CoreBorderWidth.thin` 描边。
+- **`PlainBannerStyle`** *: BannerStyle* — 默认的 Banner 外观：`CoreRadius.medium` 圆角纯色背景 + 同色系前景，无描边。
+- **`BorderedBannerStyle`** *: BannerStyle* — 带同色系描边的 Banner 外观：`CoreRadius.medium` 圆角背景 + 沿同一形状的 `CoreBorderWidth.thin` 描边。
 - *protocol* **`BannerStyle`** — `Banner` 视觉外观的扩展点，形态对齐 Apple `ButtonStyle` / `ToggleStyle`。
-- *struct* **`BannerStyleConfiguration`** — 传给 `BannerStyle.makeBody` 的上下文，提供 banner 的语义等级与 label 视图。
-
-### `Components/BottomInputBar/BottomInputBar.swift`
-
-- **`BottomInputBar`** *: View* — 浮层输入条。
-- *enum* **`BottomInputBarDefaults`** — 组件源码提供的兜底文案。
+- *struct* **`BannerStyleConfiguration`** — 传给 `BannerStyle.makeBody` 的上下文：语义等级、正文与可选的标题 / 动作 / 关闭回调。
 
 ### `Components/Button/AsyncButton.swift`
 
@@ -376,6 +402,15 @@
 ### `Components/Button/ButtonRoleStyleRole.swift`
 
 - *enum* **`ButtonRoleStyleRole`**: `.primary`, `.secondary`, `.tertiary`, `.warning`, `.danger`
+
+### `Components/Button/StatefulButton.swift`
+
+- **`StatefulButton`** *<Label: View>: View* — 带 idle / loading / success / failure 四态视觉回执的动作按钮。
+- *enum* **`StatefulButtonState`** — 四态动作按钮的视觉态 / The four visual states of a stateful action button.  四态是**一个枚举**而不是四个 Bool：任意两态互斥，Bool 组合能表达出 `loading && success` 这类无意义状态。
+  - `.idle` — 静息：只画 label，无配件符号。
+  - `.loading` — 正在执行调用方的 action。
+  - `.success` — action 正常返回。
+  - `.failure` — action 抛出了非取消错误。
 
 ### `Components/Button/styles/CircularGlassButtonStyle.swift`
 
@@ -392,6 +427,11 @@
 ### `Components/Button/styles/LightButtonStyle.swift`
 
 - **`LightButtonStyle`** *: ButtonStyle* — 次要操作按钮样式（"light button"）。
+
+### `Components/Button/styles/PressableButtonStyles.swift`
+
+- **`PressableRowButtonStyle`** *: ButtonStyle* — 行式按压反馈：按下时在调用方 label 之上叠一层半透明的中性按下色（`Color.pressedBackground`）， 自带背景的行（`ListRow`、`SettingsRow`）也看得见。
+- **`PressableCardButtonStyle`** *: ButtonStyle* — 卡片式按压反馈：按下时把调用方 label 按 `CoreButtonMetrics.pressedScale` 缩放； 系统开启「减弱动态效果」时不缩放、只变暗。
 
 ### `Components/Button/styles/SolidButtonStyle.swift`
 
@@ -410,13 +450,29 @@
 
 ### `Components/CheckBox/CheckBox.swift`
 
-- **`CheckBoxToggleStyle`** *: ToggleStyle* — 复选框样式 / CheckBox toggle style：把 SwiftUI `Toggle` 渲染为左侧方框 + 右侧 label 的复选框形态。
+- **`CheckBoxToggleStyle`** *: ToggleStyle* — 复选框样式 / CheckBox toggle style：把 SwiftUI `Toggle` 渲染为左侧方框 + 右侧 label 的复选框形态；勾选 / 未勾选之外，还读系统从 `Toggle(sources:isOn:)` 派生的 mixed 态并画出第三种符号。
 
 ### `Components/Form/Form.swift`
 
 - **`LabelIcon`** *: View* — 表单 / 列表行 leading 位置使用的方形 app-tile 风格图标。
 - **`ChevronRightIcon`** *: View* — 列表行 trailing 的「可进入下一级」指示符，用 `chevron.forward` 以在 RTL 下自动镜像。
 - **`DangerIcon`** *: View* — 列表行 trailing 位置的危险 / 错误状态指示符（实心感叹号圆形）。
+
+### `Components/FormField/FieldValidation.swift`
+
+- *enum* **`FieldValidation`** — 字段的校验态，经环境值下发给 `FormField` 与接入校验的控件。
+  - `.valid` — 校验通过（或尚未校验）。
+  - `.invalid` — 校验未通过，关联值是展示给用户、也会被播报的错误原因。
+- *enum* **`FieldRequirement`** — 字段是否必填，经环境值下发给 `FormField`。
+  - `.optional` — 选填（默认）。
+  - `.required` — 必填：label 旁显示星号，可访问 label 追加必填说明。
+
+### `Components/FormField/FormField.swift`
+
+- **`FormField`** *<Content: View>: View* — 表单字段容器：label（必填时带星号）+ 输入控件 + 可选 description + 错误行。
+- *enum* **`FormFieldLayout`** — `FormField` 的排布形态。
+  - `.stacked` — 默认：label 在上，控件、description、错误行依次在下（现状形态）。 业界来源：Apple HIG iOS 表单 / Material Design 3 Text fields 的外置 label。
+  - `.inline` — label 在前一列，控件在后，description 与错误行位于控件下方；辅助功能大字号下回退为 `.stacked`。 业界来源：Ant Design `Form.Item` 的 `layout="horizontal"` / macOS 表单的标签列（`Form` 的 `.formStyle(.columns)`）。
 
 ### `Components/InsetGroupedSection/InsetGroupedSection.swift`
 
@@ -475,7 +531,7 @@
 - **`SegmentedControl`** *<Item: Hashable>: View* — GitHub-like density on an Apple-native control surface. 外观由环境注入的 `SegmentedControlStyle` 决定，默认 `GlassSegmentedControlStyle`。
 - **`GlassSegmentedControlStyle`** *: SegmentedControlStyle* — 默认外观：Liquid Glass 外壳。
 - **`PlainSegmentedControlStyle`** *: SegmentedControlStyle* — 纯色外壳外观（此前 `glass: false`）。
-- **`InkSegmentedControlStyle`** *: SegmentedControlStyle* — 墨色外观：选中段是实心 `coreAccent` 胶囊 + 反色文字（`contentOnAccent`）。
+- **`InkSegmentedControlStyle`** *: SegmentedControlStyle* — 墨色外观：选中段是实心 `coreAccent` 胶囊 + on-accent 文字（缺省按 accent 亮度 派生黑 / 白，`View.coreAccent(_:on:)` 的 `on` 参数可覆盖）。
 - *protocol* **`SegmentedControlStyle`** — `SegmentedControl` 视觉外观的扩展点，形态对齐 `BannerStyle` / Apple `ButtonStyle`。
 - *struct* **`SegmentedControlStyleConfiguration`** — 传给 `SegmentedControlStyle.makeBody` 的上下文：类型擦除的分段数据 + 选择回调。
 - *struct* **`SegmentedControlStyleConfiguration.Segment`** — 单个分段的类型擦除表示。
@@ -494,25 +550,16 @@
 - *enum* **`SettingsRowMetrics`** — `SettingsRow` 与 `InsetGroupedSection` 共享的布局常量，分隔线的 leading inset 由它推导。
 - *struct* **`SettingsRowIcon`** — iOS 设置行左侧的圆角色块 + 白色 SF Symbol。
 
-### `Components/Sidebar/Sidebar.swift`
-
-- **`SidebarSection`** *<Content: View>: View* — 带标题的侧栏分组容器。
-- **`SidebarNavigationRow`** *<Leading: View>: View* — 带选中态的主导航行。
-- **`SidebarUtilityRow`** *: View* — 次级工具行，可选尾部装饰。
-- **`SidebarDocumentRow`** *: View* — 带尾部 detail 文本的文档行。
-- **`SidebarTagRow`** *: View* — 以 `#` 字形开头的标签行。
-- **`SidebarStatusFooter`** *: View* — 状态点 + 标题/详情文本的页脚。
-- *enum* **`SidebarUtilityRowPresentation`** — `SidebarUtilityRow` 的**呈现形态**。
-  - `.iconLeading` — 默认：leading 字形 + 标题（现状形态）。
-  - `.textOnly` — 纯文字行：**不渲染 leading 字形、也不占位**。 ⚠️ 本形态下 `systemImage` **静默不生效**——传了不是错误，只是无效。
-- *enum* **`SidebarTextStyle`** — 侧栏内容的语义文字色别名。
-
 ### `Components/Skeleton/Skeleton.swift`
 
 - **`Skeleton`** *<Placeholder: View, Content: View>: View* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
 - **`SkeletonLine`** *: View* — 文本行占位形状：圆角矩形 + 固定高度，可指定条数模拟多行文本。
 - **`SkeletonRect`** *: View* — 图片 / 卡片占位形状：矩形块，尺寸由调用方指定。
 - **`SkeletonCircle`** *: View* — 头像占位形状：圆形，直径由调用方指定。
+
+### `Components/SlideToConfirm/SlideToConfirm.swift`
+
+- **`SlideToConfirm`** *<Label: View>: View* — 滑到底才触发的高代价动作确认 / Slide-to-confirm for costly actions.  按住指示器拖到轨道尽头松手才执行 `action`：阈值是纯距离，**不**因甩得快而放宽。
 
 ### `Components/StateLabel/StateLabel.swift`
 
@@ -521,7 +568,12 @@
 
 ### `Components/StatusLevel.swift`
 
-- *enum* **`StatusLevel`**: `.info`, `.success`, `.warning`, `.danger` — 状态语义等级，决定组件的图标 + 配色映射。
+- *enum* **`StatusLevel`** — 状态语义等级，决定组件的图标 + 配色映射。
+  - `.info`
+  - `.success`
+  - `.warning`
+  - `.danger`
+  - `.neutral` — 不带状态倾向的中性提示，取内容 / 填充语义色而非状态色。
 
 ### `Components/Steps/Steps.swift`
 
@@ -536,6 +588,10 @@
   - `.navigation` — 导航式步骤条：去掉公共轴线与连线，每一步成为彼此直接拼接的块。 业界来源：Ant Design Steps `type="navigation"` / Shopify Polaris 结账步骤导航。
   - `.text` — 纯文本：N 个指示器槽与标题槽连同连线塌成一个文本槽。 业界来源：Typeform 的「1 of 5」进度文案。
 - *struct* **`StepItem`** — 单个步骤的数据模型：标题（必填）+ 可选描述 + 错误标记。
+
+### `Components/Style/CoreCircularProgressViewStyle.swift`
+
+- **`CoreCircularProgressViewStyle`** *: ProgressViewStyle* — 系统 `ProgressView` 的 OhMyDesign 环形外观——确定态画一条从 12 点方向顺时针增长的圆弧， 强调色经 `ShapeStyle.tint` 取值，所以 `.tint(_:)` 对它生效；不确定态回退系统环形 spinner。
 
 ### `Components/Style/CoreDisclosureGroupStyle.swift`
 
@@ -571,29 +627,66 @@
 
 - **`Tag`** *<Label: View>: View* — 控件层的分类标签。
 
+### `Components/TagGroup/TagGroup.swift`
+
+- **`TagGroup`** *<Data: RandomAccessCollection, ID: Hashable, Label: View>: View* — 基于 `Tag` + `FlowLayout` 的可选标签组（filter chips）。
+- *enum* **`TagGroupSelectionMode`** — `TagGroup` 的选择模式。
+  - `.none` — 纯展示：标签不是按钮，不可聚焦；绑定里已选的项照样画出选中态。
+  - `.single` — 单选：点未选项把数据内已选集合替换为该项，点已选项取消（允许空选）。
+  - `.multiple` — 多选：点击逐项切换。
+
 ### `Components/TagInput/TagInput.swift`
 
 - **`TagInput`** *: View* — `Binding<[String]>` 驱动的标签输入框：已有标签以 chip 形式展示，末尾内联一个 文本输入框，回车或逗号提交新标签，点击 chip 上的删除按钮移除标签。
 
 ### `Components/Timeline/Timeline.swift`
 
-- **`Timeline`** *: View* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
+- **`Timeline`** *<Content: View>: View* — 组合式时间线：直接子视图里的 `TimelineItem` 是行（自己画节点），其余子视图（分组标题、页脚等） 是没有节点的非行子视图。（材质层: 内容 / 表面角色: 内容）
+- **`TimelineItem`** *<Node: View, Content: View>: View* — `Timeline` 的一行：自己画节点（默认圆点或 `node:` 槽），节点与内容作为两个子视图交给容器排布。
 - *enum* **`TimelineLayout`** — `Timeline` 的**整体排布形态**——与 `TimelineItem` 的 `node:` 外观槽**正交**： 本枚举决定「这组节点怎么排」，`node:` 决定「单个节点画成什么」。
-  - `.vertical` — 默认：左侧固定节点列 + 右侧内容，节点间竖向连线（现状形态）。
+  - `.vertical` — 默认：左侧节点列 + 右侧内容，节点间竖向连线（现状形态）。
   - `.alternate` — 左右交替：内容在中轴两侧交替排布。 业界来源：Ant Design Timeline 的 `mode="alternate"`。
-  - `.horizontal` — 横向：节点沿水平轴排列，内容在节点下方。 业界来源：PowerPoint SmartArt 的 Basic Timeline / Final Cut Pro 的横向事件时间线。
+  - `.horizontal` — 横向：节点沿水平轴排列，节点间有连线，内容在节点下方。 业界来源：PowerPoint SmartArt 的 Basic Timeline / Final Cut Pro 的横向事件时间线。
   - `.grouped` — 无连线的分组列表：删掉节点列与连线，只留内容；本形态下 `TimelineItem.node:` 槽不生效。
-- *struct* **`TimelineItem`** — `Timeline` 单条节点的数据载体。
+- *enum* **`TimelineProgress`** — 带阶段的时间线推进到哪里：与每行的 `step` 一起决定各行阶段与连线着色。
+  - `.notStarted` — 全部带 `step` 的行处于 `.upcoming`。
+  - `.inProgress` — `step` 小于参数的行已完成、等于的行进行中、大于的行未开始；参数不等于任何行的 `step` 时没有进行中的行。
+  - `.completed` — 全部带 `step` 的行已完成。
+- *enum* **`TimelinePhase`** — 一行在带阶段时间线里的阶段；只决定默认圆点形态、连线着色与无障碍播报，色相仍由 `status` 决定。
+  - `.completed` — 已完成：实心圆点，通向它的连线着 `.tint`。
+  - `.inProgress` — 进行中：实心圆点 + 隔一圈透明间隙的同色实线外环，通向它的连线着 `.tint`。
+  - `.upcoming` — 未开始：同色空心圆点，通向它的连线为底线色。
 
 ### `Components/Toast/Toast.swift`
 
+- *enum* **`ToastDuration`** — Toast 的显示时长。
+  - `.seconds` — 显示指定秒数后自动关闭；非正值（含 NaN）按 `ToastDefaults` 的缺省时长处理， `.infinity` 等同 `.persistent`。
+  - `.persistent` — 不自动关闭，直到被 `dismiss` / `dismissAll` / 点按关闭；关闭前阻塞其后的排队项。
 - *enum* **`ToastPresentation`** — `Toast` 的**呈现形态**（公约 §2 形态 D2「配置枚举」，`wxlpp/oh-my-story#65`）。
   - `.floatingCapsule` — 现状形态：`safeAreaInset` 贴边 + `Capsule` 几何 + 水平内边距，读起来像系统反馈。
   - `.fullWidthBanner` — 全宽横幅条（Android Snackbar / in-app banner）：贴边、横跨屏幕宽度、非胶囊。
   - `.centeredHUD` — 居中 HUD（经典 UIKit toast/HUD）：浮于屏幕中央而非贴边，宽度收缩为内容宽。 ⚠️ 本形态下 `edge` 不生效。
 - *struct* **`ToastItem`** — 单条 Toast 的数据载体。
+- *struct* **`ToastAction`** — Toast 上的单个动作按钮。
 - *enum* **`ToastDefaults`** — Toast 行为的默认值常量集合。
 - *final class* **`ToastHost`** — Scene 级的浮层 toast 队列与调度器，外壳形状由 `ToastPresentation` 三选一。
+
+### `Components/Tree/Tree.swift`
+
+- **`Tree`** *<Data: RandomAccessCollection, ID: Hashable, RowContent: View>: View* — 递归层级树 / Recursive tree：受控展开 + 行选中（单选 / 多选）+ 可选的三态复选框 + W3C ARIA Treeview 键盘导航。
+
+### `Components/Tree/TreeCore.swift`
+
+- *enum* **`TreeSelectionMode`** — `Tree` 的行选择模式。
+  - `.single` — 单选：选中一个未选行时，替换已选集合里属于本树的全部 ID（含被折叠而不可见的）。 不属于本树数据的 ID 原样保留；再选同一行取消（允许空选）。
+  - `.multiple` — 多选：逐行切换选中态。
+- *enum* **`TreeRowClickBehavior`** — 单击 `Tree` 的**父行**（行内容或缩进区，不含 chevron 与复选框）时做什么；经 `Tree.rowClickBehavior(_:)` 设置。
+  - `.select` — 只选中（默认）：展开 / 折叠只经 chevron 与 `←` / `→`。
+  - `.selectAndToggleExpansion` — 选中并切换展开（VS Code Explorer 式）：单击父行同时取反该行的展开态。
+
+### `Components/Tree/TreeStyle.swift`
+
+- *struct* **`TreeStyle`** — `Tree` 的行外观预设：`.automatic`（默认）或 `.navigator`。
 
 ### `Environment/EnergyPolicy.swift`
 
@@ -611,6 +704,27 @@
 
 - **`FlowLayout`** *: Layout* — Tag 自动换行布局容器。
 
+### `Modifier/AnchoredBadgeModifier.swift`
+
+- *enum* **`AnchoredBadgeContent`** — 锚定徽标的内容：红点、计数或短文本。
+  - `.dot` — 不带文字的红点。
+  - `.count` — 计数；`≤ 0` 时不显示，超过 `max` 时显示为 `"\(max)+"`。
+  - `.text` — 调用方提供的短文案（本地化键，按 `Bundle.main` 解析）；空键时不显示。
+- *enum* **`AnchoredBadgePlacement`** — 锚定徽标贴在宿主的哪个角。
+  - `.topTrailing` — 右上角（RTL 下为左上）。
+  - `.topLeading` — 左上角（RTL 下为右上）。
+  - `.bottomTrailing` — 右下角（RTL 下为左下）。
+  - `.bottomLeading` — 左下角（RTL 下为右下）。
+- *enum* **`AnchoredBadgeHostShape`** — 宿主的外形，决定徽标锚点落在哪里。
+  - `.rectangle` — 矩形宿主（图标、卡片）：锚点在边界框的角上。
+  - `.circle` — 圆形宿主（头像）：锚点在内切圆的 45° 点上，并带一圈 `surfaceCanvas` 分隔环。
+
+### `Modifier/CoreSheetPresentation.swift`
+
+- *enum* **`CoreSheetBackground`** — `coreSheetPresentation(background:)` 的 sheet 背景取值 / Sheet background of the preset.
+  - `.system` — 保留系统 sheet 背景（iOS 26 为 Liquid Glass）。
+  - `.raised` — 不透明 `Color.surfaceRaised`。
+
 ### `Modifier/FloatingGlassModifier.swift`
 
 - **`FloatingGlassModifier`** *<S: InsettableShape>: ViewModifier* — ⚠️ 源码无文档注释
@@ -627,7 +741,7 @@
 
 - *enum* **`SurfaceKind`** — 容器表面语义类别 / Container surface semantic kinds.
   - `.canvas` — 页面级画布。
-  - `.content` — 内容表面：卡片、分组容器——**浮于画布之上**（背景取 `surfaceRaised`）。 列表行不用本 kind，`ListRow` 走 `.surface(.canvas)` 贴画布。
+  - `.content` — 内容表面：卡片、分组容器——**浮于画布之上**（背景取 `surfaceRaised`）。 iOS 上嵌套到 elevated 层时不描边，与 `.grouped` 同观感；macOS 上 raised / elevated 同色，保留描边作嵌套线索。 列表行不用本 kind，`ListRow` 走 `.surface(.canvas)` 贴画布。
   - `.control` — 交互控件表面：按钮、输入框、分段控件。
   - `.floating` — 浮于内容之上的表面：toast、浮动工具栏、底部栏。
   - `.grouped` — 分组容器表面：背景 + 圆角、无描边，靠填充色对比定界，背景与 `.content` 同取 `surfaceRaised`。
@@ -654,7 +768,7 @@
 
 ### `Tokens/CoreControlMetrics.swift`
 
-- *enum* **`CoreControlMetrics`** — 控件尺寸 token，按 SwiftUI `ControlSize`（mini / small / regular / large / extraLarge） 暴露 5 个查询 helper（height / horizontalPadding / verticalPadding / font / iconSize）。
+- *enum* **`CoreControlMetrics`** — 控件尺寸 token，按 SwiftUI `ControlSize`（mini / small / regular / large / extraLarge） 暴露查询 helper：常规控件（height / horizontalPadding / verticalPadding / font / iconSize）、 紧凑 chip（…
 
 ### `Tokens/CoreElevation.swift`
 
@@ -665,6 +779,14 @@
   - `.large` — 大阴影。floating 层级，用于 popover、菜单、真正悬浮于内容之上的浮层。
 - *enum* **`CoreElevation`** — 阴影 / 高度 (elevation) token，只用于真正悬浮于内容之上的元素。
 - *struct* **`CoreElevation.Spec`** — 单档 elevation 的视觉规格。
+
+### `Tokens/CoreMotionToken.swift`
+
+- *enum* **`CoreMotionToken`** — 语义化动效 token：核心库所有过渡动画的唯一来源，按「这次变化是什么」而不是按曲线参数命名。
+  - `.press` — 直接操作的即时反馈：按压缩放 / 变暗、按钮内 label 与进度的切换。0.16 s snappy。
+  - `.selection` — 选中态切换：分段控件滑块、下划线标签（含把选中项滚到中间）、勾选 / 单选。0.22 s snappy。
+  - `.reveal` — 出现 / 消失 / 展开：Toast 进出、表单消息、折叠组、加载遮罩。0.25 s smooth。
+  - `.scroll` — 页级位移：走马灯翻页。0.35 s smooth；Reduce Motion 下直接到位。
 
 ### `Tokens/CoreRadius.swift`
 
@@ -693,6 +815,10 @@
   - `.hidden` — 不显示标签。
   - `.standard` — 显示**组件自带**的默认文案（"Before" / "After"，公约 §4 A 类）。
   - `.shown` — 显示**调用方给定**的文案（公约 §4 B 类）。
+- *enum* **`BeforeAfterSliderLayout`** — `BeforeAfterSlider` 的排布形态。
+  - `.overlay` — 默认：两层叠放在同一块画布上，`before` 按分隔线位置裁切揭示（现状形态）。
+  - `.sideBySide` — 左右并排两幅完整图——分隔线只改两个窗格的宽度比，两侧内容都不被裁切成"半张图"。 业界来源：Adobe Lightroom Classic 的 Before & After left/right 视图。
+  - `.stacked` — 上下并排两幅完整图，主轴由横改纵，拖拽与把手随之切到竖向。 业界来源：Adobe Lightroom Classic 的 Before & After top/bottom 视图。
 
 ### `BlurTransition.swift`
 
@@ -754,6 +880,10 @@
 ### `OrbitingLogos.swift`
 
 - **`OrbitingLogos`** *<Data: RandomAccessCollection, Logo: View, Center: View>: View* — 四圈同心点环持续自转，调用方的 logo 均匀落在最外环上随之巡游， 每隔一小段时间轮到一个 logo **弹出放大**、把附近的点挤开，中心是调用方的视图。
+- *enum* **`OrbitingLogosLayout`** — `OrbitingLogos` 的布局形态。
+  - `.outerRing` — 默认：现状——全部条目均匀落在最外一圈点环上。
+  - `.multiRing` — 多轨道：条目按序分居到不同半径的同心圈上。 业界来源：Magic UI `OrbitingCircles` 的两个不同 `radius` 实例并列。
+  - `.ellipse` — 椭圆轨道：四圈点环与条目一并沿横向压扁，整件成椭圆。 业界来源：Animata "Orbiting Items 3D" 的 `radiusX` / `radiusY`。 ⚠️ **明确不做**：来源里的倾角与透视两个维度本轮都不开，见组件文档的取舍说明。
 
 ### `ParticleTransition.swift`
 
@@ -816,6 +946,11 @@
 ### `ActivityHeatmap.swift`
 
 - **`ActivityHeatmap`** *<Day: HeatmapDay>: View* — 贡献热力图（GitHub 那种按周排列的日格）。
+- *enum* **`ActivityHeatmapLayout`** — `ActivityHeatmap` 的布局形态。
+  - `.weeks` — 默认：按周成列、按星期几成行（现状形态）。
+  - `.monthCalendar` — 日历月视图：每月一块、固定 6 行 × 7 列，格子按真实的日历位置摆放。 业界来源：Apple 自家 Activity / Fitness App 的 History 页。
+  - `.monthTracks` — 月轨图：每月一行，按当月日序成列。 业界来源：Obsidian 社区插件 Contribution Graph 的 "month track graphs"。
+  - `.dailyColumns` — 每日一柱：折线 / 柱状时间序列的柱状读法，保留四档强度色阶双重编码。 业界来源：GitLab Pajamas 的图表页（column / bar / line / sparkline 并列为可选形态）。  ⚠️ **只做柱状，不做折线**：两者同槽同排布（网格 → 线性），差别属装饰档， 本轮不另开 case（详见 `docs/components/activity-heatmap.md`《布局形态扩展点》一节）。
 
 ### `ChartSupport.swift`
 
@@ -841,10 +976,20 @@
 ### `RadarChart.swift`
 
 - **`RadarChart`** *<Value: ChartValue>: View* — 雷达图（蛛网图）。
+- *enum* **`RadarChartLayout`** — `RadarChart` 的布局形态。
+  - `.polygon` — 默认：各轴端点连成闭合轮廓（现状形态）。
+  - `.parallel` — 平行坐标：n 条竖轴，值映射到高度。 业界来源：AntV G2 坐标系总览页的 `parallel`。
+  - `.radialBars` — 径向柱状：每维一条从圆心向外的同心弧形条，值编码在扫过角上（不是半径）。 业界来源：AntV G2 坐标系总览页的 `radial`（转置极坐标读法）。
+  - `.bars` — 笛卡尔并排条形：n 行水平条。 业界来源：GitLab 设计体系 Pajamas 的 Charts 页。
 
 ### `RingChart.swift`
 
 - **`RingChart`** *<Value: ChartValue>: View* — 活动环。
+- *enum* **`RingChartLayout`** — `RingChart` 的布局形态。
+  - `.rings` — 默认：同心进度环（现状形态）。
+  - `.bars` — 并排线性进度条。业界来源：Ant Design `Progress` 组件 `type="line"`。
+  - `.segmentedRings` — 分段同心环：几何与 `.rings` 完全相同，只把每环连续的进度弧切成 `RingChart.segmentCount` 段离散段。业界来源：Ant Design `Progress` 组件的 `steps` 属性。
+  - `.stackedBar` — 堆叠条：N 个同心环塌成一条水平堆叠柱，段序 = 值序。 业界来源：GitLab Pajamas 的 stacked column。语义仍是「完成度」——轨道总长代表 N × goal。
 
 ## `OhMyDesignShaders`
 
@@ -904,25 +1049,31 @@
 
 # Modifier / Transition 入口点
 
-共 44 个（按 `Host.member` 去重，含参重载算一条）。
+共 50 个（按 `Host.member` 去重，含参重载算一条）。
 
 | target | 入口 | 说明 |
 |---|---|---|
 | `OhMyDesign` | `.coreAccent` on `View` | 为子树设置强调色，`accentHover` / `accentPressed` / `accentDisabled` / `accentSubtleBackground` 四个派生态自动跟随。 |
 | `OhMyDesign` | `.bannerStyle` on `View` | 为子树中的所有 `Banner` 设置外观。 |
-| `OhMyDesign` | `.bottomInputBar` on `View` | ⚠️ 源码无文档注释 |
+| `OhMyDesign` | `.fieldValidation` on `View` | 为这棵子树设定字段校验态，推荐施加在 `FormField` 上。 |
+| `OhMyDesign` | `.fieldRequirement` on `View` | 为这棵子树设定字段必填性，推荐施加在 `FormField` 上。 |
+| `OhMyDesign` | `.fieldAccessibility` on `View` | 把所在 `FormField` 的 label（含必填说明）挂成本视图的无障碍 label，错误原因与 description 挂成无障碍 hint。 |
+| `OhMyDesign` | `.formFieldLabelColumn` on `View` | 让这棵子树里所有 `.inline` 排布的 `FormField` 共用同一 label 列宽（取其中最宽的 label），使控件左缘对齐。 |
 | `OhMyDesign` | `.ratingStyle` on `View` | 为子树中的所有 `Rating` / `RatingDisplay` 设置外观。 |
 | `OhMyDesign` | `.segmentedControlStyle` on `View` | 为子树中的所有 `SegmentedControl` 设置外观（对齐 `View.bannerStyle(_:)`）。 |
-| `OhMyDesign` | `.sidebarSelectedBackground` on `View` | `isSelected` 为 true 时施加侧栏选中态背景。 |
 | `OhMyDesign` | `.skeletonShimmer` on `View` | 骨架屏 shimmer 扫光叠加。 |
 | `OhMyDesign` | `.toastHost` on `View` | 在当前 view 子树挂载一个 scene-scoped `ToastHost`，并在 `edge` 方向以 `safeAreaInset` 渲染当前队列的首条 toast。 |
+| `OhMyDesign` | `.treeStyle` on `View` | 为子树中的所有 `Tree` 设置行外观。 |
+| `OhMyDesign` | `.anchoredBadge` on `View` | 在宿主的一个角上叠加红点 / 计数 / 短文案徽标，不改变宿主布局尺寸。 |
 | `OhMyDesign` | `.bordered` on `View` | 叠加一圈描边 / Add a border.  - Parameters: - style: 描边样式，任意 `ShapeStyle`（含 `Color` 与渐变）。 |
 | `OhMyDesign` | `.coreFont` on `View` | 施加 OhMyDesign 排版 token（直接取系统文本样式，随 Dynamic Type 缩放）。 |
+| `OhMyDesign` | `.coreSheetPresentation` on `View` | 本库的 sheet 预设：可见拖拽指示条、按 `background` 取背景，并把 sheet 内容的有效层级设为 raised （内部的 `Card` 因而取 `surfaceElevated`）。 |
 | `OhMyDesign` | `.floatingGlass` on `View` | ⚠️ 源码无文档注释 |
 | `OhMyDesign` | `.focusRing` on `View` | 给视图添加一个焦点环。 |
 | `OhMyDesign` | `.spinning` on `View` | 为内容整体叠加加载遮罩。 |
-| `OhMyDesign` | `.surface` on `View` | 一次性施加容器表面 token（背景 + 1pt 描边 + 圆角）。 |
+| `OhMyDesign` | `.surface` on `View` | 一次性施加容器表面 token（背景 + 1pt 描边 + 圆角），并把有效层级写给子树。 |
 | `OhMyDesign` | `.coreShadow` on `View` | 应用 OhMyDesign elevation 阴影。 |
+| `OhMyDesign` | `.coreAnimation` on `View` | 环境感知的 `animation(_:value:)`：按 `coreMotionPresentation` 取 `motion` 的曲线。 |
 | `OhMyDesignEffects` | `.blur` on `Transition` | 失焦转场。 |
 | `OhMyDesignEffects` | `.boing` on `Transition` | 弹性缩放转场。 |
 | `OhMyDesignEffects` | `.confetti` on `View` | `trigger` 变化时喷发一次彩纸。 |
@@ -958,7 +1109,7 @@
 
 # 样式入口点（`*Style where Self == …`）
 
-共 12 个（按 `Host.member` 去重，含参重载算一条——`.solid` 与 `.solid(role:)` 是同一条）。经 `.buttonStyle(_:)` / `.progressViewStyle(_:)` 等施加。
+共 15 个（按 `Host.member` 去重，含参重载算一条——`.solid` 与 `.solid(role:)` 是同一条）。经 `.buttonStyle(_:)` / `.progressViewStyle(_:)` 等施加。
 ⚠️ **`.borderless` 必须带括号**：该名与 SwiftUI 自带的 `PrimitiveButtonStyle.borderless` 重合，两者只差一对括号、**都能编译且无诊断**——`.buttonStyle(.borderless)` 拿到的是 **SwiftUI 的**样式，`.buttonStyle(.borderless())` 才是本包的。
 
 | 入口 | 协议 | 具体样式 | 说明 |
@@ -967,10 +1118,13 @@
 | `.borderless` | `PrimitiveButtonStyle` | `CoreBorderlessButtonStyle` | 以指定 role 构造无边框按钮样式。 |
 | `.extendedFloat` | `ButtonStyle` | `ExtendedFloatButtonStyle` | 默认档位（`.large`，50pt）的胶囊玻璃悬浮按钮样式。 |
 | `.light` | `ButtonStyle` | `LightButtonStyle` | 构造次要操作按钮样式。 |
+| `.pressableRow` | `ButtonStyle` | `PressableRowButtonStyle` | 行式按压反馈样式：按下叠 `Color.pressedBackground`，不改布局。 |
+| `.pressableCard` | `ButtonStyle` | `PressableCardButtonStyle` | 卡片式按压反馈样式：按下缩放，减弱动态效果时只变暗，不改布局。 |
 | `.solid` | `ButtonStyle` | `SolidButtonStyle` | 构造主操作按钮样式。 |
 | `.glass` | `SegmentedControlStyle` | `GlassSegmentedControlStyle` | 默认外观：Liquid Glass 外壳。 |
 | `.plain` | `SegmentedControlStyle` | `PlainSegmentedControlStyle` | 纯色外壳外观。 |
-| `.ink` | `SegmentedControlStyle` | `InkSegmentedControlStyle` | 墨色外观：实心 accent 胶囊 + 反色文字。 |
+| `.ink` | `SegmentedControlStyle` | `InkSegmentedControlStyle` | 墨色外观：实心 accent 胶囊 + on-accent 文字（缺省按 accent 亮度派生黑 / 白， `View.coreAccent(_:on:)` 的 `on` 参数可覆盖）。 |
+| `.coreCircular` | `ProgressViewStyle` | `CoreCircularProgressViewStyle` | OhMyDesign 的环形 `ProgressView` 外观。 |
 | `.core` | `DisclosureGroupStyle` | `CoreDisclosureGroupStyle` | OhMyDesign 的默认 `DisclosureGroup` 外观：chevron 走 `.tint`，展开内容 作 leading 缩进（贴近原生，不加卡片）。 |
 | `.core` | `LabelStyle` | `CoreLabelStyle` | OhMyDesign 的默认 `Label` 外观：icon 走 `.tint`、title 走默认前景色。 |
 | `.core` | `LabeledContentStyle` | `CoreLabeledContentStyle` | OhMyDesign 的默认 `LabeledContent` 外观：label 走 `contentSecondary`， content 走 `contentPrimary`（描述列表惯例：字段名弱化、值强化）。 |
@@ -991,12 +1145,13 @@
 | typography | 12 | 12 |
 | elevation | 4 | 4 |
 | controlsize | 5 | 5 |
-| colors | 118 | 118 |
-| components | 97 | 97 |
-| enums | 41 | 41 |
-| enumcases | 144 | 144 |
+| motion | 4 | 4 |
+| colors | 124 | 124 |
+| components | 99 | 99 |
+| enums | 61 | 61 |
+| enumcases | 203 | 203 |
 | protocols | 6 | 6 |
-| viewext | 44 | 44 |
-| styleext | 12 | 12 |
-| others | 30 | 30 |
+| viewext | 50 | 50 |
+| styleext | 15 | 15 |
+| others | 29 | 29 |
 

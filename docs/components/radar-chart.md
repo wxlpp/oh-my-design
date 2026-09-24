@@ -20,10 +20,12 @@ public struct RadarChart<Value: ChartValue>: View {
     /// - Parameters:
     ///   - values: 各维度。`label` 作轴名、`value` 作长度。
     ///   - title: 图表标题。
+    ///   - layout: 布局形态，见下方《布局形态扩展点》。默认 `.polygon`（现状：闭合多边形）。
     public init(
         _ values: [Value],
         title: LocalizedStringResource? = nil,
-        tint: Color = .accent
+        tint: Color = .accent,
+        layout: RadarChartLayout = .polygon
     )
 }
 ```
@@ -43,6 +45,53 @@ public protocol ChartValue: Identifiable, Sendable {
 `static var minimumAxes: Int { 3 }`（无 `public`）。它只是内部判据，调用方**读不到**，
 与另外三个图表的 `recommendedRingLimit` / `maximumDays` / `recommendedNodeLimit` 不同。
 「至少 3 轴」这条约束只能通过下面那条空态文案观察到。
+
+## 布局形态扩展点（`#312` · 形态 D2）
+
+```swift
+public nonisolated enum RadarChartLayout: Sendable, Equatable, CaseIterable {
+    case polygon      // 默认：各轴端点连成闭合轮廓（现状形态）
+    case parallel     // 平行坐标（业界来源：AntV G2 坐标系总览页的 parallel）
+    case radialBars   // 径向柱状：每维一条同心弧形条（业界来源：AntV G2 坐标系总览页的 radial）
+    case bars         // 笛卡尔并排条形（业界来源：GitLab 设计体系 Pajamas 的 Charts 页）
+}
+
+RadarChart(values, layout: .radialBars)
+```
+
+⚠️ **四种形态共用同一个值 → 长度映射**：`0.85 × v + 0.15`（`.polygon` 原有的地板 0.15、
+量程 0.85），保证同一份数据在四种形态下锚点长度一致、可互相验证。唯一入口是纯函数
+`RadarChart.anchors(layout:normalized:in:)`，四种画法与判据都从它取点，`body` 只消费
+`renderPlan(size:)` 给出的取点计划（`nil` 即走空态）。
+
+⚠️ **`.radialBars` 是 AntV G2 `radial`「转置极坐标」的读法**：每维一条**从圆心向外**的
+同心弧形条，值编码在**扫过角**上（不是半径）。各条从 −90°（12 点钟方向）起顺时针扫，
+扫过量上限 **0.85 圈**（`v = 1` 时）——留出缺口以区分「满值」与「起点」，地板值仍是
+`0.15`（与其余三种形态共用同一常量）。判据：`radialBarsAnglesAndRadiiAreConsistent`。
+
+⚠️ **四种形态都不画轴名**——与 `.polygon` 现状一致（源码只画网与轮廓）；轴名仍由
+`AXChartDescriptor` 的 `categoryOrder` 交给 VoiceOver 播报。
+
+⚠️ **加 case 是 source-breaking**：`RadarChartLayout` 非 `@frozen`，下游穷举 `switch`
+不写 `@unknown default` 就会编译红 ⇒ 加 case 要走 BREAKING-CHANGES 登记
+（这仍比形态 B 的 public 协议可撤——那个发出去就收不回）。
+
+判据：`RadarChartLayoutFormTests`——覆盖 `anchors(layout:normalized:in:)` 与
+`renderPlan(size:)` 的几何。
+
+⚠️ **`anchors` 与 `renderPlan` 的判据够不到 `RadarChart.draw(plan:tint:)` 里
+`switch plan.layout { … }` 那一步**（终审 I-2）：`anchors` 本身按 layout 算出真的不同的点，
+但 `draw` 是否真把每个 case 接到对应的画法函数，此前没有判据盯——实测把 `case .bars:`
+改成调 `polygonView(...)` 全套原判据仍绿。`Tests/OhMyDesignChartsTests/ChartLayoutBitmapTests.swift`
+的 `RadarChartLayoutBitmapTests` 渲染真实帧补这条：`layoutsRenderDistinctBitmaps`
+（四个 layout 两两位图不同）与 `polygonMatchesTheDefaultLayout`
+（`.polygon` 与不传 `layout:` 逐像素容差等价）。
+
+### 为什么是形态 D2（配置枚举）而不是 public 协议
+
+`#312` 有一条**排序约束**：在 `D-299-1` 的修订回路走完前**不得走形态 B**
+—— public 协议受祖父条款约束、**发布后不可撤**，而枚举与槽**可演进**。
+逐条见 `docs/contract-defects.md` 的 `D-299-1` 与 `#312`。
 
 ## AD-F 退化输入契约
 
@@ -249,9 +298,11 @@ lollipop / radial column / radial lollipop / stellar 四形态 —— 形态真�
 ⇒ **非皮肤且未被作用域排除的候选数 = 3 ≥ 2** ⇒ (A) 不成立、成因② ⇒ 按步骤 3 门槛
 「(A) 不成立 ⇒ 重跑步骤 2」重跑一次 ⇒ 落**出口 1**：语义组件、需要扩展点。
 
-⚠️ **扩展点尚未落地**：按 `Toast` 与 #59 的同款成法登记进
-`ComponentExtensionPointGuard.knownMissingExtensionPoints`，实现移交 **`#312`**。
-这不是「塞回红名单让判据闭嘴」—— 该集合的成文语义就是「**有承接 issue 的**已知缺口」。
+⚠️ **扩展点已由 `#312` 落地**（形态 D2 配置枚举 `RadarChartLayout`，四个 case，
+详见上方《布局形态扩展点》一节），本条已从 `ComponentExtensionPointGuard.knownMissingExtensionPoints`
+移出（曾按 `Toast` 与 #59 的同款成法暂登记在那里；该集合随 `#312` 收口为空集后已整体删除）。
+⚠️ **有意不发 public 协议**（形态 B）：`D-299-1` 的修订回路未走完前不得发布不可撤的协议，
+配置枚举可演进。判据：`RadarChartLayoutFormTests`。
 
 ⚠️ **一处公约缺口，已登记 `D-299-1`；`#315` 终审 C-2 要求逐条重判，本条的结论是
 「只对候选 3 适用」**：**候选 3（笛卡尔并排条形）命中** —— 它在 Apple 平台上的真实承担者是
@@ -262,6 +313,10 @@ Swift Charts 的 `BarMark`，不在登记表里 ⇒ 作用域条款的条件 ①
 
 ⚠️⚠️ **本条的「不命中」论证有已登记的口径缺口，若补齐后成立、落点会翻**（具名反例：Swift Charts `SectorMark(outerRadius:)`）。
 **论证、逐字 SDK 依据与移交 `#312` 的排序约束，唯一真源在 `docs/contract-defects.md` 的 `D-299-1`。**
+⚠️ **`#312` 已重核这个具名反例**：按「本职形态」判据不计 ⇒ 若条件 ① 被扩宽，计入数 3 → 2、
+仍不翻；信心**中**（判断题，不是事实题）。逐条见 `docs/contract-defects.md` 的 `## #312` 节与 `D-299-1` 的《`#312` 重核》段。
+⚠️ 若候选 3 将来因 `BarMark` 被排除，`.bars` 已经发布、撤不回来 —— 祖父条款不覆盖 D2 枚举，
+缺口登记为 `docs/contract-defects.md` 的 `D-312-1`。
 ⚠️ 本段有意只留指针不留副本 —— 同一句样板此前被抄进 6 份落点、一处更正要人工同步 6 次，收口理由与机器判据见 `#316`。
 
 本轮按公约字面走，`D-299-1` **未被用来改本条落点**，缺口另走修订回路。

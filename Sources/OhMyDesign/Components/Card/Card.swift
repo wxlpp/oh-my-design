@@ -27,6 +27,7 @@ public struct Card<Content: View>: View {
     private let kind: CardKind
     private let elevation: CoreElevation.Level
     private let content: Content
+    @Environment(\.surfaceLevel) private var parentLevel
 
     /// - Parameters:
     ///   - padding: 内容四周内边距，默认 `CoreSpacing.lg`（16pt，对齐 iOS 分组卡片惯例）。
@@ -35,6 +36,8 @@ public struct Card<Content: View>: View {
     ///     背景 + 圆角、**去掉描边**——贴近 iOS 系统分组容器
     ///     （`secondarySystemGroupedBackground` 靠填充色对比定界、无描边）。
     ///   - elevation: 投影档位，默认 `.small`（一层很浅的抬升）。传 `.none` 即退回无投影。
+    ///     卡片自身有效层级为 elevated 时（嵌在 raised 容器或 `coreSheetPresentation` 内容里）
+    ///     **一律不出投影**，传入的档位不生效——嵌套卡片的下凹底色与投影信号相反。
     ///     ⚠️ **本参数背离本仓的 surface 分层规则**（`docs/DESIGN-FOUNDATION.md`
     ///     「层级交给 material + separator」，静置内容不浮起）。这是逐条确认过的
     ///     单点越界，只作用在 `Card` 这一层——`.surface(_:)` 本身不受影响。
@@ -60,7 +63,13 @@ public struct Card<Content: View>: View {
             .padding(self.padding)
             .frame(maxWidth: .infinity, alignment: self.alignment)
             .surface(self.kind.surfaceKind)
-            .coreShadow(self.elevation)
+            .coreShadow(Self.resolvedElevation(self.elevation, kind: self.kind, parent: self.parentLevel))
+    }
+
+    static func resolvedElevation(
+        _ requested: CoreElevation.Level, kind: CardKind, parent: SurfaceLevel
+    ) -> CoreElevation.Level {
+        kind.surfaceKind.level(inheriting: parent) == .elevated ? .none : requested
     }
 }
 
@@ -90,6 +99,14 @@ private struct CardPreviewGallery: View {
             }
             Card(kind: .grouped) {
                 Text("无描边（kind: .grouped）——贴近系统分组容器").coreFont(.subheadline)
+            }
+            Card {
+                VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                    Text("外层 Card：raised").coreFont(.headline)
+                    Card {
+                        Text("内层 Card：elevated").coreFont(.subheadline)
+                    }
+                }
             }
         }
         .padding()

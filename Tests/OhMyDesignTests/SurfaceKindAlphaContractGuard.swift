@@ -43,31 +43,33 @@ struct SurfaceKindAlphaContractGuard {
         ("panel", .panel),
     ]
 
-    @Test("#345：每个 SurfaceKind 经映射层取到的色都满足它那一档的 α 契约")
+    @Test("#345：每个 SurfaceKind 在每个父层级下经映射层取到的色都满足它那一档的 α 契约")
     func everyKindSatisfiesItsAlphaContract() {
         for scheme in [ColorScheme.light, ColorScheme.dark] {
             var e = EnvironmentValues()
             e.colorScheme = scheme
             for (name, kind) in Self.allKinds {
-                let a = kind.background.resolve(in: e).opacity
-                switch Self.contract(for: kind, scheme: scheme) {
-                case .opaque:
-                    #expect(a == 1, """
-                    \(scheme)：背景档 `.\(name)` 经 `SurfaceKind.background` 取到 α = \(a)，
-                    契约要求**不透明**。背景档半透明会让它下面那层透上来。
-                    ⚠️ **本判据只看 α，看不出「换成了另一个同样不透明的色」**——
-                    那一族由各腿的取值 / 身份判据守（如 `macOSCanvasStandsApart`）。
-                    ⚠️ 本条守的是**映射层**，不是 token —— `#342` 补的下界断的是
-                    `Color.surfaceInteractive` 一族，而消费者写的是 `.surface(.\(name))`，
-                    中间隔着 `SurfaceModifier` 里这层 `switch`。改错那一行 `#342` 抓不到。
-                    """)
-                case .translucent:
-                    #expect(a > 0 && a < 1, """
-                    \(scheme)：叠加档 `.\(name)` 经映射层取到 α = \(a)，契约要求 **0 < α < 1**。
-                    α = 0 ⇒ 这一层画不出来；α = 1 ⇒ 它不再是叠加档。
-                    ⚠️ `.floating` 在 **iOS 浅色**下契约是 `α == 1`（走 `systemBackground`），
-                    不走本分支——见 `contract(for:scheme:)`。
-                    """)
+                for parent in [SurfaceLevel.base, .raised, .elevated] {
+                    let a = kind.background(at: kind.level(inheriting: parent)).resolve(in: e).opacity
+                    switch Self.contract(for: kind, scheme: scheme) {
+                    case .opaque:
+                        #expect(a == 1, """
+                        \(scheme)：背景档 `.\(name)`（父层级 \(parent)）经 `SurfaceKind.background(at:)` 取到 α = \(a)，
+                        契约要求**不透明**。背景档半透明会让它下面那层透上来。
+                        ⚠️ **本判据只看 α，看不出「换成了另一个同样不透明的色」**——
+                        那一族由各腿的取值 / 身份判据守（如 `macOSCanvasStandsApart`）。
+                        ⚠️ 本条守的是**映射层**，不是 token —— `#342` 补的下界断的是
+                        `Color.surfaceInteractive` 一族，而消费者写的是 `.surface(.\(name))`，
+                        中间隔着 `SurfaceModifier` 里这层 `switch`。改错那一行 `#342` 抓不到。
+                        """)
+                    case .translucent:
+                        #expect(a > 0 && a < 1, """
+                        \(scheme)：叠加档 `.\(name)`（父层级 \(parent)）经映射层取到 α = \(a)，契约要求 **0 < α < 1**。
+                        α = 0 ⇒ 这一层画不出来；α = 1 ⇒ 它不再是叠加档。
+                        ⚠️ `.floating` 在 **iOS 浅色**下契约是 `α == 1`（走 `systemBackground`），
+                        不走本分支——见 `contract(for:scheme:)`。
+                        """)
+                    }
                 }
             }
         }

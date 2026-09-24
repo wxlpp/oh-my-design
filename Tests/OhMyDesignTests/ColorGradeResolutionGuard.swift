@@ -5,12 +5,12 @@ import Testing
 
 // MARK: - asset catalog 取色的「解析得出来吗」守卫 / Asset-catalog color resolvability (Issue #275)
 
-private nonisolated func resourceBundleHas(_ name: String) -> Bool {
+nonisolated func resourceBundleHas(_ name: String) -> Bool {
     guard let root = Bundle.module.resourceURL else { return false }
     return FileManager.default.fileExists(atPath: root.appendingPathComponent(name).path)
 }
 
-private nonisolated var assetCatalogIsCompiled: Bool {
+nonisolated var assetCatalogIsCompiled: Bool {
     resourceBundleHas("Assets.car")
 }
 
