@@ -328,7 +328,7 @@ func consumeSteps() -> some View {
     )
 }
 
-// MARK: Timeline（Issue #164；#420 组合式 API）——四个 init、`step:`、自定义节点 `status:` 传与不传都需覆盖
+// MARK: Timeline（Issue #164；#420 组合式 API 与阶段）——四个 init、`step:`、自定义节点 `status:` 传与不传、`progress:` 都需覆盖
 
 @MainActor
 func consumeTimeline() -> some View {
@@ -350,6 +350,24 @@ func consumeTimeline() -> some View {
             Image(systemName: "star")
         } content: {}
         Text("非行子视图")
+    }
+}
+
+// #420 阶段：`init(layout:progress:content:)`、`phase(forStep:)`、自定义节点读 `timelinePhase`。
+@MainActor
+func consumeTimelineProgress() -> some View {
+    Timeline(layout: .horizontal, progress: .inProgress(at: 1)) {
+        TimelineItem("A", step: 0)
+        TimelineItem("B", step: 1) { ProbeTimelinePhaseNode() } content: {}
+        TimelineItem(step: 2) { Text(TimelineProgress.completed.phase(forStep: 2) == .completed ? "done" : "") }
+    }
+}
+
+private struct ProbeTimelinePhaseNode: View {
+    @Environment(\.timelinePhase) private var phase
+
+    var body: some View {
+        Image(systemName: self.phase == .inProgress ? "clock" : "circle")
     }
 }
 

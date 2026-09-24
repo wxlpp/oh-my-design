@@ -592,6 +592,23 @@ private struct TimelinePreviewGallery: View {
                     Timeline(layout: .grouped) { Self.statusRows }
                 }
 
+                self.section("阶段 · 订单进度（已完成实心、进行中外环、未开始空心；已到达连线着 .tint）") {
+                    Timeline(progress: .inProgress(at: 2)) {
+                        TimelineItem("已下单", time: Text(verbatim: "09:00"), step: 0)
+                        TimelineItem("已付款", time: Text(verbatim: "09:02"), step: 1)
+                        TimelineItem("配送中", description: "预计今天 18:00 前送达", step: 2)
+                        TimelineItem("已签收", step: 3)
+                    }
+                }
+
+                self.section("阶段 · 横向路线图") {
+                    Timeline(layout: .horizontal, progress: .inProgress(at: 1)) {
+                        TimelineItem("Q1 Alpha", step: 0, status: .success)
+                        TimelineItem("Q2 Beta", step: 1, status: .warning)
+                        TimelineItem("Q3 GA", step: 2, status: .danger)
+                    }
+                }
+
                 self.section("分组 · 自定义节点项（不传 status 不播报状态）") {
                     Timeline(layout: .grouped) {
                         TimelineItem {

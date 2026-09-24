@@ -634,6 +634,14 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
   - `.alternate` — 左右交替：内容在中轴两侧交替排布。 业界来源：Ant Design Timeline 的 `mode="alternate"`。
   - `.horizontal` — 横向：节点沿水平轴排列，节点间有连线，内容在节点下方。 业界来源：PowerPoint SmartArt 的 Basic Timeline / Final Cut Pro 的横向事件时间线。
   - `.grouped` — 无连线的分组列表：删掉节点列与连线，只留内容；本形态下 `TimelineItem.node:` 槽不生效。
+- *enum* **`TimelineProgress`** — 带阶段的时间线推进到哪里：与每行的 `step` 一起决定各行阶段与连线着色。
+  - `.notStarted` — 全部带 `step` 的行处于 `.upcoming`。
+  - `.inProgress` — `step` 小于参数的行已完成、等于的行进行中、大于的行未开始；参数不等于任何行的 `step` 时没有进行中的行。
+  - `.completed` — 全部带 `step` 的行已完成。
+- *enum* **`TimelinePhase`** — 一行在带阶段时间线里的阶段；只决定默认圆点形态、连线着色与无障碍播报，色相仍由 `status` 决定。
+  - `.completed` — 已完成：实心圆点，通向它的连线着 `.tint`。
+  - `.inProgress` — 进行中：实心圆点 + 同色外环，通向它的连线着 `.tint`。
+  - `.upcoming` — 未开始：同色空心圆点，通向它的连线为底线色。
 
 ### `Components/Toast/Toast.swift`
 
@@ -1070,8 +1078,8 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | motion | 4 | 4 |
 | colors | 124 | 124 |
 | components | 91 | 91 |
-| enums | 47 | 47 |
-| enumcases | 159 | 159 |
+| enums | 49 | 49 |
+| enumcases | 165 | 165 |
 | protocols | 6 | 6 |
 | viewext | 47 | 47 |
 | styleext | 15 | 15 |

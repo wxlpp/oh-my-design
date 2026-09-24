@@ -88,6 +88,21 @@ Timeline(layout: .alternate) {
 | 默认圆点 + 无标题 + 空内容的行 | `TimelineItem(status: .danger) {}` 的状态值挂在一个无 label、0×0 的元素上（iOS `axe` 读数 `GenericElement value='Error'`）；VoiceOver 能否聚焦 0×0 元素未验证。要播报状态请给内容或改用带标题的 init |
 | `content:` 多视图竖排、间距 0 | PR 1 起已生效，组合式 API 下不变 |
 
+### PR 3：阶段（纯新增）
+
+已有公开符号一个都没变；不传 `progress` 的时间线外观与无障碍与 PR 2 完全相同（行写了 `step` 也不生效）。新增：
+
+| 符号 | 说明 |
+|---|---|
+| `Timeline.init(layout:progress:content:)` | 带阶段的时间线：各行阶段由 `progress` 与该行 `step` 决定 |
+| `TimelineProgress` | `.notStarted` / `.inProgress(at: Int)` / `.completed`（`nonisolated`、`Sendable`、`Hashable`）；`phase(forStep:)` 返回给定 `step` 的阶段 |
+| `TimelinePhase` | `.completed` / `.inProgress` / `.upcoming`（`nonisolated`、`Sendable`、`Hashable`、`CaseIterable`） |
+| `EnvironmentValues.timelinePhase` | `TimelinePhase?`，公开只读（`internal(set)`）；在带 `step` 的行的 `node:` 与 `content:` 两槽里有值 |
+
+`step` 在带 `progress` 的时间线里开始生效（PR 2 起已可写）。带阶段时的外观：通向已完成 / 进行中行的连线着 `.tint`
+（**未设置 `.tint` 时渲染为系统强调色**，不是本库墨色 `accent`）；默认圆点进行中加同色外环、未开始为空心环；
+行的无障碍值在状态键后接阶段键（`Completed` / `In Progress` / `Upcoming`，模块 `Localizable.strings` 新增这三个 key）。
+
 ## 未发布（相对 `v0.11.0`）——Issue #422：新增 `Tree`
 
 **纯新增，不是破坏。** 已有公开符号一个都没变。新增的公开符号：

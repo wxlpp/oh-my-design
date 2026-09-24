@@ -93,6 +93,9 @@ updated: 2026-09-22T22:10:00Z
 > `#420` 定案（spec `docs/superpowers/specs/2026-09-24-timeline-composable-design.md` §12）：命名沿用
 > `Timeline` / `TimelineItem` + `node:`（行是 `View`、自己画节点）；阶段取值为**每行 `step` + 容器 `progress`**
 > （reui 模型，不是行序推导，也不是逐行显式阶段）。
+> c 项落地（PR 3）：`Timeline(layout:progress:content:)` + `TimelineProgress`（`.notStarted` / `.inProgress(at:)` / `.completed`）+
+> `TimelinePhase`（`.completed` / `.inProgress` / `.upcoming`）+ `EnvironmentValues.timelinePhase`；阶段真值表、连线归属（看后一行）、
+> 回退与纯活动流（不传 `progress` ⇒ 连线全 `dividerDefault`）见 spec §4 与 `docs/components/timeline.md`《阶段》。
 
 
 - **a. 四种布局全部保留**（`.vertical` / `.alternate` / `.horizontal` / `.grouped`），现有

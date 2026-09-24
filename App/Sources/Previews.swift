@@ -446,6 +446,16 @@ private struct SkeletonPreviewsPreviewGallery: View {
         .background(Color.surfaceCanvas)
 }
 
+#Preview("Timeline Phases") {
+    // 带阶段：订单进度（纵向，默认圆点三形态 + 已到达连线着 .tint）与路线图（横向）。
+    VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+        Timeline(progress: .inProgress(at: 2)) { PreviewSnapshotFixtures.timelineOrderRows }
+        Timeline(layout: .horizontal, progress: .inProgress(at: 2)) { PreviewSnapshotFixtures.timelineRoadmapRows }
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+}
+
 #Preview("Tree") {
     VStack(alignment: .leading, spacing: CoreSpacing.lg) {
         Tree(
@@ -607,6 +617,24 @@ enum PreviewSnapshotFixtures {
                 Text(verbatim: deploy.commit).coreFont(.caption).monospaced()
             }
         }
+    }
+
+    /// 订单进度参考形态：每行写 `step`，阶段由容器的 `progress` 决定。
+    @ViewBuilder
+    static var timelineOrderRows: some View {
+        TimelineItem("已下单", time: Text(verbatim: "09:00"), step: 0)
+        TimelineItem("已付款", time: Text(verbatim: "09:02"), step: 1)
+        TimelineItem("配送中", description: "预计今天 18:00 前送达", step: 2)
+        TimelineItem("已签收", step: 3)
+    }
+
+    /// 路线图参考形态（横向）。
+    @ViewBuilder
+    static var timelineRoadmapRows: some View {
+        TimelineItem("Q1 Alpha", step: 0)
+        TimelineItem("Q2 Beta", step: 1)
+        TimelineItem("Q3 GA", description: "Public launch", step: 2)
+        TimelineItem("Q4 v2", step: 3)
     }
 
     static var timelineDeploys: [(version: String, time: String, ok: Bool, commit: String)] {
