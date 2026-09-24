@@ -95,8 +95,8 @@ extension EnvironmentValues { public internal(set) var timelinePhase: TimelinePh
 - **自定义节点**不叠加任何阶段画法：调用方读 `@Environment(\.timelinePhase)` 自行决定（例如未开始的图标降低不透明度）。
   在 `#Preview` 里看自定义节点某一阶段的样子，包一层带阶段的时间线即可：
   `Timeline(progress: .inProgress(at: 0)) { TimelineItem(step: 0) { MyNode() } content: {} }`。
-- 连线的着色层逐字 `.fill(.tint)`，盖在 `dividerDefault` 底线之上；不传 `progress` 时不画着色层（与 `#420` 之前逐像素相同，
-  `TimelineLegacy420GateTests` 以「各行写了 `step`、外层 `.tint(.black)`、不传 `progress`」对照旧实现兜住）。
+- 连线的着色层逐字 `.fill(.tint)`，盖在 `dividerDefault` 底线之上；不传 `progress` 时着色层长度为 0、不画出任何像素
+  （`TimelinePhaseRenderTests` 以「外层 `.tint(.black)`、不传 `progress` ⇒ 四段全是底线色」兜住）。
 
 ### `TimelineLayout`（`#60` 形态 D2「配置枚举」）
 
