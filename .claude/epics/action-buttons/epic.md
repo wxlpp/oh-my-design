@@ -1,8 +1,8 @@
 ---
 name: action-buttons
-status: in-progress
+status: completed
 created: 2026-09-23T01:14:22Z
-updated: 2026-09-23T21:58:39Z
+updated: 2026-09-24T03:13:51Z
 progress: 100%
 prd: .claude/prds/timeline-tree-action-buttons.md
 github: https://github.com/wxlpp/oh-my-design/issues/415

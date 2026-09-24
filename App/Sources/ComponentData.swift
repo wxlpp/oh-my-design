@@ -70,6 +70,12 @@ extension ComponentMeta {
         ComponentMeta(id: "pressable-button-styles", name: "Pressable Button Styles", description: "按压反馈 ButtonStyle：.pressableRow 铺按下底色 / .pressableCard 按下缩放，只装饰 label", category: .button) {
             PressableButtonStylesPreview()
         },
+        ComponentMeta(id: "stateful-button", name: "StatefulButton", description: "四态动作按钮：idle / loading / success / failure，自管与托管两种模式，防重入门闩", category: .button) {
+            StatefulButtonPreview()
+        },
+        ComponentMeta(id: "slide-to-confirm", name: "SlideToConfirm", description: "滑到底才触发的高代价动作确认：纯距离阈值、执行中进度、完成后回位", category: .button) {
+            SlideToConfirmPreview()
+        },
         // Form
         ComponentMeta(id: "label-icon", name: "Form Icons", description: "表单图标：LabelIcon / ChevronRightIcon / DangerIcon", category: .form) {
             FormIconsPreview()
@@ -2459,4 +2465,119 @@ private struct ExplorerTreePreview: View {
         case nil: nil
         }
     }
+}
+
+// MARK: - StatefulButtonPreview
+
+private struct StatefulButtonPreview: View {
+    @State private var hosted: StatefulButtonState = .idle
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("自管：点击后自动走完四态 / Self-managed")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                StatefulButton("Send message") {
+                    try await Task.sleep(for: .milliseconds(1200))
+                }
+                .buttonStyle(.solid())
+                StatefulButton("Always fails") {
+                    try await Task.sleep(for: .milliseconds(800))
+                    throw StatefulButtonPreviewError()
+                }
+                .buttonStyle(.light())
+            }
+
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("托管：视觉态由调用方写 / Host-managed")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                StatefulButton("Upload", state: self.hosted) {
+                    self.hosted = .loading
+                    do {
+                        try await Task.sleep(for: .milliseconds(900))
+                        self.hosted = .success
+                    } catch {
+                        self.hosted = .idle
+                        throw error
+                    }
+                }
+                .buttonStyle(.solid())
+                Picker("State", selection: self.$hosted) {
+                    Text(verbatim: "idle").tag(StatefulButtonState.idle)
+                    Text(verbatim: "loading").tag(StatefulButtonState.loading)
+                    Text(verbatim: "success").tag(StatefulButtonState.success)
+                    Text(verbatim: "failure").tag(StatefulButtonState.failure)
+                }
+                .pickerStyle(.segmented)
+            }
+
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("四态静息对照 / Four resting states")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                ForEach(StatefulButtonState.allCases, id: \.self) { state in
+                    StatefulButton("Submit", state: state) { }
+                        .buttonStyle(.solid())
+                }
+            }
+        }
+    }
+}
+
+private struct StatefulButtonPreviewError: LocalizedError {
+    var errorDescription: String? { "Demo failure" }
+}
+
+// MARK: - SlideToConfirmPreview
+
+private struct SlideToConfirmPreview: View {
+    @State private var deleted = 0
+    @State private var failures = 0
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("滑到尽头松手才执行 / Slide all the way to confirm")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                SlideToConfirm("Slide to delete account") {
+                    try await Task.sleep(for: .milliseconds(1200))
+                    self.deleted += 1
+                }
+                Text(verbatim: "Confirmed \(self.deleted)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("action 抛错同样回位 / Failure also returns")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                SlideToConfirm("Slide to pay") {
+                    try await Task.sleep(for: .milliseconds(800))
+                    self.failures += 1
+                    throw SlideToConfirmPreviewError()
+                }
+                .controlSize(.large)
+                .coreAccent(.blue)
+                Text(verbatim: "Failed \(self.failures)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            VStack(alignment: .leading, spacing: CoreSpacing.sm) {
+                Text("宿主禁用 / Disabled by host")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                SlideToConfirm("Slide to confirm") { }
+                    .disabled(true)
+            }
+        }
+    }
+}
+
+private struct SlideToConfirmPreviewError: LocalizedError {
+    var errorDescription: String? { "Demo failure" }
 }

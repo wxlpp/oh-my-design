@@ -402,6 +402,15 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 
 - *enum* **`ButtonRoleStyleRole`**: `.primary`, `.secondary`, `.tertiary`, `.warning`, `.danger`
 
+### `Components/Button/StatefulButton.swift`
+
+- **`StatefulButton`** *<Label: View>: View* — 带 idle / loading / success / failure 四态视觉回执的动作按钮。
+- *enum* **`StatefulButtonState`** — 四态动作按钮的视觉态 / The four visual states of a stateful action button.  四态是**一个枚举**而不是四个 Bool：任意两态互斥，Bool 组合能表达出 `loading && success` 这类无意义状态。
+  - `.idle` — 静息：只画 label，无配件符号。
+  - `.loading` — 正在执行调用方的 action。
+  - `.success` — action 正常返回。
+  - `.failure` — action 抛出了非取消错误。
+
 ### `Components/Button/styles/CircularGlassButtonStyle.swift`
 
 - **`CircularGlassButtonStyle`** *: ButtonStyle* — 圆形玻璃浮按钮样式。
@@ -546,6 +555,10 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 - **`SkeletonLine`** *: View* — 文本行占位形状：圆角矩形 + 固定高度，可指定条数模拟多行文本。
 - **`SkeletonRect`** *: View* — 图片 / 卡片占位形状：矩形块，尺寸由调用方指定。
 - **`SkeletonCircle`** *: View* — 头像占位形状：圆形，直径由调用方指定。
+
+### `Components/SlideToConfirm/SlideToConfirm.swift`
+
+- **`SlideToConfirm`** *<Label: View>: View* — 滑到底才触发的高代价动作确认 / Slide-to-confirm for costly actions.  按住指示器拖到轨道尽头松手才执行 `action`：阈值是纯距离，**不**因甩得快而放宽。
 
 ### `Components/StateLabel/StateLabel.swift`
 
@@ -1077,9 +1090,9 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | controlsize | 5 | 5 |
 | motion | 4 | 4 |
 | colors | 124 | 124 |
-| components | 91 | 91 |
-| enums | 49 | 49 |
-| enumcases | 165 | 165 |
+| components | 93 | 93 |
+| enums | 50 | 50 |
+| enumcases | 169 | 169 |
 | protocols | 6 | 6 |
 | viewext | 47 | 47 |
 | styleext | 15 | 15 |

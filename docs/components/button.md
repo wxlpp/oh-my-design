@@ -45,6 +45,20 @@ Button("Delete") {}
     .disabled(true)
 ```
 
+## 同族按钮组件
+
+按钮**样式**在本文件；按钮**组件**（自带异步 / 状态语义的 `View`）各有独立文档：
+
+- [`AsyncButton`](../../Sources/OhMyDesign/Components/Button/AsyncButton.swift) —— 把
+  `async` 闭包封成按钮，执行期间用系统 spinner 替换 label；出错走 `onError` 或自动弹 toast。
+- [`StatefulButton`](stateful-button.md) —— idle / loading / success / failure 四态视觉回执，
+  自管与托管两种模式，防重入门闩不看视觉态。何时用哪个见该文档的《与 `AsyncButton` 的分工》。
+- [`SlideToConfirm`](slide-to-confirm.md) —— 滑到底才触发的高代价动作确认（纯距离阈值、
+  执行中进度、完成后回位）。它不是 `ButtonStyle` 可以装饰的 `Button`，但对辅助技术暴露为一个按钮。
+
+前两者是包裹 `Button` 的 `View`，chrome 仍由本文件的 `ButtonStyle` 决定；`SlideToConfirm` 自绘轨道与指示器，
+强调色走 `coreAccent`。
+
 ## 视觉 Token
 
 - 圆角：`Capsule()`（pill 形态）

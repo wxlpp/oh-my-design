@@ -10,9 +10,11 @@
 "Collapsed" = "Collapsed";
 "Completed" = "Completed";
 "Dismiss" = "Dismiss";
+"Double-tap to confirm" = "Double-tap to confirm";
 "Error" = "Error";
 "Expand" = "Expand";
 "Expanded" = "Expanded";
+"Failed" = "Failed";
 "In Progress" = "In Progress";
 "Info" = "Info";
 "Loading" = "Loading";

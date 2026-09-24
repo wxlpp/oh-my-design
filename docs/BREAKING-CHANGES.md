@@ -206,6 +206,46 @@ on / mixed / off，本库不新增任何入参（公开 API 无 Bool 入参这�
 **Reduce Motion 开启时**：三态之间的符号替换与原来两态同路——`ContentTransition.identity`，
 直接换图、不描画。静息外观与 RM 开关无关。
 
+## 未发布（相对 `v0.11.0`）——Issue #418：`SlideToConfirm` 滑动确认
+
+**纯新增，无破坏性变更。** 已有公开符号一个都没动。
+
+新增公开符号：
+
+| 符号 | 说明 |
+|---|---|
+| `struct SlideToConfirm<Label: View>: View` | 滑到底才触发的高代价动作确认 |
+| `SlideToConfirm.init(action:label:)` | 自定义 label |
+| `SlideToConfirm.init(_:action:)`（`Label == Text`） | `LocalizedStringKey` 文案 |
+
+新增本地化键 `Double-tap to confirm`（替代按钮的操作提示）；执行态与播报复用既有的 `Loading` / `Success` / `Failed`。
+
+外观取 iOS「滑动来关机」：Liquid Glass 胶囊轨道、白色圆形指示器（两种外观下都是白的）、箭头取 `coreAccent`、
+文案在指示器右侧剩余区域并带流光（Reduce Motion 下不画）。`coreAccentOn` 不参与本组件。
+
+行为要点（给接入方的提醒，不是对既有行为的改变）：阈值是**纯距离**，没有速度补偿——
+从其他滑动确认实现迁来的用户「甩一下」不会触发；RTL 下轨道镜像（从右往左滑）；
+视图离屏（例如导航返回）会取消 `action` 所在的任务，不可中断的工作请在 `action` 内另起非结构化 `Task`。
+
+## 未发布（相对 `v0.11.0`）——Issue #417：`StatefulButton` 四态动作按钮
+
+**纯新增，无破坏性变更。** 已有公开符号一个都没动，`AsyncButton` 未改。
+
+新增公开符号：
+
+| 符号 | 说明 |
+|---|---|
+| `enum StatefulButtonState`（`.idle` / `.loading` / `.success` / `.failure`） | 四态视觉态；`Sendable, Hashable, CaseIterable` |
+| `StatefulButtonState.defaultDwell` | `success` / `failure` 停留时长默认值，`.seconds(2)` |
+| `struct StatefulButton<Label: View>: View` | 四态动作按钮 |
+| `StatefulButton.init(successDwell:failureDwell:action:label:)` | 自管模式 |
+| `StatefulButton.init(state:action:label:)` | 托管模式 |
+| `StatefulButton.init(_:successDwell:failureDwell:action:)`（`Label == Text`） | 自管 + `LocalizedStringKey` 文案 |
+| `StatefulButton.init(_:state:action:)`（`Label == Text`） | 托管 + `LocalizedStringKey` 文案 |
+
+新增本地化键：`Failed`（`Sources/OhMyDesign/Resources/en.lproj/Localizable.strings`；
+`Loading` / `Success` 两个键已存在，本次复用）。下游若自带 `.strings` 覆盖本库文案，需要补这个键。
+
 ## 未发布（相对 `v0.11.0`）——Issue #409：TagGroup / TagInput 增删与选中动画
 
 **行为变更（无签名破坏）。** 公开符号的签名一个都没变；`Tag` 一字未动。

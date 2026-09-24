@@ -46,7 +46,9 @@ FLOORS = {
     # #420：TimelineItem 由数据载体 struct 变为 View ⇒ others −1、components +1。
     # #420 PR 3：enums +2（TimelineProgress / TimelinePhase）、enumcases +6（3 + 3）；
     # Timeline.init(layout:progress:content:) 与 EnvironmentValues.timelinePhase 不在任何计数节里。
-    "colors": 124, "components": 91, "enums": 49, "enumcases": 165,
+    # #417：components +1（StatefulButton）、enums +1（StatefulButtonState）、
+    # enumcases +4（idle / loading / success / failure）。#418：components +1（SlideToConfirm）。
+    "colors": 124, "components": 93, "enums": 50, "enumcases": 169,
     "protocols": 6, "viewext": 47, "styleext": 15, "others": 28,
 }
 

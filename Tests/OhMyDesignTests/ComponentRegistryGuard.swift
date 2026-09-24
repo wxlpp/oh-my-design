@@ -94,7 +94,7 @@ struct ComponentRegistryGuard {
     // MARK: - README 行 → 登记条目的聚合映射（`#48` G-3）
 
     static let readmeCoverageStructuralExemptions: [String: Set<String>] = [
-        "Button": ["AsyncButton"],
+        "Button": ["AsyncButton", "StatefulButton"],
         "FloatButton": ["FloatingGlassModifier", "TelegramGlassButtonModifier"],
     ]
 
@@ -104,8 +104,8 @@ struct ComponentRegistryGuard {
             "SettingsRow 行覆盖它的内部部件 SettingsRowChevron"
         ),
         "Button": (
-            ["AsyncButton"],
-            "Button 行覆盖 AsyncButton（同一按钮族的异步变体）"
+            ["AsyncButton", "StatefulButton"],
+            "Button 行覆盖 AsyncButton 与 StatefulButton（同一按钮族的异步变体与四态变体）"
         ),
         "spinning": (
             ["SpinningModifier"],
@@ -319,8 +319,8 @@ struct ComponentRegistryGuard {
         #expect(Set(entries.map(\.component)).count == entries.count,
                 "登记表存在重名 component 条目——差集判据会把重名静默吞掉")
 
-        #expect(entries.filter { $0.repo == "ohmydesign" }.count == 59,
-                "OhMyDesign 侧条目数不是 59（`#380` 新增 TagGroup 后由 56 变为 57，`#422` 新增 Tree 后变为 58，`#420` TimelineItem 成为公开 View 后变为 59）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
+        #expect(entries.filter { $0.repo == "ohmydesign" }.count == 61,
+                "OhMyDesign 侧条目数不是 61（`#380` 新增 TagGroup 后由 56 变为 57，`#422` 新增 Tree 后变为 58，`#420` TimelineItem 成为公开 View 后变为 59，`#417` StatefulButton、`#418` SlideToConfirm 各 +1 后变为 61）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
         #expect(entries.filter { $0.repo == "storyui" }.count == 25,
                 "StoryUI 侧条目数不是 25——CI 无法跨仓核对源码，这条固定计数断言是 #43 落地前唯一挡「静默删条目」的机器判据，不得放宽为 print")
 

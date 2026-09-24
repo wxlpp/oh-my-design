@@ -64,3 +64,24 @@ extension Color {
         return luminance < 0.5 ? .white : .black
     }
 }
+
+// MARK: - 强调色可读性回退（单一来源）/ Legible accent fallback
+
+extension Color {
+    static let minimumGlyphContrast: Double = 3
+
+    // WCAG 2 对比度：相对亮度取线性 sRGB 三通道，(L1 + 0.05) / (L2 + 0.05)。
+    static func contrastRatio(_ a: Color, _ b: Color, in environment: EnvironmentValues) -> Double {
+        func luminance(_ color: Color) -> Double {
+            let r = color.resolve(in: environment)
+            return 0.2126 * Double(r.linearRed) + 0.7152 * Double(r.linearGreen) + 0.0722 * Double(r.linearBlue)
+        }
+        let la = luminance(a), lb = luminance(b)
+        return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
+    }
+
+    // 压在 `surface` 上的强调色图形（箭头、进度）：对比不足 3:1（WCAG 非文字最低值）时退回墨色。
+    static func legibleAccent(_ accent: Color, on surface: Color, in environment: EnvironmentValues) -> Color {
+        Self.contrastRatio(accent, surface, in: environment) >= Self.minimumGlyphContrast ? accent : .inkPrimary
+    }
+}
