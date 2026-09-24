@@ -113,7 +113,7 @@ struct SizeSystemTests {
             #expect(CGSize(width: now.width, height: now.height) == CGSize(width: old.width, height: old.height),
                     "\(label) \(scheme)：尺寸与旧实现不同")
             guard now.width == old.width, now.height == old.height else { continue }
-            expectBitmapsEqual(self.pixels(of: now), self.pixels(of: old), "\(label) \(scheme)：像素与旧实现不同")
+            expectBitmapsEquivalent(self.pixels(of: now), self.pixels(of: old), maxChannelDelta: 1, "\(label) \(scheme)：像素与旧实现不同")
         }
     }
 

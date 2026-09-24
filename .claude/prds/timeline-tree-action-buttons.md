@@ -156,9 +156,28 @@ Timeline 不吸收 Steps 的向导行为，Steps 不因本 epic 改动。两者�
 `docs/components/core-control-styles.md` 还明确登记了一项已知代价：
 「换皮后系统不再自动为这个自绘 `Button` 播报展开态」。
 ⇒ 走这条路能免费拿到的是**系统的展开态接口与嵌套能力**，不是原生外观与原生无障碍播报。
-⇒ **实现路径由 FR-2a 的 spike 比较后定案**，候选三条：① 递归 `DisclosureGroup(isExpanded:)`（首选评估）；
-② `List(selection:)` 承载受控层级；③ 完全自定义。
-**不得预先宣称「选择与键盘导航全部要重做」**——哪些原生行为能保留由 spike 给证据。
+⇒ **实现路径已由 `#419` spike 实测定案：走 ① 递归 `DisclosureGroup(isExpanded:)` + 自写键盘层。**
+理由（落在实测上，不是偏好）：① 与 ③（完全自定义）在「受控展开 / 默认展开到第 N 层 / 持久化复原」上
+**毫无差别**，而两者的键盘缺口**同样是零**、补它的代码**逐字相同**（探针里两条路径共用同一个键盘处理器，
+两条腿逐项读数一致）⇒ 选 ① 不多写一行键盘代码，却少写布局 / 缩进 / 展开动画 / chevron。
+
+**② `List(selection:)` 被否，但不是「原生行为全拿不到」**——macOS 上它**免费**给了 ↓↑ 移动单选、
+←→ 展开折叠（会写回调用方的 `Set`）、`Shift+↑↓` 切换选中、原生 type-select、`Cmd+A` 全选。
+否掉它的是三条硬事实：**iOS 上这些一个都没有**（行根本不在 Tab 焦点链上）、
+**`List` 不能嵌进 `ScrollView`**（无障碍树里树行整批消失）、
+以及 macOS 上它的 **Space 做的是切换展开、不是切换选中**，与 W3C 推荐模型相反。
+
+⚠️ **两条 spike 发现的坑，实现期必须知道**：
+- **`DisclosureGroupStyle` 在 `configuration.content` 内被重置回 `.automatic`** ⇒ 嵌套的
+  `DisclosureGroup` **不继承**外层自定义样式，而且**不报错、静默换人**。
+- **macOS 方向键的 `EventModifiers` 带的不止 `.numericPad`**：⚠️ `#419` spike 只登记了
+  `.numericPad`，**那份清单不完整**——`#422` 真 HID 实测 `EventModifiers.rawValue` = **96**，
+  即 `.numericPad | .function`（Home / End / Space / Return 都是 **0**）。
+  ⇒ 判「没按修饰键」**既不能**写 `press.modifiers.isEmpty`，**也不能按 spike 那份清单写黑名单**
+  ——照它写会让**每个方向键都被判成组合键、整条键盘层静默失效**（无报错）。
+  **正确做法是白名单取交集**：只认 `shift` / `control` / `option` / `command`，其余位一律忽略。
+  ⚠️ `419-spike.md` 那一处至今仍是不完整的清单（该文档在 `epic/structure-components` 分支上），
+  读它的人要以本条为准。
 
 能力范围（用户已勾选四项）：
 
@@ -172,12 +191,29 @@ Timeline 不吸收 Steps 的向导行为，Steps 不因本 epic 改动。两者�
   ⚠️ 这条**不新增任何公开 Bool 入参**——`isMixed` / `isOn` 是**读** `configuration`，
   与「禁止新增含糊的公开 Bool 参数」那条纪律不冲突，实现 agent 不要把它误读成禁止读系统状态。
   CheckBox 旧外观（on / off × enabled / disabled / invalid）须逐像素不变。
-- **键盘导航**：契约取 **W3C ARIA Treeview Pattern**。⚠️ 该 pattern 有**两套互斥的多选模型**（此读法来自首轮评审对 W3C 原文的引用，**本轮未独立核对原文**，
-  FR-2a 的 spike 须回原文确认再定案）。本 PRD 暫选其**推荐模型**：**Space 切换当前项的选中**，普通方向键**只移动焦点、不改变选择**；
-  `Shift+方向键` 扩展选区；`Ctrl+A` 全选。上一版写的 `Ctrl+Space` 属另一套模型，已弃用。
-  另定：**Enter 激活**（触发调用方的 action，与选择分开）、初始焦点落在哪、叶节点上按右键的边界行为。
-  方向键语义：上 / 下移动焦点；**左** = 展开时折叠、已折叠时移到父节点；
-  **右** = 折叠时展开、已展开时移到首个子节点；Home / End 跳首末。
+- **键盘导航**：契约取 **W3C ARIA Treeview Pattern**，按 `#419` spike 回原文核实后的结果定案
+  （上一版那段是转引评审、未核原文，其中**四处与原文不符**，已按下表更正；本轮我独立复核了原文逐字）。
+
+  | 键 | W3C 原文（逐字） | 本仓定案 |
+  |---|---|---|
+  | **右** | 「When focus is on a closed node, opens the node; focus does not move. When focus is on a open node, moves focus to the first child node. **When focus is on an end node, does nothing.**」 | 照原文**三分支**（上一版写成两分支） |
+  | **左** | 「When focus is on an open node, closes the node. When focus is on a child node that is also either an end node or a closed node, moves focus to its parent node. **When focus is on a root node that is also either an end node or a closed node, does nothing.**」 | 照原文**三分支**。⚠️ 上一版漏了根节点那一支，**照它实现会在根节点上误移焦点** |
+  | **上 / 下** | 移动焦点 | 只移动焦点，不改变选择（推荐模型） |
+  | **Home / End** | 「Home: Moves focus to the first node in the tree **without opening or closing a node**. End: Moves focus to the last node in the tree **that is focusable** without opening a node.」 | 照原文——End 是「最后一个**可聚焦**节点」，不是「最后一个节点」 |
+  | **Space** | 推荐模型：「Toggles the selection state of the focused node.」 | 多选下切换当前项选中 |
+  | **Enter** | 「Activates a node, i.e., performs its default action. For parent nodes, one possible default action is to open or close the node.」 | 触发调用方 action。⚠️ **单选模式下本仓把「选中」与「激活」分开，这是对 W3C 的有意偏离**，不得再写成「契约取 W3C」——原文把单选的选择挂在 Enter 的默认动作上（spike 引了这句，⚠️ 我本轮未独立取到该句，标为未独立核实） |
+  | **Shift + ↑ / ↓** | 「(Optional): Moves focus to and **toggles the selection state** of the next/previous node」 | ⚠️ **不是「扩展选区」**（上一版写错）。属 **(Optional)** ⇒ 可降级项 |
+  | **Shift + Space** | 「Selects **contiguous** nodes from the most recently selected node to the current node.」 | 这才是扩展连续区间的键。可降级项 |
+  | **Ctrl + A** | 「(Optional): Selects all nodes in the tree. Optionally, if all nodes are selected, it can also unselect all nodes.」 | 属 **(Optional)** ⇒ 可降级项 |
+  | 打字 | 「Type a character: focus moves to the next node with a name that starts with the typed character. Type multiple characters in rapid succession: …」 | type-ahead，可降级项（spike 实测 iOS 上多字符与大小写区分做不到，已登记 Out of Scope） |
+
+  **初始焦点不由本 PRD 另定**——原文已定且**单选 / 多选不同**：单选「If a node is selected before the tree
+  receives focus, focus is set on **the selected node**」；多选「focus is set on the **first** selected node」。
+  ⚠️ 上一版把它列为「另定」，是多余的。
+
+  **两套模型的真正分界**（比「Space vs Ctrl+Space」精确）：推荐模型「does not require the user to hold a
+  modifier key, such as Shift or Control, while navigating」；另一套「Moving focus without holding the Shift
+  or Control modifier **unselects all selected nodes except for the focused node**」。本仓取**推荐模型**。
 - **搜索过滤与命中高亮**：按关键词过滤，自动展开到命中节点并高亮匹配片段。
 
 **FR-2 的行为真值表（本 PRD 定案，不留给实现期自选）**
@@ -195,18 +231,38 @@ Timeline 不吸收 Steps 的向导行为，Steps 不因本 epic 改动。两者�
 | 过滤后「全选」 | **范围是可见节点** | 「全选」作用在用户看得见的集合上；作用到全树会静默勾上看不见的项 |
 | 焦点节点被过滤隐藏 | 移到**最近的仍可见祖先**；无祖先则移到首个可见节点 | 焦点不能落到不可见节点上，也不应直接丢失 |
 
-**FR-2a 实现路径与键盘先验实测（spike，结论写进 plan 与 docs）**
+**FR-2a 实现路径与键盘先验实测（spike）—— 已完成，见 `.claude/epics/structure-components/419-spike.md`**
 
-两件事一起测：
+结论：实现路径走递归 `DisclosureGroup(isExpanded:)`（理由见 FR-2）；
+spike 报「**四项硬下限（上下移动焦点、左右折叠展开、Space 切换选中、Enter 激活）在两条腿上全部满足**」
+（iOS 真 HID via `axe`、macOS 真 HID via System Events，两条候选路径各验一次）。
 
-1. **实现路径**：三条候选（见 FR-2）各自能否满足受控展开 + 持久化，以及各自能免费拿到哪些原生行为。
-2. **键盘射程**：`onKeyPress` / `.focusable()` / `FocusState` 在 iOS 26 模拟器（外接键盘）与 macOS 上，
-   对选定的实现路径分别能做到什么；`Shift+方向键` / `Ctrl+A` 这类组合键两端是否都能拿到；
-   焦点与选择的关系在原生辅助技术里呈现成什么。
+⚠️⚠️ **其中「Space 切换选中」这一项的证据受质疑，尚未澄清**（`#422` 实测发现）：
+在**逐行 `@FocusState`** 的形态下，macOS 把 `Space` 当成**对焦点行的激活**、直接走了 `onTapGesture`
+——同一下键既进了哨兵、又产生了选中，**而 Tree 自己的 `onKeyPress` 根本没接到它**
+⇒ 「Space 能用」是假象。`#422` 因此把焦点形态改成「容器唯一可聚焦 + 虚拟焦点 `@State`」。
+**spike 当时的探针是否栽在同一个假象上，未核实。**
+⇒ 依赖这条硬下限之前，必须在**新的焦点形态**下重测 `Space`，并核对哨兵是否同时收到那一下键。
+另：**逐行 `@FocusState` 在 macOS 上会丢掉整个窗口的键盘焦点**（第一下 `Space` 之后连哨兵都收不到键）
+——这条形态**不要再试**。
 
-⚠️ **spike 必须带一条硬下限，否则它会变成「把做不到的都移出范围后依然通过验收」**：
-**上下移动焦点、左右折叠展开、Space 切换选中、Enter 激活**这四项是**必须支持**的；
-`Shift+方向键` / `Ctrl+A` / type-ahead / `F2` 重命名属**可降级**项，实测不支持则如实登记为 Out of Scope。
+⚠️ **spike 自己更正过一处**：左 / 右三分支的**第二支**（→ 已展开时移到首个子节点、
+← 已折叠 / 叶子时移到父节点）在那轮 18 键固定序列里**没被触发到**——代码有、**未验证**，
+原先误标的 ✅ 已改成「未验证」。硬下限本身不受影响。
+
+⚠️ **spike 自己登记的一次方法论错误，保留不抹**：开工时用户屏幕锁着，它先用**进程内合成
+`NSEvent`** 顶了一轮，由此得出的「macOS 吞 `Cmd+A`」与「macOS 也丢 shift 字符」**两条都是假的**
+——那些事件字段是它自己填的，测的是自己的代码、不是平台。解锁后用真 HID 重测均正常。
+⇒ **合成事件不能用来测平台行为。**
+
+**实测做不到、已登记 Out of Scope 的项**（9 条，逐条有证据，详见 spike 文档）：
+type-ahead 的大小写区分与 shifted 符号、`*` 展开同级（iOS 上 `Shift+8` 只给 `chars="8"`，
+12 / 11 次运行 × 7 个模式 × 2 条注入路径一致）、多字符 type-ahead、`Shift+Space`、
+`Ctrl+Shift+Home/End`、**iOS 上用 Tab 进出树**（Tab 完全不移焦点，初始焦点只能程序化给）、
+macOS 上改 `Cmd+A` 语义、②路径整体，以及**「焦点与选择在原生辅助技术里呈现成什么」未回答**
+（只取了静态 AX 树，没跑 VoiceOver）。
+⚠️ `F2` 重命名的**取键成本实测为零**（键可达）⇒ PRD 原先「除成本很低否则不做」那个前提已被证伪，
+它现在是纯范围决定：**本 epic 不做**。
 
 ### epic `action-buttons`
 
