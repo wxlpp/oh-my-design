@@ -86,44 +86,85 @@
 - 调色：`ShaderRamp` 三档映射上游颜色数组（`colorBack` ← `ramp.low`；`colors` ← `mid` / `high` 按需循环）。
   上游「最多 N 色 + colorsCount」收成固定三色，属 §4(b) 修改，逐件写进分节头。
 
-### 移植时必改的两处（逐件标注为修改）
+### 移植时的修改（逐件写进 `.metal` 分节头，属 §4(b) 修改标注）
 
-1. **噪声纹理 → 程序化 hash**：paper 的 `textureRandomizer*` 读 `u_noiseTexture`；`colorEffect` 不带纹理，
-   改用 `cd::hash21` / `cd::hash22`（#261 已重写、已登记出处）。
-2. **`fwidth` → `cd::edgeWidth`**：`[[stitchable]]` 可见函数里没有屏幕空间导数，沿用既有替代。
+1. **噪声纹理 → 程序化 hash**（Voronoi / DotOrbit / SmokeRing / Metaballs 四件）：paper 的 `textureRandomizer*` 读
+   `u_noiseTexture`；改用 `cd::hash21` / `cd::hash22`（与 paper `randomR/GB` 同为 `floor` 语义）。
+   `dot-orbit.ts:82` 的 `randomR(vec2(rand.x, rand.y))` 在上游就恒为常数，照搬、不"顺手修"；
+   Metaballs 的 1D `noise(float)` 用 `cd::hash21(float2(i, 0))`；SmokeRing 的 `valueNoise` 复用 `cd::valueNoise`（按复用登记，不复制）。
+2. **`fwidth` 经 `cd::edgeWidth`**（Metaballs / DotOrbit / Swirl / SimplexNoise 四件）：`fwidth` 在 `colorEffect` 里可用
+   （DotGrid / LiquidChrome 已在用），改走 `cd::edgeWidth` 只为加 `1e-4` 下限、避免 0/0。Voronoi / ColorPanels 用 `u_scale`
+   解析 AA，SmokeRing / StarNest 不涉及。
+3. **`colorBandingFix` 丢弃**（五件带它）：它的 `12.9898 / 78.233 / 43758.5453123` 常量组 ACK 已登记为「本仓任何代码都不含」
+   的预防性留痕，保持该句为真；丢弃列为修改。
+4. **颜色数组 → 三档**：见下《调色映射》。
+5. Voronoi 分节头原样保留 `voronoi.ts:14` 的 `Original algorithm: …/ldl3W8`（§4(c) 的 attribution notice）；
+   Swirl / SimplexNoise 的分节头放一行 `Copyright (C) 2011 by Ashima Arts` + 指向 ACK 的 MIT 段。
 
-### NFR-7 能耗闸（本 task 首个 commit，影响全部程序化背景）
+### 调色映射（逐件，FR-8：`.metal` 零硬编码色）
 
-现状：`ProceduralBackground` 只有 Reduce Motion 冻结，**没有接能耗闸**（已落地 6 件同样没有）。
-在骨架上接 `EnergyState.resolve(...).presentation(reduceMotion:)`：
-`.hidden` ⇒ 只画底色（不建 `TimelineView`）、`.resting` ⇒ 冻结、`.animated` ⇒ 按 `policy.minimumInterval` 调度。
-判定抽成 `static` 纯函数，注入 `scenePhaseOverride` / `lowPowerModeOverride` 伪值逐格断言。
-⚠️ 「`.hidden` 画底色而非什么都不画」须写明理由（背景层完全透明会露出宿主底色、布局跳变），并对照
-`EnergyPolicy.swift` 的 `drawsAnything` 语义在 doc 注释里说清差异。
+| 件 | 映射 |
+|---|---|
+| Metaballs / DotOrbit / SmokeRing / Swirl | `colorBack` ← `ramp.low`；`colors` ← `mid` / `high` 循环 |
+| ColorPanels | 同上；固定 2–3 色时 `panelsNumber` 恒为 12、normalizer 为 1，写进分节头 |
+| Voronoi | gap ← `low`、cell ← `mid`、glow ← `high` |
+| SimplexNoise | 无 `colorBack`；三档作阶梯色，**档位枚举承载 `stepsPerColor`**，否则与 `FractalClouds` 难以区分 |
+| StarNest | 上游**无颜色输入**（`vec3(s, s*s, s*s*s*s)` 是硬编码色调）⇒ 改为标量（`length(v)`）经 `cd::ramp3`；丢掉上游按距离的冷暖色调，写进分节头 |
 
-### 署名（逐件）
+### Bool 纪律
 
-- paper 7 件：`ACKNOWLEDGEMENTS.md` 的 paper 段把「部分落地 · `#283`」扩到 8 件（halftone + 7），逐件列 `.ts` 路径与修改摘要。
-- Ashima Arts / Stefan Gustavson（MIT）：`Swirl` / `SimplexNoise` 用到 `shader-utils.simplexNoise` ⇒ 新增 MIT 通知段（现 ACK 没有）。
-- iq（MIT）：`Voronoi` 的两趟边界算法 ⇒ 既有 iq 段追加适用件。
-- StarNest（MIT）：启用 ACK 里的占位段；按 provenance ② 的两条瑕疵如实写（形式不完整的 MIT 授予）。
-- `docs/shader-provenance.md`：8 件状态改「已落地」，写落地 commit。
+Shaders 的 1 条预算已被 `View.refractiveGlass#isEnabled` 用掉 ⇒ **本批 0 条**。ColorPanels 的 `u_edges` 折进档位枚举或不暴露。
+新档位枚举一律 `public nonisolated enum`（照 `Plasma.Density`，否则撞 MainActor 棘轮）。
+
+### NFR-7 能耗闸（本 task 首个 commit；影响 5 个走 `ProceduralBackground` 的既有件）
+
+- 形态：`EnergyState.resolve(...).presentation(reduceMotion:)` 三态 →
+  `.animated` ⇒ `TimelineView(.animation(minimumInterval: policy.minimumInterval))`；
+  `.resting`（RM）⇒ 暂停、时间归零（既有行为）；
+  `.hidden`（后台 / inactive）⇒ **暂停 `TimelineView`、保留最后一帧**（不归零、不画底色、不整层不建）。
+- ⚠️ 这偏离 `AnimatedMeshGradient` / `ProcessingSweep` 的先例（`.hidden` ⇒ `EmptyView()`）与 `RenderPolicy.drawsAnything`
+  的 doc（「整层不建」），理由写进 doc 注释：背景件是内容的衬底，`.inactive` 时画面仍可见（控制中心 / App 切换器），
+  整层消失或闪成平色都会被看见；暂停的 `TimelineView` 不再产生帧，满足「停摆」的能耗目的。
+- 判定抽成 `static` 纯函数（presentation → paused / minimumInterval / 是否归零），**保留** `elapsed(at:origin:motion:reduceMotion:)`
+  原签名（`AccessibilityBehaviorTests` 四条不动），两者组合。`.accessibilityHidden(true)` 三态都保留。
+- ⚠️ `ImageRenderer` 离屏渲染没有 Scene，`scenePhase` 读到 `.background` ⇒ `RenderProofTests` 的渲染入口统一注入
+  `.environment(\.scenePhaseOverride, .active)`（Effects 测试的先例），同一 commit 落地。
+- T0 验收：纯函数逐格（`scenePhaseOverride` × `lowPowerModeOverride` × RM）+ **iOS 腿跑一遍**（`.xcresult` 顶层 `passedTests`）
+  再开 T1。
 
 ### 登记与计数（按实跑结果改，不预估）
 
-registry `components` +8（`ComponentRegistryGuard` 条数、`kind` / `decidedBy` 按 5 个既有背景件的 `tiebreaker` 口径逐件判）、
-README 的 Shaders 子表、digest（`components` / `enums` / `enumcases`）、`ShaderEntryPointGuard` 手工清单、
-`ShaderLibraryLoadTests` 函数清单、`RenderProofTests.Background`、画廊 `shaderEntries`、downstream-probe 的 Shaders 值类型调用点（若 #284 未做则只加本批）。
+registry `components` +8（`ComponentRegistryGuard` 条数；`kind` / `decidedBy` 按 5 个既有背景件的 `tiebreaker` 口径逐件判）、
+README 的 Shaders 子表、digest（`components` / `enums` / `enumcases`）、`ShaderLibraryLoadTests.entryPoints` 手工清单
+及其显示名「八个入口」、`PlasmaTests.swift` 头注的测试计数、`RenderProofTests.Background`。
+⚠️ **不**登记 `docs/reachable-type-registry.json`：该表只收有文案参数的类型（J1：空 `textParams` 应删整条），本批无文案参数。
+⚠️ 画廊 `shaderEntries` 与 downstream-probe 留给 #284（probe 的 manifest 还没链 `OhMyDesignShaders`；画廊该节注释已写明 B-4 复用），
+本 task 只保证预览宿主仍能构建。
+
+### render proof 的时间通道
+
+各新 public struct 加 internal `originOverride: Date?`（默认 `nil`，透传给 `ProceduralBackground`），
+`RenderProofTests.Background` 能构造带它的实例 ⇒ 「随时间变化」参数化到全部件，不再手写 `library.ohMyDesign…(...)`。
+变异逐件做：时间项 → 常数 ⇒ 该件「随时间变化」判红。
+
+### 署名（逐件）
+
+- paper 7 件：`ACKNOWLEDGEMENTS.md` paper 段扩到 8 件（halftone + 7），逐件列 `.ts` 路径 @ `43cd68d` 与修改摘要。
+- Ashima Arts / Stefan Gustavson（MIT）：新增通知段（Swirl / SimplexNoise）。
+- iq（MIT）：既有段追加 Voronoi。
+- StarNest（MIT）：ACK 占位段**重写**（现段仍写着已被第 6 轮终审撤回的「五个独立移植逐字一致」），按 provenance ② 的两条瑕疵如实写。
+  ⚠️ **人工目视确认 `shadertoy.com/view/XlfGRj` 原页许可头是硬 AC、只能由用户做**（站点对 agent 403）：
+  StarNest 排在批 B 最后；未确认前 provenance 标「待人工目视」，**epic → main 前向用户转手**，ACK 照抄用户读到的页面写法。
+- `docs/shader-provenance.md`：8 件状态改「已落地」，写落地 commit。
 
 ### 执行顺序与分批
 
-1. T0：能耗闸（骨架 + 纯函数测试）。
-2. T1：批 A（`Metaballs` / `DotOrbit` / `Voronoi` / `SmokeRing`）——逐件：移植 → Swift 包装 → `#Preview` → 档位测试 → render proof（非纯色 + 随时间变化）→ 署名 → 登记。每件一个 commit。
-3. T2：批 B（`Swirl` / `SimplexNoise` / `ColorPanels` / `StarNest`），同上。
-4. T3：画廊、README、digest、provenance 收口。
+1. T0：能耗闸（骨架 + 纯函数 + render harness 注入 `.active`）→ iOS 腿验证。
+2. T1：批 A（Metaballs / DotOrbit / Voronoi / SmokeRing），逐件：移植 → Swift 包装（含 `originOverride`）→ `#Preview` → 档位测试 → render proof → 署名 → 登记，每件一个 commit。
+3. T2：批 B（Swirl / SimplexNoise / ColorPanels / StarNest），同上；StarNest 的性能：档位直接驱动 `volsteps` / `iterations`（上游 20 × 17），写进分节头并交 #284 的性能基准。
+4. T3：README、digest、provenance、ACK 收口；预览宿主构建。
 
 ### 验证补充
 
-- 每件 render proof 的变异：把该件 `.metal` 的时间项替换成常数 ⇒ 「随时间变化」判红；
-  把一个空间项替换成常数 ⇒ 「非纯色」仍应绿或红要逐件说明（不是所有 shader 都只靠一个空间项）。
-- 预览宿主构建（清 derivedData、核三样）；画廊加了 8 个条目。
+- 每件 render proof 变异：时间项 → 常数 ⇒「随时间变化」判红。
+- iOS 腿在 T0 后、T1 后、T2 后各跑一次（render proof 只在 iOS）。
