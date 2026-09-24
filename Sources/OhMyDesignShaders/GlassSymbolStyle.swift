@@ -20,7 +20,7 @@ public struct GlassSymbolStyleConfiguration {
 // MARK: - GlassSymbolStyle
 
 /// `GlassSymbol` 外观的扩展点，形态对齐 Apple `ButtonStyle` 与本仓的 `RatingStyle`：
-/// 在符号本体周围加等级标签、进度环这类附加层，或改排布。
+/// 在符号本体周围加等级标签、进度环这类附加层。
 public protocol GlassSymbolStyle {
     associatedtype Body: View
 

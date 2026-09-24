@@ -1811,6 +1811,6 @@ PR #297 终审 S-4 实测证伪，本段改写**：按 `ComponentRegistryGuard.t
 沿用《下游连锁三》按 `import` 分组的可读性口径；该子表落在 `readmeIndexRows` 已有的第 2 段解析范围
 （`## 动效与图表索引 → ## NFR-1 帧率基准`）内，`readmeIndexSectionsAllParse` 与
 `registryEntriesAreCoveredByReadme` 两个方向因此都覆盖到它。
-⚠️ **逐单位 `components/*.md` 尚未落地**（归 `#282` / `#283`），子表的第三列指向源码与
+⚠️ **逐单位 `components/*.md` 除 `GlassSymbol`（`#368`）外尚未落地**（归 `#284`），其余行的第三列指向源码与
 `shader-provenance.md`，不是不存在的文档链接 —— 本仓没有「README 里的 md 链接必须存在」这条判据，
 这一点如实写在这里，免得读者以为它被机器守着。

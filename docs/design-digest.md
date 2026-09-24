@@ -1025,7 +1025,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 ### `GlassSymbolStyle.swift`
 
 - **`PlainGlassSymbolStyle`** *: GlassSymbolStyle* — 默认外观：只渲染符号本体，不加任何附加层。
-- *protocol* **`GlassSymbolStyle`** — `GlassSymbol` 外观的扩展点，形态对齐 Apple `ButtonStyle` 与本仓的 `RatingStyle`： 在符号本体周围加等级标签、进度环这类附加层，或改排布。
+- *protocol* **`GlassSymbolStyle`** — `GlassSymbol` 外观的扩展点，形态对齐 Apple `ButtonStyle` 与本仓的 `RatingStyle`： 在符号本体周围加等级标签、进度环这类附加层。
 - *struct* **`GlassSymbolStyleConfiguration`** — 传给 `GlassSymbolStyle.makeBody` 的上下文：已渲染好的折射符号本体与背衬基色。
 
 ### `Halftone.swift`

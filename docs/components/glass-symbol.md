@@ -49,7 +49,7 @@ struct TierBadgeStyle: GlassSymbolStyle {
     }
 }
 
-GlassSymbol("trophy.fill", accessibilityLabel: Text("金牌成就"))
+GlassSymbol("trophy.fill", accessibilityLabel: Text("金牌成就，等级 x3"))
     .glassSymbolStyle(TierBadgeStyle(tier: "x3"))
 ```
 

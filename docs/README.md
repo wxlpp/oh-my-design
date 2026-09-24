@@ -207,7 +207,7 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 ⚠️ **本组单位由 `#261` / `#283` / `#282` 落地、`#279` 接进登记表**（`#282` 的 paper 移植背景分批落地）。`#261` 的 8 个里
 `Starfield` 已随 `#281` 撤回（上游 CC BY-NC-SA 3.0 与本仓 MIT 分发不兼容），整件删除
 ⇒ 现存单位 = `#261` 的 7 个自有内容 / 重采样单位 + `#283` 的 `glassOrb` / `halftone` + `#282` 的 8 个移植背景（见下表）。
-⚠️ **逐单位 `components/*.md` 尚未落地**，本表的「说明」列因此指向源码与
+⚠️ **逐单位 `components/*.md` 除 `GlassSymbol`（`#368`）外尚未落地**，其余行的「说明」列因此指向源码与
 provenance 对账表，而不是不存在的文档链接。⚠️ **本组一律不作原创声称**，逐件裁定见
 [`shader-provenance.md`](shader-provenance.md)。
 ⚠️ 本 target 含 `.metal` 源，**原生 `swift build` 不编译它** —— 构建约束见仓根 `CLAUDE.md`。
@@ -219,7 +219,7 @@ provenance 对账表，而不是不存在的文档链接。⚠️ **本组一律
 | InkSmoke | `InkSmoke(tint:density:motion:)` | 墨烟，两级域扭曲 + 陡对比（`Sources/OhMyDesignShaders/InkSmoke.swift`） |
 | LiquidChrome | `LiquidChrome(tint:density:motion:)` | 液态铬带（`Sources/OhMyDesignShaders/LiquidChrome.swift`） |
 | DotGrid | `DotGrid(tint:spacing:motion:)` | 规则点阵，可选同心波呼吸（`Sources/OhMyDesignShaders/DotGrid.swift`） |
-| [GlassSymbol](components/glass-symbol.md) | `GlassSymbol(_:tint:strength:accessibilityLabel:)` | 渲染成折射玻璃的 SF Symbol；外观扩展点 `GlassSymbolStyle` / `.glassSymbolStyle(_:)`（`Sources/OhMyDesignShaders/GlassSymbol.swift`） |
+| GlassSymbol | `GlassSymbol(_:tint:strength:accessibilityLabel:)` | [glass-symbol.md](components/glass-symbol.md)；渲染成折射玻璃的 SF Symbol，外观扩展点 `GlassSymbolStyle` / `.glassSymbolStyle(_:)` |
 | refractiveGlass | `View.refractiveGlass(corner:strength:rim:isEnabled:)` | 把内容渲染成折射玻璃；⚠️ 与系统 `.glassEffect()` 是两回事（`Sources/OhMyDesignShaders/RefractiveGlass.swift`） |
 | glassOrb | `View.glassOrb(size:magnification:)` | 跟手的玻璃珠放大镜，圆内随距离衰减地放大；⚠️ 移植自 Inferno 的 `WarpingLoupe.metal`（MIT，须署名）（`Sources/OhMyDesignShaders/GlassOrb.swift`） |
 | Metaballs | `Metaballs(tint:count:motion:)` | 彩色小球游走并融合成黏连形状；⚠️ 移植自 paper `metaballs.ts`（Apache-2.0，须署名 + 修改标注）（`Sources/OhMyDesignShaders/Metaballs.swift`） |
