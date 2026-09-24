@@ -693,9 +693,9 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 - *enum* **`RenderPolicy`** — 一层常驻渲染件在当前能耗状态下的渲染策略。
   - `.full` — 满帧。
   - `.reduced` — 降帧，但**仍然在动**。
-  - `.paused` — 完全停摆：驱动动画的 `TimelineView` **不建**（不是「建了但暂停」）。
+  - `.paused` — 完全停摆：驱动动画的 `TimelineView` **不建**（不是「建了但暂停」）。 ⚠️ `OhMyDesignShaders` 的全幅背景是例外：暂停并保留最后一帧，理由见其 `ProceduralBackground`。
 - *enum* **`MotionPresentation`** — 两道闸（NFR-7 能耗闸 + Reduce Motion 闸）**一起**裁出来的结果：这一层到底呈现什么。
-  - `.hidden` — 一个像素都不画（NFR-7 停摆）。**优先级最高**——它在 Reduce Motion 之前裁决。
+  - `.hidden` — 一个像素都不画（NFR-7 停摆）。**优先级最高**——它在 Reduce Motion 之前裁决。 ⚠️ `OhMyDesignShaders` 的全幅背景在此档暂停并保留最后一帧，见其 `ProceduralBackground`。
   - `.resting` — 画，但静止（Reduce Motion：保留视觉、去掉运动）。
   - `.animated` — 正常动。
 - *struct* **`EnergyState`** — 「注入值优先、否则从系统读」的解析结果，以及它推出的渲染策略。

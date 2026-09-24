@@ -20,6 +20,20 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.11.0`）——Issue #282：Shaders 程序化背景接入能耗闸（NFR-7）
+
+**行为变更（无签名破坏）。** `Plasma` / `DotGrid` / `FractalClouds` / `InkSmoke` / `LiquidChrome` 这 5 个程序化背景
+此前不看能耗状态，现在：
+
+| 状态 | 之前 | 现在 |
+|---|---|---|
+| 场景 `.inactive` / `.background`（macOS 上窗口不在前台、iOS 上控制中心 / App 切换器） | 照常动 | **暂停并保留最后一帧**；回前台接着那一帧走，不前跳 |
+| 低电量模式 | 满帧 | 降到 `RenderPolicy.reduced.minimumInterval`（15 fps） |
+
+与 Effects 的 `.hidden ⇒ 整层不建` 不同：背景是整个可见表面，摘掉会闪出宿主底色，所以保留末帧。
+测试里用 `ImageRenderer` 离屏渲染时没有 Scene、`scenePhase` 读到 `.background`：单帧仍画同一帧，
+但若要验证动画推进，请注入 `.environment(\.scenePhaseOverride, .active)`。
+
 ## 未发布（相对 `v0.11.0`）——Issue #420：Timeline 组合式 API
 
 本节随 `#420` 的 4 个 PR 逐步追加。

@@ -30,10 +30,19 @@ public nonisolated enum ShaderMotion: Sendable, CaseIterable {
 
 // MARK: - ProceduralBackground
 
-/// 程序化背景的公共骨架：时间原点、Reduce Motion 冻结、装饰层 a11y。
+/// 程序化背景的公共骨架：时间原点、能耗闸（NFR-7）、Reduce Motion 冻结、装饰层 a11y。
 ///
 /// ⚠️ **每个背景都必须经由本类型构建，不要各自搭 `TimelineView`**——它封装了一个
 /// 只有在真渲染时才会暴露的坑，见 `origin` 的注释。
+///
+/// ⚠️ **能耗闸的 `.hidden`（后台 / inactive）在这里是「暂停并保留最后一帧」，不是整层不建**
+/// ——有意偏离 `RenderPolicy.drawsAnything` 的通用约定与 Effects 的 `AnimatedMeshGradient`
+/// （`.hidden` ⇒ `EmptyView()`），也不套用 `OrbitingLogos` 那条「`.hidden` 摘掉装饰层与调度器」
+/// 的收窄裁决（`docs/components/orbiting-logos.md`）：环是内容旁的装饰，摘掉后内容仍完整；
+/// 全幅背景**就是**可见表面，而 `.inactive` 时画面仍然可见（macOS 上别的 App 在前台时窗口完全可见，
+/// iOS 上控制中心 / App 切换器），整层摘掉会把宿主底色闪出来。另外 `EmptyView` 会销毁子树、
+/// 重置 `origin`，回前台从 `t = 0` 重放，又是一次可见的闪回。暂停的 `TimelineView` 不再产生帧，
+/// 满足「停摆」的能耗目的；回前台时 `origin` 顺延暂停时长，画面接着最后一帧走。
 struct ProceduralBackground: View {
 
     /// 底色。shader 未生效时的降级形态（首帧、或用原生 `swift build` 构建时）。
@@ -82,18 +91,56 @@ struct ProceduralBackground: View {
     var originOverride: Date?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var systemScenePhase
+    @Environment(\.scenePhaseOverride) private var scenePhaseOverride
+    @Environment(\.lowPowerModeOverride) private var lowPowerModeOverride
+
+    @State private var pausedAt: Date?
 
     var body: some View {
-        TimelineView(.animation(paused: self.reduceMotion || self.motion == .still)) { timeline in
-            let t = self.elapsed(at: timeline.date)
+        let energy = EnergyState.resolve(
+            injectedScenePhase: self.scenePhaseOverride,
+            systemScenePhase: self.systemScenePhase,
+            lowPowerModeOverride: self.lowPowerModeOverride
+        )
+        let presentation = energy.presentation(reduceMotion: self.reduceMotion)
+        let schedule = Self.schedule(presentation: presentation, policy: energy.policy, motion: self.motion)
+
+        TimelineView(.animation(minimumInterval: schedule.minimumInterval, paused: schedule.paused)) { timeline in
+            let t = self.elapsed(at: self.pausedAt ?? timeline.date)
 
             self.base
                 .visualEffect { content, proxy in
                     content.colorEffect(self.makeShader(proxy.size, t))
                 }
         }
+        .onChange(of: presentation) { old, new in
+            let now = Date()
+            if new == .hidden {
+                self.pausedAt = now
+            } else if old == .hidden, let pausedAt = self.pausedAt {
+                self.origin = Self.resumedOrigin(origin: self.origin, pausedAt: pausedAt, resumedAt: now)
+                self.pausedAt = nil
+            }
+        }
         // FR-13：纯装饰层。承载状态语义的效果由调用方提供 a11y 通告。
         .accessibilityHidden(true)
+    }
+
+    struct Schedule: Equatable {
+        let paused: Bool
+        let minimumInterval: Double?
+    }
+
+    static func schedule(presentation: MotionPresentation, policy: RenderPolicy, motion: ShaderMotion) -> Schedule {
+        switch presentation {
+        case .animated: Schedule(paused: motion == .still, minimumInterval: policy.minimumInterval)
+        case .resting, .hidden: Schedule(paused: true, minimumInterval: nil)
+        }
+    }
+
+    static func resumedOrigin(origin: Date, pausedAt: Date, resumedAt: Date) -> Date {
+        origin.addingTimeInterval(max(0, resumedAt.timeIntervalSince(pausedAt)))
     }
 
     /// Reduce Motion 下**冻结在某一帧**（保留视觉、去掉运动，FR-12），
