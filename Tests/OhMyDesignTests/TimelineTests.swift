@@ -358,7 +358,7 @@ struct TimelineNodeColorRenderTests {
         levels.map { level in TimelineItem(status: level) { Text(verbatim: "Event").coreFont(.callout) } }
     }
 
-    @Test("暗色五档与旧实现（原样拷贝）逐像素一致")
+    @Test("暗色五档与旧实现（原样拷贝）在光栅化噪声内逐像素一致")
     func darkTimelineMatchesLegacy() throws {
         let items = Self.items(Self.levels)
         let now = try self.pixels(Timeline(items: items), scheme: .dark)
@@ -367,7 +367,7 @@ struct TimelineNodeColorRenderTests {
         expectBitmapsEquivalent(now.bytes, old.bytes, maxChannelDelta: 1, "暗色 Timeline 与旧实现不同")
     }
 
-    @Test("浅色 info / success / danger / neutral 与旧实现逐像素一致")
+    @Test("浅色 info / success / danger / neutral 与旧实现在光栅化噪声内逐像素一致")
     func lightNonWarningTimelineMatchesLegacy() throws {
         let items = Self.items([.info, .success, .danger, .neutral])
         let now = try self.pixels(Timeline(items: items), scheme: .light)

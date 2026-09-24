@@ -237,19 +237,27 @@ enum BadgeSequenceRunner {
         )
     }
 
-    // 一轮固定等待可能追不完出现转场（CI 曾在 scale 0.6 → 1 途中取像：宽 46 vs 56、高 32 vs 40），所以等到相邻两轮宽高相同。
-    static func settle(_ window: HostedWindow, sourceLocation: SourceLocation = #_sourceLocation) {
+    // 一轮固定等待可能追不完出现转场，所以等到相邻两轮宽高相同；更新晚落地时会连续读到 0×0，
+    // 故还须与终值应有的存在性一致，否则两次 `.absent` 会被当成已稳定。
+    static func settle(
+        _ window: HostedWindow,
+        expectPresent: Bool,
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) {
         Self.settleOnce(window)
         var previous = BadgeFillShape.measure(window.pixels())
         for _ in 0..<Self.stabilityAttempts {
             Self.refresh(window)
             RunLoop.main.run(until: Date().addingTimeInterval(0.1))
             let next = BadgeFillShape.measure(window.pixels())
-            if next?.width == previous?.width, next?.height == previous?.height { return }
+            if let next, next.width == previous?.width, next.height == previous?.height,
+               (next != .absent) == expectPresent {
+                return
+            }
             previous = next
         }
         Issue.record(
-            "徽标在 \(Self.stabilityAttempts) 轮稳定等待后宽高仍在变（最后一次 \(String(describing: previous))），终态读数不可信",
+            "徽标在 \(Self.stabilityAttempts) 轮稳定等待后仍未落到终态（应\(expectPresent ? "显示" : "不显示")，最后一次 \(String(describing: previous))），终态读数不可信",
             sourceLocation: sourceLocation
         )
     }
@@ -285,8 +293,9 @@ enum BadgeSequenceRunner {
             box.count = count
             Self.settleOnce(window)
         }
-        box.count = counts.last ?? start
-        Self.settle(window)
+        let final = counts.last ?? start
+        box.count = final
+        Self.settle(window, expectPresent: final > 0)
         return window.pixels()
     }
 
@@ -295,7 +304,7 @@ enum BadgeSequenceRunner {
         let box = BadgeCountBox(count)
         let window = Self.window(box, reduceMotion: reduceMotion)
         defer { window.close() }
-        Self.settle(window)
+        Self.settle(window, expectPresent: count > 0)
         return window.pixels()
     }
 }
@@ -586,7 +595,7 @@ struct SymbolNumericInFlightTests {
         let box = BadgeCountBox(start)
         let window = BadgeSequenceRunner.window(box, reduceMotion: reduceMotion)
         defer { window.close() }
-        BadgeSequenceRunner.settle(window)
+        BadgeSequenceRunner.settle(window, expectPresent: start > 0)
         let before = window.pixels()
         box.count = target
         var frames: [HostedPixels] = []
@@ -595,7 +604,7 @@ struct SymbolNumericInFlightTests {
             RunLoop.main.run(until: Date().addingTimeInterval(0.008))
             frames.append(window.pixels())
         }
-        BadgeSequenceRunner.settle(window)
+        BadgeSequenceRunner.settle(window, expectPresent: target > 0)
         return (frames, before, window.pixels())
     }
 

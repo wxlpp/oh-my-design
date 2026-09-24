@@ -338,7 +338,7 @@ struct CoreMotionTokenInFlightTests {
     func toastSwipeRelease() throws {
         let on = try Self.swipeReleaseTravel(reduceMotion: true, sampleFor: 0.3)
         #expect(on >= 0, "松手后一帧都没采到 Toast")
-        // 上界 1 行：淡出全程质心实测漂 ≤ 0.2 行；松手后弹回原位（撤掉修复）实测 ≥ 15 行。
+        // 上界 1 行：淡出全程质心实测漂 ≤ 0.16 行；松手后弹回原位（撤掉修复）实测 ≈ 15 行。
         #expect(on <= 1, "RM 开时松手后不得位移（停在松手位置淡出），实测最大质心位移 \(String(format: "%.2f", on)) 行，上界 1")
         _ = Self.observeControlMotion("Toast 滑动松手", threshold: 5) { window in
             Int(((try? Self.swipeReleaseTravel(reduceMotion: false, sampleFor: window)) ?? -1).rounded())

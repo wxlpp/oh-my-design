@@ -250,7 +250,7 @@ struct CoreMotionTokenDegradationTableTests {
 
 // MARK: - 静息外观不变（#407）
 
-@Suite("静息外观：与旧实现逐像素相同、与 RM 开关无关")
+@Suite("静息外观：与旧实现在光栅化噪声内逐像素一致、与 RM 开关无关")
 @MainActor
 struct CoreMotionTokenRestingAppearanceTests {
     private func chrome(pressed: Bool, legacy: Bool, reduceMotion: Bool = false) -> some View {
@@ -267,11 +267,11 @@ struct CoreMotionTokenRestingAppearanceTests {
         .environment(\.coreMotionPresentationOverride, reduceMotion ? .resting : .animated)
     }
 
-    @Test("按钮背景：未按下 / 按下（RM 关）与旧实现逐像素相同；未按下与 RM 无关")
+    @Test("按钮背景：未按下 / 按下（RM 关）与旧实现在光栅化噪声内逐像素一致；未按下与 RM 无关")
     func buttonBackgroundMatchesLegacy() {
+        // 新旧两棵视图树在抗锯齿边缘上偶发差 1 LSB（按下态缩放后边缘落在亚像素上），三处都按 ±1 比。
         expectBitmapsEquivalent(pixels(self.chrome(pressed: false, legacy: false)), pixels(self.chrome(pressed: false, legacy: true)),
                                 maxChannelDelta: 1)
-        // 按下态缩放后边缘落在亚像素上，跨视图树的抗锯齿差 1 LSB。
         expectBitmapsEquivalent(pixels(self.chrome(pressed: true, legacy: false)), pixels(self.chrome(pressed: true, legacy: true)),
                                 maxChannelDelta: 1, "isPressed=true")
         expectBitmapsEquivalent(pixels(self.chrome(pressed: false, legacy: false, reduceMotion: true)),
@@ -293,7 +293,7 @@ struct CoreMotionTokenRestingAppearanceTests {
         .frame(width: 80, height: 40)
     }
 
-    @Test("Telegram 玻璃按钮：RM 关时四种组合与旧实现逐像素相同")
+    @Test("Telegram 玻璃按钮：RM 关时四种组合与旧实现在光栅化噪声内逐像素一致")
     func telegramMatchesLegacy() {
         for pressed in [false, true] {
             for feedback in [false, true] {

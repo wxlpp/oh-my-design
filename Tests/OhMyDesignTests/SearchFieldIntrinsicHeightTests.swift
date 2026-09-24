@@ -50,7 +50,7 @@ struct SearchFieldIntrinsicHeightTests {
     }
 
     @Test(
-        "不限高容器里与改动前实现外加 fixedSize(vertical) 的原生框位置与位图逐像素相同（light / dark）",
+        "不限高容器里与改动前实现外加 fixedSize(vertical) 的原生框位置相同、位图在光栅化噪声内逐像素一致（light / dark）",
         arguments: [ColorScheme.light, .dark]
     )
     func matchesPreFixWithCallerFixedSize(_ scheme: ColorScheme) {

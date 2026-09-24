@@ -68,8 +68,8 @@ private let sampleInvalid = FieldValidation.invalid("Something is wrong.")
 
 // MARK: - 原生输入框占位块 / Native text field placeholder
 
-// ImageRenderer 画不出原生 TextField，只画一块纯黄占位；该块偶发整块移 1px（实测 1192 / 1512 字节、
-// 最大偏差 255 / 225），所以占位块只比位置（±1px），块外照常比位图。
+// ImageRenderer 画不出原生 TextField，只画一块纯黄占位，该块偶发整块移 1px；
+// 所以占位块只比位置（±1px），块外照常比位图。
 private struct NativePlaceholderBounds: Equatable, CustomStringConvertible {
     let minX: Int, maxX: Int, minY: Int, maxY: Int
 
@@ -367,7 +367,7 @@ struct FieldControlFollowUpTests {
         }
     }
 
-    @Test("PinCode 获焦 valid 格与旧实现逐像素一致（光晕只属于 invalid，light / dark）")
+    @Test("PinCode 获焦 valid 格与旧实现在光栅化噪声内逐像素一致（光晕只属于 invalid，light / dark）")
     func pinCodeFocusedValidCellUnchanged() {
         for scheme in ControlRender.schemes {
             expectBitmapsEquivalent(
@@ -393,7 +393,7 @@ struct FieldControlFollowUpTests {
         }
     }
 
-    @Test("CheckBox / Radio enabled 与旧实现逐像素一致（light / dark，两条腿）", arguments: FieldControlSample.choiceCases)
+    @Test("CheckBox / Radio enabled 与旧实现在光栅化噪声内逐像素一致（light / dark，两条腿）", arguments: FieldControlSample.choiceCases)
     func choiceControlsEnabledUnchanged(_ sample: FieldControlSample) {
         for scheme in ControlRender.schemes {
             expectBitmapsEquivalent(
