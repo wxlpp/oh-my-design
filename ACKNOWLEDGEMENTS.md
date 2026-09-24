@@ -674,20 +674,29 @@ sin-fract hash ⇒ 署名指向**算法本身**，**不得**引 The Book of Shad
 
 ---
 
+## `OhMyDesignShaders` 逐单位归档（`#284`）
+
+本组 17 个 API 单位**一律不作原创声称**；逐件裁定以 `docs/shader-provenance.md`《统一裁定表》为准，下表只给落脚点。
+
+| 单位 | 上游与许可 | 本文件对应小节 |
+|---|---|---|
+| `Plasma` | 本体未指认到上游；四相正弦叠加的公式出自 Lode Vandevenne（BSD-2-Clause） | 《上表三条义务的兑现》· 《共享原语与公开配方》 |
+| `FractalClouds` | 本体未指认到上游；域扭曲级联出自 iq（MIT） | 同上 |
+| `InkSmoke` | 本体未指认到上游；域扭曲 `q` / `r` 三级级联出自 iq（MIT） | 同上 |
+| `LiquidChrome` | 未指认到上游（待追溯 · 低指纹） | 《共享原语与公开配方》 |
+| `DotGrid` | 未指认到上游（待追溯 · 低指纹） | 《共享原语与公开配方》 |
+| `View.refractiveGlass` | 主体未指认到上游；`roundedBoxSDF` 出自 iq（MIT） | 《上表三条义务的兑现》 |
+| `GlassSymbol` | 无自有 shader，档位随 `View.refractiveGlass` | 同上 |
+| `View.glassOrb` | Inferno「Warping Loupe」（MIT） | 《Inferno — Warping Loupe》 |
+| `View.halftone` | paper-design/shaders（Apache-2.0）；hash 出自 Dave Hoskins / iq（MIT） | 《paper-design/shaders（Apache-2.0）》 |
+| `Metaballs` / `DotOrbit` / `SmokeRing` / `ColorPanels` | paper-design/shaders（Apache-2.0） | 同上 |
+| `Voronoi` | paper-design/shaders（Apache-2.0），算法上游 iq `ldl3W8`（MIT） | 同上 |
+| `Swirl` / `SimplexNoise` | paper-design/shaders（Apache-2.0）＋ Ashima Arts simplex noise（MIT） | 同上 |
+| `StarNest` | Pablo Roman Andrioli（Kali）「Star Nest」（作者声明 MIT） | 《Star Nest》 |
+
 ## `OhMyDesignShaders` 的共享原语与公开配方
 
-> ⚠️ **占位（与上面三节同一规则）**：本节描述的代码只存在于**未合并**的
-> `shaders-plasma` 分支（PR #261）。从 `epic/shipswift-foundation` 的角度看，
-> 它描述的东西**还不存在**。⇒ 本节**在 #261 合入时启用**。
->
-> ⚠️ **为什么它仍然现在就写下来**：`docs/shader-provenance.md` 与 #261 互为前提
-> （#261 的 5 处引用**全部指向 provenance 表**），而本文件是那张表判为可落地行的
-> **对外落脚点** ⇒ 本节随表一并预登记。
-> ⚠️ **上一版这里写「#261 多处引用本文件」——实查 `git grep ACKNOWLEDGEMENTS` 零命中**
->（第 2 轮终审 I-a）。而这条理由是本节豁免「不得署名尚未落地的东西」的**唯一依据**
-> ——依据本身是假的，等于没有豁免。已改为真实的那条。
-> 本节是**预登记**，不是已生效的对外声明——这与「逐 shader 条目由各自落地的 task
-> 追加」不冲突：那条规则约束的是**逐件**条目，本节是**共享原语**。
+本节描述的共享原语随 `#261` 合入，已是生效的对外声明。
 
 ⚠️⚠️ **本节取代了第 1 版的「噪声参考实现（clean-room）」一节，因为那一节整个是错的。**
 

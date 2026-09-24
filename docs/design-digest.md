@@ -1064,6 +1064,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 ### `ShaderSupport.swift`
 
 - *enum* **`ShaderMotion`**: `.still`, `.calm`, `.regular`, `.lively` — 运动速度档位。
+- *enum* **`ShaderRenderProbe`** — `ProceduralBackground` **真的提交了 shader** 的帧数。
 
 ### `SimplexNoise.swift`
 
@@ -1200,5 +1201,5 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | protocols | 7 | 7 |
 | viewext | 51 | 51 |
 | styleext | 15 | 15 |
-| others | 30 | 30 |
+| others | 31 | 31 |
 
