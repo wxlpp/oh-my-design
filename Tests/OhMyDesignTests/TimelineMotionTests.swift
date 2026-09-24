@@ -16,11 +16,19 @@ struct TimelineMotionPureTests {
         #expect(TimelineMotion(progress: .completed, steps: [nil, nil]) == nil)
     }
 
-    @Test("推进位置在 Int.min / Int.max 下不 trap")
+    @Test("推进位置在 Int.min / Int.max 下不 trap；端点的 ±1 在 Double 里被吸收，与极值 step 位置相同（切换不补间，静止帧仍按整数判定）")
     func positionExtremes() {
         let steps: [Int?] = [Int.min, Int.max]
-        #expect(TimelineMotion(progress: .notStarted, steps: steps)?.position == Double(Int.min) - 1)
-        #expect(TimelineMotion(progress: .completed, steps: steps)?.position == Double(Int.max) + 1)
+        #expect(TimelineMotion(progress: .notStarted, steps: steps)?.position == Double(Int.min))
+        #expect(TimelineMotion(progress: .completed, steps: steps)?.position == Double(Int.max))
+    }
+
+    @Test("推进位置夹在 [最小 step − 1, 最大 step + 1]：越界的 inProgress 与 notStarted / completed 位置相同，补间不会只在开头 5% 里可见")
+    func positionClamped() {
+        let steps: [Int?] = [0, 1, 2, 3, 4]
+        #expect(TimelineMotion(progress: .inProgress(at: 100), steps: steps)?.position == 5)
+        #expect(TimelineMotion(progress: .inProgress(at: -100), steps: steps)?.position == -1)
+        #expect(TimelineMotion(progress: .inProgress(at: 2), steps: steps)?.position == 2)
     }
 
     @Test("静止（插值值 == 模型值）时分段系数与圆点取整数判定：极值相邻 step 不会被 Double 精度判成同一点")
@@ -68,26 +76,32 @@ struct TimelineMotionPureTests {
         #expect(TimelineEntranceFrame.resting == TimelineEntranceFrame(scale: 1, opacity: 1))
     }
 
-    @Test("入场闩锁：挂载时屏外（先收到 false）的行在 .animated 下待入场，窗口关后首次可见才播；挂载时可见的行直接结算；结算后不再变")
+    @Test("入场闩锁：不可见回调不改任何状态；首个可见回调结算——挂载窗口内或非 .animated 直接终态，否则置待入场并要求补间；结算后不再变")
     func entranceLatch() {
         let fresh = TimelineEntrance()
         #expect(fresh.frame == .resting)
 
+        let hidden = fresh.visibilityChanged(false, mountWindowOpen: false, presentation: .animated)
+        #expect(hidden.entrance == fresh && !hidden.plays, "不可见回调不得改状态（宿主误报 false 时节点不能消失）")
+
         let mountedVisible = fresh.visibilityChanged(true, mountWindowOpen: true, presentation: .animated)
         #expect(mountedVisible.entrance == TimelineEntrance(isWaiting: false, isSettled: true) && !mountedVisible.plays)
 
-        let offscreen = fresh.visibilityChanged(false, mountWindowOpen: true, presentation: .animated).entrance
-        #expect(offscreen == TimelineEntrance(isWaiting: true, isSettled: false))
-        #expect(offscreen.frame == .entering)
-        let scrolledIn = offscreen.visibilityChanged(true, mountWindowOpen: false, presentation: .animated)
-        #expect(scrolledIn.plays && scrolledIn.entrance.frame == .resting)
-        let again = scrolledIn.entrance.visibilityChanged(false, mountWindowOpen: false, presentation: .animated)
-        #expect(again.entrance == scrolledIn.entrance && !again.plays, "结算后滚出不回到待入场")
+        let scrolledIn = fresh.visibilityChanged(true, mountWindowOpen: false, presentation: .animated)
+        #expect(scrolledIn.plays && scrolledIn.entrance == TimelineEntrance(isWaiting: true, isSettled: true))
+        #expect(scrolledIn.entrance.frame == .entering, "补间前的首帧已是待入场态（无闪帧）")
 
-        #expect(fresh.visibilityChanged(false, mountWindowOpen: true, presentation: .resting).entrance.frame == .resting)
-        let reduced = offscreen.visibilityChanged(true, mountWindowOpen: false, presentation: .resting)
-        #expect(!reduced.plays && reduced.entrance.frame == .resting, "待入场期间切到 RM：直接到终态")
-        #expect(!offscreen.visibilityChanged(true, mountWindowOpen: true, presentation: .animated).plays)
+        var settled = scrolledIn.entrance
+        settled.isWaiting = false
+        for visible in [false, true] {
+            let again = settled.visibilityChanged(visible, mountWindowOpen: false, presentation: .animated)
+            #expect(again.entrance == settled && !again.plays, "结算后不再变")
+        }
+
+        for presentation in [MotionPresentation.resting, .hidden] {
+            let reduced = fresh.visibilityChanged(true, mountWindowOpen: false, presentation: presentation)
+            #expect(!reduced.plays && reduced.entrance.frame == .resting)
+        }
     }
 }
 
@@ -398,6 +412,10 @@ struct TimelineMotionInFlightTests {
         CGFloat(width) >= (20 * TimelineEntranceFrame.enteringScale - 1) * scale && CGFloat(width) < 19 * scale
     }
 
+    private static func isResting(_ width: Int, scale: CGFloat) -> Bool {
+        abs(CGFloat(width) - 20 * scale) <= scale
+    }
+
     private static func showsMarkedContent(_ pixels: HostedPixels) -> Bool {
         guard let bytes = pixels.bytes else { return false }
         return stride(from: 0, to: bytes.count, by: 4).contains { bytes[$0 + 2] > 200 && bytes[$0] < 60 && bytes[$0 + 1] < 60 }
@@ -446,7 +464,8 @@ struct TimelineMotionInFlightTests {
         let window = Self.entranceWindow(box, scrolls: true, presentation: .animated)
         defer { window.close() }
         let scale = window.pixels().scale
-        _ = Self.scrollIn(box, window, duration: 0.4)
+        let first = Self.scrollIn(box, window, duration: 0.4).filter(\.scrolled).map(\.width)
+        #expect(first.contains { !Self.isResting($0, scale: scale) }, "第一次滚入没播入场，本条无对照：\(first)")
         window.settle()
         box.scrollTarget = 0
         window.settle()
@@ -454,8 +473,7 @@ struct TimelineMotionInFlightTests {
         window.settle()
         let frames = Self.scrollIn(box, window, duration: 0.4).filter(\.scrolled)
         #expect(!frames.isEmpty, "没滚到第 8 行，判据无效")
-        let entering = frames.map(\.width).filter { Self.isEntering($0, scale: scale) }
-        #expect(entering.isEmpty, "再次滚入时重播了：\(frames.map(\.width))")
+        #expect(frames.allSatisfy { Self.isResting($0.width, scale: scale) }, "再次滚入时节点不是终态（重播或透明）：\(frames.map(\.width))")
     }
 
     @Test("入场 RM 不播：.resting 下滚入第 8 行，节点宽度全程是终态")
@@ -466,22 +484,25 @@ struct TimelineMotionInFlightTests {
         let scale = window.pixels().scale
         let frames = Self.scrollIn(box, window, duration: 0.4).filter(\.scrolled)
         #expect(!frames.isEmpty, "没滚到第 8 行，判据无效")
-        let entering = frames.map(\.width).filter { Self.isEntering($0, scale: scale) }
-        #expect(entering.isEmpty, "RM 开时播了入场：\(frames.map(\.width))")
+        #expect(frames.allSatisfy { Self.isResting($0.width, scale: scale) }, "RM 开时节点不是终态：\(frames.map(\.width))")
     }
 
-    @Test("挂载时可见不播：ScrollView 内首屏第 0 行、以及无滚动宿主的全部行，挂载后全程没有中间宽度", arguments: [true, false])
+    @Test("挂载时可见不播：ScrollView 内首屏行、以及无滚动宿主的行，内容一画出来节点就是终态（不缩小、不透明闪帧）", arguments: [true, false])
     func mountDoesNotPlay(scrolls: Bool) {
         let box = TimelineMotionBox(isShown: false)
         let window = Self.entranceWindow(box, scrolls: scrolls, presentation: .animated, markedRow: scrolls ? 0 : 1)
         defer { window.close() }
         let scale = window.pixels().scale
         box.isShown = true
-        let widths = Self.sample(window, for: 0.4, Self.markedNodeWidth)
-        #expect(widths.contains(Int(20 * scale)) || widths.contains(Int(20 * scale) - 1) || widths.contains(Int(20 * scale) + 1),
-                "挂载后没画出第 0 行节点，判据无效：\(widths)")
-        let entering = widths.filter { Self.isEntering($0, scale: scale) }
-        #expect(entering.isEmpty, "挂载时可见的行播了入场（scrolls: \(scrolls)）：\(widths)")
+        var frames: [Int] = []
+        let start = Date()
+        while Date().timeIntervalSince(start) < 0.4 {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.008))
+            let pixels = window.pixels()
+            if Self.showsMarkedContent(pixels) { frames.append(Self.markedNodeWidth(pixels)) }
+        }
+        #expect(!frames.isEmpty, "挂载后没画出标记行的内容，判据无效")
+        #expect(frames.allSatisfy { Self.isResting($0, scale: scale) }, "挂载时可见的行节点不是终态（scrolls: \(scrolls)）：\(frames)")
     }
 }
 

@@ -89,7 +89,7 @@ struct CoreMotionTokenDisciplineGuard {
         "Components/Tree/Tree.swift|rotationEffect(.degrees(self.chevronRotation(isExpanded: isExpanded)))":
             "补间走 CoreMotionToken.reveal.transformAnimation(for:)，resting 下不补间、直接切到终态角度",
         "Components/Timeline/Timeline.swift|scaleEffect(frame.scale)":
-            "节点入场：只有挂载时在屏外的行在 .animated 下置为待入场（0.86），挂载后滚入时补间回 1；.resting / .hidden 恒为 1",
+            "节点入场：挂载窗口关闭后首次可见、且 .animated 时才置为待入场（0.86）并在下一轮 runloop 补间回 1；.resting / .hidden 恒为 1",
     ]
 
     static let animationTriggers = [

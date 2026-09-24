@@ -550,12 +550,14 @@ private struct TimelineEntranceModifier: ViewModifier {
                 let next = self.entrance.visibilityChanged(
                     isVisible, mountWindowOpen: self.mountWindowOpen, presentation: self.presentation
                 )
-                if next.plays {
-                    withAnimation(CoreMotionToken.reveal.animation(for: self.presentation)) {
-                        self.entrance = next.entrance
+                self.entrance = next.entrance
+                guard next.plays else { return }
+                RunLoop.main.perform(inModes: [.common]) {
+                    MainActor.assumeIsolated {
+                        withAnimation(CoreMotionToken.reveal.animation(for: self.presentation)) {
+                            self.entrance.isWaiting = false
+                        }
                     }
-                } else {
-                    self.entrance = next.entrance
                 }
             }
     }
@@ -572,12 +574,9 @@ nonisolated struct TimelineEntrance: Equatable, Sendable {
     func visibilityChanged(
         _ isVisible: Bool, mountWindowOpen: Bool, presentation: MotionPresentation
     ) -> (entrance: TimelineEntrance, plays: Bool) {
-        guard !self.isSettled else { return (self, false) }
-        guard isVisible else {
-            return (TimelineEntrance(isWaiting: presentation == .animated, isSettled: false), false)
-        }
-        let plays = self.isWaiting && TimelineEntranceFrame.plays(mountWindowOpen: mountWindowOpen, presentation: presentation)
-        return (TimelineEntrance(isWaiting: false, isSettled: true), plays)
+        guard isVisible, !self.isSettled else { return (self, false) }
+        let plays = TimelineEntranceFrame.plays(mountWindowOpen: mountWindowOpen, presentation: presentation)
+        return (TimelineEntrance(isWaiting: plays, isSettled: true), plays)
     }
 }
 
@@ -613,20 +612,21 @@ private struct TimelineDefaultDot: View, Animatable {
             phase: self.phase,
             morph: TimelineStackLayout.dotMorph(step: self.step, position: self.position, target: self.target)
         )
-        ZStack {
-            Circle()
-                .strokeBorder(self.color, lineWidth: CoreBorderWidth.thick)
-                .frame(width: Timeline.nodeDiameter, height: Timeline.nodeDiameter)
-                .opacity(layers.hollow)
-            Circle()
-                .fill(self.color)
-                .frame(width: Timeline.nodeDiameter, height: Timeline.nodeDiameter)
-                .opacity(layers.fill)
-            Circle()
-                .strokeBorder(self.color, lineWidth: CoreBorderWidth.thick)
-                .frame(width: Timeline.inProgressRingDiameter, height: Timeline.inProgressRingDiameter)
-                .opacity(layers.ring)
-        }
+        Circle()
+            .strokeBorder(self.color, lineWidth: CoreBorderWidth.thick)
+            .opacity(layers.hollow)
+            .overlay {
+                Circle()
+                    .fill(self.color)
+                    .opacity(layers.fill)
+            }
+            .frame(width: Timeline.nodeDiameter, height: Timeline.nodeDiameter)
+            .background {
+                Circle()
+                    .strokeBorder(self.color, lineWidth: CoreBorderWidth.thick)
+                    .frame(width: Timeline.inProgressRingDiameter, height: Timeline.inProgressRingDiameter)
+                    .opacity(layers.ring)
+            }
     }
 }
 
@@ -677,11 +677,13 @@ private struct TimelineConnectorReach: Shape {
 #Preview("Timeline — Light") {
     TimelinePreviewGallery()
         .preferredColorScheme(.light)
+        .environment(\.coreMotionPresentationOverride, .resting)
 }
 
 #Preview("Timeline — Dark") {
     TimelinePreviewGallery()
         .preferredColorScheme(.dark)
+        .environment(\.coreMotionPresentationOverride, .resting)
 }
 
 private struct TimelinePreviewGallery: View {

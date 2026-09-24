@@ -416,6 +416,7 @@ private struct SkeletonPreviewsPreviewGallery: View {
 }
 
 
+// 快照宿主在挂载后才重排 / 展开版面，屏外的行随后变为可见会触发入场、截到第 0 帧；文档快照只要终态，Timeline 预览固定 `.resting`。
 #Preview("Timeline") {
     Timeline {
         TimelineItem(status: .success) {
@@ -430,6 +431,7 @@ private struct SkeletonPreviewsPreviewGallery: View {
     }
     .padding()
     .background(Color.surfaceCanvas)
+    .environment(\.coreMotionPresentationOverride, .resting)
 }
 
 #Preview("Timeline Activity") {
@@ -437,6 +439,7 @@ private struct SkeletonPreviewsPreviewGallery: View {
     Timeline { PreviewSnapshotFixtures.timelineActivityRows }
         .padding()
         .background(Color.surfaceCanvas)
+        .environment(\.coreMotionPresentationOverride, .resting)
 }
 
 #Preview("Timeline Deploy Log") {
@@ -444,6 +447,7 @@ private struct SkeletonPreviewsPreviewGallery: View {
     Timeline { PreviewSnapshotFixtures.timelineDeployRows }
         .padding()
         .background(Color.surfaceCanvas)
+        .environment(\.coreMotionPresentationOverride, .resting)
 }
 
 #Preview("Timeline Phases") {
@@ -454,6 +458,7 @@ private struct SkeletonPreviewsPreviewGallery: View {
     }
     .padding()
     .background(Color.surfaceCanvas)
+    .environment(\.coreMotionPresentationOverride, .resting)
 }
 
 #Preview("Tree") {
@@ -502,6 +507,7 @@ private struct SkeletonPreviewsPreviewGallery: View {
         .padding()
     }
     .background(Color.surfaceCanvas)
+    .environment(\.coreMotionPresentationOverride, .resting)
 }
 
 #Preview("Timeline Alternate Widths") {
@@ -535,6 +541,7 @@ private struct SkeletonPreviewsPreviewGallery: View {
     }
     .padding()
     .background(Color.surfaceCanvas)
+    .environment(\.coreMotionPresentationOverride, .resting)
 }
 
 #Preview("Spinning Presentations") {

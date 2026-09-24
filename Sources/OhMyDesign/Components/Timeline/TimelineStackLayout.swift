@@ -443,7 +443,8 @@ nonisolated struct TimelineMotion: Equatable, Sendable {
         self.progress = progress
         switch progress {
         case .notStarted: self.position = Double(lowest) - 1
-        case .inProgress(let current): self.position = Double(current)
+        case .inProgress(let current):
+            self.position = Swift.min(Double(highest) + 1, Swift.max(Double(lowest) - 1, Double(current)))
         case .completed: self.position = Double(highest) + 1
         }
     }
