@@ -773,6 +773,7 @@ struct TreeSearchHostedHarness: View {
     let model: TreeSearchHostedModel
     let style: TreeStyle
     let showsCheckBoxes: TreeHostedCheckBoxes
+    var clickBehavior: TreeRowClickBehavior = .select
 
     var body: some View {
         Tree(
@@ -788,6 +789,7 @@ struct TreeSearchHostedHarness: View {
             Text(verbatim: node.id, highlighting: self.model.query)
         }
         .searchFilter(self.model.query, text: \.id)
+        .rowClickBehavior(self.clickBehavior)
         .treeStyle(self.style)
         .frame(maxHeight: .infinity, alignment: .top)
         .allowsWindowActivationEvents(true)
@@ -805,10 +807,13 @@ struct TreeSearchHostedTests {
     private static func window(
         _ model: TreeSearchHostedModel,
         appearance: TreeHostedAppearance,
-        showsCheckBoxes: TreeHostedCheckBoxes = .hidden
+        showsCheckBoxes: TreeHostedCheckBoxes = .hidden,
+        clickBehavior: TreeRowClickBehavior = .select
     ) -> HostedWindow {
         HostedWindow(
-            TreeSearchHostedHarness(model: model, style: appearance.style, showsCheckBoxes: showsCheckBoxes),
+            TreeSearchHostedHarness(
+                model: model, style: appearance.style, showsCheckBoxes: showsCheckBoxes, clickBehavior: clickBehavior
+            ),
             size: CGSize(width: 260, height: 400),
             scheme: .light
         )
@@ -840,6 +845,71 @@ struct TreeSearchHostedTests {
         Self.key(window, 49, " ")
         #expect(model.expanded == ["a"], "\(appearance)：清空后宿主的 expanded 被改了：\(model.expanded.sorted())")
         #expect(model.selection == ["a1"], "\(appearance)：清空后 a 应当恢复展开（↓ 从 a 到 a1），实得选中 \(model.selection.sorted())")
+    }
+
+    @Test(
+        "搜索期间 .selectAndToggleExpansion 单击父行：只在 overlay 里折叠，不写宿主的 expanded；紧接着点正在淡出的子行不回滚这次折叠；清空后照旧",
+        arguments: TreeHostedAppearance.allCases
+    )
+    func clickToggleDuringSearchStaysTransient(appearance: TreeHostedAppearance) {
+        let model = TreeSearchHostedModel(query: "y", expanded: [])
+        let window = Self.window(model, appearance: appearance, clickBehavior: .selectAndToggleExpansion)
+        defer { window.close() }
+        let rowCenterY = { (index: Int) in CGFloat(index) * Self.pitch + Self.regular.rowHeight / 2 }
+        window.sendMouse(.leftMouseDown, at: CGPoint(x: 120, y: rowCenterY(0)))
+        window.sendMouse(.leftMouseUp, at: CGPoint(x: 120, y: rowCenterY(0)))
+        window.settle()
+        #expect(model.selection == ["a"], "\(appearance)：单击 a 应选中 a，实得 \(model.selection.sorted())")
+        #expect(model.expanded.isEmpty, "\(appearance)：搜索期间单击父行写了宿主的 expanded：\(model.expanded.sorted())")
+        window.sendMouse(.leftMouseDown, at: CGPoint(x: 120, y: rowCenterY(1)))
+        window.sendMouse(.leftMouseUp, at: CGPoint(x: 120, y: rowCenterY(1)))
+        window.settle()
+        #expect(
+            model.selection == ["a"],
+            "\(appearance)：a1 已不是可见行（折叠动画里正在淡出），点它不该选中，实得 \(model.selection.sorted())"
+        )
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+        window.sendMouse(.leftMouseDown, at: CGPoint(x: 120, y: rowCenterY(1)))
+        window.sendMouse(.leftMouseUp, at: CGPoint(x: 120, y: rowCenterY(1)))
+        window.settle()
+        #expect(
+            model.selection == ["a"],
+            "\(appearance)：动画结束后 a 仍应折叠（第 2 行位置上没有行）；点淡出行若按旧快照写回 overlay，a 会被重新展开，实得 \(model.selection.sorted())"
+        )
+
+        model.query = ""
+        window.settle()
+        #expect(model.expanded.isEmpty, "\(appearance)：清空后宿主的 expanded 被改了：\(model.expanded.sorted())")
+    }
+
+    @Test(
+        "搜索期间单击父行折叠后，紧接着点正在淡出的子行的 chevron：按点击当时的展开态归约，不把旧 overlay 写回",
+        arguments: TreeHostedAppearance.allCases
+    )
+    func chevronOnAFadingRowDoesNotRestoreTheOverlay(appearance: TreeHostedAppearance) {
+        let model = TreeSearchHostedModel(query: "y", expanded: [])
+        let window = Self.window(model, appearance: appearance, clickBehavior: .selectAndToggleExpansion)
+        defer { window.close() }
+        let rowCenterY = { (index: Int) in CGFloat(index) * Self.pitch + Self.regular.rowHeight / 2 }
+        let chevronX = { (level: Int) in
+            CoreSpacing.xs + CGFloat(level - 1) * Self.regular.indentation + Self.regular.disclosureWidth / 2
+        }
+        window.sendMouse(.leftMouseDown, at: CGPoint(x: 120, y: rowCenterY(0)))
+        window.sendMouse(.leftMouseUp, at: CGPoint(x: 120, y: rowCenterY(0)))
+        window.settle()
+        #expect(model.selection == ["a"], "\(appearance)：单击 a 应选中 a，实得 \(model.selection.sorted())")
+        window.sendMouse(.leftMouseDown, at: CGPoint(x: chevronX(2), y: rowCenterY(1)))
+        window.sendMouse(.leftMouseUp, at: CGPoint(x: chevronX(2), y: rowCenterY(1)))
+        window.settle()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+        window.sendMouse(.leftMouseDown, at: CGPoint(x: 120, y: rowCenterY(1)))
+        window.sendMouse(.leftMouseUp, at: CGPoint(x: 120, y: rowCenterY(1)))
+        window.settle()
+        #expect(
+            model.selection == ["a"],
+            "\(appearance)：a 应仍折叠（第 2 行位置上没有行）；点淡出行的 chevron 若按渲染时的快照写回 overlay，a 会被重新展开、这一击选中 a1，实得 \(model.selection.sorted())"
+        )
+        #expect(model.expanded.isEmpty, "\(appearance)：搜索期间写了宿主的 expanded：\(model.expanded.sorted())")
     }
 
     @Test("第 5 行连带：清空后再搜同一个词，上一次搜索里的手动折叠不复活", arguments: TreeHostedAppearance.allCases)
