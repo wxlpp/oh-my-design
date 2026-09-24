@@ -4,10 +4,9 @@
 （`StatefulButtonState`），不是四个 Bool ——任意两态互斥，Bool 组合能表达出
 `loading && success` 这类无意义状态。
 
-配件符号槽在 `idle` 时不存在，在三个非静息态各画一个不同的 SF Symbol；
+配件槽在 `idle` 时不存在，在三个非静息态各画一种不同的内容（loading 的转圈、success / failure 的符号）；
 槽的出现 / 消失让按钮宽度变化，走 `CoreMotionToken.press.transformAnimation(for:)`
-（**布局类入口**，Reduce Motion 下为 `nil`）；槽内符号之间的切换走
-`.contentTransition(.symbolEffect(.replace))`。
+（**布局类入口**，Reduce Motion 下为 `nil`）；槽内两层之间只切透明度与缩放，走同一条入口。
 
 ## API
 
@@ -215,11 +214,15 @@ checked continuation 重复 resume 会崩溃。
 
 | 态 | 配件符号 | 颜色 | 动效（`.animated`） | 触感 |
 |---|---|---|---|---|
-| `loading` | `arrow.triangle.2.circlepath` | 跟随按钮前景 | 持续旋转（`.symbolEffect(.rotate)`） | — |
-| `success` | `checkmark.circle.fill` | `Color.success` | 符号替换 | `.success` |
-| `failure` | `exclamationmark.triangle.fill` | `Color.danger` | 符号替换 + 整个按钮左右抖一下 | `.error` |
+| `loading` | 自绘弧线（`.resting` / `.hidden` 下为 `arrow.triangle.2.circlepath`） | 跟随按钮前景 | 匀速旋转，0.8 s 一圈（`TimelineView` 按时间算角度） | — |
+| `success` | `checkmark.circle.fill` | `Color.success` | 从 0.4 倍放大淡入 | `.success` |
+| `failure` | `exclamationmark.triangle.fill` | `Color.danger` | 从 0.4 倍放大淡入 + 整个按钮左右抖一下 | `.error` |
 
 `.resting` / `.hidden` 下旋转与抖动都关闭，颜色与触感保留。
+
+转圈层与结果符号层叠在同一个固定尺寸的槽里、两层恒在，只切透明度：离开 `loading` 时转圈立即停，
+槽宽不变，结果符号不会接着转。⚠️ 不要改回 `.symbolEffect(.rotate)`：它每圈带缓动、读作慢，
+且 `isActive` 转假后会把当前这圈转完，替换进来的结果符号会跟着转。
 
 `StatefulButton` 不转发 `Error`：想拿到错误本身就在 action 内 `catch` 处理完再 `throw` 出来，
 失败态照样出现。
@@ -246,12 +249,10 @@ checked continuation 重复 resume 会崩溃。
   宽度过渡在 animated 下也不补间（配件槽直接出现）。`idle` 恒挂同一个 modifier、给空值。
 - 触发值就是 `StatefulButtonState`，所以四个 case 两两不等是**判据保护的不变量**
   （`==` 若被改写成恒真，`.animation(_:value:)` 分辨不出任何两态、永不触发）。
-- 符号槽内的切换走 `.contentTransition(self.motionPresentation.symbolReplacement)`，
-  `.resting` / `.hidden` 下退化为 `ContentTransition.identity`。
-- loading 的旋转与 failure 的抖动只在 `.animated` 下发生：旋转经 `spins(_:)` 门控，
+- loading 的旋转、结果符号的放大淡入与 failure 的抖动只在 `.animated` 下发生：转圈层经 `spins(_:)` 门控，
   抖动由 `failureShakes` 触发，而它只在 `.animated` 下递增。
 - 该文件在 `CoreMotionTokenDisciplineGuard` 的台账里登记为 `.gated`，
-  `contentTransition` / `symbolEffect` / `offset` 调用点另有逐点登记。
+  `rotationEffect` / `scaleEffect` / `offset` 调用点另有逐点登记。
 
 ### 判据覆盖面
 
@@ -261,9 +262,7 @@ in-flight 采样（macOS 腿，`HostedWindow` + `cacheDisplay` 逐帧取「两�
   resting 臂 == 0。摘掉动效入口、退回 `.coreAnimation`、把无障碍 modifier 改回条件分支、
   把 `==` 改成恒真，都会让它判红。它证的是「这次布局过渡有中间帧」，不单独区分宽度补间
   与配件符号的淡入——两者都会产生两端之外的像素。
-- `loading → success`（符号替换）：resting 臂 == 0，animated 臂 > 0。
-  ⚠️ 这条的 animated 臂读数偏低不代表「动得少」：符号替换特效画在 `cacheDisplay` 拍不到的层里，
-  摘掉 `.contentTransition` 后读数反而上升（做过判别实验）。
+- `loading → success`（转圈淡出、结果符号放大淡入）：resting 臂 == 0，animated 臂 > 0。
 
 iOS 腿上 `layer.render(in:)` 取的是模型层、拍不到进行中的帧，这两条只在 macOS 腿跑。
 

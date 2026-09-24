@@ -62,10 +62,10 @@ struct CoreMotionTokenDisciplineGuard {
             "symbolReplacement 在 resting / hidden 下为 ContentTransition.identity，直接换图不描画",
         "Components/Radio/Radio.swift|contentTransition(self.motionPresentation.symbolReplacement)":
             "同 CheckBox：resting / hidden 下为 ContentTransition.identity",
-        "Components/Button/StatefulButton.swift|contentTransition(self.motionPresentation.symbolReplacement)":
-            "loading / success / failure 三态共用一个符号槽；resting / hidden 下为 ContentTransition.identity，直接换图不描画",
-        "Components/Button/StatefulButton.swift|symbolEffect(.rotate, options: .repeat(.continuous), isActive: self.spins(state))":
-            "spins(_:) 只在 loading 且 .animated 时为真，resting / hidden 下符号静止",
+        "Components/Button/StatefulButton.swift|rotationEffect(Self.angle(at: context.date))":
+            "转圈层的 TimelineView 只在 spins(_:)（loading 且 .animated）时运行，resting / hidden 下不显示转圈层",
+        "Components/Button/StatefulButton.swift|scaleEffect(self.spins(state) ? Self.hiddenSymbolScale : 1)":
+            "spins(_:) 在 resting / hidden 下恒为假 ⇒ scale 恒为 1",
         "Components/Button/StatefulButton.swift|offset(x: dx)":
             "失败抖动由 failureShakes 触发，只在 .animated 下递增；resting / hidden 下 dx 恒为 0",
         "Components/SlideToConfirm/SlideToConfirm.swift|offset(x: offset)":

@@ -319,13 +319,17 @@ public struct StatefulButton<Label: View>: View {
         } label: {
             HStack(spacing: CoreSpacing.xs) {
                 if let symbol = state.symbolName {
-                    Image(systemName: symbol)
-                        .font(.system(size: slot))
-                        .foregroundStyle(state.symbolStyle)
-                        .frame(width: slot, height: slot)
-                        .contentTransition(self.motionPresentation.symbolReplacement)
-                        .symbolEffect(.rotate, options: .repeat(.continuous), isActive: self.spins(state))
-                        .accessibilityHidden(true)
+                    ZStack {
+                        StatefulButtonSpinner(isSpinning: self.spins(state), lineWidth: slot * 0.14)
+                            .opacity(self.spins(state) ? 1 : 0)
+                        Image(systemName: symbol)
+                            .font(.system(size: slot))
+                            .foregroundStyle(state.symbolStyle)
+                            .opacity(self.spins(state) ? 0 : 1)
+                            .scaleEffect(self.spins(state) ? Self.hiddenSymbolScale : 1)
+                    }
+                    .frame(width: slot, height: slot)
+                    .accessibilityHidden(true)
                 }
                 self.label
             }
@@ -357,9 +361,34 @@ public struct StatefulButton<Label: View>: View {
 
 extension StatefulButton {
     static var shakeOffsets: [CGFloat] { [-6, 6, -4, 4, 0] }
+    static var hiddenSymbolScale: CGFloat { 0.4 }
 
     func spins(_ state: StatefulButtonState) -> Bool {
         state == .loading && self.motionPresentation == .animated
+    }
+}
+
+// MARK: - Spinner
+
+struct StatefulButtonSpinner: View {
+    let isSpinning: Bool
+    let lineWidth: CGFloat
+
+    static let period: TimeInterval = 0.8
+
+    static func angle(at date: Date) -> Angle {
+        let phase = date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: Self.period) / Self.period
+        return .degrees(phase * 360)
+    }
+
+    var body: some View {
+        TimelineView(.animation(paused: !self.isSpinning)) { context in
+            Circle()
+                .trim(from: 0, to: 0.72)
+                .stroke(.primary, style: StrokeStyle(lineWidth: self.lineWidth, lineCap: .round))
+                .padding(self.lineWidth / 2)
+                .rotationEffect(Self.angle(at: context.date))
+        }
     }
 }
 
