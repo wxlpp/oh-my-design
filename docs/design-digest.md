@@ -1081,7 +1081,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 
 ### `Voronoi.swift`
 
-- **`Voronoi`** *: View* — 缓慢漂移的 Voronoi 细胞：细胞色、细胞间隙与向边缘渐强的内光各取一档颜色。
+- **`Voronoi`** *: View* — 缓慢漂移的 Voronoi 细胞：浅色细胞、较深的间隙线与向边缘渐强的内光。
 - *enum* **`Voronoi.CellSize`**: `.large`, `.regular`, `.small` — 细胞大小。
 
 
