@@ -22,7 +22,7 @@ enum ComponentCategory: String, CaseIterable, Identifiable {
     case effect = "Effect"
     /// `OhMyDesignCharts` 的 4 个图表。
     case chart = "Chart"
-    /// `OhMyDesignShaders` 的 9 个 API 单位（6 个自带内容的 `View` + 3 个只重采样
+    /// `OhMyDesignShaders` 的 17 个 API 单位（14 个自带内容的 `View` + 3 个只重采样
     /// 调用方内容层的 modifier）。
     case shader = "Shader"
 
@@ -2278,6 +2278,31 @@ extension ComponentMeta {
         },
         ComponentMeta(id: "shader-dot-grid", name: "DotGrid", description: "点阵背景；spacing = loose / regular / tight，motion .still 时完全静止", category: .shader) {
             ShaderStage { DotGrid(spacing: .regular, motion: .calm) }
+        },
+        // MARK: paper-design/shaders 移植与 Star Nest 的 8 个背景（#282）
+        ComponentMeta(id: "shader-metaballs", name: "Metaballs", description: "小球游走并融合成有机形状；count = few / regular / many", category: .shader) {
+            ShaderStage { Metaballs(count: .regular, motion: .regular) }
+        },
+        ComponentMeta(id: "shader-dot-orbit", name: "DotOrbit", description: "点阵中每个点绕格心公转；density = sparse / regular / dense", category: .shader) {
+            ShaderStage { DotOrbit(density: .regular, motion: .regular) }
+        },
+        ComponentMeta(id: "shader-voronoi", name: "Voronoi", description: "缓慢漂移的 Voronoi 细胞；cellSize = large / regular / small", category: .shader) {
+            ShaderStage { Voronoi(cellSize: .regular, motion: .calm) }
+        },
+        ComponentMeta(id: "shader-smoke-ring", name: "SmokeRing", description: "多层噪声扰动的烟环；thickness = thin / regular / thick", category: .shader) {
+            ShaderStage { SmokeRing(thickness: .regular, motion: .regular) }
+        },
+        ComponentMeta(id: "shader-swirl", name: "Swirl", description: "从中心旋出的彩色条带；bands = few / regular / many", category: .shader) {
+            ShaderStage { Swirl(bands: .regular, motion: .calm) }
+        },
+        ComponentMeta(id: "shader-simplex-noise", name: "SimplexNoise", description: "双层 simplex 噪声的等高色带；banding = soft / regular / stepped", category: .shader) {
+            ShaderStage { SimplexNoise(banding: .regular, motion: .calm) }
+        },
+        ComponentMeta(id: "shader-color-panels", name: "ColorPanels", description: "半透明面板绕中轴翻转；style = soft / regular / crisp", category: .shader) {
+            ShaderStage { ColorPanels(style: .regular, motion: .regular) }
+        },
+        ComponentMeta(id: "shader-star-nest", name: "StarNest", description: "体积分形星云（Star Nest，MIT）；depth = shallow / regular / deep", category: .shader) {
+            ShaderStage { StarNest(depth: .regular, motion: .calm) }
         },
         ComponentMeta(id: "shader-glass-symbol", name: "GlassSymbol", description: "SF Symbol + 渐变背衬的折射玻璃；自带内容，故是 View 而非 modifier", category: .shader) {
             GlassSymbolDemo()

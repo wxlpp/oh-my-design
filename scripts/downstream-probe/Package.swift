@@ -24,30 +24,18 @@ let package = Package(
         .package(name: "OhMyDesign", path: "../.."),
     ],
     targets: [
-        // ⚠️ 三个 product 都要接（#247）：本 probe 验的是「下游从 **nonisolated 上下文**
+        // ⚠️ 四个 library product 都要接（#247 / #284）：本 probe 验的是「下游从 **nonisolated 上下文**
         // 能不能用这些类型」，而 `.defaultIsolation(MainActor.self)` 是**逐 target** 生效的
-        // ——只接 `OhMyDesign` 的话，Effects / Charts 的隔离契约在结构上无人验证。
-        //
-        // ⚠️ **`OhMyDesignShaders` 仍未接，但上一版给的理由已作废**（`#279` 更正）。
-        // 原文逐字：「它**还不存在**（`shipswift-foundation` AD-A：该 target 归
-        // `shipswift-shaders` 的 B-1 建，闸不过就不该留一个空 product）」——
-        // **该前提已被 `#261` 推翻**：`Sources/OhMyDesignShaders/` 与 `OhMyDesignShaders`
-        // product 都已落地（本分支），`#279` 还把它接进了 `GuardScanRoots.targetNames` 与登记表。
-        // ⇒ 现在的理由只剩后半句：**manifest 接线与实质调用点都归 B-4**（本 probe 的价值
-        // 全在**调用点**——只加一行 `.product(...)` 而没有任何 nonisolated 上下文里的实际
-        // 调用，probe 对这个 module 依然什么都没验，那正是本文件下面
-        // `OhMyDesignOnlyProbe` 那段注释记的「变异实证现场抓到的」假绿形态）。
-        // ⚠️ **如实记账**：在 B-4 落地之前，`OhMyDesignShaders` 的
-        // `.defaultIsolation(MainActor.self)` 隔离契约**在下游侧零验证**，
-        // 且**没有任何判据会为此判红** —— 本 manifest 不受任何守卫覆盖
-        // （`#279` 逐文件核过：`Tests/` 下提到 downstream-probe 的全部位置都是散文注释）。
-        // 这条缝没有堵，写在这里而不是让它无声无息。
+        // ——只接 `OhMyDesign` 的话，其余 target 的隔离契约在结构上无人验证。
+        // ⚠️ `OhMyDesignShaders` 在本 probe 里**只能 build-only**：原生 `swift build` 不编译 `.metal`，
+        // bundle 里没有 metallib，一旦触发渲染只会静默画不出东西 ⇒ 调用点只构造值与视图，不渲染。
         .target(
             name: "DownstreamProbe",
             dependencies: [
                 .product(name: "OhMyDesign", package: "OhMyDesign"),
                 .product(name: "OhMyDesignEffects", package: "OhMyDesign"),
                 .product(name: "OhMyDesignCharts", package: "OhMyDesign"),
+                .product(name: "OhMyDesignShaders", package: "OhMyDesign"),
             ]
         ),
         // ⚠️⚠️ **独立 target，只接 `OhMyDesign` 一个 product——这是承重的，别给它加依赖。**

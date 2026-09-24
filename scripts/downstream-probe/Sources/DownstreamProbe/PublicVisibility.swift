@@ -1,6 +1,7 @@
 import OhMyDesign
 import OhMyDesignCharts
 import OhMyDesignEffects
+import OhMyDesignShaders
 import Foundation
 import SwiftUI
 
@@ -895,4 +896,34 @@ func consumeSlideToConfirm() -> some View {
         SlideToConfirm("Slide to delete", action: { })
         SlideToConfirm(action: { throw CancellationError() }) { Text("Slide to pay") }
     }
+}
+
+// MARK: - OhMyDesignShaders（Issue #284；只构造、不渲染）
+
+@MainActor
+func consumeShaderBackgrounds() -> some View {
+    VStack {
+        Plasma(tint: .dataAccent, density: .regular, motion: .regular)
+        FractalClouds(density: .soft, motion: .calm)
+        InkSmoke(density: .heavy, motion: .still)
+        LiquidChrome(density: .fine)
+        DotGrid(spacing: .tight)
+        Metaballs(count: .many)
+        DotOrbit(density: .dense)
+        Voronoi(cellSize: .small)
+        SmokeRing(thickness: .thick)
+        Swirl(bands: .many)
+        SimplexNoise(banding: .stepped)
+        ColorPanels(style: .crisp)
+        StarNest(depth: .deep)
+        GlassSymbol("sparkles", tint: .dataAccent, strength: .pronounced, accessibilityLabel: Text("Badge"))
+    }
+}
+
+@MainActor
+func consumeShaderModifiers() -> some View {
+    Text("Probe")
+        .refractiveGlass(strength: .subtle, isEnabled: false)
+        .glassOrb(size: .large, magnification: .strong)
+        .halftone(dot: .coarse, ink: .contentPrimary, paper: .clear)
 }
