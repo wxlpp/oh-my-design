@@ -64,6 +64,10 @@ struct CoreMotionTokenDisciplineGuard {
             "同 CheckBox：resting / hidden 下为 ContentTransition.identity",
         "Components/Button/StatefulButton.swift|contentTransition(self.motionPresentation.symbolReplacement)":
             "loading / success / failure 三态共用一个符号槽；resting / hidden 下为 ContentTransition.identity，直接换图不描画",
+        "Components/Button/StatefulButton.swift|symbolEffect(.rotate, options: .repeat(.continuous), isActive: self.spins(state))":
+            "spins(_:) 只在 loading 且 .animated 时为真，resting / hidden 下符号静止",
+        "Components/Button/StatefulButton.swift|offset(x: dx)":
+            "失败抖动由 failureShakes 触发，只在 .animated 下递增；resting / hidden 下 dx 恒为 0",
         "Components/SlideToConfirm/SlideToConfirm.swift|offset(x: offset)":
             "拖动中跟手不补间；回弹 / 回位经 CoreMotionToken.reveal.transformAnimation(for:)，resting 下直接到位",
         "Modifier/AnchoredBadgeModifier.swift|contentTransition(self.motionPresentation.numericRoll(to: value))":

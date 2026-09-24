@@ -32,6 +32,22 @@ extension StatefulButtonState {
         }
     }
 
+    var symbolStyle: AnyShapeStyle {
+        switch self {
+        case .success: AnyShapeStyle(Color.success)
+        case .failure: AnyShapeStyle(Color.danger)
+        case .idle, .loading: AnyShapeStyle(HierarchicalShapeStyle.primary)
+        }
+    }
+
+    var sensoryFeedback: SensoryFeedback? {
+        switch self {
+        case .success: .success
+        case .failure: .error
+        case .idle, .loading: nil
+        }
+    }
+
     @MainActor
     var accessibilityValueText: Text? {
         switch self {
@@ -239,6 +255,7 @@ final class StatefulButtonRunner {
 /// `AsyncButton`；需要四态回执、无障碍播报与外部托管态时用本组件。
 public struct StatefulButton<Label: View>: View {
     @State private var runner = StatefulButtonRunner()
+    @State private var failureShakes = 0
 
     @Environment(\.coreMotionPresentation) private var motionPresentation
     @Environment(\.controlSize) private var controlSize
@@ -304,22 +321,45 @@ public struct StatefulButton<Label: View>: View {
                 if let symbol = state.symbolName {
                     Image(systemName: symbol)
                         .font(.system(size: slot))
+                        .foregroundStyle(state.symbolStyle)
                         .frame(width: slot, height: slot)
                         .contentTransition(self.motionPresentation.symbolReplacement)
+                        .symbolEffect(.rotate, options: .repeat(.continuous), isActive: self.spins(state))
                         .accessibilityHidden(true)
                 }
                 self.label
             }
         }
         .animation(CoreMotionToken.press.transformAnimation(for: self.motionPresentation), value: state)
+        .keyframeAnimator(initialValue: CGFloat.zero, trigger: self.failureShakes) { content, dx in
+            content.offset(x: dx)
+        } keyframes: { _ in
+            KeyframeTrack {
+                for dx in Self.shakeOffsets {
+                    CubicKeyframe(dx, duration: CoreMotionToken.reveal.duration / Double(Self.shakeOffsets.count))
+                }
+            }
+        }
+        .sensoryFeedback(trigger: state) { _, next in next.sensoryFeedback }
         .modifier(StatefulButtonAccessibility(state: state))
         .onChange(of: state) { _, next in
+            if next == .failure, self.motionPresentation == .animated {
+                self.failureShakes += 1
+            }
             guard let text = next.announcement(locale: self.locale) else { return }
             self.poster.post(text)
         }
         .onDisappear {
             self.runner.disappear(host: self.hostState)
         }
+    }
+}
+
+extension StatefulButton {
+    static var shakeOffsets: [CGFloat] { [-6, 6, -4, 4, 0] }
+
+    func spins(_ state: StatefulButtonState) -> Bool {
+        state == .loading && self.motionPresentation == .animated
     }
 }
 

@@ -206,15 +206,20 @@ checked continuation 重复 resume 会崩溃。
 | 需求 | 用哪个 |
 |---|---|
 | 只要「正在跑」的系统 spinner，结果不需要在按钮上留痕 | `AsyncButton` |
-| 需要连续自转的 spinner | `AsyncButton` |
 | 出错想自动弹 toast / 走 `onError` 回调拿到 `Error` | `AsyncButton` |
 | 需要 success / failure 的视觉回执 | `StatefulButton` |
 | 需要把视觉态交给调用方托管（例如态来自服务端推送） | `StatefulButton` |
 | 需要「过期任务不改外观」这条保证 | `StatefulButton` |
 
-`StatefulButton` **有意不引入常驻自转动效**：`loading` 用一个静态符号占配件槽，
-好让 `loading → success` / `loading → failure` 成为一次真正的符号替换；
-代价是 loading 期间没有连续运动。需要连续运动的场景走 `AsyncButton`。
+## 各态的视觉回执
+
+| 态 | 配件符号 | 颜色 | 动效（`.animated`） | 触感 |
+|---|---|---|---|---|
+| `loading` | `arrow.triangle.2.circlepath` | 跟随按钮前景 | 持续旋转（`.symbolEffect(.rotate)`） | — |
+| `success` | `checkmark.circle.fill` | `Color.success` | 符号替换 | `.success` |
+| `failure` | `exclamationmark.triangle.fill` | `Color.danger` | 符号替换 + 整个按钮左右抖一下 | `.error` |
+
+`.resting` / `.hidden` 下旋转与抖动都关闭，颜色与触感保留。
 
 `StatefulButton` 不转发 `Error`：想拿到错误本身就在 action 内 `catch` 处理完再 `throw` 出来，
 失败态照样出现。
@@ -243,8 +248,10 @@ checked continuation 重复 resume 会崩溃。
   （`==` 若被改写成恒真，`.animation(_:value:)` 分辨不出任何两态、永不触发）。
 - 符号槽内的切换走 `.contentTransition(self.motionPresentation.symbolReplacement)`，
   `.resting` / `.hidden` 下退化为 `ContentTransition.identity`。
+- loading 的旋转与 failure 的抖动只在 `.animated` 下发生：旋转经 `spins(_:)` 门控，
+  抖动由 `failureShakes` 触发，而它只在 `.animated` 下递增。
 - 该文件在 `CoreMotionTokenDisciplineGuard` 的台账里登记为 `.gated`，
-  `contentTransition` 调用点另有逐点登记。
+  `contentTransition` / `symbolEffect` / `offset` 调用点另有逐点登记。
 
 ### 判据覆盖面
 
