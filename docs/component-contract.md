@@ -332,6 +332,9 @@
 > ⚠️ **再一次更新（`#312` 收口）**：`OrbitingLogos` 经修订回路翻至出口 1（`R-49`），
 > J-2 定义域 **17** 条、全部满足；五条扩展点全部以形态 D2 落地，`knownMissingExtensionPoints`
 > **收成空集**后连同 `extensionPointFollowUpIssue` 一并删除、`withKnownIssue` 块按到期机制删除。
+> ⚠️ **再一次更新（`#368`）**：`GlassSymbol` 补做步骤 2 枚举后落**出口 1**，扩展点以形态 B
+> （`GlassSymbolStyle`）同 PR 落地 ⇒ J-2 定义域 **16 → 17**（`39fecab` 移除 `Sidebar` / `BottomInputBar` 后为 16）、全部满足；`knownPendingStep2Enumeration`
+> 收成空集、`pendingStep2FollowUpIssue` 置 `nil`（`R-50`）。
 > 上句「全部收口」是 `#65` 当时的记录，按只增不改的成法保留；
 > > #60 已 closed。⇒ `step3` 条目数 **33 → 28**（移出的：`SidebarStatusFooter` /
 > `SidebarUtilityRow` / `SpinningModifier` / `Steps` / `Timeline`）。
@@ -1782,6 +1785,8 @@ PR #297 终审 S-4 实测证伪，本段改写**：按 `ComponentRegistryGuard.t
   ⇒ 差别是「候选**会**引入真实的槽」，不是「今天**有**槽」。
   而 `#279` 是扫描根收口 task、**没做**停止规则要求的候选枚举与来源核验 ⇒ 与 `#270` 那 6 条同因，
   同挂承接 issue **`#299`**，`knownPendingStep2Enumeration` 由 6 条变 7 条。
+  ⚠️ **更新（`#368`）**：`GlassSymbol` 已补做枚举并落出口 1（`step2` / `semantic` / 形态 B
+  `GlassSymbolStyle`），`pendingStep2` 台账现为空集；本段按只增不改保留，判定见 `R-50`。
 
 ⚠️ **「6 条组件 + 1 条入口点」不等于「公开面数完了」**（PR #301 终审 S-3 补记）：
 `OhMyDesignShaders` 里还有一个**没有任何登记表归宿**的 public API ——
@@ -1806,6 +1811,6 @@ PR #297 终审 S-4 实测证伪，本段改写**：按 `ComponentRegistryGuard.t
 沿用《下游连锁三》按 `import` 分组的可读性口径；该子表落在 `readmeIndexRows` 已有的第 2 段解析范围
 （`## 动效与图表索引 → ## NFR-1 帧率基准`）内，`readmeIndexSectionsAllParse` 与
 `registryEntriesAreCoveredByReadme` 两个方向因此都覆盖到它。
-⚠️ **逐单位 `components/*.md` 尚未落地**（归 `#282` / `#283`），子表的第三列指向源码与
+⚠️ **逐单位 `components/*.md` 除 `GlassSymbol`（`#368`）外尚未落地**（归 `#284`），其余行的第三列指向源码与
 `shader-provenance.md`，不是不存在的文档链接 —— 本仓没有「README 里的 md 链接必须存在」这条判据，
 这一点如实写在这里，免得读者以为它被机器守着。

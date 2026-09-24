@@ -39,7 +39,7 @@ struct ShadersScanRootGuard {
     /// 新增 `public extension View` 成员时**必须同时**改这里与
     /// `docs/component-registry.json` 的 `entryPoints`——只改一处会在另一处判红。
     static let realTreeEntryPoints: Set<String> = [
-        "View.refractiveGlass", "View.glassOrb", "View.halftone",
+        "View.refractiveGlass", "View.glassOrb", "View.halftone", "View.glassSymbolStyle",
     ]
 
     // MARK: - ① 扫描文件数 > 0（AC 逐字要求的那条实证）

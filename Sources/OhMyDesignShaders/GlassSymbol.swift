@@ -45,6 +45,7 @@ public struct GlassSymbol: View {
     private let accessibilityLabel: Text?
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.glassSymbolStyle) private var style
 
     /// - Parameters:
     ///   - systemName: SF Symbol 名。
@@ -77,6 +78,25 @@ public struct GlassSymbol: View {
     }
 
     public var body: some View {
+        AnyView(self.style.makeBody(
+            configuration: GlassSymbolStyleConfiguration(symbol: AnyView(self.symbol), tint: self.tint)
+        ))
+            // ⚠️ **终审 I-3**：初版硬写 `.accessibilityHidden(true)` 并注释
+            // 「承载语义时由调用方给 label」——**那在 SwiftUI 里不成立**：元素已被
+            // 移出 a11y 树，外层 `.accessibilityLabel(_:)` 无元素可附着。而本类型
+            // 自述的用例里就有「成就徽章」，那正是承载语义的一类
+            // ⇒ 一个默认且**不可撤销**的 a11y 黑洞。改为可撤销：
+            .accessibilityElement(children: .ignore)
+            .accessibilityHidden(Self.isDecorative(accessibilityLabel: self.accessibilityLabel))
+            .accessibilityLabel(self.accessibilityLabel ?? Text(verbatim: ""))
+            // ⚠️ 有 label 时补 `.isImage` trait（终审 S）：本类型自述的用例里有
+            // 「成就徽章」，缺 trait 时 VoiceOver 会念出 label 但不播报元素类型。
+            .accessibilityAddTraits(Self.isDecorative(accessibilityLabel: self.accessibilityLabel)
+                                    ? [] : .isImage)
+    }
+
+    @ViewBuilder
+    private var symbol: some View {
         let ramp = ShaderRamp(tint: self.tint, reduceTransparency: self.reduceTransparency)
 
         Image(systemName: self.systemName)
@@ -99,18 +119,6 @@ public struct GlassSymbol: View {
                 rim: ramp.high.opacity(0.55),
                 isEnabled: !self.reduceTransparency
             )
-            // ⚠️ **终审 I-3**：初版硬写 `.accessibilityHidden(true)` 并注释
-            // 「承载语义时由调用方给 label」——**那在 SwiftUI 里不成立**：元素已被
-            // 移出 a11y 树，外层 `.accessibilityLabel(_:)` 无元素可附着。而本类型
-            // 自述的用例里就有「成就徽章」，那正是承载语义的一类
-            // ⇒ 一个默认且**不可撤销**的 a11y 黑洞。改为可撤销：
-            .accessibilityElement(children: .ignore)
-            .accessibilityHidden(Self.isDecorative(accessibilityLabel: self.accessibilityLabel))
-            .accessibilityLabel(self.accessibilityLabel ?? Text(verbatim: ""))
-            // ⚠️ 有 label 时补 `.isImage` trait（终审 S）：本类型自述的用例里有
-            // 「成就徽章」，缺 trait 时 VoiceOver 会念出 label 但不播报元素类型。
-            .accessibilityAddTraits(Self.isDecorative(accessibilityLabel: self.accessibilityLabel)
-                                    ? [] : .isImage)
     }
 }
 
