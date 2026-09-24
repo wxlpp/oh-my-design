@@ -1,0 +1,20 @@
+{
+  "context" : {
+    "accessibility_enabled" : false,
+    "preview" : {
+      "container_display_name" : "Previews",
+      "container_type_name" : "OhMyDesignPreview.$s17OhMyDesignPreview0019Previewsswift_DJEEdfMX441_0_33_0A822F0551BC43EBC01FD37804BE49A0Ll0D0fMf29_15PreviewRegistryfMu_",
+      "display_name" : "Timeline Deploy Log",
+      "index" : 0,
+      "line" : 442,
+      "orientation" : "portrait"
+    },
+    "simulator" : {
+      "device_name" : "omd-420-pr2",
+      "model_identifier" : "iPhone18,1"
+    },
+    "test_name" : "-[SnapshotTests portrait-Previews-0-30]"
+  },
+  "display_name" : "Timeline Deploy Log",
+  "group" : "OhMyDesignPreview\/Previews.swift"
+}
