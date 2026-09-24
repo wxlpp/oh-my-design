@@ -3,17 +3,17 @@
     "accessibility_enabled" : false,
     "preview" : {
       "container_display_name" : "Previews",
-      "container_type_name" : "OhMyDesignPreview.$s17OhMyDesignPreview0019Previewsswift_DJEEdfMX496_0_33_0A822F0551BC43EBC01FD37804BE49A0Ll0D0fMf32_15PreviewRegistryfMu_",
+      "container_type_name" : "OhMyDesignPreview.$s17OhMyDesignPreview0019Previewsswift_DJEEdfMX506_0_33_0A822F0551BC43EBC01FD37804BE49A0Ll0D0fMf33_15PreviewRegistryfMu_",
       "display_name" : "Timeline Alternate Widths",
       "index" : 0,
-      "line" : 497,
+      "line" : 507,
       "orientation" : "portrait"
     },
     "simulator" : {
-      "device_name" : "omd-420-pr2",
+      "device_name" : "omd-420-pr3",
       "model_identifier" : "iPhone18,1"
     },
-    "test_name" : "-[SnapshotTests portrait-Previews-0-33]"
+    "test_name" : "-[SnapshotTests portrait-Previews-0-34]"
   },
   "display_name" : "Timeline Alternate Widths",
   "group" : "OhMyDesignPreview\/Previews.swift"

@@ -308,5 +308,11 @@ iOS 26.4 模拟器、画廊 `PREVIEW_COMPONENT_ID=timeline`、`axe describe-ui`�
   排在最前，其后才是 `Today` 与各列内容。加排序优先级后整树为一个分组：`Today` → `Image 'Evan'` → 分组[`Heading 'Evan pushed 3 commits'`、`2h ago`]
   → `Image 'Mia'` → 分组[…] → `StaticText 'CI summary from server: 3 checks passed' value='Info'` → `Image 'Kai'` → 分组[`Kai`、`left a review`]。
   只有标题行的三列横向形态仍按列读（多一层匿名分组），`--point` 命中标题仍带值（`Heading '已创建' value='Info'`）。
+- **阶段键**（`#420` PR 3 读数，iOS 26.4 专用模拟器，画廊同上）：订单进度 `.inProgress(at: 2)` 整树依次为
+  `Heading '已下单' value='Info, Completed'`、`'已付款' 'Info, Completed'`、`'配送中' 'Info, In Progress'`（描述 `StaticText` 无值）、
+  `'已签收' 'Info, Upcoming'`；自定义节点、不传 `status` 的三行只带阶段键：`Heading '打包' value='Completed'`、`'出库' 'In Progress'`、
+  `'派送' 'Upcoming'`；横向路线图 `Q1 Alpha` / `Q2 Beta` `'Info, Completed'`、`Q3 GA` `'Info, In Progress'`、`Q4 v2` `'Info, Upcoming'`。
+  `--point` 命中 `(75, 841)` 得 `Heading '已下单' 'Info, Completed'`；命中该行已完成圆点 `(28, 842)` 与其下方连线 `(28, 860)` 都落到根 `Group`（整屏帧）
+  ——阶段形态的圆点与着色连线同样不进树。
 - **默认圆点 + 无标题 + 空内容**：画廊里 `TimelineItem(status: .danger) {}` 在整树里是 `GenericElement`，无 label、`value='Error'`、帧 0×0
   （在屏幕外，未做 `--point`）；下一行 `StaticText 'Next row' value='Success'` 正常。
