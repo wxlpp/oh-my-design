@@ -69,21 +69,32 @@ extension EnvironmentValues { public internal(set) var timelinePhase: TimelinePh
 - `k` 不等于任何行的 `step`（越界或落在空档）时没有进行中的行；`.inProgress(at: 末 step + 1)` 与 `.completed` 画法相同、作为值不相等。
 - 非单调 / 重复的 `step` 逐行照表各自判（可能两行同时进行中），语义由调用方负责，不做运行期校验。
 - **连线着色看它通向的那一行**：后一行 `completed` 或 `inProgress` ⇒ `.tint`，否则 `dividerDefault`；后一行 `step == nil` 视为未到达。
-  与 `Steps` 的连线规则同义（二者不共用类型）。⚠️ **`.tint` 未设置时渲染为系统强调色**（iOS 默认蓝），不是本库的墨色 `accent`；
-  要统一色调请在 `Timeline` 外层写 `.tint(_:)`。纯活动流（不传 `progress`）的连线全是 `dividerDefault`。
-- 内部以「推进位置」`P` 表达（`step` 空间）：`.notStarted` 取最小 `step − 1`、`.inProgress(at: k)` 取 `k`、`.completed` 取最大 `step + 1`；
-  段系数 `clamp(P − 后一行 step + 1, 0, 1)`，后一行 `step == nil` 恒为 0。静态时只取 0 / 1，与上一条逐段等价。
+  `step` 连续时与 `Steps` 的连线规则同义（`Steps` 按行序、这里按 `step`；二者不共用类型）。
+  ⚠️ **未设置 `.tint` 时取宿主 App 的 AccentColor**（macOS 为用户在系统设置里选的强调色），不是本库的墨色 `accent`；
+  **`.coreAccent(_:)` 改不了连线色**，要统一色调请在 `Timeline` 外层写 `.tint(_:)`。纯活动流（不传 `progress`）的连线全是 `dividerDefault`。
+- 段系数与 `phase(forStep:)` 同源、逐个整数判定：后一行阶段不是 `upcoming` ⇒ 1，否则 0（后一行 `step == nil` 或不传 `progress` 恒为 0），
+  与上一条逐段等价。连续的推进位置 `P`（`step` 空间，spec §6.2）只在推进动效（`#420` PR 4）里引入。
 - **`timelinePhase`**：在 `Timeline(progress:)` 内、带 `step` 的 `TimelineItem` 的 `node:` 与 `content:` **两个槽**里都有值；
   无 `step` 的行、非行子视图、不传 `progress` 的 `Timeline` 与 `Timeline` 外恒为 `nil`。只读（`internal(set)`）。
+  嵌套时也成立：`Timeline` 在解析子视图前先把它置空（逐字 `.environment(\.timelinePhase, nil)`），外层行内容里的内层时间线，
+  其非行子视图读不到外层行的阶段。
+- **状态与阶段正交**，任意组合都画得出：例如 `status: .danger` + `upcoming` 是红色空心圆点，可表达「有风险的未到里程碑」；
+  这种组合是否合用、表达什么由调用方决定，组件不禁止也不改色。
+- **`.grouped` + `progress:`**：屏幕上**不显示**阶段（不摆节点、不画连线），VoiceOver **仍读出**阶段键（挂载点规则与其它布局相同）。
 - **默认圆点形态**（色相仍取 `status`，阶段只管形态）：
 
   | 阶段 | 形态 |
   |---|---|
   | `nil`（活动流）/ `completed` | 实心圆 Ø10（与 `#420` 之前逐点相同） |
-  | `inProgress` | 实心圆 Ø10 + 同色外环 Ø18（线宽 `CoreBorderWidth.thick`、不透明度 0.4），仍在 24pt 盒内；静态强调，不做脉冲 |
+  | `inProgress` | **靶心**：实心圆 Ø10 + 透明间隙 + 同色实线外环（不降不透明度）。外径逐字 `static let inProgressRingDiameter: CGFloat = Self.nodeDiameter + 2 * (Self.inProgressRingGap + CoreBorderWidth.thick)`，间隙 `CoreSpacing.xxs`（= 18pt），仍在 24pt 盒内；静态强调，不做脉冲 |
   | `upcoming` | 同色空心圆 Ø10，线宽 `CoreBorderWidth.thick` |
 
+- 外环间隙是**挖空**：外环是描边环，圆点与环之间什么都不画，露出的是 `Timeline` 身后的背景——放在卡片、带色表面上也不会露出一圈
+  固定背景色的色块（`TimelineInProgressRingContrastTests` 以红底核间隙像素即底色）。外环与圆点同色同不透明度 ⇒ 对背景的对比度与
+  实心圆点同档，读数见《视觉 Token》。
 - **自定义节点**不叠加任何阶段画法：调用方读 `@Environment(\.timelinePhase)` 自行决定（例如未开始的图标降低不透明度）。
+  在 `#Preview` 里看自定义节点某一阶段的样子，包一层带阶段的时间线即可：
+  `Timeline(progress: .inProgress(at: 0)) { TimelineItem(step: 0) { MyNode() } content: {} }`。
 - 连线的着色层逐字 `.fill(.tint)`，盖在 `dividerDefault` 底线之上；不传 `progress` 时不画着色层（与 `#420` 之前逐像素相同，
   `TimelineLegacy420GateTests` 以「各行写了 `step`、外层 `.tint(.black)`、不传 `progress`」对照旧实现兜住）。
 
@@ -176,12 +187,12 @@ Timeline {
 
 // 订单进度：带阶段，每行写 step；自定义节点经 timelinePhase 自行变化
 Timeline(progress: .inProgress(at: 2)) {
-    TimelineItem("已下单", time: Text("09:00"), step: 0, status: .success)
-    TimelineItem("已付款", time: Text("09:02"), step: 1, status: .success)
+    TimelineItem("已下单", time: Text(verbatim: "09:00"), step: 0, status: .success)
+    TimelineItem("已付款", time: Text(verbatim: "09:02"), step: 1, status: .success)
     TimelineItem("配送中", description: "预计今天送达", step: 2, status: .info)
     TimelineItem("已签收", step: 3, status: .info)
 }
-.tint(.green)                              // 已到达段的连线颜色；不写则为系统强调色
+.tint(.green)                              // 已到达段的连线颜色；不写则取宿主 App 的 AccentColor
 
 struct PhaseIcon: View {                   // 自定义节点读本行阶段
     @Environment(\.timelinePhase) private var phase
@@ -240,6 +251,20 @@ Timeline(layout: .grouped) { rows }   // node: 槽在此形态下不生效
 - 例外：**浅色**下 `warning` 取 `statusAttentionForeground`（与浅色 Banner warning 图标同色）——
   `statusAttentionEmphasis` 的浅色金黄对分组背景只有约 2:1，达不到非文本对比度 3:1；
   改后对 `systemGroupedBackground` 4.36:1、`systemBackground` 4.87:1（iOS 解析值）。暗色仍取 emphasis，不变
+- 进行中外环（靶心）：外径 18pt = 圆点 10 + 2 ×（间隙 `CoreSpacing.xxs` + 线宽 `CoreBorderWidth.thick`），与圆点同色不降不透明度。
+  外环像素对背景的对比度与实心圆点逐项相同（iOS 26.4 模拟器、`TimelineInProgressRingStatusContrastTests` 渲染取像素）：
+
+  | 外观 · 状态 | `systemGroupedBackground` | `systemBackground` | `secondarySystemGroupedBackground` |
+  |---|---|---|---|
+  | 亮 · `info` | 4.65:1 | 5.19:1 | 5.19:1 |
+  | 亮 · `neutral` | 3.29:1 | 3.44:1 | 3.44:1 |
+  | 亮 · `warning` | 4.36:1 | 4.87:1 | 4.87:1 |
+  | 暗 · `info` | 4.53:1 | 4.53:1 | 3.67:1 |
+  | 暗 · `neutral` | 6.36:1 | 6.36:1 | 5.94:1 |
+  | 暗 · `warning` | 4.52:1 | 4.52:1 | 3.66:1 |
+
+  status 资源色在 macOS `swift test` 腿上解析为全透明，这张表只在 iOS 腿上有判据；macOS 腿用 `.neutral`（系统 `secondaryLabel`）核同一条
+  「外环 ≥ 3:1 且与圆点同档」，并在红底上核间隙即底色。
 - 连线：`Color.dividerDefault`（= 系统 `separator` 色），`CoreBorderWidth.thin`（1pt）宽度——
   竖向长连线用 1pt 比 separator hairline（0.5pt）观感更实，是对 phase0「连线对齐 separator」
   决策的有意偏离（与 Steps 横向连线同源，指示性连线需强于分隔线；phase0/013 统一记录）
@@ -316,3 +341,8 @@ iOS 26.4 模拟器、画廊 `PREVIEW_COMPONENT_ID=timeline`、`axe describe-ui`�
   ——阶段形态的圆点与着色连线同样不进树。
 - **默认圆点 + 无标题 + 空内容**：画廊里 `TimelineItem(status: .danger) {}` 在整树里是 `GenericElement`，无 label、`value='Error'`、帧 0×0
   （在屏幕外，未做 `--point`）；下一行 `StaticText 'Next row' value='Success'` 正常。
+
+## 已知缺口
+
+- **阶段键的拼接语序写死**：状态键与阶段键以「, 」硬拼接（状态在前）。将来加入 RTL 或其它语序的语言时，应改用本地化表里既有的
+  `"%@, %@"` 格式键，让译文决定顺序与分隔符。本 PR 不改。

@@ -11,7 +11,6 @@ struct TimelinePhaseTruthTableTests {
         let progress: TimelineProgress?
         let phases: String
         let segments: String
-        let position: CGFloat?
 
         var testDescription: String { "steps \(self.steps) × \(String(describing: self.progress))" }
     }
@@ -26,33 +25,33 @@ struct TimelinePhaseTruthTableTests {
     }
 
     nonisolated static let cases: [Case] = [
-        Case(steps: [0, 1, 2, 3, 4], progress: nil, phases: "-----", segments: "0000", position: nil),
-        Case(steps: [0, 1, 2, 3, 4], progress: .notStarted, phases: "UUUUU", segments: "0000", position: -1),
-        Case(steps: [0, 1, 2, 3, 4], progress: .inProgress(at: -1), phases: "UUUUU", segments: "0000", position: -1),
-        Case(steps: [0, 1, 2, 3, 4], progress: .inProgress(at: 0), phases: "IUUUU", segments: "0000", position: 0),
-        Case(steps: [0, 1, 2, 3, 4], progress: .inProgress(at: 2), phases: "CCIUU", segments: "1100", position: 2),
-        Case(steps: [0, 1, 2, 3, 4], progress: .inProgress(at: 4), phases: "CCCCI", segments: "1111", position: 4),
-        Case(steps: [0, 1, 2, 3, 4], progress: .inProgress(at: 5), phases: "CCCCC", segments: "1111", position: 5),
-        Case(steps: [0, 1, 2, 3, 4], progress: .completed, phases: "CCCCC", segments: "1111", position: 5),
-        Case(steps: [0, 2, 4, 6], progress: .notStarted, phases: "UUUU", segments: "000", position: -1),
-        Case(steps: [0, 2, 4, 6], progress: .inProgress(at: 2), phases: "CIUU", segments: "100", position: 2),
-        Case(steps: [0, 2, 4, 6], progress: .inProgress(at: 3), phases: "CCUU", segments: "100", position: 3),
-        Case(steps: [0, 2, 4, 6], progress: .completed, phases: "CCCC", segments: "111", position: 7),
-        Case(steps: [0, 1, 1, 2], progress: .inProgress(at: 1), phases: "CIIU", segments: "110", position: 1),
-        Case(steps: [2, 0, 1], progress: .notStarted, phases: "UUU", segments: "00", position: -1),
-        Case(steps: [2, 0, 1], progress: .inProgress(at: 1), phases: "UCI", segments: "11", position: 1),
-        Case(steps: [2, 0, 1], progress: .completed, phases: "CCC", segments: "11", position: 3),
-        Case(steps: [0, nil, 2, nil], progress: .notStarted, phases: "U-U-", segments: "000", position: -1),
-        Case(steps: [0, nil, 2, nil], progress: .inProgress(at: 2), phases: "C-I-", segments: "010", position: 2),
-        Case(steps: [0, nil, 2, nil], progress: .completed, phases: "C-C-", segments: "010", position: 3),
-        Case(steps: [nil, nil], progress: .completed, phases: "--", segments: "0", position: nil),
+        Case(steps: [0, 1, 2, 3, 4], progress: nil, phases: "-----", segments: "0000"),
+        Case(steps: [0, 1, 2, 3, 4], progress: .notStarted, phases: "UUUUU", segments: "0000"),
+        Case(steps: [0, 1, 2, 3, 4], progress: .inProgress(at: -1), phases: "UUUUU", segments: "0000"),
+        Case(steps: [0, 1, 2, 3, 4], progress: .inProgress(at: 0), phases: "IUUUU", segments: "0000"),
+        Case(steps: [0, 1, 2, 3, 4], progress: .inProgress(at: 2), phases: "CCIUU", segments: "1100"),
+        Case(steps: [0, 1, 2, 3, 4], progress: .inProgress(at: 4), phases: "CCCCI", segments: "1111"),
+        Case(steps: [0, 1, 2, 3, 4], progress: .inProgress(at: 5), phases: "CCCCC", segments: "1111"),
+        Case(steps: [0, 1, 2, 3, 4], progress: .completed, phases: "CCCCC", segments: "1111"),
+        Case(steps: [0, 2, 4, 6], progress: .notStarted, phases: "UUUU", segments: "000"),
+        Case(steps: [0, 2, 4, 6], progress: .inProgress(at: 2), phases: "CIUU", segments: "100"),
+        Case(steps: [0, 2, 4, 6], progress: .inProgress(at: 3), phases: "CCUU", segments: "100"),
+        Case(steps: [0, 2, 4, 6], progress: .completed, phases: "CCCC", segments: "111"),
+        Case(steps: [0, 1, 1, 2], progress: .inProgress(at: 1), phases: "CIIU", segments: "110"),
+        Case(steps: [2, 0, 1], progress: .notStarted, phases: "UUU", segments: "00"),
+        Case(steps: [2, 0, 1], progress: .inProgress(at: 1), phases: "UCI", segments: "11"),
+        Case(steps: [2, 0, 1], progress: .completed, phases: "CCC", segments: "11"),
+        Case(steps: [0, nil, 2, nil], progress: .notStarted, phases: "U-U-", segments: "000"),
+        Case(steps: [0, nil, 2, nil], progress: .inProgress(at: 2), phases: "C-I-", segments: "010"),
+        Case(steps: [0, nil, 2, nil], progress: .completed, phases: "C-C-", segments: "010"),
+        Case(steps: [nil, nil], progress: .completed, phases: "--", segments: "0"),
     ]
 
     private static func rowSlots(_ count: Int) -> [TimelineStackLayout.Slot] {
         (0..<count).map { .row(node: 2 * $0, content: 2 * $0 + 1) }
     }
 
-    @Test("逐行：每行阶段、每段着色系数（看后一行：已完成 / 进行中 ⇒ 1）、推进位置", arguments: Self.cases)
+    @Test("逐行：每行阶段、每段着色系数（看后一行：已完成 / 进行中 ⇒ 1）", arguments: Self.cases)
     func truthTable(_ row: Case) {
         let phases = String(row.steps.map { step in
             Self.code(step.flatMap { step in row.progress?.phase(forStep: step) })
@@ -63,8 +62,6 @@ struct TimelinePhaseTruthTableTests {
         )
         let segments = fractions.map { $0 == 1 ? "1" : ($0 == 0 ? "0" : "?") }.joined()
         #expect(segments == row.segments, "\(row)：段系数 \(fractions)，应为 \(row.segments)")
-        #expect(TimelineStackLayout.progressPosition(steps: row.steps, progress: row.progress) == row.position,
-                "\(row)：推进位置应为 \(String(describing: row.position))")
     }
 
     @Test(".inProgress(at: 末 step + 1) 与 .completed 画法相同，作为值不相等")
@@ -75,30 +72,41 @@ struct TimelinePhaseTruthTableTests {
         }
     }
 
-    @Test("段系数：后一行 step 为 nil ⇒ 0（不随推进位置变化）；前一行为 nil 时按后一行算；落在 [0, 1]；极值不溢出")
-    func segmentFractionNilNeighbours() {
-        for position in [CGFloat(-100), -1, 0, 0.5, 3, 100] {
-            #expect(TimelineStackLayout.segmentFraction(position: position, nextStep: nil) == 0)
+    @Test("段系数与 phase(forStep:) 同源：后一行 step 为 nil 或不传 progress ⇒ 0；否则后一行不是 upcoming ⇒ 1；极值 step 逐个整数判定")
+    func segmentFractionFollowsPhase() {
+        let progresses: [TimelineProgress] = [.notStarted, .inProgress(at: -3), .inProgress(at: 0), .inProgress(at: 1), .completed]
+        for progress in progresses {
+            #expect(TimelineStackLayout.segmentFraction(progress: progress, nextStep: nil) == 0, "\(progress)")
+            for step in -2...2 {
+                let expected: CGFloat = progress.phase(forStep: step) == .upcoming ? 0 : 1
+                #expect(TimelineStackLayout.segmentFraction(progress: progress, nextStep: step) == expected, "\(progress) × \(step)")
+            }
         }
-        #expect(TimelineStackLayout.segmentFraction(position: nil, nextStep: 0) == 0)
-        #expect(TimelineStackLayout.segmentFraction(position: 1.5, nextStep: 1) == 1)
-        #expect(TimelineStackLayout.segmentFraction(position: 0.25, nextStep: 1) == 0.25)
-        #expect(TimelineStackLayout.segmentFraction(position: -3, nextStep: 1) == 0)
-        #expect(TimelineStackLayout.segmentFraction(position: CGFloat(Int.max), nextStep: Int.min) == 1)
-        #expect(TimelineStackLayout.segmentFraction(position: CGFloat(Int.min), nextStep: Int.max) == 0)
-        #expect(TimelineStackLayout.progressPosition(steps: [Int.max], progress: .completed) == CGFloat(Int.max) + 1)
+        #expect(TimelineStackLayout.segmentFraction(progress: nil, nextStep: 0) == 0)
+        let extreme = TimelineStackLayout.connectorFractions(
+            slots: [.row(node: 0, content: 1), .row(node: 2, content: 3)], steps: [Int.max - 1, Int.max],
+            progress: .inProgress(at: Int.max - 1), layout: .vertical
+        )
+        #expect(extreme == [0], "steps [Int.max - 1, Int.max] × .inProgress(at: Int.max - 1)：通向未开始行的段应为 0，得 \(extreme)")
+        let lowest = TimelineStackLayout.connectorFractions(
+            slots: [.row(node: 0, content: 1), .row(node: 2, content: 3)], steps: [Int.min, Int.min + 1],
+            progress: .inProgress(at: Int.min + 1), layout: .vertical
+        )
+        #expect(lowest == [1], "steps [Int.min, Int.min + 1] × .inProgress(at: Int.min + 1)：通向进行中行的段应为 1，得 \(lowest)")
         #expect(TimelineProgress.inProgress(at: Int.min).phase(forStep: Int.min) == .inProgress)
     }
 
-    @Test("连线系数的条数与容器发射的连线条数一致：隔着非行子视图仍一段（.alternate 按截断拆成多截、同一系数），.grouped 无连线")
-    func connectorFractionsFollowConnectorCount() {
+    @Test("连线系数的条数与 Layout 摆放的连线下标一致：隔着非行子视图仍一段（.alternate 按截断拆成多截、同一系数），.grouped 无连线")
+    func connectorFractionsFollowConnectorIndices() {
         let slots = TimelineStackLayout.pairParts(roles: [.node, .content, nil, .node, .content, .node, .content])
         let steps: [Int?] = [0, nil, 1, 2]
         for layout in [TimelineLayout.vertical, .alternate, .horizontal, .grouped] {
             let fractions = TimelineStackLayout.connectorFractions(
                 slots: slots, steps: steps, progress: .inProgress(at: 1), layout: layout
             )
-            #expect(fractions.count == TimelineStackLayout.connectorCount(slots: slots, layout: layout), "\(layout)")
+            let placed = TimelineStackLayout.connectorIndices(slots: slots, layout: layout, partCount: 7).joined()
+            #expect(fractions.count == placed.count, "\(layout)：系数 \(fractions.count) 条、摆放 \(placed.count) 条")
+            #expect(Array(placed) == Array(7..<(7 + placed.count)), "\(layout)：连线下标应紧接在 7 个行子视图之后连续编号，得 \(Array(placed))")
         }
         #expect(TimelineStackLayout.connectorFractions(slots: slots, steps: steps, progress: .inProgress(at: 1), layout: .alternate)
                 == [1, 1, 0])
@@ -152,7 +160,7 @@ struct TimelineAccessibilityValueTests {
     func phaseWiringInSource() throws {
         let source = try Self.source()
         for call in [
-            ".environment(\\.timelineProgressContext, self.progress)\n        ) { subviews in",
+            ".environment(\\.timelineProgressContext, self.progress)\n            .environment(\\.timelinePhase, nil)\n        ) { subviews in",
             "TimelineNodeView(status: self.status ?? .info, phase: phase, node: self.node)\n            .environment(\\.timelinePhase, phase)",
             "self.contentSlot\n            .environment(\\.timelinePhase, phase)",
             "hasTitle: self.title != nil, phase: self.phase",
@@ -202,6 +210,115 @@ struct TimelineStepsIsolationGuard {
         }
         for name in ["TimelineProgress", "TimelinePhase"] {
             #expect(!steps.contains(name), "Steps 引用了 \(name)")
+        }
+    }
+}
+
+// MARK: - 进行中外环对比度 / In-progress ring contrast
+
+nonisolated struct TimelineRingReading {
+    let ring: Double
+    let dot: Double
+    let gapDelta: Int
+
+    private static func luminance(_ p: (r: Int, g: Int, b: Int)) -> Double {
+        let linear = [p.r, p.g, p.b].map { value -> Double in
+            let c = Double(value) / 255
+            return c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+    }
+
+    private static func contrast(_ a: (r: Int, g: Int, b: Int), _ b: (r: Int, g: Int, b: Int)) -> Double {
+        let la = Self.luminance(a), lb = Self.luminance(b)
+        return (Swift.max(la, lb) + 0.05) / (Swift.min(la, lb) + 0.05)
+    }
+
+    init?(_ pixels: HostedPixels) {
+        func at(_ x: CGFloat, _ y: CGFloat) -> (r: Int, g: Int, b: Int)? {
+            let px = Int(x * pixels.scale), py = Int(y * pixels.scale)
+            guard let bytes = pixels.bytes, px < pixels.width, py < pixels.height else { return nil }
+            let offset = (py * pixels.width + px) * 4
+            return (Int(bytes[offset]), Int(bytes[offset + 1]), Int(bytes[offset + 2]))
+        }
+        guard let background = at(1, 1), let ring = at(20, 12), let dot = at(12, 12), let gap = at(18, 12) else { return nil }
+        self.ring = Self.contrast(ring, background)
+        self.dot = Self.contrast(dot, background)
+        self.gapDelta = Swift.max(abs(gap.r - background.r), abs(gap.g - background.g), abs(gap.b - background.b))
+    }
+
+    var description: String {
+        String(format: "外环 %.2f:1、圆点 %.2f:1、间隙与底色差 %d", self.ring, self.dot, self.gapDelta)
+    }
+
+    @MainActor
+    static func render(_ status: StatusLevel, on background: Color, scheme: ColorScheme) -> TimelineRingReading? {
+        let view = Timeline(progress: .inProgress(at: 0)) {
+            TimelineItem(step: 0, status: status) { Color.clear.frame(width: 10, height: 10) }
+        }
+        .environment(\.coreMotionPresentationOverride, .resting)
+        .frame(width: 60, height: 40, alignment: .topLeading)
+        .background(background)
+        #if canImport(UIKit)
+        let renderer = ImageRenderer(content: view.environment(\.colorScheme, scheme))
+        renderer.scale = 2
+        return TimelineRingReading(HostedPixels(renderer.cgImage, scale: 2))
+        #else
+        return TimelineRingReading(renderTimelineFixture(view, size: CGSize(width: 60, height: 40), scheme: scheme))
+        #endif
+    }
+}
+
+@Suite("Timeline 进行中外环对比度（不走 asset catalog 的颜色，双腿）")
+@MainActor
+struct TimelineInProgressRingContrastTests {
+    @Test("外环与实心圆点同色：.neutral（系统 secondaryLabel）的外环像素对背景 ≥ 3:1，且与圆点同档；亮 / 白底、暗 / 黑底")
+    func neutralRingMatchesDotContrast() throws {
+        for (scheme, background, name) in [(ColorScheme.light, Color.white, "亮 / 白底"), (.dark, Color.black, "暗 / 黑底")] {
+            let reading = try #require(TimelineRingReading.render(.neutral, on: background, scheme: scheme), "\(name) 未产出位图")
+            print("Timeline in-progress ring neutral \(name): \(reading.description)")
+            #expect(reading.ring >= 3 && abs(reading.ring - reading.dot) <= 0.1, "\(name)：\(reading.description)")
+        }
+    }
+
+    @Test("间隙是挖空：红底上外环与圆点之间的像素就是底色，不画一圈背景色")
+    func gapShowsWhateverIsBehind() throws {
+        for scheme in [ColorScheme.light, .dark] {
+            let reading = try #require(TimelineRingReading.render(.neutral, on: Color(red: 1, green: 0, blue: 0), scheme: scheme))
+            print("Timeline in-progress ring on red \(scheme): \(reading.description)")
+            #expect(reading.gapDelta <= 2, "\(scheme) 红底：\(reading.description)")
+        }
+    }
+}
+
+@Suite(
+    "Timeline 进行中外环对比度（status 资源色）",
+    .enabled(
+        if: assetCatalogIsCompiled,
+        """
+        跳过：bundle 里没有 Assets.car（SwiftPM native 腿），status 资源色在这条腿上解析为全透明，外环与圆点都画不出来。\
+        本 suite 在 iOS Simulator 腿上跑；native 腿由 .neutral 那组判据兜。
+        """
+    )
+)
+@MainActor
+struct TimelineInProgressRingStatusContrastTests {
+    private static let backgrounds: [(String, Color)] = [
+        ("systemGroupedBackground", .systemGroupedBackground),
+        ("systemBackground", .systemBackground),
+        ("secondarySystemGroupedBackground", .secondarySystemGroupedBackground),
+    ]
+
+    @Test("info / neutral / warning × 亮 / 暗 × 三种常见底色：外环与圆点同档，外环 ≥ 3:1")
+    func statusRingsMatchDotContrast() throws {
+        for scheme in [ColorScheme.light, .dark] {
+            for status in [StatusLevel.info, .neutral, .warning] {
+                for (name, background) in Self.backgrounds {
+                    let reading = try #require(TimelineRingReading.render(status, on: background, scheme: scheme))
+                    print("Timeline in-progress ring \(status) \(scheme) on \(name): \(reading.description)")
+                    #expect(reading.ring >= 3 && abs(reading.ring - reading.dot) <= 0.1, "\(status) \(scheme) \(name)：\(reading.description)")
+                }
+            }
         }
     }
 }

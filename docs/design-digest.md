@@ -640,7 +640,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
   - `.completed` — 全部带 `step` 的行已完成。
 - *enum* **`TimelinePhase`** — 一行在带阶段时间线里的阶段；只决定默认圆点形态、连线着色与无障碍播报，色相仍由 `status` 决定。
   - `.completed` — 已完成：实心圆点，通向它的连线着 `.tint`。
-  - `.inProgress` — 进行中：实心圆点 + 同色外环，通向它的连线着 `.tint`。
+  - `.inProgress` — 进行中：实心圆点 + 隔一圈透明间隙的同色实线外环，通向它的连线着 `.tint`。
   - `.upcoming` — 未开始：同色空心圆点，通向它的连线为底线色。
 
 ### `Components/Toast/Toast.swift`

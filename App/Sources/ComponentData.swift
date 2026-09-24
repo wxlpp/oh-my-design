@@ -1762,7 +1762,7 @@ private struct TimelinePreview: View {
                 TimelineItem(status: .danger) {}
                 TimelineItem(status: .success) { Text(verbatim: "Next row").coreFont(.callout) }
             }
-            // 带阶段：订单进度（已完成实心、进行中外环、未开始空心；已到达连线着 .tint）。
+            // 带阶段：订单进度（已完成实心、进行中靶心、未开始空心；已到达连线着 .tint）。
             Timeline(progress: .inProgress(at: 2)) { PreviewSnapshotFixtures.timelineOrderRows }
             // 带阶段的自定义节点：阶段外观由节点自己读 `timelinePhase` 决定。
             Timeline(progress: .inProgress(at: 1)) {

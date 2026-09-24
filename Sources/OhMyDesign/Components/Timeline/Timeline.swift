@@ -46,7 +46,7 @@ public nonisolated enum TimelineProgress: Sendable, Hashable {
 public nonisolated enum TimelinePhase: Sendable, Hashable, CaseIterable {
     /// 已完成：实心圆点，通向它的连线着 `.tint`。
     case completed
-    /// 进行中：实心圆点 + 同色外环，通向它的连线着 `.tint`。
+    /// 进行中：实心圆点 + 隔一圈透明间隙的同色实线外环，通向它的连线着 `.tint`。
     case inProgress
     /// 未开始：同色空心圆点，通向它的连线为底线色。
     case upcoming
@@ -76,7 +76,7 @@ public struct Timeline<Content: View>: View {
 
     /// 构造带阶段的时间线：各行阶段由 `progress` 与该行自己的 `step` 决定，`step` 为 `nil` 的行没有阶段。
     ///
-    /// 通向已完成 / 进行中行的连线着 `.tint`（未设置时渲染为系统强调色），其余连线为底线色。
+    /// 通向已完成 / 进行中行的连线着 `.tint`（未设置时取宿主 App 的 AccentColor，不随 `coreAccent`），其余连线为底线色。
     ///
     /// - Parameters:
     ///   - layout: 整体排布形态，默认 `.vertical`。
@@ -92,6 +92,7 @@ public struct Timeline<Content: View>: View {
         Group(subviews: self.content
             .environment(\.timelineLayoutContext, self.layout)
             .environment(\.timelineProgressContext, self.progress)
+            .environment(\.timelinePhase, nil)
         ) { subviews in
             let slots = TimelineStackLayout.pairParts(roles: subviews.map { $0.containerValues.timelinePart?.role })
             switch self.layout {
@@ -159,9 +160,9 @@ extension Timeline where Content == EmptyView {
 
     static let nodeDiameter: CGFloat = 10
 
-    static let inProgressRingDiameter: CGFloat = 18
+    static let inProgressRingGap: CGFloat = CoreSpacing.xxs
 
-    static let inProgressRingOpacity: Double = 0.4
+    static let inProgressRingDiameter: CGFloat = Self.nodeDiameter + 2 * (Self.inProgressRingGap + CoreBorderWidth.thick)
 
     // MARK: - Pure logic (unit-testable via `@testable import`)
 
@@ -490,7 +491,7 @@ struct TimelineNodeView<Node: View>: View {
                     .frame(width: Timeline.nodeDiameter, height: Timeline.nodeDiameter)
                     .background {
                         Circle()
-                            .strokeBorder(color.opacity(Timeline.inProgressRingOpacity), lineWidth: CoreBorderWidth.thick)
+                            .strokeBorder(color, lineWidth: CoreBorderWidth.thick)
                             .frame(width: Timeline.inProgressRingDiameter, height: Timeline.inProgressRingDiameter)
                     }
                     .accessibilityHidden(true)
@@ -602,7 +603,7 @@ private struct TimelinePreviewGallery: View {
                     Timeline(layout: .grouped) { Self.statusRows }
                 }
 
-                self.section("阶段 · 订单进度（已完成实心、进行中外环、未开始空心；已到达连线着 .tint）") {
+                self.section("阶段 · 订单进度（已完成实心、进行中靶心、未开始空心；已到达连线着 .tint）") {
                     Timeline(progress: .inProgress(at: 2)) {
                         TimelineItem("已下单", time: Text(verbatim: "09:00"), step: 0)
                         TimelineItem("已付款", time: Text(verbatim: "09:02"), step: 1)
@@ -611,11 +612,11 @@ private struct TimelinePreviewGallery: View {
                     }
                 }
 
-                self.section("阶段 · 横向路线图") {
+                self.section("阶段 · 横向路线图（Beta 进行中且有风险：warning + inProgress）") {
                     Timeline(layout: .horizontal, progress: .inProgress(at: 1)) {
                         TimelineItem("Q1 Alpha", step: 0, status: .success)
                         TimelineItem("Q2 Beta", step: 1, status: .warning)
-                        TimelineItem("Q3 GA", step: 2, status: .danger)
+                        TimelineItem("Q3 GA", step: 2, status: .info)
                     }
                 }
 

@@ -100,7 +100,8 @@ Timeline(layout: .alternate) {
 | `EnvironmentValues.timelinePhase` | `TimelinePhase?`，公开只读（`internal(set)`）；在带 `step` 的行的 `node:` 与 `content:` 两槽里有值 |
 
 `step` 在带 `progress` 的时间线里开始生效（PR 2 起已可写）。带阶段时的外观：通向已完成 / 进行中行的连线着 `.tint`
-（**未设置 `.tint` 时渲染为系统强调色**，不是本库墨色 `accent`）；默认圆点进行中加同色外环、未开始为空心环；
+（**未设置 `.tint` 时取宿主 App 的 AccentColor**，macOS 为用户系统强调色；不是本库墨色 `accent`，`.coreAccent(_:)` 改不了它）；
+默认圆点进行中为靶心（实心圆点 + 透明间隙 + 同色实线外环）、未开始为空心环；
 行的无障碍值在状态键后接阶段键（`Completed` / `In Progress` / `Upcoming`，模块 `Localizable.strings` 新增这三个 key）。
 
 ## 未发布（相对 `v0.11.0`）——Issue #422：新增 `Tree`

@@ -116,7 +116,7 @@ struct TimelineGeometryPureTests {
         #expect(TimelineStackLayout.pairParts(roles: [.content, .node]) == [.free(0), .free(1)])
     }
 
-    @Test("segments / connectorCount：段只连相邻两个行（跨过非行），按行在槽序列里的序号取；.alternate 每夹一个非行多一截")
+    @Test("segments / connectorIndices：段只连相邻两个行（跨过非行），按行在槽序列里的序号取；.alternate 每夹一个非行多一截")
     func segmentsFollowRowOrdinals() {
         typealias Slot = TimelineStackLayout.Slot
         let slots: [Slot] = [.free(0), .row(node: 1, content: 2), .free(3), .free(4), .row(node: 5, content: 6), .row(node: 7, content: 8), .free(9)]
@@ -124,10 +124,10 @@ struct TimelineGeometryPureTests {
             TimelineStackLayout.Segment(from: 1, to: 4, free: [2, 3]),
             TimelineStackLayout.Segment(from: 4, to: 5, free: []),
         ])
-        #expect(TimelineStackLayout.connectorCount(slots: slots, layout: .vertical) == 2)
-        #expect(TimelineStackLayout.connectorCount(slots: slots, layout: .horizontal) == 2)
-        #expect(TimelineStackLayout.connectorCount(slots: slots, layout: .alternate) == 4)
-        #expect(TimelineStackLayout.connectorCount(slots: slots, layout: .grouped) == 0)
+        #expect(TimelineStackLayout.connectorIndices(slots: slots, layout: .vertical, partCount: 10) == [[10], [11]])
+        #expect(TimelineStackLayout.connectorIndices(slots: slots, layout: .horizontal, partCount: 10) == [[10], [11]])
+        #expect(TimelineStackLayout.connectorIndices(slots: slots, layout: .alternate, partCount: 10) == [[10, 11, 12], [13]])
+        #expect(TimelineStackLayout.connectorIndices(slots: slots, layout: .grouped, partCount: 10).isEmpty)
         #expect(TimelineStackLayout.segments(slots: [.row(node: 0, content: 1)]).isEmpty)
     }
 

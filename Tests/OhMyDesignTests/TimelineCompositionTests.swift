@@ -537,5 +537,26 @@ struct TimelineCompositionTests {
         let outside = canvas.bounds(x: 0...300, y: 162...172, canvas.isBlue)
         #expect(outside.map { abs($0.width - 4) <= 1 } == true, "Timeline 外读数 \(String(describing: outside?.width))，应为 nil ⇒ 4")
     }
+
+    @Test("嵌套：外层行内容里的 Timeline，其非行子视图读不到外层行的阶段（恒为 nil）；内层带阶段的行读自己的阶段")
+    func nestedTimelineResetsPhase() {
+        let canvas = Self.render(Timeline(progress: .completed) {
+            TimelineItem(step: 0) { Color.clear.frame(width: 10, height: 10) } content: {
+                Timeline { PhaseProbe(red: false) }
+                Timeline(progress: .notStarted) {
+                    PhaseProbe(red: true)
+                    TimelineItem(step: 0) { Color.clear.frame(width: 10, height: 10) } content: { PhaseProbe(red: false) }
+                }
+            }
+        })
+        let plain = canvas.bounds(x: 0...300, y: 0...8, canvas.isBlue)
+        #expect(plain.map { abs($0.width - 4) <= 1 } == true,
+                "不传 progress 的内层 Timeline 的非行子视图读数 \(String(describing: plain?.width))，应为 nil ⇒ 4（外层行是 .completed ⇒ 8）")
+        let free = canvas.bounds(x: 0...300, y: 0...120, canvas.isRed)
+        #expect(free.map { abs($0.width - 4) <= 1 } == true,
+                "带 progress 的内层 Timeline 的非行子视图读数 \(String(describing: free?.width))，应为 nil ⇒ 4")
+        let row = canvas.bounds(x: 0...300, y: 12...120, canvas.isBlue)
+        #expect(row.map { abs($0.width - 16) <= 1 } == true, "内层行读数 \(String(describing: row?.width))，应为 .upcoming ⇒ 16")
+    }
     #endif
 }

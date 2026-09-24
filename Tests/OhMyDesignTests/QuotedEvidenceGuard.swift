@@ -79,6 +79,8 @@ struct QuotedEvidenceGuard {
         ("docs/components/timeline.md", "Sources/OhMyDesign/Components/Timeline/Timeline.swift", "public func phase(forStep step: Int) -> TimelinePhase"),
         ("docs/components/timeline.md", "Sources/OhMyDesign/Components/Timeline/Timeline.swift", "internal(set) var timelinePhase: TimelinePhase?"),
         ("docs/components/timeline.md", "Sources/OhMyDesign/Components/Timeline/Timeline.swift", ".fill(.tint)"),
+        ("docs/components/timeline.md", "Sources/OhMyDesign/Components/Timeline/Timeline.swift", ".environment(\\.timelinePhase, nil)"),
+        ("docs/components/timeline.md", "Sources/OhMyDesign/Components/Timeline/Timeline.swift", "static let inProgressRingDiameter: CGFloat = Self.nodeDiameter + 2 * (Self.inProgressRingGap + CoreBorderWidth.thick)"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/Tree.swift", "LazyVStack(alignment: .leading, spacing: self.context.metrics.rowSpacing) {"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeCore.swift", "nonisolated struct TreeExpansionState<ID: Hashable>: Equatable {"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeCore.swift", "static func effective<ID: Hashable>( _ focus: ID?, visibleRows rows: [TreeRow<ID>], selection: Set<ID>, ancestors: (ID) -> [ID] ) -> ID? {"),
