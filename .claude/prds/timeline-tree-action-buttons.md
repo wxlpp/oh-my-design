@@ -90,6 +90,11 @@ updated: 2026-09-22T22:10:00Z
 新形态参照 reui 的子组件分解，但**按 SwiftUI 惯例落地**（不照搬 Context + `data-*` + Tailwind 变体级联）：
 容器 + 行 + 行内可选构件（指示器 / 时间 / 标题 / 描述 / 富内容）。命名与分解由任务级 spec 定，须满足：
 
+> `#420` 定案（spec `docs/superpowers/specs/2026-09-24-timeline-composable-design.md` §12）：命名沿用
+> `Timeline` / `TimelineItem` + `node:`（行是 `View`、自己画节点）；阶段取值为**每行 `step` + 容器 `progress`**
+> （reui 模型，不是行序推导，也不是逐行显式阶段）。
+
+
 - **a. 四种布局全部保留**（`.vertical` / `.alternate` / `.horizontal` / `.grouped`），现有
   `TimelineAlternateRowLayout` 的几何判据（`alternateSlotWidth` / `alternateRowMetrics`，
   含 `infinity` / `nan` / 负数防御）继续有效。

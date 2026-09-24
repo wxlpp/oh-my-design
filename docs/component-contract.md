@@ -550,6 +550,9 @@
 | **D1 外观槽** | 公开 `@ViewBuilder` 参数，让调用方替换组件**自身某一处视觉** | `TimelineItem` 的 `node:`（逐字 `@ViewBuilder node: () -> Node,`） |
 | **D2 配置枚举** | 公开枚举，穷举该组件外观的合法取值 | `StepsIndicatorStyle`（逐字 `public enum StepsIndicatorStyle`） |
 
+⚠️ D1 那一行举的是**形状**范例：`TimelineItem`（`#420` 起为公开 `View`）自身登记为 `prescriptive` /
+`tiebreaker`、`needsExtensionPoint: false`，**不进 J-2 定义域**——它的 `node:` 不由 J-2 判，只由引文守着「签名逐字在」。
+
 ⚠️ **形态 D 不是新发明** —— 上表两条都是本仓**已有的实践**，本节只是把它们从「判据看不见
 的灰区」正名为合法形态。
 

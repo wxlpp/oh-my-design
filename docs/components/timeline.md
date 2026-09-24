@@ -1,100 +1,136 @@
 # Timeline
 
-数据驱动的纵向时间线：节点（node）+ 连线（line）+ 节点右侧内容（content）/ Data-driven
-vertical timeline: node + connecting line + trailing content.
+组合式时间线：容器 `Timeline` + 行 `TimelineItem`。行**自己画节点**（默认圆点或 `node:` 槽），
+节点与内容作为两个子视图交给容器排布；容器里不是 `TimelineItem` 的直接子视图（分组标题、页脚等）
+是没有节点的**非行子视图** / Composable timeline: a `Timeline` container of `TimelineItem` rows.
 
 节点状态色**直接复用 `StatusLevel`**（`info/success/warning/danger/neutral`），不新增公开状态语义
 枚举；连线颜色复用 `Color.dividerDefault`。承接
 `.claude/epics/semi-mobile-components/phase0-decisions.md` §1 的架构决定。
+`#420` 起为组合式 API（设计见 `docs/superpowers/specs/2026-09-24-timeline-composable-design.md`）；
+旧的 `Timeline(items:layout:)` 与数据载体 `TimelineItem` 已移除，迁移见 `docs/BREAKING-CHANGES.md`。
 
 ## API
 
-### TimelineItem
-
-| 参数 | 类型 | 默认值 | 说明 |
-|---|---|---|---|
-| id | UUID | UUID() | stable identity |
-| status | StatusLevel | .info | 节点状态，决定默认圆点颜色（自定义 `node` 时仅作语义标记，不驱动颜色） |
-| node | @ViewBuilder（可选） | 默认圆点 | 自定义节点视图（图标 / 头像等），完全替代默认圆点 |
-| content | @ViewBuilder | - | 节点右侧内容，任意视图 |
-
-两个 designated init：
-- `TimelineItem(id:status:content:)` —— 省略 `node`，使用默认圆点。
-- `TimelineItem(id:status:node:content:)` —— 显式传 `node`，自定义节点视图。
-
 ### Timeline
 
-| 参数 | 类型 | 默认值 | 说明 |
+```swift
+Timeline(layout: TimelineLayout = .vertical, @ViewBuilder content: () -> Content)
+```
+
+`content` 里按声明顺序写行与非行子视图；`ForEach` / `if` 生成的行照常识别。
+
+### TimelineItem（四个 init）
+
+| init | 节点 | 结构件 | `status` |
 |---|---|---|---|
-| items | [TimelineItem] | - | 时间线节点数据，按数组顺序排列 |
-| layout | TimelineLayout | .vertical | 整体排布形态，见下表。默认 `.vertical` = 现状形态 ⇒ 现有调用方零影响 |
+| `TimelineItem(step:status:content:)` | 默认圆点 | 无 | `StatusLevel = .info`：决定圆点色相，恒播报 |
+| `TimelineItem(step:status:node:content:)` | 自定义 | 无 | `StatusLevel? = nil`：只管无障碍，传了才播报 |
+| `TimelineItem(_:time:description:step:status:content:)` | 默认圆点 | 标题 → 时间 → 描述 → 富内容（缺省空） | 同第一行 |
+| `TimelineItem(_:time:description:step:status:node:content:)` | 自定义 | 同上（无富内容写 `content: {}`） | 同第二行 |
+
+| 参数 | 类型 | 说明 |
+|---|---|---|
+| `title` | `LocalizedStringKey` | `.coreFont(.callout)` + `contentPrimary`，标题元素（`.isHeader`）。数据驱动标题用插值（`"\(name) pushed \(n) commits"`）；纯运行期文本（无可本地化部分）不走标题，放进 `content:` 写 `Text(verbatim:)` |
+| `time` | `Text?` | 格式化数据，如 `Text(date, style: .relative)`；`.coreFont(.footnote)` + `contentSecondary` |
+| `description` | `LocalizedStringKey?` | `.coreFont(.footnote)` + `contentSecondary` |
+| `step` | `Int?` | 该行的步骤号，供阶段 API 使用；纯活动流不写 |
+| `node` | `@ViewBuilder` | 自定义节点，收到 `24×24pt` 提议，节点盒取报告尺寸、下限 24pt |
+| `content` | `@ViewBuilder` | 行内容；并列的多个视图竖排、左对齐、间距 0 |
+
+行身份由 SwiftUI 结构身份 / 调用方 `ForEach` 的 id 决定（不再有 `id:` 参数）。
 
 ### `TimelineLayout`（`#60` 形态 D2「配置枚举」）
 
-决定「这组节点怎么**排**」，与 `TimelineItem.node:` 外观槽（「单个节点画成什么」）**正交**
+决定「这组节点怎么**排**」，与 `TimelineItem` 的 `node:` 外观槽（「单个节点画成什么」）**正交**
 ——槽管单节点画法，够不着容器级排布。
 
 | case | 说明 | 业界来源 |
 |---|---|---|
-| `.vertical` | 默认：左侧节点列（列宽取最宽节点、下限 24pt）+ 右侧内容，节点间竖向连线（现状形态） | —— |
-| `.alternate` | 左右交替：节点恒在**中轴**，内容按索引奇偶在两侧交替 | Ant Design Timeline `mode="alternate"` |
+| `.vertical` | 默认：左侧节点列（列宽取最宽节点、下限 24pt）+ 右侧内容，节点间竖向连线 | —— |
+| `.alternate` | 左右交替：节点恒在**中轴**，行的内容按行序奇偶在两侧交替（非行子视图不计入奇偶） | Ant Design Timeline `mode="alternate"` |
 | `.horizontal` | 横向：节点沿水平轴排列，节点间有连线，内容在节点下方（可横向滚动） | PowerPoint SmartArt Basic Timeline / Final Cut Pro 横向事件线 |
 | `.grouped` | 无连线的分组列表：删掉节点列与连线，只留内容 | Apple 邮件 / 信息的日期分组、GitHub 活动流 |
 
-⚠️ **正交性的代价**（有意的静默，传了不生效**不报错**）：`.grouped` 不渲染节点列 ⇒
-`TimelineItem.node:` 槽**不生效**。存储层原样保留 `node`，切回其余布局时不丢配置。
+⚠️ **正交性的代价**（有意的静默，传了不生效**不报错**）：`.grouped` 不摆节点子视图 ⇒
+`node:` 槽**不生效**（行仍构造节点，容器不摆它；切回其余布局时照常显示）。
 `.horizontal` 原写不画节点间连线，`#420` 起画（连线端点取自容器级布局算出的节点盒边沿，不再依赖纵向 padding）。
+
+### 非行子视图与被包裹的行
+
+`Timeline { … }` 里不是 `TimelineItem` 的直接子视图没有节点，header / footer 一律由它承担：
+
+| 布局 | 非行子视图 | 连线 |
+|---|---|---|
+| `.vertical` | 摆在内容列 | 节点列上的连线**贯穿**（二者不相交） |
+| `.alternate` | 跨满整行、居中 | 在它的**上沿截断、下沿续接** |
+| `.horizontal` | 自成一列，内容顶与各列对齐 | 横轴连线**贯穿**该列 |
+| `.grouped` | 照常 | —— |
+
+**被包裹的行**（把 `TimelineItem` 包进 `VStack` / `Button` / 自定义容器）对容器也是非行子视图，按上表摆放：
+行 body 里的节点与内容**都还在**，按包裹容器自己的排法摆（`VStack` 下节点在上、内容在下），节点不在中轴 / 横轴上；
+`.grouped` 下它自带的节点**照常显示**（容器认不出被包住的节点）。连线着色跳过它（它不参与行的配对）。
+
+### 施在行上的修饰（逐子视图语义）
+
+行的 body 产出两个子视图（节点、内容），施在行上的修饰对二者**各施一次**——与 `Group { A; B }.padding()` 同一语义：
+
+| 修饰类别 | 例 | 施在行上的效果 | 写法 |
+|---|---|---|---|
+| **布局** | `.padding` / `.frame` / `.offset` | 节点盒与内容各加一次；节点盒变大会撑宽整列（`.padding(10)` 让节点盒 24→44） | 写进 `content:` |
+| **视觉** | `.opacity` / `.background` / `.redacted` / `.transition` / `.accessibilityHidden` | 节点与内容各施一次——整行一起半透 / 打码 / 转场 / 隐藏；`.background` 会铺成两块 | 可施在行上；要整行一块背景请写进 `content:` |
+| **行为** | `.onAppear` / `.task` / `.onTapGesture` / `.contextMenu` / `.swipeActions` | **挂两次**：`.onAppear` / `.task` **执行两次**；`.contextMenu` / `.swipeActions` 两个子视图各挂一份；点节点与点内容各触发一次 | **勿施在行上**，写进 `content:`（或施在 `Timeline` 外层） |
+
+**可点击的行**：把 `Button` / `NavigationLink` 放进 `content:`（无结构件时整块内容做按钮 label）。
+**整行包 `Button` 不受支持**：`Button { … } label: { TimelineItem(…) }` 对容器是一个被包裹的行——节点与内容竖叠、没有节点列、
+连线着色跳过它，且点击区域覆盖节点。
 
 ## 预览 / Preview
 
 运行 `scripts/run-snapshots.sh`（默认模式）后，预览图落地 `docs/snapshots/`——但前提是该组件已在 `App/Sources/Previews.swift` 注册（导出文件名形如 `OhMyDesignPreview_<组件名>.png`）；组件源码内自带的 `#Preview` 仅用于开发期本地预览，或经 `KEEP_LIBRARY_SNAPSHOTS=1 scripts/run-snapshots.sh` 导出到本地 scratch 目录做逐组件视觉核对（不写入 docs/snapshots，见 `.claude/epics/semi-mobile-components/phase0-decisions.md` §3）。
+`App/Sources/Previews.swift` 另有 `Timeline Activity`（活动流）与 `Timeline Deploy Log`（部署日志）两个参考形态。
 
 ## 使用示例 / Usage
 
 ```swift
-// 默认圆点节点
-Timeline(items: [
-    TimelineItem(status: .info) {
-        Text("已创建")
-    },
-    TimelineItem(status: .success) {
-        Text("审核通过")
-    },
-    TimelineItem(status: .warning) {
-        Text("即将过期提醒")
-    },
-    TimelineItem(status: .danger) {
-        Text("处理失败")
-    },
-])
+// 默认圆点 + 结构件
+Timeline {
+    TimelineItem("已创建", time: Text(created, style: .relative), status: .info)
+    TimelineItem("审核通过", description: "由审核员 A 通过", status: .success)
+    TimelineItem("处理失败", status: .danger) {
+        Button("重试") { retry() }          // 可点击的部分放进 content:
+    }
+}
 
-// 自定义节点（图标替代默认圆点）+ 富内容
-Timeline(items: [
-    TimelineItem(status: .success) {
-        Image(systemName: "checkmark.circle.fill")
-            .foregroundStyle(Color.statusSuccessEmphasis)
-    } content: {
-        VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
-            Text("订单已发货")
-            Text("2026-07-25 10:00").font(.footnote).foregroundStyle(.secondary)
+// 活动流：头像大于 24pt 下限，撑宽节点列；非行子视图当分组标题
+Timeline {
+    Text("Today").coreFont(.footnote)
+    ForEach(events) { e in
+        TimelineItem("\(e.actor) pushed \(e.count) commits", time: Text(e.date, style: .relative)) {
+            Avatar(name: e.actor, size: .fixed(40))
+        } content: {}
+    }
+    TimelineItem {                          // 纯运行期文本走 content: + Text(verbatim:)
+        Text(verbatim: serverSummary).coreFont(.callout)
+    }
+}
+
+// 部署日志：自定义图标节点 + status（状态随标题播报，图标自身的 label 请隐藏）
+Timeline {
+    ForEach(deploys) { d in
+        TimelineItem("Deployed \(d.version)", time: Text(d.date, format: .dateTime), status: d.ok ? .success : .danger) {
+            Image(systemName: d.ok ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                .accessibilityHidden(true)
+        } content: {
+            Text(d.commit).coreFont(.caption).monospaced()
         }
-    },
-])
-```
+    }
+}
 
-> **stable identity 提示**：`TimelineItem.id` 缺省由 `UUID()` 生成。若 `Timeline` 由外部
-> 可变状态驱动（增删节点），调用方应显式传入稳定 `id`，否则每次视图刷新重建
-> `TimelineItem` 会产生新 identity，引发不必要的插入/删除动画。
-
-```swift
-// 左右交替：节点恒在中轴，内容按索引奇偶换边
-Timeline(items: items, layout: .alternate)
-
-// 横向：节点沿水平轴排列，节点间有连线，内容在节点下方（可横向滚动）
-Timeline(items: items, layout: .horizontal)
-
-// 分组列表：删掉节点列与连线，只留内容（node: 槽在此形态下不生效）
-Timeline(items: items, layout: .grouped)
+// 其余三种排布
+Timeline(layout: .alternate) { rows }
+Timeline(layout: .horizontal) { rows }
+Timeline(layout: .grouped) { rows }   // node: 槽在此形态下不生效
 ```
 
 ## 布局
@@ -115,10 +151,12 @@ Timeline(items: items, layout: .grouped)
 - **`.horizontal`**：外层 `ScrollView(.horizontal)`；横轴在最高节点盒的一半处，所有节点中心落在横轴上，
   内容顶统一在 `最高盒高 + CoreSpacing.sm`；列宽 `max(盒宽, 内容理想宽)`、列间距 `CoreSpacing.lg`；
   连线在横轴上，从前一盒右沿画到后一盒左沿。
-- **`.grouped`**：`VStack(spacing: CoreSpacing.md)`，只摆内容，不摆节点、不画连线。
+- **`.grouped`**：`VStack(spacing: CoreSpacing.md)`，只摆内容子视图与非行子视图，不摆节点子视图、不画连线。
+- **配对**：容器按解析顺序把「节点紧跟内容」认作一行；孤立的节点 / 内容子视图（行被拆开时）按非行子视图摆放，
+  不会被丢掉或落到容器中心。连线按行的顺序号取，隔着非行子视图照样连到下一行。
 - RTL 下整体水平镜像（自定义 `Layout` 自动镜像）。
-- 节点与内容各包在一个容器里：`node:` 闭包什么都不产出时保留 24pt 空盒（该行上下的连线在空盒处断开 24pt），并列多个视图时叠在同一个盒里居中；
-  `content:` 里并列的多个视图竖排（`VStack(alignment: .leading, spacing: 0)`）。
+- 节点与内容在行的 body 里各包一个容器（节点 `ZStack`、内容 `VStack(alignment: .leading, spacing: 0)`）：`node:` 闭包什么都不产出时保留 24pt 空盒（该行上下的连线在空盒处断开 24pt），并列多个视图时叠在同一个盒里居中；
+  `content:` 里并列的多个视图竖排；空内容（`content: {}` 或 `if` 不成立）得到 0 高的内容，行照常成对、节点照常绘制。
 - 内容**只收到宽度提议、不收到高度提议**（节点固定收到 `24×24` 提议）⇒ 纵向贪婪的内容（裸 `Color`、
   `.frame(maxHeight: .infinity)`）缩到理想高度（裸 `Color` 为 10pt），不会撑满容器；要固定高度请显式写 `.frame(height:)`。
 
@@ -144,20 +182,31 @@ Timeline(items: items, layout: .grouped)
 
 ## Accessibility
 
-- 默认圆点节点携带 `accessibilityLabel`，取 Phase 0 预登记键
-  （`.claude/epics/semi-mobile-components/phase0-decisions.md` §2）：
-  `StatusLevel.info/success/warning/danger/neutral` → `"Info"/"Success"/"Warning"/"Error"/"Neutral"`
-  （`danger` 播报为 "Error"，比 "Danger" 对 VoiceOver 更清晰），经
-  `Timeline.accessibilityLabelKey(for:)` 取键、`Text(LocalizedStringKey(...), bundle:
-  .module)` 消费。
-- **自定义 `node` 不叠加该 label**——自定义内容可能自带其他语义（例如头像 + 姓名），由
-  调用方自行决定 accessibility 表达，本组件不代为覆盖。
-- **`.grouped` 下补回状态语义**：该形态不渲染节点列，默认圆点原本挂在自己身上的
-  `Info`/`Success`/`Warning`/`Error` 标签会随之消失。故对**无自定义 `node`** 的项，把同一
-  个已登记键挂到 content 的 `accessibilityValue` 上（`Timeline.applyGroupedStatusValue(_:item:)`）
-  ——用 `accessibilityValue` 而非 `accessibilityLabel`，避免覆盖调用方 content 自身的语义。
-  传了 `node:` 的项**不补**：其无障碍表达由调用方决定，本形态既然不渲染那个节点，也就不
-  替调用方臆造状态播报。
-- 节点右侧 `content` 的 accessibility 语义完全由调用方内容自身决定（`Timeline` 不对其
-  做 `.accessibilityElement(children: .combine)` 合并），保证 content 内若含多个可交互
-  元素（如按钮）时 VoiceOver 仍能逐一定位。
+- **默认圆点隐藏**（装饰），连线隐藏。**状态播报在行上**：状态键（`Timeline.accessibilityLabelKey(for:)`：
+  `info/success/warning/danger/neutral` → `"Info"/"Success"/"Warning"/"Error"/"Neutral"`，`bundle: .module`）
+  作为 `accessibilityValue` 挂在——
+  - 有标题的行：**标题元素**（`Heading '已创建' value='Info'`）；行内时间、描述、按钮仍各自独立可聚焦；
+  - 无标题的行：**合并后的内容元素**（内容 `.accessibilityElement(children: .combine)` + 值）；代价是内容里的按钮
+    不再单独聚焦，改走「操作」转子。
+  挂载点只由「有无标题」决定，与布局无关（`.grouped` 同一规则）。
+- **自定义节点**不隐藏、不改写：头像的名字、图标的 label 由调用方决定，不要它进树请自己 `.accessibilityHidden(true)`。
+  自定义节点的 init 传了 `status:` 才播报状态（挂载点同上）；此时节点里自带 label 的图标（`Image(systemName:)` 会读出符号名）
+  请隐藏，否则同一状态读两遍。不传则不播报（与 `#420` 前「自定义节点不播报」一致）。
+- 结构件标题带 `.isHeader`，VoiceOver 转子可按条目跳转。
+- `.horizontal`：有标题的行的内容子视图额外 `.accessibilityElement(children: .contain)`，使读序**按列**（本列标题 → 时间 → 描述，再下一列）；
+  值仍挂在标题元素上（`.contain` 的容器本身不承载值——那种挂法 VoiceOver 读不到）。其余布局不加。
+- 值的取法与挂载点是纯函数 `Timeline.accessibility(status:hasCustomNode:hasTitle:)`，由 `TimelineCompositionTests` 逐格覆盖。
+
+### 不在 CI 的手工读数
+
+iOS 26.4 模拟器、画廊 `PREVIEW_COMPONENT_ID=timeline`、`axe describe-ui`（`#420` PR 2 读数）。⚠️ 整树输出**包含**
+`.accessibilityHidden(true)` 的元素，判「隐藏没隐藏」只用 `--point` 命中测试。
+
+- **默认圆点与连线不可命中**：`--point` 落在圆点 / 连线上，命中的是根 `Group`（整屏帧），不是圆点元素。
+- **状态值在行上**：`.vertical` 标题行 `Heading 'Deployed 1.4.0' value='Success'`（时间、提交号各自是无值的 `StaticText`）；
+  无标题行 `StaticText 'CI summary from server: 3 checks passed' value='Info'`（合并后的内容元素）。
+- **`.grouped` 不摆的节点不进树**：`.grouped` 里一行未隐藏的自定义节点 `Image(systemName: "star.fill")`，整树输出里**没有**这个
+  图标元素（整树连隐藏元素都列，缺席即不在树里）；在它本该在的位置 `--point` 命中的是该行内容 `StaticText '自定义节点行'`。
+- **`.horizontal` 读序**：三列、每列标题 + 时间。只做标题挂值时，整树顺序是三个标题在前、三个时间在后（按几何行读）；
+  给内容加 `.contain` 后顺序变为「标题 1、时间 1、标题 2、时间 2 …」，`--point` 命中标题仍带值（`Heading '已创建' value='Info'`）⇒ 采用后者。
+- 自定义节点里调用方已 `.accessibilityHidden(true)` 的图标（部署日志）`--point` 不可命中。
