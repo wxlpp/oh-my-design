@@ -275,7 +275,23 @@ struct CoreMotionTokenInFlightTests {
         return top...bottom
     }
 
-    static func swipeReleaseTravel(reduceMotion: Bool, sampleFor duration: TimeInterval) throws -> Int {
+    // 按与空白帧的差值加权的行质心：纯淡出只按比例缩放差值，质心不动；行阈值法的上沿会随 α 下移。
+    static func contentCentroid(_ frame: HostedPixels, empty: HostedPixels) -> (row: Double, weight: Int)? {
+        guard let f = frame.bytes, let e = empty.bytes, f.count == e.count else { return nil }
+        var weight = 0, moment = 0
+        for row in 0..<frame.height {
+            var rowWeight = 0
+            for col in 0..<frame.width {
+                let i = (row * frame.width + col) * 4
+                rowWeight += (0..<3).map { abs(Int(f[i + $0]) - Int(e[i + $0])) }.reduce(0, +)
+            }
+            weight += rowWeight
+            moment += rowWeight * row
+        }
+        return weight > 0 ? (Double(moment) / Double(weight), weight) : nil
+    }
+
+    static func swipeReleaseTravel(reduceMotion: Bool, sampleFor duration: TimeInterval) throws -> Double {
         let host = ToastHost()
         let window = HostedWindow(
             ToastOverlay(host: host, edge: .top, presentation: .floatingCapsule)
@@ -304,24 +320,28 @@ struct CoreMotionTokenInFlightTests {
         let releasedRows = Self.contentRows(released, empty: empty)
         let atRelease = try #require(releasedRows, "拖动后 Toast 不见了")
         #expect(atRelease.lowerBound < rest.lowerBound, "合成拖动没有带动 Toast（\(atRelease) vs \(rest)），判据无效")
+        let releaseCentroid = try #require(Self.contentCentroid(released, empty: empty), "拖动后 Toast 不见了")
         window.sendMouse(.leftMouseUp, at: CGPoint(x: grab.x, y: grab.y - 40))
-        var tops: [Int] = []
+        var centroids: [Double] = []
         let start = Date()
         while Date().timeIntervalSince(start) < duration {
             RunLoop.main.run(until: Date().addingTimeInterval(0.008))
-            if let rows = Self.contentRows(window.pixels(), empty: empty) { tops.append(rows.lowerBound) }
+            if let centroid = Self.contentCentroid(window.pixels(), empty: empty),
+               centroid.weight * 20 >= releaseCentroid.weight {
+                centroids.append(centroid.row)
+            }
         }
-        return tops.map { abs($0 - atRelease.lowerBound) }.max() ?? -1
+        return centroids.map { abs($0 - releaseCentroid.row) }.max() ?? -1
     }
 
     @Test("Toast 滑过阈值后松手：RM 关时继续上滑退场，RM 开时停在松手位置原地淡出")
     func toastSwipeRelease() throws {
         let on = try Self.swipeReleaseTravel(reduceMotion: true, sampleFor: 0.3)
         #expect(on >= 0, "松手后一帧都没采到 Toast")
-        // 淡出中文字上沿的 alpha 阈值会漂 1–2 行（CI 实测 2）；撤掉修复时实测 27 行，3 行上界仍可分辨。
-        #expect(on <= 3, "RM 开时松手后不得位移（停在松手位置淡出），实测最大位移 \(on) 行，上界 3")
+        // 上界 1 行：淡出全程质心实测漂 ≤ 0.16 行；松手后弹回原位（撤掉修复）实测 ≈ 15 行。
+        #expect(on <= 1, "RM 开时松手后不得位移（停在松手位置淡出），实测最大质心位移 \(String(format: "%.2f", on)) 行，上界 1")
         _ = Self.observeControlMotion("Toast 滑动松手", threshold: 5) { window in
-            (try? Self.swipeReleaseTravel(reduceMotion: false, sampleFor: window)) ?? -1
+            Int(((try? Self.swipeReleaseTravel(reduceMotion: false, sampleFor: window)) ?? -1).rounded())
         }
     }
 

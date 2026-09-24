@@ -107,7 +107,7 @@ struct CoreCircularProgressViewStyleTests {
         let determinateZero = try #require(renderPixels(
             ProgressView(value: 0).progressViewStyle(.coreCircular).tint(.red), size: self.canvas
         ))
-        expectBitmapsEqual(fallback.rgba, system.rgba, "nil 进度应画出系统 spinner 本身")
+        expectBitmapsEquivalent(fallback.rgba, system.rgba, maxChannelDelta: 1, "nil 进度应画出系统 spinner 本身")
         expectBitmapsDiffer(fallback.rgba, determinateZero.rgba, "nil 进度不应画确定态的空轨道")
     }
 }

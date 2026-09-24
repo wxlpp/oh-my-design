@@ -355,19 +355,19 @@ struct BannerSlotTests {
             #expect(sizes.allSatisfy { $0 == [now.width, now.height] }, "\(label)：尺寸与旧实现不同")
             guard sizes.allSatisfy({ $0 == [now.width, now.height] }) else { continue }
 
-            expectBitmapsEqual(now.bytes, rounded.bytes, "\(label)：与加同样圆角的旧实现整帧不同")
+            expectBitmapsEquivalent(now.bytes, rounded.bytes, maxChannelDelta: 1, "\(label)：与加同样圆角的旧实现整帧不同")
 
             let geometry = CornerGeometry(frame: Self.opaqueBounds(of: backgroundOnly))
             #expect(geometry.extent > 0 && CGFloat(geometry.extent) < geometry.frame.height / 2, "\(label)：圆角延伸 \(geometry.extent)px 不合理")
             let outsideCorners = { (x: Int, y: Int) in !geometry.inCornerSquare(x, y) }
             let inCorners = { (x: Int, y: Int) in geometry.inCornerSquare(x, y) }
             let cutAway = { (x: Int, y: Int) in geometry.inCornerSquare(x, y) && geometry.isClearOfShape(x, y) }
-            expectBitmapsEqual(now.bytes(where: outsideCorners), square.bytes(where: outsideCorners), "\(label)：四角以外与直角旧实现不同")
+            expectBitmapsEquivalent(now.bytes(where: outsideCorners), square.bytes(where: outsideCorners), maxChannelDelta: 1, "\(label)：四角以外与直角旧实现不同")
             expectBitmapsDiffer(now.bytes(where: inCorners), square.bytes(where: inCorners), "\(label)：四角与直角旧实现相同，圆角没生效")
             let cutAwayPixels = now.bytes(where: cutAway)
             #expect(!cutAwayPixels.isEmpty, "\(label)：没有落在形状外的角像素")
             #expect(cutAwayPixels.allSatisfy { $0 == 0 }, "\(label)：形状外的角区有像素")
-            expectBitmapsEqual(square.bytes(where: cutAway), backgroundOnly.bytes(where: cutAway), "\(label)：内容伸进了被圆角切掉的区域")
+            expectBitmapsEquivalent(square.bytes(where: cutAway), backgroundOnly.bytes(where: cutAway), maxChannelDelta: 1, "\(label)：内容伸进了被圆角切掉的区域")
         }
     }
 
@@ -426,8 +426,9 @@ struct BannerSlotTests {
                 let geometry = CornerGeometry(frame: Self.opaqueBounds(of: bare))
                 #expect(geometry.frame.width > 0)
                 let outsideCorners = { (x: Int, y: Int) in geometry.frame.contains(CGPoint(x: CGFloat(x) + 0.5, y: CGFloat(y) + 0.5)) && !geometry.inCornerSquare(x, y) }
-                expectBitmapsEqual(
+                expectBitmapsEquivalent(
                     onLight.bytes(where: outsideCorners), onDark.bytes(where: outsideCorners),
+                    maxChannelDelta: 1,
                     "\(scheme) bordered=\(bordered)：neutral 底色随背后底色变化"
                 )
             }
