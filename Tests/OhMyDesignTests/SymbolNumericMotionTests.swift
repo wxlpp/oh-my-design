@@ -237,12 +237,35 @@ enum BadgeSequenceRunner {
         )
     }
 
+    // 一轮固定等待可能追不完出现转场（CI 曾在 scale 0.6 → 1 途中取像：宽 46 vs 56、高 32 vs 40），所以等到相邻两轮宽高相同。
+    static func settle(_ window: HostedWindow, sourceLocation: SourceLocation = #_sourceLocation) {
+        Self.settleOnce(window)
+        var previous = BadgeFillShape.measure(window.pixels())
+        for _ in 0..<Self.stabilityAttempts {
+            Self.refresh(window)
+            RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+            let next = BadgeFillShape.measure(window.pixels())
+            if next?.width == previous?.width, next?.height == previous?.height { return }
+            previous = next
+        }
+        Issue.record(
+            "徽标在 \(Self.stabilityAttempts) 轮稳定等待后宽高仍在变（最后一次 \(String(describing: previous))），终态读数不可信",
+            sourceLocation: sourceLocation
+        )
+    }
+
+    static let stabilityAttempts = 10
+
     // ⚠️ iOS 腿必须补一次 `CATransaction.flush()`：只跑 `settle()` + runloop 时，托管窗口的取像
     // 拿到的还是**变更前**的状态（实测把 0 → 3 跑完仍量到徽标不存在、9 → 10 仍量到旧宽度），
     // 因为 `layer.render(in:)` 取的是模型层而更新还没提交。macOS 腿不需要，但加上无害。
-    static func settle(_ window: HostedWindow) {
+    static func settleOnce(_ window: HostedWindow) {
         window.settle()
         RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+        Self.refresh(window)
+    }
+
+    private static func refresh(_ window: HostedWindow) {
         #if canImport(UIKit)
         window.root.setNeedsLayout()
         window.root.layoutIfNeeded()
@@ -252,16 +275,18 @@ enum BadgeSequenceRunner {
         RunLoop.main.run(until: Date().addingTimeInterval(0.2))
     }
 
-    /// 在同一个活视图上依次施加 `counts`，每步稳定后返回最终位图。
+    /// 在同一个活视图上依次施加 `counts`（中间步只等一轮），终值稳定后返回位图。
     static func settled(after counts: [Int], from start: Int, reduceMotion: Bool) -> HostedPixels {
         let box = BadgeCountBox(start)
         let window = Self.window(box, reduceMotion: reduceMotion)
         defer { window.close() }
-        Self.settle(window)
-        for count in counts {
+        Self.settleOnce(window)
+        for count in counts.dropLast() {
             box.count = count
-            Self.settle(window)
+            Self.settleOnce(window)
         }
+        box.count = counts.last ?? start
+        Self.settle(window)
         return window.pixels()
     }
 
