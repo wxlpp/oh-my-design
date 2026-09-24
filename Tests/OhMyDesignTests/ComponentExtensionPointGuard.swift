@@ -24,8 +24,8 @@ struct ComponentExtensionPointGuard {
         let scan = try ComponentJudgeSources.scan()
         let result = judgeExtensionPoints(entries: entries, scan: scan)
 
-        #expect(result.inspected.count == 16,
-                "J-2 定义域实测 16 条（ActivityHeatmap/AvatarGroup/Banner/BeforeAfterSlider/NetworkGraph/OrbitingLogos/ProgressIndicator/RadarChart/Rating/RatingDisplay/RingChart/SegmentedControl/SpinningModifier/Steps/Timeline/Toast），实际 \(result.inspected.count) 条：\(result.inspected)")
+        #expect(result.inspected.count == 17,
+                "J-2 定义域实测 17 条（ActivityHeatmap/AvatarGroup/Banner/BeforeAfterSlider/GlassSymbol/NetworkGraph/OrbitingLogos/ProgressIndicator/RadarChart/Rating/RatingDisplay/RingChart/SegmentedControl/SpinningModifier/Steps/Timeline/Toast），实际 \(result.inspected.count) 条：\(result.inspected)")
         #expect(!result.satisfied.isEmpty,
                 "没有任何语义组件被判为『扩展点存在』—— 扫描器失效时也会长这样，这不是零违规")
         #expect(result.satisfied["ProgressIndicator"]?.contains("ProgressViewStyle") == true,
@@ -36,6 +36,8 @@ struct ComponentExtensionPointGuard {
                 "customStyleProtocol 通路（第二例）未走通：\(result.satisfied["SegmentedControl"] ?? "(缺)")")
         #expect(result.satisfied["RatingDisplay"]?.contains("RatingStyle") == true,
                 "customStyleProtocol 通路（#41 新增的第三例，与 Rating 复用同一个协议）未走通：\(result.satisfied["RatingDisplay"] ?? "(缺)")")
+        #expect(result.satisfied["GlassSymbol"]?.contains("GlassSymbolStyle") == true,
+                "customStyleProtocol 通路（#368，OhMyDesignShaders 第一例）未走通：\(result.satisfied["GlassSymbol"] ?? "(缺)")")
         #expect(result.satisfied["RadarChart"]?.contains("RadarChartLayout") == true,
                 "styleEnum 通路（#312 形态 D2）未走通：\(result.satisfied["RadarChart"] ?? "(缺)")")
         #expect(result.satisfied["RingChart"]?.contains("RingChartLayout") == true,

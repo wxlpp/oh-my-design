@@ -260,8 +260,8 @@ struct ComponentJudgeScannerTests {
         print("裸文本 \(scan.bareTextKeys.count) 个：\(scan.bareTextKeys.sorted())")
         print("LSK/LSR \(scan.localizedTextKeys.count) 个：\(scan.localizedTextKeys.sorted())")
         print("carrying \(scan.carryingKeys.count) 个：\(scan.carryingKeys.sorted())")
-        #expect(scan.styleProtocolNames == ["BannerStyle", "RatingStyle", "SegmentedControlStyle"],
-                "本仓自有样式协议实测恰为这三个（#41 裁决 4c 新增 RatingStyle）；集合变了要么是新增了扩展点（预期变化，同步改这里），要么是识别器失效")
+        #expect(scan.styleProtocolNames == ["BannerStyle", "GlassSymbolStyle", "RatingStyle", "SegmentedControlStyle"],
+                "本仓自有样式协议实测恰为这四个（#41 裁决 4c 新增 RatingStyle，#368 新增 GlassSymbolStyle）；集合变了要么是新增了扩展点（预期变化，同步改这里），要么是识别器失效")
         #expect(scan.conformers(of: "ProgressViewStyle").contains("CoreProgressViewStyle"),
                 "原生协议 conformance 采集失效 —— J-2 对 nativeProtocol 的核对会因此假绿")
         print("自有样式协议：\(scan.styleProtocols.map { "\($0.name)@\($0.file):\($0.line) styleSuffix=\($0.nameHasStyleSuffix)" }.sorted())")

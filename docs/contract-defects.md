@@ -2854,6 +2854,20 @@ J-2 只巡 `semantic && needsExtensionPoint`；**没有**判据禁止 `prescript
 公开样式协议**或形态 D2 公开枚举**」）。**接受这个代价**：枚举可演进（加 case）且不逼人发协议，
 真正不可撤的只是类型名本身；源码侧届时只能保留或 `@available(*, deprecated)`。
 
+## #368
+
+> ⚠️ 按本文件头「零缺陷也要写『零缺陷』」的规矩：`#368` 的主体是一次按现行条文执行的步骤 2 判定（`GlassSymbol`：`pendingStep2` → 出口 1）；新登记缺陷 **1 条**（`D-368-1`），非零。判定本身的候选、来源与三分法逐条见 `docs/component-registry.json` 的 `GlassSymbol.notes`，本节不复制。
+
+### D-368-1：作用域条款的条件 ① 同样排除不了「由**本包内未登记的 modifier 入口点**承担的候选形态」
+
+**撞上公约哪一条**：第 1 节「候选形态的作用域」条件 ①「被点名的兄弟组件必须真实存在于 `docs/component-registry.json`」。
+
+**撞法**：`GlassSymbol` 的候选 C（符号 + 角标）在本包里有现成承担者 `View.anchoredBadge(_:placement:hostShape:)`（`Sources/OhMyDesign/Modifier/AnchoredBadgeModifier.swift`；`docs/components/anchored-badge.md` 首行逐字「贴在宿主角上的红点 / 计数 / 短文案徽标」），条件 ②③ 都满足，但它**不在登记表**：`components[]` 只采 `public struct: View`，`entryPoints[]` 由 `ExtensionEntryPointGuard` 只扫 `GuardScanRoots.newTargetRoots`（有意不回溯主 target），主 target 的 modifier 入口点没有登记归宿 ⇒ 条件 ① 结构性不成立 ⇒ 条款援引不了。与 `D-299-1`（宿主平台框架承担者）同族，但更近一层：承担者就在本包、就在同一份文档树里，只是不在那份 JSON。
+
+**两侧证据（留痕以便抽查）**：登记表里提到 `anchoredBadge` 的只有 `StatefulButton.notes` 与本条 `GlassSymbol.notes` 两处引用，`components[]` / `entryPoints[]` 均无它的条目。
+
+**本轮处置**：**不改落点**。候选 C 计入与否两可（按操作化门槛字面计入、按 `D-299-2` 读法不计），两种口径下 `GlassSymbol` 的计入数分别为 3 与 2，都 ≥ 2、落点相同 ⇒ 本条不承重、只登记。是否把条件 ① 扩到「本包内任何公开入口点（含主 target 的 modifier）」，与 `D-299-1` 一并走修订回路；⚠️ 若扩宽，`ExtensionEntryPointGuard` 的扫描根要连带回溯主 target，那是 `#246` / `#270` 明令不做的事，代价要一起算。
+
 ## #429
 
 > ⚠️ 按本文件头「零缺陷也要写『零缺陷』」的规矩：`#429` 的主体是实现（`Tree` 的密度与外观配置），
