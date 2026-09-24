@@ -43,8 +43,9 @@ FLOORS = {
     # #429：viewext +1（View.treeStyle）、others +1（TreeStyle，封闭 struct，不是协议也不是枚举）。
     # #423：colors +2（systemYellow / searchMatchBackground）；Tree.searchFilter 与 Text.init(verbatim:highlighting:) 不在任何计数节里。
     # #431：enums +1（TreeRowClickBehavior）、enumcases +2（select / selectAndToggleExpansion）；Tree.rowClickBehavior 不在任何计数节里。
-    "colors": 124, "components": 90, "enums": 47, "enumcases": 159,
-    "protocols": 6, "viewext": 47, "styleext": 15, "others": 29,
+    # #420：TimelineItem 由数据载体 struct 变为 View ⇒ others −1、components +1。
+    "colors": 124, "components": 91, "enums": 47, "enumcases": 159,
+    "protocols": 6, "viewext": 47, "styleext": 15, "others": 28,
 }
 
 # 组件判定：conformance 列表里出现这些名字之一，或以 Style 结尾。

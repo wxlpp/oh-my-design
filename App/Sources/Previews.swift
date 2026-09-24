@@ -417,19 +417,33 @@ private struct SkeletonPreviewsPreviewGallery: View {
 
 
 #Preview("Timeline") {
-    Timeline(items: [
+    Timeline {
         TimelineItem(status: .success) {
             Text("审核通过").coreFont(.callout)
-        },
+        }
         TimelineItem(status: .warning) {
             Text("即将过期提醒").coreFont(.callout)
-        },
+        }
         TimelineItem(status: .danger) {
             Text("处理失败").coreFont(.callout)
-        },
-    ])
+        }
+    }
     .padding()
     .background(Color.surfaceCanvas)
+}
+
+#Preview("Timeline Activity") {
+    // 活动流：40pt 头像大于 24pt 下限，撑宽节点列；分组标题与纯运行期摘要是非行子视图 / 无标题行。
+    Timeline { PreviewSnapshotFixtures.timelineActivityRows }
+        .padding()
+        .background(Color.surfaceCanvas)
+}
+
+#Preview("Timeline Deploy Log") {
+    // 部署日志：自定义图标节点 + `status:`，状态随标题播报，图标自身的 label 已隐藏。
+    Timeline { PreviewSnapshotFixtures.timelineDeployRows }
+        .padding()
+        .background(Color.surfaceCanvas)
 }
 
 #Preview("Tree") {
@@ -465,18 +479,15 @@ private struct SkeletonPreviewsPreviewGallery: View {
     // 结构上暴露不出这个 case。
     ScrollView {
         VStack(alignment: .leading, spacing: CoreSpacing.lg) {
-            Timeline(
-                items: [
-                    TimelineItem(status: .info) {
-                        Color.statusAccentEmphasis.frame(width: 220, height: 32)
-                    },
-                    TimelineItem(status: .success) { Text("短").coreFont(.callout) },
-                    TimelineItem(status: .warning) { Text("再一条").coreFont(.callout) },
-                ],
-                layout: .alternate
-            )
-            Timeline(items: PreviewSnapshotFixtures.timelineItems, layout: .horizontal)
-            Timeline(items: PreviewSnapshotFixtures.timelineItems, layout: .grouped)
+            Timeline(layout: .alternate) {
+                TimelineItem(status: .info) {
+                    Color.statusAccentEmphasis.frame(width: 220, height: 32)
+                }
+                TimelineItem(status: .success) { Text("短").coreFont(.callout) }
+                TimelineItem(status: .warning) { Text("再一条").coreFont(.callout) }
+            }
+            Timeline(layout: .horizontal) { PreviewSnapshotFixtures.timelineRows }
+            Timeline(layout: .grouped) { PreviewSnapshotFixtures.timelineRows }
         }
         .padding()
     }
@@ -506,7 +517,7 @@ private struct SkeletonPreviewsPreviewGallery: View {
                 Text(verbatim: "容器宽 \(Int(width))pt")
                     .coreFont(.caption)
                     .foregroundStyle(Color.contentSecondary)
-                Timeline(items: PreviewSnapshotFixtures.timelineItems, layout: .alternate)
+                Timeline(layout: .alternate) { PreviewSnapshotFixtures.timelineRows }
                     .frame(width: width)
                     .background(Color.surfaceRaised)
             }
@@ -555,12 +566,51 @@ enum PreviewSnapshotFixtures {
         ]
     }
 
-    static var timelineItems: [TimelineItem] {
-        [
-            TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) },
-            TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) },
-            TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) },
-        ]
+    @ViewBuilder
+    static var timelineRows: some View {
+        TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) }
+        TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) }
+        TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) }
+    }
+
+    /// 活动流参考形态：非行分组标题 + 头像节点的标题行 + 纯运行期文本的无标题行。
+    @ViewBuilder
+    static var timelineActivityRows: some View {
+        Text(verbatim: "Today")
+            .coreFont(.footnote)
+            .foregroundStyle(Color.contentSecondary)
+        ForEach(Self.timelineActivityEvents, id: \.actor) { event in
+            TimelineItem("\(event.actor) pushed \(event.count) commits", time: Text(verbatim: event.time)) {
+                Avatar(name: event.actor, size: .fixed(40))
+            } content: {}
+        }
+        TimelineItem {
+            Text(verbatim: "CI summary from server: 3 checks passed").coreFont(.callout)
+        }
+    }
+
+    static var timelineActivityEvents: [(actor: String, count: Int, time: String)] {
+        [("Evan", 3, "2h ago"), ("Mia", 2, "5h ago")]
+    }
+
+    /// 部署日志参考形态：逐项 success / danger 的自定义图标节点，状态随标题播报。
+    @ViewBuilder
+    static var timelineDeployRows: some View {
+        ForEach(Self.timelineDeploys, id: \.version) { deploy in
+            TimelineItem(
+                "Deployed \(deploy.version)", time: Text(verbatim: deploy.time), status: deploy.ok ? .success : .danger
+            ) {
+                Image(systemName: deploy.ok ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                    .foregroundStyle(deploy.ok ? Color.statusSuccessEmphasis : Color.statusDangerEmphasis)
+                    .accessibilityHidden(true)
+            } content: {
+                Text(verbatim: deploy.commit).coreFont(.caption).monospaced()
+            }
+        }
+    }
+
+    static var timelineDeploys: [(version: String, time: String, ok: Bool, commit: String)] {
+        [("1.4.0", "09:12", true, "a1b2c3d"), ("1.4.1", "11:40", false, "e4f5a6b"), ("1.4.2", "12:05", true, "c7d8e9f")]
     }
 
     static var treeNodes: [SnapshotTreeNode] {

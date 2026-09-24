@@ -98,12 +98,14 @@ struct TimelineLegacy420GateTests {
         }
     }
 
-    private static var items: [TimelineItem] {
-        Self.fixtures.map { fixture, text in
-            if case .dot(let status) = fixture {
-                TimelineItem(status: status) { Self.content(text) }
-            } else {
-                TimelineItem(status: .neutral) { Self.node(fixture) } content: { Self.content(text) }
+    private static func timeline(layout: TimelineLayout) -> some View {
+        Timeline(layout: layout) {
+            ForEach(Array(Self.fixtures.enumerated()), id: \.offset) { _, entry in
+                if case .dot(let status) = entry.0 {
+                    TimelineItem(status: status) { Self.content(entry.1) }
+                } else {
+                    TimelineItem(status: .neutral) { Self.node(entry.0) } content: { Self.content(entry.1) }
+                }
             }
         }
     }
@@ -145,7 +147,7 @@ struct TimelineLegacy420GateTests {
     @Test("有意保留：节点 ≤ 24、内容 ≥ 16pt 的活动流，新实现与旧实现在光栅噪声内相同（空节点对照旧实现的 24pt 空盒、多视图节点对照旧实现包 ZStack 的同一组视图），容器下方标记同一行",
           arguments: PreservedLayout.allCases, Scheme.allCases)
     func preservedLayoutsMatchLegacy(layout: PreservedLayout, scheme: Scheme) {
-        let now = Self.render(Self.marked(Timeline(items: Self.items, layout: layout.layout)), scheme: scheme)
+        let now = Self.render(Self.marked(Self.timeline(layout: layout.layout)), scheme: scheme)
         let old = Self.render(Self.marked(Legacy420Timeline(items: Self.legacyItems, layout: layout.layout)), scheme: scheme)
         #expect(Self.distinctPixelCount(old) > 500, "\(layout) / \(scheme)：旧实现几乎没画出东西，相等判据无意义")
         let bottom = Self.bottomMarkerRow(now)
@@ -223,7 +225,7 @@ struct TimelineLegacy420GateTests {
     @Test(".horizontal：遮掉横轴连线带后与旧实现相同；连线带本身与旧实现不同（新画了连线）", arguments: Scheme.allCases)
     func horizontalMatchesLegacyOutsideTheConnectorBand(scheme: Scheme) {
         let now = Self.render(
-            Self.marked(Timeline(items: Self.items, layout: .horizontal)), scheme: scheme, size: Self.horizontalSize
+            Self.marked(Self.timeline(layout: .horizontal)), scheme: scheme, size: Self.horizontalSize
         )
         let old = Self.render(
             Self.marked(Legacy420Timeline(items: Self.legacyItems, layout: .horizontal)), scheme: scheme, size: Self.horizontalSize

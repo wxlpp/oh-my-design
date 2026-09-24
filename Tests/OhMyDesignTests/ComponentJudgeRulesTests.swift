@@ -93,7 +93,7 @@ struct ComponentJudgeRulesTests {
         #expect(result.diagnostics.contains { $0.contains("四者皆空") })
     }
 
-    // MARK: 形态 D（`docs/component-contract.md` §2，由 `D-59-1` 裁定）
+    // MARK: 形态 D（`docs/component-contract.md` §2，由 `D-59-1` 裁定）——`TimelineItem` 源码串为合成夹具，与 registry 里 `TimelineItem` 的真实分类（prescriptive）无关
 
     @Test("J-2 形态 D1：styleSlot 在源码里真实存在 ⇒ 满足")
     func j2StyleSlotSatisfied() {
