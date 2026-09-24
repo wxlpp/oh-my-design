@@ -674,20 +674,29 @@ sin-fract hash ⇒ 署名指向**算法本身**，**不得**引 The Book of Shad
 
 ---
 
+## `OhMyDesignShaders` 逐单位归档（`#284`）
+
+本组 17 个 API 单位**一律不作原创声称**；逐件裁定以 `docs/shader-provenance.md`《统一裁定表》为准，下表只给落脚点。
+
+| 单位 | 上游与许可 | 本文件对应小节 |
+|---|---|---|
+| `Plasma` | 本体未指认到上游；四相正弦叠加的公式出自 Lode Vandevenne（BSD-2-Clause） | 《上表三条义务的兑现》· 《共享原语与公开配方》 |
+| `FractalClouds` | 本体未指认到上游；单级域扭曲属 iq 一族（MIT） | 同上 |
+| `InkSmoke` | 本体未指认到上游；域扭曲 `q` / `r` 三级级联出自 iq（MIT） | 同上 |
+| `LiquidChrome` | 未指认到上游（待追溯 · 低指纹） | 《共享原语与公开配方》 |
+| `DotGrid` | 未指认到上游（待追溯 · 低指纹） | 《共享原语与公开配方》 |
+| `View.refractiveGlass` | 主体未指认到上游；`roundedBoxSDF` 出自 iq（MIT） | 《上表三条义务的兑现》 |
+| `GlassSymbol` | 无自有 shader，档位随 `View.refractiveGlass` | 同上 |
+| `View.glassOrb` | Inferno「Warping Loupe」（MIT） | 《Inferno — Warping Loupe》 |
+| `View.halftone` | paper-design/shaders（Apache-2.0）；随 paper `halftone-dots.ts` 附 Dave Hoskins / iq 的 MIT 通知（本件未调用其 hash） | 《paper-design/shaders（Apache-2.0）》 |
+| `Metaballs` / `DotOrbit` / `SmokeRing` / `ColorPanels` | paper-design/shaders（Apache-2.0） | 同上 |
+| `Voronoi` | paper-design/shaders（Apache-2.0），算法上游 iq `ldl3W8`（MIT） | 同上 |
+| `Swirl` / `SimplexNoise` | paper-design/shaders（Apache-2.0）＋ Ashima Arts simplex noise（MIT） | 同上 |
+| `StarNest` | Pablo Roman Andrioli（Kali）「Star Nest」（作者声明 MIT） | 《Star Nest》 |
+
 ## `OhMyDesignShaders` 的共享原语与公开配方
 
-> ⚠️ **占位（与上面三节同一规则）**：本节描述的代码只存在于**未合并**的
-> `shaders-plasma` 分支（PR #261）。从 `epic/shipswift-foundation` 的角度看，
-> 它描述的东西**还不存在**。⇒ 本节**在 #261 合入时启用**。
->
-> ⚠️ **为什么它仍然现在就写下来**：`docs/shader-provenance.md` 与 #261 互为前提
-> （#261 的 5 处引用**全部指向 provenance 表**），而本文件是那张表判为可落地行的
-> **对外落脚点** ⇒ 本节随表一并预登记。
-> ⚠️ **上一版这里写「#261 多处引用本文件」——实查 `git grep ACKNOWLEDGEMENTS` 零命中**
->（第 2 轮终审 I-a）。而这条理由是本节豁免「不得署名尚未落地的东西」的**唯一依据**
-> ——依据本身是假的，等于没有豁免。已改为真实的那条。
-> 本节是**预登记**，不是已生效的对外声明——这与「逐 shader 条目由各自落地的 task
-> 追加」不冲突：那条规则约束的是**逐件**条目，本节是**共享原语**。
+本节描述的共享原语随 `#261` 合入，已是生效的对外声明。
 
 ⚠️⚠️ **本节取代了第 1 版的「噪声参考实现（clean-room）」一节，因为那一节整个是错的。**
 
@@ -788,6 +797,81 @@ permutation 表，与实际实现（值噪声 + 整数 hash + iq 级联）没有
 | **Nathan Reed** | **CC-BY-4.0**（站点页脚）| `wangHash`（本仓复制的是他的 `seed *= 9` 写法）| 署名 Reed + 链接许可；并注明算法本身出自 Thomas Wang（Jenkins 称其为公有领域）|
 
 ⚠️ 另有 **Teschner et al. 2003** 的**学术引用**义务（三个素数是事实，不承载许可义务）。
+
+### 上表三条义务的兑现（`#284`，原文取于 2026-09-25）
+
+#### Inigo Quilez — MIT（共享原语层：`roundedBoxSDF`、域扭曲）
+
+来源：`https://iquilezles.org/articles/distfunctions/`（`sdRoundBox`）、`https://iquilezles.org/articles/warp/`。
+站点级许可声明见 `https://iquilezles.org/articles/`（须带浏览器 User-Agent 请求才返回正文，裸 `curl` 得到的是不含声明的空壳页），原文：
+
+> all technical code snippets you'll find are under the MIT license so you can easily reuse them, but the mathematical/shader art is protected and requires a license for use.
+
+本仓用到的是代码片段（`cd::roundedBoxSDF`、`ohMyDesignInkSmoke` 的 `q` / `r` 三级级联与 `ohMyDesignFractalClouds` 的单级 warp，同属 iq 的域扭曲一族），
+不含其 shader 艺术作品。作者未附版权行，此处按 MIT 标准文本转载，不替作者补造版权行（与《Star Nest》一节同一处置）：
+
+```
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+#### Lode Vandevenne — BSD-2-Clause（`Plasma` 的四相正弦叠加）
+
+来源：`https://lodev.org/cgtutor/plasma.html`；代码许可见 `https://lodev.org/cgtutor/legal.html`，下面逐字转载：
+
+```
+Copyright (c) 2004-2007, Lode Vandevenne
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+⚠️ `docs/shader-provenance.md` 已把本条由「较大段落移植」下调为「参考算法思路」（本仓没有用他那组具体取值）；
+许可正文照样保留在这里，按 BSD 第 1 条的保守读法履行。
+
+#### Nathan Reed — CC-BY-4.0（`cd::wangHash` 的写法）
+
+`cd::wangHash` 的写法出自 Nathan Reed《Quick And Easy GPU Random Numbers In D3D11》（2013），
+`https://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/`；站点页脚原文
+「© 2007–2025 by Nathan Reed. Licensed CC-BY-4.0.」，许可见 `https://creativecommons.org/licenses/by/4.0/`。
+算法本身出自 Thomas Wang《Integer Hash Function》，Bob Jenkins 称其为公有领域。
+修改：由 HLSL 改写为 Metal Shading Language（函数名 `wang_hash` → `wangHash`、整数字面量加 `u` 后缀、`inline`），运算序列不变。
+
+#### Teschner et al. 2003 — 学术引用（`hash21` / `hash22` 的素数三元组）
+
+M. Teschner, B. Heidelberger, M. Müller, D. Pomeranets, M. Gross.
+*Optimized Spatial Hashing for Collision Detection of Deformable Objects.* Proc. Vision, Modeling, Visualization (VMV) 2003.
 
 ### ⚠️ The Book of Shaders 的许可实查（本文件最重要的一条）
 

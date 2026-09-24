@@ -7,8 +7,7 @@
 符号先铺成由 `tint` 推导的渐变背衬，再施加 `View.refractiveGlass(...)` 的折射。Reduce Transparency
 下经 `layerEffect` 的 `isEnabled` 关掉折射，退回实心渐变符号。
 
-⚠️ 用原生 `swift build` 消费本 product 时须加 `--build-system swiftbuild`：原生构建不编译 `.metal`，
-折射会静默失效。
+⚠️ 用原生 `swift build` 消费本 product 时须加 `--build-system swiftbuild`：原生构建不编译 `.metal`，shader 会静默失效。
 
 ## API
 

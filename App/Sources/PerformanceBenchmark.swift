@@ -1,5 +1,6 @@
 @_spi(OhMyDesignBenchmark) import OhMyDesignCharts
 @_spi(OhMyDesignBenchmark) import OhMyDesignEffects
+@_spi(OhMyDesignBenchmark) import OhMyDesignShaders
 import SwiftUI
 import UIKit
 
@@ -262,6 +263,38 @@ private struct ConfettiBenchmarkHost: View {
     }
 }
 
+/// 程序化背景的基准宿主：每条腿满屏放一个背景，`colorEffect` 每帧对整屏逐像素求值。
+/// `StarNest` 另加最深一档，它是本组单帧开销最大的一件。
+/// `DotGrid` 默认 `.still` 会暂停时间线，这里显式给动效档。
+/// ⚠️ 本腿的 `dropped` 量的是主线程回到渲染循环的节奏，`drawnFrames` 数的是 `visualEffect`
+/// 闭包的求值次数（与 Confetti / NetworkGraph 腿的「画出内容的帧数」语义不同，不能与 `frames=` 对表）；
+/// 两者都不是 GPU 帧时间，GPU 端的开销要在真机上另用 Instruments 看。
+private struct ShaderBenchmarkHost: View {
+    let index: Int
+
+    static let cases: [(label: String, make: @MainActor () -> AnyView)] = [
+        ("Plasma", { AnyView(Plasma()) }),
+        ("FractalClouds", { AnyView(FractalClouds()) }),
+        ("InkSmoke", { AnyView(InkSmoke()) }),
+        ("LiquidChrome", { AnyView(LiquidChrome()) }),
+        ("DotGrid(motion: .regular)", { AnyView(DotGrid(motion: .regular)) }),
+        ("Metaballs", { AnyView(Metaballs()) }),
+        ("DotOrbit", { AnyView(DotOrbit()) }),
+        ("Voronoi", { AnyView(Voronoi()) }),
+        ("SmokeRing", { AnyView(SmokeRing()) }),
+        ("Swirl", { AnyView(Swirl()) }),
+        ("SimplexNoise", { AnyView(SimplexNoise()) }),
+        ("ColorPanels", { AnyView(ColorPanels()) }),
+        ("StarNest", { AnyView(StarNest()) }),
+        ("StarNest(depth: .deep)", { AnyView(StarNest(depth: .deep)) }),
+    ]
+
+    var body: some View {
+        Self.cases[self.index].make()
+            .ignoresSafeArea()
+    }
+}
+
 private struct BenchmarkNode: GraphNode {
     let id: Int
     let label: String
@@ -436,6 +469,7 @@ struct PerformanceBenchmarkRunner: View {
             case 0: JankBenchmarkHost()
             case 1: ConfettiBenchmarkHost()
             case 2: NetworkGraphBenchmarkHost()
+            case 3..<(3 + ShaderBenchmarkHost.cases.count): ShaderBenchmarkHost(index: self.stage - 3)
             default: Color.clear
             }
         }
@@ -563,6 +597,22 @@ struct PerformanceBenchmarkRunner: View {
             // `Path` 构造闭包里数的「那一帧真的落笔画了多少条」。
             detail: "lastDrawnEdges=\(NetworkGraphRenderProbe.lastDrawnEdges)"
         ))
+
+        for (offset, shaderCase) in ShaderBenchmarkHost.cases.enumerated() {
+            advance(3 + offset)
+            let shader = await FrameSampler().record(
+                warmUp: 0.3,
+                duration: PerformanceBenchmark.duration,
+                liveness: { ShaderRenderProbe.drawnFrames }
+            )
+            verdicts.append(.init(
+                label: "shader(\(shaderCase.label) · 满屏)",
+                stats: shader.stats,
+                liveness: shader.liveness,
+                livenessLabel: "drawnFrames",
+                expectsSmooth: true
+            ))
+        }
 
         for verdict in verdicts { print(verdict.line) }
         let failed = verdicts.filter { !$0.passed }

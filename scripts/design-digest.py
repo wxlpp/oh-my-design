@@ -55,8 +55,9 @@ FLOORS = {
     # #282 批 B：components +4（Swirl / SimplexNoise / ColorPanels / StarNest）、enums +4、enumcases +12（3 × 4）。
     # #368：protocols +1（GlassSymbolStyle）、components +1（PlainGlassSymbolStyle）、
     # others +1（GlassSymbolStyleConfiguration）、viewext +1（View.glassSymbolStyle）。
+    # #284：others +1（@_spi(OhMyDesignBenchmark) ShaderRenderProbe）。
     "colors": 124, "components": 108, "enums": 69, "enumcases": 227,
-    "protocols": 7, "viewext": 51, "styleext": 15, "others": 30,
+    "protocols": 7, "viewext": 51, "styleext": 15, "others": 31,
 }
 
 # 组件判定：conformance 列表里出现这些名字之一，或以 Style 结尾。

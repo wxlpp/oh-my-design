@@ -61,7 +61,8 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 
 ⚠️ **`OhMyDesignShaders` 的构建约束**：**原生 `swift build` 不编译 `.metal`** —— 它只会把
 声明为资源的 `.metal` **源码**拷进 bundle，`default.metallib` 不会产生；只有
-`swift build --build-system swiftbuild` 与 `xcodebuild` 会真编。⇒ 本地跑 shader 测试须用
+`swift build --build-system swiftbuild` 与 `xcodebuild` 会真编。
+⚠️ 用原生 `swift build` 消费本 product 时须加 `--build-system swiftbuild`：原生构建不编译 `.metal`，shader 会静默失效。⇒ 本地跑 shader 测试须用
 `swift test --build-system swiftbuild --filter OhMyDesignShadersTests`；CI 的 SwiftPM 腿
 **显式 `--skip OhMyDesignShadersTests`** 并另起一步用 swiftbuild 跑它（步骤名
 `Test (swiftbuild) — OhMyDesignShaders`，末尾带一道 fail-closed 的 `Test run with [1-9]…` grep 网）。
