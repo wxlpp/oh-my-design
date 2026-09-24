@@ -42,6 +42,134 @@ struct TimelineCompositionTests {
                 == "Error, Info")
     }
 
+    // MARK: - 横向读序（纯函数，双腿）
+
+    @Test(".horizontal 读序优先级：按槽序递减，行内节点先于内容，非行子视图占一个槽")
+    func horizontalReadingPriorities() {
+        let slots = TimelineStackLayout.pairParts(roles: [nil, .node, .content, .node, .content, .content])
+        #expect(TimelineStackLayout.readingPriorities(slots: slots, partCount: 6) == [0, -2, -3, -4, -5, -6])
+        #expect(TimelineStackLayout.readingPriorities(slots: [], partCount: 0) == [])
+    }
+
+    // MARK: - 无障碍接线（源码，双腿）
+
+    private static func sourceBody(of signature: String) throws -> String {
+        let url = GuardScanRoots.repoRoot.appendingPathComponent("Sources/OhMyDesign/Components/Timeline/Timeline.swift")
+        let text = try String(contentsOf: url, encoding: .utf8)
+        guard let start = text.range(of: signature) else { return "" }
+        var depth = 0
+        var body = ""
+        for character in text[start.lowerBound...] {
+            body.append(character)
+            if character == "{" { depth += 1 }
+            if character == "}" {
+                depth -= 1
+                if depth == 0 { break }
+            }
+        }
+        return body
+    }
+
+    @Test("接线（源码）：内容槽各分支挂合并 / 状态值 / .contain，横向容器挂读序优先级与 .contain，三个辅助修饰落到系统修饰")
+    func accessibilityWiringInSource() throws {
+        let slot = try Self.sourceBody(of: "private var contentSlot: some View {")
+        for call in [
+            ".timelineAccessibilityValue(accessibility.mount == .title ? accessibility.valueText : nil)",
+            ".timelineContained(self.layoutContext == .horizontal)",
+            ".timelineCombined(accessibility.combinesContent)",
+            ".timelineContained(!accessibility.combinesContent && self.layoutContext == .horizontal)",
+            ".timelineAccessibilityValue(accessibility.mount == .content ? accessibility.valueText : nil)",
+        ] {
+            #expect(slot.contains(call), "contentSlot 缺少 \(call)")
+        }
+        let stack = try Self.sourceBody(of: "private func stack(")
+        for call in [
+            "TimelineStackLayout.readingPriorities(slots: slots, partCount: subviews.count)",
+            ".timelineSortPriority(priorities?[index])",
+            ".timelineContained(priorities != nil)",
+        ] {
+            #expect(stack.contains(call), "stack 缺少 \(call)")
+        }
+        for (helper, system) in [
+            ("func timelineContained(", "self.accessibilityElement(children: .contain)"),
+            ("func timelineCombined(", "self.accessibilityElement(children: .combine)"),
+            ("func timelineAccessibilityValue(", "self.accessibilityValue(Text(verbatim: value))"),
+            ("func timelineSortPriority(", "self.accessibilitySortPriority(priority)"),
+        ] {
+            #expect(try Self.sourceBody(of: helper).contains(system), "\(helper) 没有落到 \(system)")
+        }
+    }
+
+    // MARK: - 无障碍接线（iOS 进程内无障碍树）
+
+    #if os(iOS)
+    private struct Element: Equatable {
+        let label: String?
+        let value: String?
+        let isHeader: Bool
+        let children: [Element]
+    }
+
+    private static func accessibilityTree(_ view: some View) -> [Element] {
+        let host = HostedWindow(view, size: CGSize(width: 390, height: 300), scheme: .light)
+        defer { host.close() }
+        func collect(_ object: Any) -> [Element] {
+            guard let node = object as? NSObject else { return [] }
+            let children = ((node.accessibilityElements as? [Any]) ?? []).flatMap { child -> [Element] in
+                guard let child = child as? NSObject else { return [] }
+                return [Element(
+                    label: child.accessibilityLabel, value: child.accessibilityValue,
+                    isHeader: child.accessibilityTraits.contains(.header), children: collect(child)
+                )]
+            }
+            return children
+        }
+        return collect(host.root)
+    }
+
+    @Test("接线（iOS 无障碍树）：标题元素带值与 .isHeader；无标题默认圆点行合并成一个带值元素；自定义节点不传 status 不合并、无值；默认圆点不进树")
+    func accessibilityWiringVertical() {
+        let tree = Self.accessibilityTree(Timeline {
+            TimelineItem("Alpha", time: Text(verbatim: "t1"), status: .danger)
+            TimelineItem(status: .success) {
+                Text(verbatim: "Beta")
+                Text(verbatim: "Gamma")
+            }
+            TimelineItem { Text(verbatim: "N") } content: {
+                Text(verbatim: "Delta")
+                Text(verbatim: "Eps")
+            }
+        })
+        let flat = tree.map { "\($0.label ?? "nil")|\($0.value ?? "nil")|\($0.isHeader)|\($0.children.count)" }
+        #expect(flat.count == 6, "元素 \(flat)，应为 Alpha / t1 / Beta+Gamma / N / Delta / Eps")
+        guard flat.count == 6 else { return }
+        #expect(flat[0] == "Alpha|Error|true|0", "标题元素 \(flat[0])")
+        #expect(flat[1] == "t1|nil|false|0", "时间元素 \(flat[1])")
+        #expect(tree[2].value == "Success" && tree[2].label?.contains("Beta") == true && tree[2].label?.contains("Gamma") == true,
+                "合并后的内容元素 \(flat[2])")
+        #expect(Array(flat[3...]) == ["N|nil|false|0", "Delta|nil|false|0", "Eps|nil|false|0"], "自定义节点行 \(Array(flat[3...]))")
+    }
+
+    @Test("接线（iOS 无障碍树）：横向语境下有标题行与未合并的无标题行的内容各成一个 .contain 容器，合并行不包容器")
+    func accessibilityWiringHorizontalContent() {
+        let tree = Self.accessibilityTree(VStack {
+            TimelineItem("Alpha", time: Text(verbatim: "t1"), status: .danger)
+            TimelineItem { Text(verbatim: "N") } content: {
+                Text(verbatim: "Delta")
+                Text(verbatim: "Eps")
+            }
+            TimelineItem(status: .info) { Text(verbatim: "Zeta") }
+        }
+        .environment(\.timelineLayoutContext, .horizontal))
+        let shape = tree.map { element in
+            element.children.isEmpty
+                ? "\(element.label ?? "nil")|\(element.value ?? "nil")"
+                : "[" + element.children.map { "\($0.label ?? "nil")|\($0.value ?? "nil")" }.joined(separator: ", ") + "]"
+        }
+        #expect(shape == ["[Alpha|Error, t1|nil]", "N|nil", "[Delta|nil, Eps|nil]", "Zeta|Info"], "横向语境的树 \(shape)")
+    }
+    #endif
+
     // MARK: - 位图（macOS）
 
     #if os(macOS)
@@ -223,6 +351,29 @@ struct TimelineCompositionTests {
         #expect(belowSecondBox >= reference / 2, "第 1 段（第 1 行 → 第 2 行）缺失，与背景差 \(belowSecondBox)")
         let blue = canvas.bounds(x: 0...300, y: 102...122, canvas.isBlue)
         #expect(blue.map { abs($0.minY - 102) <= 1 } == true, "第 1 行内容 \(String(describing: blue))，应顶在 102")
+    }
+
+    @Test("z 序：连线画在节点之下——节点溢出盒外、压在中轴上的部分与盒内同色，未被连线色混过")
+    func connectorsDrawUnderNodes() {
+        let red = Color(red: 1, green: 0, blue: 0)
+        let canvas = Self.render(Timeline {
+            TimelineItem {
+                red.frame(width: 24, height: 24).overlay { red.frame(width: 6, height: 40) }
+            } content: { Self.block(60, 40) }
+            TimelineItem { Self.node() } content: { Self.block(60) }
+        })
+        let background = canvas.at(299, 359)
+        let line = Self.delta(canvas.at(12, 45), from: background)
+        #expect(line >= 6, "盒外溢出段以下应有连线（与背景差 \(line)），否则本判据无从下结论")
+        let inside = canvas.at(12, 12)
+        #expect(inside.r > 200 && inside.g < 60 && inside.b < 60, "节点盒内 \(inside) 不是红色")
+        for px in 23...24 {
+            for py in 49...63 {
+                let overflow = canvas.device(px, py)
+                #expect(Self.delta(overflow, from: inside) <= 2,
+                        "(\(px), \(py)) 设备像素：节点溢出段 \(overflow) 与盒内 \(inside) 不同——连线画在了节点之上")
+            }
+        }
     }
 
     @Test(".alternate：非行子视图跨满整行、压在中轴上时连线在它上沿截断、下沿续接（不从它底下穿过）")

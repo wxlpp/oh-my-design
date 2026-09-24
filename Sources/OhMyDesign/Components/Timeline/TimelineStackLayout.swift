@@ -275,6 +275,20 @@ extension TimelineStackLayout {
         return slots
     }
 
+    nonisolated static func readingPriorities(slots: [Slot], partCount: Int) -> [Double] {
+        var priorities = [Double](repeating: 0, count: partCount)
+        for (ordinal, slot) in slots.enumerated() {
+            switch slot {
+            case .row(let node, let content):
+                if priorities.indices.contains(node) { priorities[node] = -Double(2 * ordinal) }
+                if priorities.indices.contains(content) { priorities[content] = -Double(2 * ordinal + 1) }
+            case .free(let index):
+                if priorities.indices.contains(index) { priorities[index] = -Double(2 * ordinal) }
+            }
+        }
+        return priorities
+    }
+
     nonisolated static func segments(slots: [Slot]) -> [Segment] {
         var segments: [Segment] = []
         var previous: Int?

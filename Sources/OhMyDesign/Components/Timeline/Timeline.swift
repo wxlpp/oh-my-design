@@ -60,14 +60,19 @@ public struct Timeline<Content: View>: View {
     }
 
     private func stack(_ subviews: SubviewsCollection, slots: [TimelineStackLayout.Slot]) -> some View {
-        TimelineStackLayout(layout: self.layout, slots: slots, partCount: subviews.count) {
+        let priorities = self.layout == .horizontal
+            ? TimelineStackLayout.readingPriorities(slots: slots, partCount: subviews.count)
+            : nil
+        return TimelineStackLayout(layout: self.layout, slots: slots, partCount: subviews.count) {
             ForEach(0..<TimelineStackLayout.connectorCount(slots: slots, layout: self.layout), id: \.self) { _ in
                 TimelineConnector()
             }
-            ForEach(subviews) { subview in
+            ForEach(Array(subviews.enumerated()), id: \.element.id) { index, subview in
                 subview
+                    .timelineSortPriority(priorities?[index])
             }
         }
+        .timelineContained(priorities != nil)
     }
 }
 
@@ -271,6 +276,7 @@ public struct TimelineItem<Node: View, Content: View>: View {
                 self.content
             }
             .timelineCombined(accessibility.combinesContent)
+            .timelineContained(!accessibility.combinesContent && self.layoutContext == .horizontal)
             .timelineAccessibilityValue(accessibility.mount == .content ? accessibility.valueText : nil)
         }
     }
@@ -316,6 +322,15 @@ private extension View {
     func timelineContained(_ contains: Bool) -> some View {
         if contains {
             self.accessibilityElement(children: .contain)
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func timelineSortPriority(_ priority: Double?) -> some View {
+        if let priority {
+            self.accessibilitySortPriority(priority)
         } else {
             self
         }

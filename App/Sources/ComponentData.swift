@@ -1749,6 +1749,19 @@ private struct TimelinePreview: View {
             }
             Timeline { PreviewSnapshotFixtures.timelineActivityRows }
             Timeline { PreviewSnapshotFixtures.timelineDeployRows }
+            // `.horizontal` 活动流：头像节点未隐藏；末列是不传 status 的无标题自定义节点行（内容不合并）。
+            Timeline(layout: .horizontal) {
+                PreviewSnapshotFixtures.timelineActivityRows
+                TimelineItem { Avatar(name: "Kai", size: .fixed(40)) } content: {
+                    Text(verbatim: "Kai").coreFont(.callout)
+                    Text(verbatim: "left a review").coreFont(.footnote)
+                }
+            }
+            // 默认圆点 + 无标题 + 空内容的行。
+            Timeline {
+                TimelineItem(status: .danger) {}
+                TimelineItem(status: .success) { Text(verbatim: "Next row").coreFont(.callout) }
+            }
         }
     }
 }
