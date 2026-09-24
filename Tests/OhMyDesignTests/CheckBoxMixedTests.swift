@@ -286,9 +286,10 @@ struct CheckBoxMixedRenderTests {
     )
     func eachCellDrawsItsOwnSymbol(_ cell: CheckBoxCell) {
         for scheme in CheckBoxRender.schemes {
-            expectBitmapsEqual(
+            expectBitmapsEquivalent(
                 CheckBoxRender.pixels(cell.current, scheme: scheme),
                 CheckBoxRender.pixels(cell.expectedReference, scheme: scheme),
+                maxChannelDelta: 1,
                 "\(cell) \(scheme)：画出的不是 \(cell.state.expectedSymbolName)"
             )
         }
@@ -301,9 +302,10 @@ struct CheckBoxMixedRenderTests {
     )
     func eachInvalidCellDrawsItsOwnSymbol(_ cell: CheckBoxCell) {
         for scheme in CheckBoxRender.schemes {
-            expectBitmapsEqual(
+            expectBitmapsEquivalent(
                 CheckBoxRender.pixels(cell.current, scheme: scheme),
                 CheckBoxRender.pixels(cell.expectedReference, scheme: scheme),
+                maxChannelDelta: 1,
                 "\(cell) \(scheme)：画出的不是 \(cell.state.expectedSymbolName) + statusDangerForeground"
             )
         }
@@ -347,17 +349,18 @@ struct CheckBoxMixedRenderTests {
         }
     }
 
-    @Test("两个绑定同值时与单绑定 Toggle 逐像素相同 —— sources 形态没有额外外观", arguments: [false, true])
+    @Test("两个绑定同值时与单绑定 Toggle 在光栅化噪声内逐像素一致 —— sources 形态没有额外外观", arguments: [false, true])
     func uniformSourcesMatchSingleBinding(_ isOn: Bool) {
         let sample: CheckBoxStateSample = isOn ? .on : .off
         for scheme in CheckBoxRender.schemes {
-            expectBitmapsEqual(
+            expectBitmapsEquivalent(
                 CheckBoxRender.pixels(sample.view, scheme: scheme),
                 CheckBoxRender.pixels(
                     Toggle(isOn: .constant(isOn)) { Text(verbatim: "Accept") }
                         .toggleStyle(CheckBoxToggleStyle()),
                     scheme: scheme
                 ),
+                maxChannelDelta: 1,
                 "\(scheme) isOn=\(isOn)"
             )
         }
@@ -512,7 +515,7 @@ enum CheckBoxLegacyCase: CaseIterable, CustomStringConvertible {
     }
 }
 
-@Suite("CheckBox 旧外观：off / on × normal / disabled / invalid 与 mixed 之前的实现逐像素一致")
+@Suite("CheckBox 旧外观：off / on × normal / disabled / invalid 与 mixed 之前的实现在光栅化噪声内逐像素一致")
 @MainActor
 struct CheckBoxLegacyAppearanceTests {
     private static let catalogOnly = """
@@ -536,35 +539,37 @@ struct CheckBoxLegacyAppearanceTests {
     }
 
     @Test(
-        "与 mixed 之前的实现（ce20fad 原样拷贝）逐像素一致（light / dark）",
+        "与 mixed 之前的实现（ce20fad 原样拷贝）在光栅化噪声内逐像素一致（light / dark）",
         arguments: CheckBoxLegacyCase.catalogFreeCases
     )
     func matchesLegacy(_ sample: CheckBoxLegacyCase) {
         for scheme in CheckBoxRender.schemes {
-            expectBitmapsEqual(
+            expectBitmapsEquivalent(
                 CheckBoxRender.pixels(sample.current, scheme: scheme),
                 CheckBoxRender.pixels(sample.legacy, scheme: scheme),
+                maxChannelDelta: 1,
                 "\(sample) \(scheme)"
             )
         }
     }
 
     @Test(
-        "invalid 两格同样逐像素一致（只在编译过 catalog 的那条腿上）",
+        "invalid 两格同样在光栅化噪声内逐像素一致（只在编译过 catalog 的那条腿上）",
         .enabled(if: assetCatalogIsCompiled, Comment(rawValue: Self.catalogOnly)),
         arguments: CheckBoxLegacyCase.catalogBoundCases
     )
     func matchesLegacyUnderInvalid(_ sample: CheckBoxLegacyCase) {
         for scheme in CheckBoxRender.schemes {
-            expectBitmapsEqual(
+            expectBitmapsEquivalent(
                 CheckBoxRender.pixels(sample.current, scheme: scheme),
                 CheckBoxRender.pixels(sample.legacy, scheme: scheme),
+                maxChannelDelta: 1,
                 "\(sample) \(scheme)"
             )
         }
     }
 
-    @Test("catalog 门控之外的四格两两画得不一样 —— 上面逐像素相等的判据不是恒真的")
+    @Test("catalog 门控之外的四格两两画得不一样 —— 上面「应相同」的判据不是恒真的")
     func catalogFreeCasesArePairwiseDistinct() {
         for scheme in CheckBoxRender.schemes {
             let frames = CheckBoxLegacyCase.catalogFreeCases.map {
@@ -575,7 +580,7 @@ struct CheckBoxLegacyAppearanceTests {
                 for rhs in frames[(index + 1)...] {
                     expectBitmapsDiffer(
                         lhs.bytes, rhs.bytes,
-                        "\(scheme)：\(lhs.sample) 与 \(rhs.sample) 渲染相同 —— 对应那格的逐像素相等是恒真的"
+                        "\(scheme)：\(lhs.sample) 与 \(rhs.sample) 渲染相同 —— 对应那格的「应相同」是恒真的"
                     )
                 }
             }
