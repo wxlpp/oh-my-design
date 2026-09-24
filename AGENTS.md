@@ -123,6 +123,13 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   `xcodebuild -project App/OhMyDesignPreview.xcodeproj` 手动验证。删除或改名公开符号后
   务必手动确认它仍能构建，否则预览宿主可能已经无法编译却没人发现（trait 删除这类
   manifest 层变更尤其如此——报错发生在依赖解析期，不会在库自身的编译期出现）。
+  ⚠️⚠️ **`** BUILD SUCCEEDED **` 本身证不了任何事**（`#417` 实测）：不带
+  `-destination 'platform=iOS Simulator,id=<UDID>'`、或不清 `App/.derivedData` 时，
+  **App target 会被增量整体跳过**，照样打印 `BUILD SUCCEEDED`。
+  ⇒ 判「预览宿主仍能编译」必须在日志里核到三样：产物是 **`Debug-iphonesimulator`**、
+  出现 **`Compiling ComponentData.swift` / `Compiling Previews.swift`**、
+  以及 **`in target 'OhMyDesignPreview'`** 的步数不是 0（`#417` 那次正确读数是 61 步）。
+  只看退出码与那行 `BUILD SUCCEEDED` 会把「一步没编」读成「编过了」。
 - **`scripts/downstream-probe` 是独立 SwiftPM 包**（自带 `Package.swift`），只有 CI 的
   `downstream-probe` job（`cd scripts/downstream-probe && swift build`）覆盖它。任何
   删除/改名公开符号都必须同步这个包，否则本地 `swift build` 全绿而这个 job 会红。

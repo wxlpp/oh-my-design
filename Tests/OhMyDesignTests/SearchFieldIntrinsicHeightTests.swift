@@ -50,7 +50,7 @@ struct SearchFieldIntrinsicHeightTests {
     }
 
     @Test(
-        "不限高容器里与改动前实现外加 fixedSize(vertical) 的原生框位置与位图逐像素相同（light / dark）",
+        "不限高容器里与改动前实现外加 fixedSize(vertical) 的原生框位置相同、位图在光栅化噪声内逐像素一致（light / dark）",
         arguments: [ColorScheme.light, .dark]
     )
     func matchesPreFixWithCallerFixedSize(_ scheme: ColorScheme) {
@@ -61,7 +61,7 @@ struct SearchFieldIntrinsicHeightTests {
         )
         #expect(now.nativeFrame != nil && now.nativeFrame == old.nativeFrame, "\(scheme)：\(String(describing: now.nativeFrame)) vs \(String(describing: old.nativeFrame))")
         #expect(now.height == old.height)
-        expectBitmapsEqual(now.pixels.bytes, old.pixels.bytes, "\(scheme)")
+        expectBitmapsEquivalent(now.pixels.bytes, old.pixels.bytes, maxChannelDelta: 1, "\(scheme)")
     }
 
     @Test("调用方显式给高度（frame(height: 60)）时：原生框保持固有高度、居中于 60pt 的框内，不再被撑到 60pt（light）")

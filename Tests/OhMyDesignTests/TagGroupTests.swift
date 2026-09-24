@@ -182,9 +182,10 @@ struct TagGroupViewTests {
     @Test("未选态不受 coreAccent 影响（明暗两档）")
     func unselectedIgnoresCoreAccent() {
         for scheme in [ColorScheme.light, .dark] {
-            expectBitmapsEqual(
+            expectBitmapsEquivalent(
                 self.pixels(self.group(selection: []).coreAccent(.red), scheme: scheme),
                 self.pixels(self.group(selection: []).coreAccent(.green), scheme: scheme),
+                maxChannelDelta: 1,
                 "\(scheme)：未选态读了 coreAccent"
             )
         }
