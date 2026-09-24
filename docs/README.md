@@ -226,6 +226,10 @@ provenance 对账表，而不是不存在的文档链接。⚠️ **本组一律
 | DotOrbit | `DotOrbit(tint:density:motion:)` | 点阵中每个点绕格心公转；⚠️ 移植自 paper `dot-orbit.ts`（Apache-2.0）（`Sources/OhMyDesignShaders/DotOrbit.swift`） |
 | Voronoi | `Voronoi(tint:cellSize:motion:)` | 漂移的 Voronoi 细胞；⚠️ 移植自 paper `voronoi.ts`（Apache-2.0）→ iq `ldl3W8`（MIT）（`Sources/OhMyDesignShaders/Voronoi.swift`） |
 | SmokeRing | `SmokeRing(tint:thickness:motion:)` | 噪声扰动的烟环；⚠️ 移植自 paper `smoke-ring.ts`（Apache-2.0）（`Sources/OhMyDesignShaders/SmokeRing.swift`） |
+| Swirl | `Swirl(tint:bands:motion:)` | 从中心旋出的彩色条带；⚠️ 移植自 paper `swirl.ts`（Apache-2.0）+ Ashima simplex（MIT）（`Sources/OhMyDesignShaders/Swirl.swift`） |
+| SimplexNoise | `SimplexNoise(tint:banding:motion:)` | 双层 simplex 噪声的阶梯色带；⚠️ 移植自 paper `simplex-noise.ts`（Apache-2.0）+ Ashima simplex（MIT）（`Sources/OhMyDesignShaders/SimplexNoise.swift`） |
+| ColorPanels | `ColorPanels(tint:style:motion:)` | 绕中轴翻转的半透明彩色面板；⚠️ 移植自 paper `color-panels.ts`（Apache-2.0）（`Sources/OhMyDesignShaders/ColorPanels.swift`） |
+| StarNest | `StarNest(tint:depth:motion:)` | 体积分形星云；⚠️ 移植自 Kali 的「Star Nest」（作者声明 MIT，原页许可头待人工目视核验）；`.deep` 成本高（`Sources/OhMyDesignShaders/StarNest.swift`） |
 | halftone | `View.halftone(dot:ink:paper:)` | 半调网屏，按 45° 网格用点的大小表示明暗；⚠️ 移植自 paper `halftone-dots.ts`（Apache-2.0，须署名 + 修改标注）（`Sources/OhMyDesignShaders/Halftone.swift`） |
 
 ## NFR-1 帧率基准 / Frame-rate benchmark

@@ -262,14 +262,45 @@ License: MIT
 
 ---
 
-## Star Nest（待 `StarNest` 落地时启用）
-
-> ⚠️ 占位。落地时（`shipswift-shaders` B-2）填入并转载 MIT 正文。
+## Star Nest —— `StarNest`，**已落地** · `#282`
 
 - 上游：["Star Nest" by Pablo Roman Andrioli（Kali）](https://www.shadertoy.com/view/XlfGRj) — 作者在源码头声明 MIT
-- 预期档位：**较大段落移植**（分形"magic formula"与体积步进预计保留）⚠️ 档位待落地时定案
-- ⚠️ **落地 task 的硬 AC**：人工目视确认该 Shadertoy 页面源码头的 MIT 声明——自动抓取
-  返回 403，现有证据是**五个**独立第三方移植的逐字一致记录，非一手。
+- 已落地的件：`StarNest(tint:depth:motion:)` · `ohMyDesignStarNest`
+- 档位：**较大段落移植**（分形 "magic formula" 与体积步进保留；配色、鼠标旋转、固定步数的修改写在 `.metal` 分节头）
+- 源码头（取自 Shadertoy 公开 API 对该 shader 的响应，经 `GabeRundlett/shadertoy-api-shaders` `f6d538adf936` 转储），逐字：
+
+  ```
+  // Star Nest by Pablo Roman Andrioli
+  // License: MIT
+  ```
+
+  ⚠️ 这是一个**形式不完整的 MIT 授予**：只有作者名与 `License: MIT`，没有版权行。
+  本仓只写「Star Nest — Pablo Roman Andrioli（Kali），作者声明 MIT」，**不替作者补造版权行**。
+  MIT 授予条款全文如下（作者未附，此处按 MIT 标准文本转载，不附任何版权行）：
+
+  ```
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+  ```
+
+- ⚠️ **待人工目视核验**：`https://www.shadertoy.com/view/XlfGRj` 原页源码头（`shadertoy.com` 对自动访问全站 403）。
+  核验后照抄**当天页面上的实际写法**替换上面的源码头；未核验前本件**不随 `epic → main` 合入**
+  （见 `docs/shader-provenance.md`《须用户人工完成的核验》第 1 项）。
 
 ---
 
@@ -278,8 +309,7 @@ License: MIT
 `docs/shader-provenance.md` 判为 `已追到兼容许可 · Apache-2.0` 的共 **8** 个
 （Voronoi / Swirl / SimplexNoise / ColorPanels / DotOrbit / SmokeRing / Metaballs / Halftone）。
 按本文件开头那条「不得署名尚未落地的东西」，本节的逐件条目只列**已落地**的：
-`Halftone`（`#283`）与 `#282` 批 A 的 `Metaballs` / `DotOrbit` / `Voronoi` / `SmokeRing`；
-`Swirl` / `SimplexNoise` / `ColorPanels` 随 `#282` 批 B 落地时补入。
+`Halftone`（`#283`）与 `#282` 的 `Metaballs` / `DotOrbit` / `Voronoi` / `SmokeRing` / `Swirl` / `SimplexNoise` / `ColorPanels`。
 ⚠️ 上一版把 `Water` 写进名单——**#280 已把它由 Apache-2.0 改判 `待追溯`**
 （其 `getCausticNoise()` 与 `neuro-noise.ts` 是同一算法、同源于同一条无许可推文，
 而 paper 这次连来源都没标），本版一并删掉。`NeuroNoise` / `GrainGradient` 同样不在名单内。
@@ -291,6 +321,9 @@ License: MIT
   - `DotOrbit` ← `packages/shaders/src/shaders/dot-orbit.ts`
   - `Voronoi` ← `packages/shaders/src/shaders/voronoi.ts`（算法上游为 Inigo Quilez，见下方 MIT 段）
   - `SmokeRing` ← `packages/shaders/src/shaders/smoke-ring.ts`
+  - `Swirl` ← `packages/shaders/src/shaders/swirl.ts`（噪声为 Ashima simplex，见下方 MIT 段）
+  - `SimplexNoise` ← `packages/shaders/src/shaders/simplex-noise.ts`（同上）
+  - `ColorPanels` ← `packages/shaders/src/shaders/color-panels.ts`
 - **档位**：**较大段落移植**
 
 ### Apache-2.0 §4 的四条义务，逐条兑现
@@ -393,6 +426,36 @@ SOFTWARE.
 ```
 
 出处：Shadertoy `4djSRW`（"Hash without Sine"）源码头。
+
+#### Ashima Arts / Stefan Gustavson — MIT（`Swirl` / `SimplexNoise`）
+
+paper 的 `shader-utils.ts` 里的 `simplexNoise` 与 Ashima Arts 的 `webgl-noise`（`noise2D.glsl`）逐行同构，
+paper 删去了原许可头（`docs/shader-provenance.md` ⑥-A）⇒ 本仓按原作者转载：
+
+```
+Copyright (C) 2011 by Ashima Arts (Simplex noise)
+Copyright (C) 2011-2016 by Stefan Gustavson (Classic noise and others)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+出处：https://github.com/ashima/webgl-noise · https://github.com/stegu/webgl-noise
 
 ### ⚠️ 一条"不要写"的义务
 

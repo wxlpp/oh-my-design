@@ -49,6 +49,10 @@ struct ShaderLibraryLoadTests {
         "ohMyDesignDotOrbit",
         "ohMyDesignVoronoi",
         "ohMyDesignSmokeRing",
+        "ohMyDesignSwirl",
+        "ohMyDesignSimplexNoise",
+        "ohMyDesignColorPanels",
+        "ohMyDesignStarNest",
     ]
 
     @Test("bundle 里有 metallib，且全部入口解析得到")
@@ -131,6 +135,35 @@ struct SemanticStopTests {
         let r = SmokeRing.Thickness.allCases.map(\.ring)
         #expect(zip(r, r.dropFirst()).allSatisfy { $0.thickness < $1.thickness })
         #expect(r.allSatisfy { $0.iterations >= 1 && $0.iterations <= 8 && $0.thickness > 0 })
+    }
+
+    @Test("Swirl.Bands：条带数与扭转同向递增，扭转在 [0, 1]")
+    func swirl() {
+        let s = Swirl.Bands.allCases.map(\.swirl)
+        #expect(zip(s, s.dropFirst()).allSatisfy { $0.count < $1.count && $0.twist <= $1.twist })
+        #expect(s.allSatisfy { $0.count >= 1 && (0...1).contains($0.twist) })
+    }
+
+    @Test("SimplexNoise.Banding：soft → stepped 阶梯数递增、柔和度递减，阶梯数 ≥ 1")
+    func simplexNoise() {
+        let b = SimplexNoise.Banding.allCases.map(\.bands)
+        #expect(zip(b, b.dropFirst()).allSatisfy { $0.steps < $1.steps && $0.softness > $1.softness })
+        #expect(b.allSatisfy { $0.steps >= 1 && (0...1).contains($0.softness) })
+    }
+
+    @Test("ColorPanels.Style：soft → crisp 模糊与渐变递减，边缘高光只取 0 / 1")
+    func colorPanels() {
+        let p = ColorPanels.Style.allCases.map(\.panels)
+        #expect(zip(p, p.dropFirst()).allSatisfy { $0.blur >= $1.blur && $0.gradient >= $1.gradient })
+        #expect(p.allSatisfy { $0.edges == 0 || $0.edges == 1 })
+        #expect(p.allSatisfy { $0.blur <= 0.5 })
+    }
+
+    @Test("StarNest.Depth：体积步数与迭代数递增，且不超过 shader 循环上界（20 / 17）")
+    func starNest() {
+        let d = StarNest.Depth.allCases.map(\.steps)
+        #expect(zip(d, d.dropFirst()).allSatisfy { $0.volsteps < $1.volsteps && $0.iterations <= $1.iterations })
+        #expect(d.allSatisfy { $0.volsteps >= 1 && $0.volsteps <= 20 && $0.iterations >= 1 && $0.iterations <= 17 })
     }
 
     @Test("RefractiveGlassStrength：折射与色散同向递增，subtle 档色散为 0")

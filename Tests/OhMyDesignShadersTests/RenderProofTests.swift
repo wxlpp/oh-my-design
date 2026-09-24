@@ -26,6 +26,7 @@ struct RenderProofTests {
     enum Background: String, CaseIterable, Sendable {
         case plasma, dotGrid, fractalClouds, inkSmoke, liquidChrome
         case metaballs, dotOrbit, voronoi, smokeRing
+        case swirl, simplexNoise, colorPanels, starNest
 
         @MainActor
         @ViewBuilder var view: some View {
@@ -39,6 +40,10 @@ struct RenderProofTests {
             case .dotOrbit: DotOrbit(tint: .blue, density: .dense)
             case .voronoi: Voronoi(tint: .blue, cellSize: .small)
             case .smokeRing: SmokeRing(tint: .blue, thickness: .thick)
+            case .swirl: Swirl(tint: .blue, bands: .many)
+            case .simplexNoise: SimplexNoise(tint: .blue, banding: .stepped)
+            case .colorPanels: ColorPanels(tint: .blue, style: .crisp)
+            case .starNest: StarNest(tint: .blue, depth: .shallow)
             }
         }
 
@@ -54,6 +59,10 @@ struct RenderProofTests {
             case .dotOrbit: with(DotOrbit(tint: .blue, density: .dense, motion: .lively)) { $0.originOverride = originOverride }
             case .voronoi: with(Voronoi(tint: .blue, cellSize: .small, motion: .lively)) { $0.originOverride = originOverride }
             case .smokeRing: with(SmokeRing(tint: .blue, thickness: .thick, motion: .lively)) { $0.originOverride = originOverride }
+            case .swirl: with(Swirl(tint: .blue, bands: .many, motion: .lively)) { $0.originOverride = originOverride }
+            case .simplexNoise: with(SimplexNoise(tint: .blue, banding: .stepped, motion: .lively)) { $0.originOverride = originOverride }
+            case .colorPanels: with(ColorPanels(tint: .blue, style: .crisp, motion: .lively)) { $0.originOverride = originOverride }
+            case .starNest: with(StarNest(tint: .blue, depth: .shallow, motion: .lively)) { $0.originOverride = originOverride }
             }
         }
     }

@@ -1843,10 +1843,19 @@ README 逐字 "**Some**"）。本 task **照常落地**，并在 `ACKNOWLEDGEMEN
 （`Voronoi` 另挂 iq 的 MIT 段）。`u_noiseTexture` 一律改为 `cd::hash21/22`（`floor` 语义与 paper 的 `textureRandomizer*` 一致）；
 `colorBandingFix` 一律丢弃，因此 ACK 里「该常量组没有出现在本仓任何代码里」仍然为真。
 
-### 批 B（待落地）
+### 批 B（已落地）
 
-`Swirl` / `SimplexNoise` / `ColorPanels` / `StarNest`。`StarNest` 的原页许可头人工目视核验见《须用户人工完成的核验》，
-未完成前不得随 `epic → main` 合入。
+| 件 | 落地入口 | 上游 | 许可地位 | 复制程度 |
+|---|---|---|---|---|
+| `Swirl` | `Swirl(tint:bands:motion:)` · `ohMyDesignSwirl` | paper `swirl.ts` + `shader-utils.simplexNoise`（Ashima） | **已追到兼容许可 · Apache-2.0 + MIT（双层）** | **较大段落移植** |
+| `SimplexNoise` | `SimplexNoise(tint:banding:motion:)` · `ohMyDesignSimplexNoise` | paper `simplex-noise.ts` + `shader-utils.simplexNoise`（Ashima） | **已追到兼容许可 · Apache-2.0 + MIT（双层）** | **较大段落移植** |
+| `ColorPanels` | `ColorPanels(tint:style:motion:)` · `ohMyDesignColorPanels` | paper `color-panels.ts` | **已追到兼容许可 · Apache-2.0** | **较大段落移植** |
+| `StarNest` | `StarNest(tint:depth:motion:)` · `ohMyDesignStarNest` | Kali，Shadertoy `XlfGRj` | **已追到兼容许可 · MIT**（⚠️ 原页人工目视核验未完成） | **较大段落移植** |
+
+Ashima `snoise` 逐行移植为 MSL（`cd::snoise`），`Swirl` / `SimplexNoise` 共用；ACK 新增 Ashima / Gustavson 的 MIT 段（paper 删去了原许可头）。
+`ColorPanels` 的 `u_edges`（Bool）折进 `Style` 枚举，本批 Bool 豁免 0 条。
+`StarNest` 的上游配色是 `.metal` 内的硬编码色调，按 FR-8 改为亮度标量经 `cd::ramp3`；档位直接驱动 `volsteps` / `iterations`（`.deep` = 上游 20 × 17）。
+⚠️ `StarNest` 的原页许可头人工目视核验见《须用户人工完成的核验》第 1 项，**未完成前不得随 `epic → main` 合入**。
 
 ## ⚠️ #261 合入前必须同步改口径的代码注释（第 2 轮终审 C-6）
 

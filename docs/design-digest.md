@@ -993,6 +993,11 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 
 ## `OhMyDesignShaders`
 
+### `ColorPanels.swift`
+
+- **`ColorPanels`** *: View* — 一组半透明彩色面板绕中轴翻转，像透视中的百叶。
+- *enum* **`ColorPanels.Style`**: `.soft`, `.regular`, `.crisp` — 面板质感。
+
 ### `DotGrid.swift`
 
 - **`DotGrid`** *: View* — 规则点阵背景，可选同心波呼吸。
@@ -1054,10 +1059,25 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 
 - *enum* **`ShaderMotion`**: `.still`, `.calm`, `.regular`, `.lively` — 运动速度档位。
 
+### `SimplexNoise.swift`
+
+- **`SimplexNoise`** *: View* — 双层 simplex 噪声的等高色带：三档颜色之间按阶梯过渡。
+- *enum* **`SimplexNoise.Banding`**: `.soft`, `.regular`, `.stepped` — 色带的阶梯感。
+
 ### `SmokeRing.swift`
 
 - **`SmokeRing`** *: View* — 被多层噪声扰动的烟环，环心与环边各取一档颜色。
 - *enum* **`SmokeRing.Thickness`**: `.thin`, `.regular`, `.thick` — 环的粗细与噪声细节。
+
+### `StarNest.swift`
+
+- **`StarNest`** *: View* — 体积分形星云：一路穿行的星尘与暗物质。
+- *enum* **`StarNest.Depth`**: `.shallow`, `.regular`, `.deep` — 体积深度，同时决定渲染成本。
+
+### `Swirl.swift`
+
+- **`Swirl`** *: View* — 从中心旋出的彩色条带，可扭成漩涡，带轻微噪声扰动。
+- *enum* **`Swirl.Bands`**: `.few`, `.regular`, `.many` — 条带数与扭转强度。
 
 ### `Voronoi.swift`
 
@@ -1167,9 +1187,9 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | controlsize | 5 | 5 |
 | motion | 4 | 4 |
 | colors | 124 | 124 |
-| components | 103 | 103 |
-| enums | 65 | 65 |
-| enumcases | 215 | 215 |
+| components | 107 | 107 |
+| enums | 69 | 69 |
+| enumcases | 227 | 227 |
 | protocols | 6 | 6 |
 | viewext | 50 | 50 |
 | styleext | 15 | 15 |

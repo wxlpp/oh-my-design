@@ -1301,6 +1301,58 @@
       "notes": "`#282` 落地的 `public struct SmokeRing: View`（`OhMyDesignShaders`）：被多层噪声扰动的烟环。判定与 `Plasma` 条目同一路径、同一理由：步骤 1 Apple 无对应原生样式协议（SwiftUI 没有产出程序化着色全幅背景的系统控件，`Shader` / `visualEffect` 是绘制入口而不是样式协议）；步骤 2 本类型经 `ProceduralBackground` 把一个 `Color` 套上 `colorEffect`，**零个承载内容的子视图**，三分法的「槽」与「排布」两轴结构上为空，任何候选形态只能落装饰 ⇒ 不计入 ≥2；不承载任何状态 / 内容语义（三个参数 `tint` / 语义枚举 / `motion` 全是外观取值）；补充规则 3 不适用（尺寸与「全幅 ↔ 行内一块」由调用方的 `.frame` / `.ignoresSafeArea` 决定）⇒ 步骤 4 tiebreaker：默认规定性、不给扩展点（可逆）。不援引步骤 3 兜底句，也不属 `pendingStep2`。textParams：public init 无文本型参数。⚠️ provenance：移植自 paper-design/shaders 的 `packages/shaders/src/shaders/smoke-ring.ts` @ `43cd68d`（Apache-2.0，须转载 LICENSE + NOTICE 并标注修改，`ACKNOWLEDGEMENTS.md` 已落地，修改清单在 `.metal` 分节头）；本条不作任何原创声称。"
     },
     {
+      "component": "Swirl",
+      "repo": "ohmydesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#282` 落地的 `public struct Swirl: View`（`OhMyDesignShaders`）：从中心旋出、可扭成漩涡的彩色条带。判定与 `Plasma` 条目同一路径、同一理由：步骤 1 Apple 无对应原生样式协议（SwiftUI 没有产出程序化着色全幅背景的系统控件，`Shader` / `visualEffect` 是绘制入口而不是样式协议）；步骤 2 本类型经 `ProceduralBackground` 把一个 `Color` 套上 `colorEffect`，**零个承载内容的子视图**，三分法的「槽」与「排布」两轴结构上为空，任何候选形态只能落装饰 ⇒ 不计入 ≥2；不承载任何状态 / 内容语义（三个参数 `tint` / 语义枚举 / `motion` 全是外观取值）；补充规则 3 不适用（尺寸与「全幅 ↔ 行内一块」由调用方的 `.frame` / `.ignoresSafeArea` 决定）⇒ 步骤 4 tiebreaker：默认规定性、不给扩展点（可逆）。不援引步骤 3 兜底句，也不属 `pendingStep2`。textParams：public init 无文本型参数。⚠️ provenance：移植自 paper-design/shaders 的 `packages/shaders/src/shaders/swirl.ts` @ `43cd68d`（Apache-2.0，须转载 LICENSE + NOTICE 并标注修改，`ACKNOWLEDGEMENTS.md` 已落地，修改清单在 `.metal` 分节头）；噪声为 Ashima Arts / Stefan Gustavson 的 2D simplex（MIT，paper 删去了原许可头，`ACKNOWLEDGEMENTS.md` 已按原作者转载）；本条不作任何原创声称。"
+    },
+    {
+      "component": "SimplexNoise",
+      "repo": "ohmydesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#282` 落地的 `public struct SimplexNoise: View`（`OhMyDesignShaders`）：双层 simplex 噪声的阶梯色带。判定与 `Plasma` 条目同一路径、同一理由：步骤 1 Apple 无对应原生样式协议（SwiftUI 没有产出程序化着色全幅背景的系统控件，`Shader` / `visualEffect` 是绘制入口而不是样式协议）；步骤 2 本类型经 `ProceduralBackground` 把一个 `Color` 套上 `colorEffect`，**零个承载内容的子视图**，三分法的「槽」与「排布」两轴结构上为空，任何候选形态只能落装饰 ⇒ 不计入 ≥2；不承载任何状态 / 内容语义（三个参数 `tint` / 语义枚举 / `motion` 全是外观取值）；补充规则 3 不适用（尺寸与「全幅 ↔ 行内一块」由调用方的 `.frame` / `.ignoresSafeArea` 决定）⇒ 步骤 4 tiebreaker：默认规定性、不给扩展点（可逆）。不援引步骤 3 兜底句，也不属 `pendingStep2`。textParams：public init 无文本型参数。⚠️ provenance：移植自 paper-design/shaders 的 `packages/shaders/src/shaders/simplex-noise.ts` @ `43cd68d`（Apache-2.0，须转载 LICENSE + NOTICE 并标注修改，`ACKNOWLEDGEMENTS.md` 已落地，修改清单在 `.metal` 分节头）；噪声为 Ashima Arts / Stefan Gustavson 的 2D simplex（MIT，同上）；本条不作任何原创声称。"
+    },
+    {
+      "component": "ColorPanels",
+      "repo": "ohmydesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#282` 落地的 `public struct ColorPanels: View`（`OhMyDesignShaders`）：绕中轴翻转的半透明彩色面板（上游的 `edges` Bool 折进 `Style` 枚举，本批 Bool 豁免 0 条）。判定与 `Plasma` 条目同一路径、同一理由：步骤 1 Apple 无对应原生样式协议（SwiftUI 没有产出程序化着色全幅背景的系统控件，`Shader` / `visualEffect` 是绘制入口而不是样式协议）；步骤 2 本类型经 `ProceduralBackground` 把一个 `Color` 套上 `colorEffect`，**零个承载内容的子视图**，三分法的「槽」与「排布」两轴结构上为空，任何候选形态只能落装饰 ⇒ 不计入 ≥2；不承载任何状态 / 内容语义（三个参数 `tint` / 语义枚举 / `motion` 全是外观取值）；补充规则 3 不适用（尺寸与「全幅 ↔ 行内一块」由调用方的 `.frame` / `.ignoresSafeArea` 决定）⇒ 步骤 4 tiebreaker：默认规定性、不给扩展点（可逆）。不援引步骤 3 兜底句，也不属 `pendingStep2`。textParams：public init 无文本型参数。⚠️ provenance：移植自 paper-design/shaders 的 `packages/shaders/src/shaders/color-panels.ts` @ `43cd68d`（Apache-2.0，须转载 LICENSE + NOTICE 并标注修改，`ACKNOWLEDGEMENTS.md` 已落地，修改清单在 `.metal` 分节头）；本条不作任何原创声称。"
+    },
+    {
+      "component": "StarNest",
+      "repo": "ohmydesign",
+      "kind": "prescriptive",
+      "decidedBy": "tiebreaker",
+      "nativeProtocol": null,
+      "customStyleProtocol": null,
+      "styleSlot": null,
+      "styleEnum": null,
+      "needsExtensionPoint": false,
+      "textParams": [],
+      "notes": "`#282` 落地的 `public struct StarNest: View`（`OhMyDesignShaders`）：体积分形星云。判定与 `Plasma` 条目同一路径、同一理由：步骤 1 Apple 无对应原生样式协议（SwiftUI 没有产出程序化着色全幅背景的系统控件，`Shader` / `visualEffect` 是绘制入口而不是样式协议）；步骤 2 本类型经 `ProceduralBackground` 把一个 `Color` 套上 `colorEffect`，**零个承载内容的子视图**，三分法的「槽」与「排布」两轴结构上为空，任何候选形态只能落装饰 ⇒ 不计入 ≥2；不承载任何状态 / 内容语义（三个参数 `tint` / 语义枚举 / `motion` 全是外观取值）；补充规则 3 不适用（尺寸与「全幅 ↔ 行内一块」由调用方的 `.frame` / `.ignoresSafeArea` 决定）⇒ 步骤 4 tiebreaker：默认规定性、不给扩展点（可逆）。不援引步骤 3 兜底句，也不属 `pendingStep2`。textParams：public init 无文本型参数。⚠️ provenance：移植自「Star Nest」by Pablo Roman Andrioli（Kali），Shadertoy `XlfGRj`，作者在源码头声明 MIT（形式不完整：无版权行，本仓不替作者补造）；⚠️ 原页许可头的人工目视核验尚未完成（`shader-provenance.md`《须用户人工完成的核验》第 1 项），未完成前不随 `epic → main` 合入；本条不作任何原创声称。"
+    },
+    {
       "component": "GlassSymbol",
       "repo": "ohmydesign",
       "kind": "prescriptive",
