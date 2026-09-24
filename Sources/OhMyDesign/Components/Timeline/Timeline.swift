@@ -61,11 +61,11 @@ public struct Timeline<Content: View>: View {
 
     private func stack(_ subviews: SubviewsCollection, slots: [TimelineStackLayout.Slot]) -> some View {
         TimelineStackLayout(layout: self.layout, slots: slots, partCount: subviews.count) {
-            ForEach(subviews) { subview in
-                subview
-            }
             ForEach(0..<TimelineStackLayout.connectorCount(slots: slots, layout: self.layout), id: \.self) { _ in
                 TimelineConnector()
+            }
+            ForEach(subviews) { subview in
+                subview
             }
         }
     }

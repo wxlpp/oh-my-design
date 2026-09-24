@@ -40,8 +40,9 @@ struct TimelineStackLayout: Layout {
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         let arrangement = self.arrange(width: bounds.width, subviews: subviews)
-        for placement in arrangement.placements where subviews.indices.contains(placement.index) {
-            subviews[placement.index].place(
+        for placement in arrangement.placements {
+            guard let subview = self.subview(placement.index, in: subviews) else { continue }
+            subview.place(
                 at: CGPoint(x: bounds.minX + placement.point.x, y: bounds.minY + placement.point.y),
                 anchor: placement.anchor,
                 proposal: placement.proposal
@@ -74,8 +75,8 @@ struct TimelineStackLayout: Layout {
     private func arrange(width: CGFloat?, subviews: Subviews) -> Arrangement {
         guard !self.slots.isEmpty else { return Arrangement() }
         let boxes = self.slots.map { slot in
-            guard case .row(let node, _) = slot, subviews.indices.contains(node) else { return CGSize.zero }
-            return Self.nodeBox(reported: subviews[node].sizeThatFits(Self.nodeProposal))
+            guard case .row(let node, _) = slot, let subview = self.subview(node, in: subviews) else { return CGSize.zero }
+            return Self.nodeBox(reported: subview.sizeThatFits(Self.nodeProposal))
         }
         let column = Self.nodeColumnWidth(boxWidths: self.rowIndices.map { boxes[$0].width })
         let connectors = self.connectorIndices()
@@ -87,6 +88,12 @@ struct TimelineStackLayout: Layout {
         case .vertical, .grouped:
             return self.arrangeVertical(width: width, column: column, boxes: boxes, connectors: connectors, subviews: subviews)
         }
+    }
+
+    private func subview(_ index: Int, in subviews: Subviews) -> LayoutSubview? {
+        let connectorCount = subviews.count - self.partCount
+        let physical = index < self.partCount ? index + connectorCount : index - self.partCount
+        return subviews.indices.contains(physical) ? subviews[physical] : nil
     }
 
     private var rowIndices: [Int] {
@@ -111,9 +118,8 @@ struct TimelineStackLayout: Layout {
 
     private func contentSizes(subviews: Subviews, proposal: (Int) -> ProposedViewSize) -> [CGSize] {
         self.slots.indices.map { slot in
-            let index = Self.contentIndex(self.slots[slot])
-            guard subviews.indices.contains(index) else { return .zero }
-            return subviews[index].sizeThatFits(proposal(slot))
+            guard let subview = self.subview(Self.contentIndex(self.slots[slot]), in: subviews) else { return .zero }
+            return subview.sizeThatFits(proposal(slot))
         }
     }
 
@@ -150,7 +156,7 @@ struct TimelineStackLayout: Layout {
             rowWidth = width
         } else {
             let ideal = self.rowIndices.map { slot in
-                subviews[Self.contentIndex(self.slots[slot])].sizeThatFits(.unspecified).width
+                self.subview(Self.contentIndex(self.slots[slot]), in: subviews)?.sizeThatFits(.unspecified).width ?? 0
             }.max() ?? 0
             rowWidth = ideal * 2 + column + 2 * CoreSpacing.md
         }

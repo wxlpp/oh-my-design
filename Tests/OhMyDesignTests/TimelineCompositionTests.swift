@@ -225,20 +225,25 @@ struct TimelineCompositionTests {
         #expect(blue.map { abs($0.minY - 102) <= 1 } == true, "第 1 行内容 \(String(describing: blue))，应顶在 102")
     }
 
-    @Test(".alternate：非行子视图跨满整行、压在中轴上时连线在它上沿截断、下沿续接")
+    @Test(".alternate：非行子视图跨满整行、压在中轴上时连线在它上沿截断、下沿续接（不从它底下穿过）")
     func alternateConnectorBreaksAtNonRowChild() {
         let canvas = Self.render(Timeline(layout: .alternate) {
             TimelineItem { Self.node() } content: { Self.block(60) }
-            Self.block(300, 20, red: true)
+            HStack(spacing: 0) {
+                Self.block(140, red: true)
+                Color.clear.frame(width: 20, height: 20)
+                Self.block(140, red: true)
+            }
             TimelineItem { Self.node() } content: { Self.block(60) }
         })
         let background = canvas.at(299, 359)
         let above = Self.delta(canvas.at(150, 30), from: background)
         #expect(above >= 6, "非行子视图上方应有连线（盒下沿 24 → 36），与背景差 \(above)")
-        let block = canvas.at(100, 46)
+        #expect(canvas.at(100, 46).r > 150, "非行子视图没画出来：\(canvas.at(100, 46))")
         for y in stride(from: CGFloat(37), through: 55, by: 2) {
             let onAxis = canvas.at(150, y)
-            #expect(Self.delta(onAxis, from: block) <= 2, "y=\(y)：中轴上的非行子视图被连线压住了（\(onAxis)，色块本色 \(block)）")
+            #expect(Self.delta(onAxis, from: background) <= 2,
+                    "y=\(y)：连线从非行子视图（中轴处透明）底下穿过去了（\(onAxis)，背景 \(background)）")
         }
         let below = Self.delta(canvas.at(150, 64), from: background)
         #expect(below >= 6, "非行子视图下方应续接连线（56 → 72），与背景差 \(below)")
