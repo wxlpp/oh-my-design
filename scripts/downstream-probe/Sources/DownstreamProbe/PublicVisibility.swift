@@ -328,18 +328,47 @@ func consumeSteps() -> some View {
     )
 }
 
-// MARK: Timeline（Issue #164）——两个 designated init 都需覆盖
+// MARK: Timeline（Issue #164；#420 组合式 API 与阶段）——四个 init、`step:`、自定义节点 `status:` 传与不传、`progress:` 都需覆盖
 
 @MainActor
 func consumeTimeline() -> some View {
-    Timeline(items: [
-        TimelineItem(status: .success) { Text("默认圆点节点") },
-        TimelineItem(status: .info) {
+    Timeline(layout: .vertical) {
+        TimelineItem(step: 0, status: .success) { Text("默认圆点节点") }
+        TimelineItem(step: 1) {
             Image(systemName: "star")
         } content: {
-            Text("自定义节点")
-        },
-    ])
+            Text("自定义节点，不播报状态")
+        }
+        TimelineItem(status: .danger) {
+            Image(systemName: "xmark")
+        } content: {
+            Text("自定义节点，播报状态")
+        }
+        TimelineItem("结构件", time: Text("2h"), description: "描述", step: 2, status: .warning)
+        TimelineItem("结构件 + 富内容") { Text("富内容") }
+        TimelineItem("结构件 + 自定义节点", step: 3, status: nil) {
+            Image(systemName: "star")
+        } content: {}
+        Text("非行子视图")
+    }
+}
+
+// #420 阶段：`init(layout:progress:content:)`、`phase(forStep:)`、自定义节点读 `timelinePhase`。
+@MainActor
+func consumeTimelineProgress() -> some View {
+    Timeline(layout: .horizontal, progress: .inProgress(at: 1)) {
+        TimelineItem("A", step: 0)
+        TimelineItem("B", step: 1) { ProbeTimelinePhaseNode() } content: {}
+        TimelineItem(step: 2) { Text(TimelineProgress.completed.phase(forStep: 2) == .completed ? "done" : "") }
+    }
+}
+
+private struct ProbeTimelinePhaseNode: View {
+    @Environment(\.timelinePhase) private var phase
+
+    var body: some View {
+        Image(systemName: self.phase == .inProgress ? "clock" : "circle")
+    }
 }
 
 // MARK: PinCode（Issue #166）
@@ -746,6 +775,95 @@ func consumeTagGroup(selection: Binding<Set<String>>) -> some View {
             selectionMode: TagGroupSelectionMode.single, disabled: ["y"], color: .contentPrimary
         ) { Text($0) }
     }
+}
+
+// MARK: - Tree（Issue #422 / #429 / #423 / #431）
+// `.treeStyle` 只以 `.treeStyle(.navigator)` 形态调用：别写 `TreeStyle.navigator` 或把它存成属性——
+// 那两种写法在 `TreeStyle` 将来升协议时编译不过（#429 spec §2.1）。
+
+private struct ProbeTreeNode: Identifiable {
+    let id: String
+    let children: [ProbeTreeNode]?
+}
+
+@MainActor
+func consumeTree(
+    expanded: Binding<Set<String>>,
+    selection: Binding<Set<String>>,
+    checked: Binding<Set<String>>
+) -> some View {
+    let roots = [
+        ProbeTreeNode(id: "root", children: [ProbeTreeNode(id: "leaf", children: nil)]),
+    ]
+    return VStack {
+        Tree(
+            roots,
+            children: \.children,
+            expanded: expanded,
+            selection: selection,
+            selectionMode: TreeSelectionMode.multiple,
+            checked: checked,
+            onActivate: { _ in }
+        ) { node in
+            Text(node.id)
+        }
+        Tree(
+            roots,
+            id: \.id,
+            children: \.children,
+            expanded: expanded,
+            selection: selection
+        ) { node in
+            Text(node.id)
+        }
+        .rowContextMenu { (targets: Set<String>) in
+            Button("Delete \(targets.count)") { selection.wrappedValue.subtract(targets) }
+        }
+        .treeStyle(.navigator)
+        Tree(
+            roots,
+            children: \.children,
+            expanded: expanded,
+            selection: selection
+        ) { node in
+            Text(verbatim: node.id, highlighting: "lea")
+        }
+        .searchFilter("lea", text: \.id)
+        .rowClickBehavior(.selectAndToggleExpansion)
+        .rowContextMenu { (targets: Set<String>) in
+            Button("Open \(targets.count)") {}
+        }
+        Tree(
+            roots,
+            children: \.children,
+            expanded: expanded,
+            selection: selection
+        ) { node in
+            Text(node.id)
+        }
+        .rowClickBehavior(TreeRowClickBehavior.select)
+        Rectangle().fill(Color.searchMatchBackground)
+        Rectangle().fill(Color.systemYellow)
+    }
+    .treeStyle(.automatic)
+}
+
+// `expandedIDs` 是 `nonisolated public static` —— 这一句同时守可见性与「不被
+// defaultIsolation 卷进 MainActor」两条契约。
+nonisolated func consumeTreeExpandedIDs() -> Set<String> {
+    let roots = [
+        ProbeTreeNode(id: "root", children: [ProbeTreeNode(id: "leaf", children: nil)]),
+    ]
+    return Tree<[ProbeTreeNode], String, Text>.expandedIDs(
+        roots, id: \.id, children: \.children, toDepth: 2
+    )
+}
+
+nonisolated func consumeTreeExpandedIDsInferred() -> Set<String> {
+    let roots = [
+        ProbeTreeNode(id: "root", children: [ProbeTreeNode(id: "leaf", children: nil)]),
+    ]
+    return Tree.expandedIDs(roots, id: \.id, children: \.children, toDepth: 2)
 }
 
 // MARK: - StatefulButton（Issue #417）

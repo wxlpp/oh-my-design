@@ -1,0 +1,50 @@
+name: TreeSpike
+options:
+  bundleIdPrefix: com.ohmydesign.spike
+  deploymentTarget:
+    iOS: "26.0"
+    macOS: "26.0"
+  xcodeVersion: "26.0"
+
+packages:
+  OhMyDesign:
+    # OHMYDESIGN_CHECKOUT 由 README 里那条 sed 替换成 checkout 的绝对路径。
+    # 不要改成相对路径：探针是拷到工作目录外面去生成 / 构建的。
+    path: OHMYDESIGN_CHECKOUT
+
+targets:
+  TreeSpikeiOS:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+    dependencies:
+      - package: OhMyDesign
+        product: OhMyDesign
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ohmydesign.spike.ios
+        SWIFT_VERSION: "6.0"
+        INFOPLIST_FILE: ""
+        GENERATE_INFOPLIST_FILE: "YES"
+        TARGETED_DEVICE_FAMILY: "1"
+        INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
+        CODE_SIGNING_ALLOWED: "NO"
+
+  TreeSpikeMac:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+    dependencies:
+      - package: OhMyDesign
+        product: OhMyDesign
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ohmydesign.spike.mac
+        SWIFT_VERSION: "6.0"
+        INFOPLIST_FILE: ""
+        GENERATE_INFOPLIST_FILE: "YES"
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGNING_REQUIRED: "YES"
+        ENABLE_HARDENED_RUNTIME: "NO"

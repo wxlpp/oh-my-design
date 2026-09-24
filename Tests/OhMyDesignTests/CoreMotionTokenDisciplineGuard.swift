@@ -51,6 +51,8 @@ struct CoreMotionTokenDisciplineGuard {
         "Components/Carousel/Carousel.swift": .gated,
         "Components/TagInput/TagInput.swift": .gated,
         "Components/TagGroup/TagGroup.swift": .gated,
+        "Components/Tree/Tree.swift": .gated,
+        "Components/Timeline/Timeline.swift": .gated,
     ]
 
     static let transformLedger: [String: String] = [
@@ -90,6 +92,10 @@ struct CoreMotionTokenDisciplineGuard {
             "只在 TopBarIndicator.sweeps(for:) 为真（animated）的分支里建",
         "Modifier/SpinningModifier.swift|offset(x: Self.restingOffset(trackWidth: proxy.size.width))":
             "静止位，无动画",
+        "Components/Tree/Tree.swift|rotationEffect(.degrees(self.chevronRotation(isExpanded: isExpanded)))":
+            "补间走 CoreMotionToken.reveal.transformAnimation(for:)，resting 下不补间、直接切到终态角度",
+        "Components/Timeline/Timeline.swift|scaleEffect(frame.scale)":
+            "节点入场：挂载窗口关闭后首次可见、且 .animated 时才置为待入场（0.86）并在下一轮 runloop 补间回 1；.resting / .hidden 恒为 1",
     ]
 
     static let animationTriggers = [

@@ -191,3 +191,39 @@ nonisolated func useSettingsRowMetrics() -> [CGFloat] {
 nonisolated func readCoreMotionToken() -> (TimeInterval, Animation?) {
     (CoreMotionToken.reveal.duration, CoreMotionToken.scroll.animation(for: .resting))
 }
+
+// Issue #423：`Tree.searchMatches` 是 `nonisolated public static`，下游在非 MainActor 语境算命中数
+// （空态 / 结果数播报）。两个重载都要可达：写出行内容泛型的、与免写泛型的。
+private struct NonisolatedProbeTreeNode {
+    let id: String
+    let name: String
+    let children: [NonisolatedProbeTreeNode]?
+}
+
+nonisolated func countTreeSearchMatches(_ query: String) -> Int {
+    let roots = [
+        NonisolatedProbeTreeNode(id: "root", name: "Root", children: [
+            NonisolatedProbeTreeNode(id: "leaf", name: "Leaf", children: nil),
+        ]),
+    ]
+    let inferred = Tree.searchMatches(roots, id: \.id, children: \.children, query: query, text: \.name)
+    let spelled = Tree<[NonisolatedProbeTreeNode], String, Text>.searchMatches(
+        roots, id: \.id, children: \.children, query: query, text: { $0.name }
+    )
+    let emptyRow = Tree<[NonisolatedProbeTreeNode], String, EmptyView>.searchMatches(
+        roots, id: \.id, children: \.children, query: query, text: { $0.name }
+    )
+    return inferred.union(spelled).union(emptyRow).count
+}
+
+// Issue #431：`TreeRowClickBehavior` 是 `nonisolated` 的公开枚举，下游可在非 MainActor 语境里存取、比较、枚举。
+nonisolated func readTreeRowClickBehaviors() -> [TreeRowClickBehavior] {
+    TreeRowClickBehavior.allCases.filter { $0 != .select }
+}
+
+// Issue #420：`TimelineProgress` / `TimelinePhase` 是 `nonisolated` 的公开枚举，`phase(forStep:)` 是其上的纯函数；
+// 下游可在非 MainActor 语境里构造、比较、放进 Set、按 step 算阶段。
+nonisolated func timelinePhases(steps: [Int], progress: TimelineProgress) -> [TimelinePhase] {
+    let known: Set<TimelineProgress> = [.notStarted, .inProgress(at: 1), .completed]
+    return known.contains(progress) ? steps.map { progress.phase(forStep: $0) } : TimelinePhase.allCases
+}

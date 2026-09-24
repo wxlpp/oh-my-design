@@ -3,13 +3,19 @@
 "%@ of %@" = "%@ of %@";
 "%@, %@" = "%@, %@";
 "%@, required" = "%@, required";
+"Activate to expand or collapse" = "Activate to expand or collapse";
 "Alert" = "Alert";
+"Applies to filtered results only" = "Applies to filtered results only";
+"Collapse" = "Collapse";
 "Collapsed" = "Collapsed";
+"Completed" = "Completed";
 "Dismiss" = "Dismiss";
 "Double-tap to confirm" = "Double-tap to confirm";
 "Error" = "Error";
+"Expand" = "Expand";
 "Expanded" = "Expanded";
 "Failed" = "Failed";
+"In Progress" = "In Progress";
 "Info" = "Info";
 "Loading" = "Loading";
 "Neutral" = "Neutral";
@@ -21,5 +27,6 @@
 "Success" = "Success";
 "Tap to dismiss" = "Tap to dismiss";
 "Untitled" = "Untitled";
+"Upcoming" = "Upcoming";
 "Verification code" = "Verification code";
 "Warning" = "Warning";

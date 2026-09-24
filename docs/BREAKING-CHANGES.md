@@ -20,6 +20,192 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.11.0`）——Issue #420：Timeline 组合式 API
+
+本节随 `#420` 的 4 个 PR 逐步追加。
+
+### PR 1：容器级布局与横向连线（公开签名不变）
+
+`Timeline(items:layout:)` / `TimelineItem` 的签名一个都没变；变的是渲染：
+
+| 变化 | 影响 |
+|---|---|
+| `.horizontal` 画节点间连线 | 原来横向节点之间是空白，现在横轴上有一条 `dividerDefault`、`CoreBorderWidth.thin` 的连线（从前一节点盒右沿到后一节点盒左沿）。含 `.horizontal` 的快照会变 |
+| 大于 24pt 的自定义节点撑宽节点列 / 撑高本行 | 原来节点方框固定 24×24、不裁剪，大节点溢出、侵入上一行、被连线穿过；现在节点盒取节点报告尺寸（下限 24），节点列宽取最宽节点，行高与连线端点按节点盒实际边沿算。≤ 24×24 的节点外观不变 |
+| 内容高 < 16pt 的非末行变高 | 行高由 `max(24, 内容高 + lg)` 改为 `max(盒高 + CoreSpacing.sm, 内容高 + CoreSpacing.lg)`，保证节点下方至少留 8pt 连线；内容高 ≥ 16pt 时不变；更矮的内容行多出 `min(8, 16 − 内容高)`（0–8pt；内容高 10 的行由 26pt 变 32pt）。⚠️ macOS 上 `.coreFont(.callout)` 单行文字的行高不到 16pt，这类行也会变高 |
+| `.alternate` 固定宽的超宽内容改为向外溢出 | 两侧内容照旧收到槽宽提议：文字照旧按槽宽换行、落在槽内（与原来相同）。按槽宽排版后仍宽于槽的**固定宽**元素（如 `.frame(width: 220)`、`.fixedSize()` 文字）：左槽原来向右溢出、盖住中轴上的节点，现在向左（远离中轴）溢出，节点与连线不被遮挡，但越出容器的部分会被屏幕 / `ScrollView` 裁掉；右槽本来就向外溢出，不变。需要完整显示的宽元素请改成可换行 / 可收缩的内容 |
+| `content:` 里并列的多个视图统一竖排、左对齐、无间距 | 现在包在一个 `VStack(alignment: .leading, spacing: 0)` 里，三种布局一致。原来按布局各不相同：`.vertical` 被展平进行里的 `HStack`，左右并排；`.horizontal` 已是竖排，但彼此隔 `CoreSpacing.sm`、逐个居中；`.alternate` 整行不显示（旧布局只接受恰好 3 个子视图）。要并排请自己写 `HStack` |
+| 空节点 / 多视图节点 | 现在：`node:` 闭包什么都不产出（如 `if` 不成立）时保留 24pt 空盒、内容与其他行对齐，该行上下的连线在空盒处断开 24pt；`node:` 里并列多个视图时叠在同一个节点盒里居中。原来按布局各不相同：`.vertical` 空节点整格消失、内容左移到节点列，多视图节点拆成并排的多个 24pt 格；`.horizontal` 多视图节点竖直堆叠成多个 24pt 格；`.alternate` 两种情况都整行不显示 |
+| `TimelineLayout` 标为 `nonisolated` | 可在非主 actor 语境里取用、比较；对已有调用点无影响 |
+
+### PR 2：组合式 API（**破坏性**）
+
+**移除**：`Timeline(items:layout:)`、数据载体 `struct TimelineItem: Identifiable` 及其两个 init（`id:status:content:` /
+`id:status:node:content:`）、`id:` 参数。旧写法编译失败（`[TimelineItem]` 不再是合法类型：`TimelineItem` 现为泛型 `View`），不会静默换义。
+
+**新增**：
+
+| 符号 | 说明 |
+|---|---|
+| `Timeline<Content: View>` | `init(layout: TimelineLayout = .vertical, @ViewBuilder content: () -> Content)` |
+| `TimelineItem<Node: View, Content: View>: View` | 四个 init：`(step:status:content:)`、`(step:status:node:content:)`、`(_:time:description:step:status:content:)`、`(_:time:description:step:status:node:content:)`；`title` / `description` 为 `LocalizedStringKey`，`time` 为 `Text?`，`step: Int? = nil` |
+
+`scripts/api-surface-diff.sh 99c6f48`（PR 1 合入态）读数：删除 `TimelineItem.ID` / `TimelineItem.id` /
+`init(id:status:node:content:)` / `init(id:status:content:)` / `Timeline.init(items:layout:)`；新增 `TimelineItem.Body` / `body` /
+`init(step:status:node:content:)` / `init(step:status:content:)` / `init(_:time:description:step:status:node:content:)` /
+`init(_:time:description:step:status:content:)` / `Timeline.init(layout:content:)`。
+
+**迁移**（机械）：
+
+```swift
+// 之前
+Timeline(items: [
+    TimelineItem(status: .success) { Text("审核通过") },
+    TimelineItem(status: .info) { Image(systemName: "star") } content: { Text("自定义") },
+], layout: .alternate)
+
+// 之后：数组 → @ViewBuilder，去掉逗号与 id:
+Timeline(layout: .alternate) {
+    TimelineItem(status: .success) { Text("审核通过") }
+    TimelineItem { Image(systemName: "star") } content: { Text("自定义") }   // 自定义节点不写 status 就不播报
+}
+```
+
+数据驱动时用 `ForEach(items) { item in TimelineItem(…) }`；存成属性的 `[TimelineItem]` 改成 `@ViewBuilder` 计算属性。
+
+**可见 / 可听的行为变化**：
+
+| 变化 | 影响 |
+|---|---|
+| 施在行上的修饰对节点与内容**各施一次** | 行的 body 产出节点、内容两个子视图。**布局**（`.padding` / `.frame` / `.offset`）：节点盒与内容各加一次，节点盒变大会撑宽整列（`.padding(10)` 让节点盒 24→44）——写进 `content:`。**视觉**（`.opacity` / `.background` / `.redacted` / `.transition` / `.accessibilityHidden`）：节点与内容一起生效（原来碰不到节点），`.background` 会铺成两块。**行为**（`.onAppear` / `.task` / `.onTapGesture` / `.contextMenu` / `.swipeActions`）：**挂两次**，`.onAppear` / `.task` **执行两次**——勿施在行上，写进 `content:` 或施在 `Timeline` 外层 |
+| 整行包 `Button` 不受支持 | `Button { … } label: { TimelineItem(…) }` 对容器是非行子视图：节点与内容竖叠、没有节点列、连线着色跳过它，点击区域覆盖节点。可点击的部分请把 `Button` / `NavigationLink` 放进 `content:` |
+| 被包进 `VStack` 等容器的行 | 降级为非行子视图，节点与内容仍可见（各布局下的样子见 `docs/components/timeline.md`） |
+| 默认圆点不再是无障碍元素 | 原来是一个独立的 10×10 元素（`label='Info'`，与内容分离；`.horizontal` 下五个状态元素排在五条内容之前）。现在圆点隐藏，状态作为值挂在行上：有标题的行挂**标题元素**，无标题的行挂**合并后的内容元素**（内容 `.accessibilityElement(children: .combine)`，内容里的按钮改走「操作」转子） |
+| `.grouped` 有标题的行改挂标题元素 | 原来 `.grouped` 的内容一律合并成一个元素、值挂在上面；现在有标题的行值挂在标题上，时间、描述各自可聚焦。无标题的行不变 |
+| 写了 `status:` 的自定义节点行新增状态播报 | 原来自定义节点行的 `status` 从不播报；现在自定义节点的 init 里 `status` 改为 `StatusLevel? = nil`，**传了才播报**（挂载点同上）。迁移时保留了 `status:` 的行会多读一个状态值；节点里自带 label 的图标请 `.accessibilityHidden(true)`，否则同一状态读两遍 |
+| `.grouped` 下自定义节点、无标题、不传 `status` 的行不再合并 | 原来 `.grouped` 对所有行的内容合并成一个元素；现在只有带状态值的无标题行合并 |
+| `.horizontal` 按列读 | 有标题的行、以及未合并的无标题行（自定义节点、不传 `status`）的内容在 `.horizontal` 下各是一个 `.contain` 容器；整条横向时间线也是一个 `.contain` 容器，各子视图按列序带 `accessibilitySortPriority`（本列节点 → 本列内容 → 下一列）。VoiceOver 读完本列（未隐藏的自定义节点、标题、时间、描述）再到下一列；原来先读完各列标题、再读各列时间，未隐藏的头像节点排在所有列的内容之前。⚠️ 无障碍树多一层匿名分组容器 |
+| 默认圆点 + 无标题 + 空内容的行 | `TimelineItem(status: .danger) {}` 的状态值挂在一个无 label、0×0 的元素上（iOS `axe` 读数 `GenericElement value='Error'`）；VoiceOver 能否聚焦 0×0 元素未验证。要播报状态请给内容或改用带标题的 init |
+| `content:` 多视图竖排、间距 0 | PR 1 起已生效，组合式 API 下不变 |
+
+### PR 3：阶段（纯新增）
+
+已有公开符号一个都没变；不传 `progress` 的时间线外观与无障碍与 PR 2 完全相同（行写了 `step` 也不生效）。新增：
+
+| 符号 | 说明 |
+|---|---|
+| `Timeline.init(layout:progress:content:)` | 带阶段的时间线：各行阶段由 `progress` 与该行 `step` 决定 |
+| `TimelineProgress` | `.notStarted` / `.inProgress(at: Int)` / `.completed`（`nonisolated`、`Sendable`、`Hashable`）；`phase(forStep:)` 返回给定 `step` 的阶段 |
+| `TimelinePhase` | `.completed` / `.inProgress` / `.upcoming`（`nonisolated`、`Sendable`、`Hashable`、`CaseIterable`） |
+| `EnvironmentValues.timelinePhase` | `TimelinePhase?`，公开只读（`internal(set)`）；在带 `step` 的行的 `node:` 与 `content:` 两槽里有值 |
+
+`step` 在带 `progress` 的时间线里开始生效（PR 2 起已可写）。带阶段时的外观：通向已完成 / 进行中行的连线着 `.tint`
+（**未设置 `.tint` 时取宿主 App 的 AccentColor**，macOS 为用户系统强调色；不是本库墨色 `accent`，`.coreAccent(_:)` 改不了它）；
+默认圆点进行中为靶心（实心圆点 + 透明间隙 + 同色实线外环）、未开始为空心环；
+行的无障碍值在状态键后接阶段键（`Completed` / `In Progress` / `Upcoming`，模块 `Localizable.strings` 新增这三个 key）。
+
+### PR 4：动效（公开签名不变）
+
+公开符号一个都没变；静止帧与 PR 3 相同（同宿主重渲比对，唯一差异是一颗横向首列圆点的亚像素取整，来自入场修饰在静止态下的恒等变换）。可见的变化在过渡过程中：
+
+- **阶段推进**：`progress` 变化时连线沿线生长（回退从远端收）、默认圆点在空心 / 靶心 / 实心之间插值，取 `CoreMotionToken.reveal`；
+  系统「减弱动态效果」开启时连线不生长、改为逐段淡入淡出。调用方自己在 `withAnimation` 里改 `progress` 时，组件用自己的曲线覆盖。
+- **节点入场**：挂载后才变为可见的行（滚入、追加、容器长大露出），节点缩放 0.86 → 1 并淡入；挂载时已在屏上的行（没有滚动宿主时即挂载时的全部行）
+  不播 ⇒ `ImageRenderer` 导出仍是终态。「减弱动态效果」下不播。挂载后改变可见区域再立刻截图的工具会截到入场第 0 帧，
+  用这类工具出图时请注入 `.environment(\.coreMotionPresentationOverride, .resting)`。
+
+## 未发布（相对 `v0.11.0`）——Issue #422：新增 `Tree`
+
+**纯新增，不是破坏。** 已有公开符号一个都没变。新增的公开符号：
+
+| 符号 | 说明 |
+|---|---|
+| `Tree<Data, ID, RowContent>` | 层级树组件：`init(_:id:children:expanded:selection:selectionMode:checked:onActivate:content:)`，另有 `Data.Element: Identifiable` 时省略 `id:` 的便利 init |
+| `TreeSelectionMode` | 行选择模式枚举：`.single` / `.multiple`（`nonisolated`、`Hashable`、`Sendable`、`CaseIterable`） |
+| `Tree.expandedIDs(_:id:children:toDepth:)` | `nonisolated` 静态函数，预算「默认展开到第 N 层」的集合（**根为第 1 层**）；两个同名重载：主类型上一个，`where RowContent == EmptyView` 的扩展上一个（调用处可写 `Tree.expandedIDs(...)` 不带泛型） |
+| `TreeStyle`（`#429`） | `Tree` 的行外观预设，**封闭配置**（`public struct`，无公开 init / 属性 / `Equatable`）：`nonisolated` 静态成员 `.automatic`（默认）/ `.navigator`（整行选中、悬停、缩进参考线、中性色 chevron） |
+| `View.treeStyle(_:)`（`#429`） | 为子树中的所有 `Tree` 设置行外观。**只写 `.treeStyle(.navigator)` 形态**；不要写 `TreeStyle.navigator`、不要把 `TreeStyle` 存成属性——将来升协议时这两种写法编译不过 |
+| `Tree.rowContextMenu(_:)`（`#429`） | builder 方法，为整行（含缩进区）挂右键菜单，返回改了这一项的同一棵树；`Tree` 仍是三个泛型参数。菜单以目标 ID 集合生成：右键的行已选中时为「选中 ∩ 当前可见行」，否则只是这一行。不调用时不挂菜单 |
+| `Tree.searchFilter(_:text:)`（`#423`） | builder 方法，按调用方持有的搜索词过滤行：留下命中 ∪ 祖先 ∪ 后代，临时展开到每个命中；搜索期间的展开 / 折叠不写 `expanded`，搜索词为空（去首尾空白后）即恢复。匹配规则固定：不区分大小写 / 变音符 / 全半角的子串 |
+| `Tree.searchMatches(_:id:children:query:text:)`（`#423`） | `nonisolated` 静态函数，返回搜索词**直接命中**的节点 ID，与 `searchFilter` 同一实现；供宿主算命中数、显示空态、播报结果数。`where RowContent == EmptyView` 上另有免写行内容泛型的同名重载（与 `expandedIDs` 同形） |
+| `Text.init(verbatim:highlighting:)`（`#423`） | 以原文显示并高亮与搜索词匹配的片段（加粗 + `searchMatchBackground` 底色），与 `searchFilter` 同一条匹配规则；仅当传入相同的搜索词与文案时片段与过滤一致 |
+| `Color.searchMatchBackground` / `Color.systemYellow`（`#423`） | 搜索命中底色（第 3 层，系统黄 × 0.35，暗色 × 0.20）与它的第 2 层来源（桥接 `UIColor` / `NSColor.systemYellow`） |
+| `TreeRowClickBehavior`（`#431`） | 单击父行的行为枚举：`.select`（默认，只选中）/ `.selectAndToggleExpansion`（选中并取反展开态）（`nonisolated`、`Hashable`、`Sendable`、`CaseIterable`） |
+| `Tree.rowClickBehavior(_:)`（`#431`） | builder 方法，设置单击父行的行为，返回改了这一项的同一棵树。不调用时与此前相同（`.select`） |
+
+模块 `Localizable.strings` 新增两个 key：`"Expand"` / `"Collapse"`（chevron 的无障碍标签，说的是动作）。
+`#423` 再加一个：`"Applies to filtered results only"`（搜索期间父行复选框的无障碍提示）。
+`"Expanded"` / `"Collapsed"` 此前已由 `CoreDisclosureGroupStyle` 登记，本次复用。
+
+**下游要改什么：通常不用改。** 唯一可能碰到的是**类型名歧义**：下游自己的模块（或它依赖的另一个库）
+若也声明了名为 `Tree` 的类型，同时 `import OhMyDesign` 的文件里裸写 `Tree` 会报
+`'Tree' is ambiguous for type lookup`。改成模块限定名（`OhMyDesign.Tree` 或 `MyModule.Tree`）即可。
+`TreeSelectionMode` 同理，但名字更少见。
+
+**行为（`#429`，同属本未发布小节）：`Tree` 读环境 `controlSize`。** 宿主祖先设了 `.controlSize(.small)`
+（或 `.mini` / `.large` / `.extraLarge`）时，Tree 的行距、缩进、chevron 与复选框字形随档位变化
+（macOS `.small` 行距 22；iOS 各档行距保底 44）；默认 `.regular` 与此前逐项相同。推导表见 tree.md「外观」。
+`CheckBoxToggleStyle` 的公开行为不变。
+
+**行为（`#429`）：命中区扩到整行。** 此前点选区在缩进之内，点缩进区不选中；现在缩进区也选中该行。
+默认外观 `.automatic` 的像素不变（与此前逐像素对照过），**RTL 下展开态的 chevron 除外**（见下条修正）。
+
+**修正（`#429`）：RTL 下展开态的 chevron 朝上。** `#422` 在 RTL 下把旋转角取成 -90°，与系统对字形和旋转的
+RTL 镜像叠加后展开态画成朝上；现在两种书写方向都转 90°，RTL 下展开态朝下。
+
+**行为（`#429`）：展平渲染 + `LazyVStack`，行不再是 `DisclosureGroup` 的 label。** 可见行按深度优先展平成一列，
+放在 `ScrollView` 里时只构建视口附近的行。静态外观与此前逐像素相同（两条腿、128 格矩阵、偏差 0）。
+iOS 的无障碍树有四处变化（iOS `axe describe-ui` 前后对照，详见 tree.md「无障碍与触控」；**macOS 未对照**）：
+视口外的行**不再出现在无障碍树里**，滚进视口才出现；每棵树多一个匿名分组容器；父行复选框的元素类型从
+`Button` 变为 `CheckBox`（与叶行一致）；放在 `ScrollView` 里时行内容里 `Label` 的图标成为独立的图像元素。
+其余元素的类型、label、value、位置不变（同为 iOS 读数）。**下游要改什么：不用改**（公开 API 不变）；依赖「整棵树的行都在无障碍树里」
+的 UI 测试需先把目标行滚进视口。
+
+**新增行为（`#423`）：搜索过滤。** 只在调用了 `searchFilter(_:text:)` 且搜索词非空时生效，其余情况与此前相同。
+搜索期间键盘、`Cmd/Ctrl+A`、右键菜单与焦点只作用于可见行；**父行复选框的三态仍按全部叶后代显示，点击只勾选 / 取消
+被过滤保留的叶后代**（按「保留的叶子是否全勾」翻转，范围外的勾选值不变；不搜索时仍级联全部叶后代）。无结果时不画任何行、
+不显示空态（宿主用 `searchMatches` 判空）。**下游要改什么：不用改。** 可能碰到的是**名字歧义**：下游若自己给 `Color` 扩展了
+`systemYellow` / `searchMatchBackground`，或给 `Text` 扩展了同签名的 `init(verbatim:highlighting:)`，会报重复声明或歧义，
+改名或用模块限定即可。
+
+**新增行为（`#431`）：单击父行可同时展开 / 折叠。** 只在调用了 `.rowClickBehavior(.selectAndToggleExpansion)` 时生效：
+单击父行（行内容或缩进区）选中该行，**另外**取反该行的展开态。`.single` 下再点已选中的父行是「保持选中 + 切换展开」
+（VS Code 式）；`.multiple` 下仍按逐行切换移出选中、展开态照样取反。叶行与 `.select` 下再点已选中的行仍取消选中。
+chevron、复选框、叶行与键盘不受影响；行内容里调用方自己的 `Button` 等控件先接到点击（`Link` 未测），不选中也不切换展开；
+搜索期间的展开只写临时 overlay、不写 `expanded`。开启后父行带无障碍提示 "Activate to expand or collapse"。
+**行为（`#431`，所有调用方）：** 单击行与点 chevron 改为按点击当时的展开态归约（数据与搜索词仍取渲染时的值）——
+折叠动画期间点到正在淡出的行或它的 chevron，这一击什么都不改，也不把键盘焦点拿进树。
+此前按该行渲染时的快照归约，会选中这个已不可见的行（按代码推断，`.select` 下未实测）；`.selectAndToggleExpansion` 下
+按快照归约还会把旧展开态写回，搜索期间实测刚折叠的父行被重新展开——本次一并避开。**下游要改什么：不用改。**
+可能碰到的是**类型名歧义**：下游若也声明了 `TreeRowClickBehavior`，同 `Tree` 一条的处置。
+
+行为契约（两套独立状态、键盘表、Reduce Motion 取值、搜索过滤、单击父行、已知缺口 `#427` / `#428`）见
+[tree.md](components/tree.md)。
+
+## 未发布（相对 `v0.11.0`）——Issue #421：CheckBox 增读系统 mixed 态
+
+**行为新增，不是破坏。** 公开符号一个都没变（`CheckBoxToggleStyle` 仍是无参构造、无配置项），
+off / on 两态在 normal / disabled / invalid 三种外观下与改动前的实现**逐像素对照过**。
+新增的是第三个态：`CheckBoxToggleStyle.makeBody` 现在读 `configuration.isMixed`。
+
+| 位置 | 之前 | 现在 |
+|---|---|---|
+| `CheckBoxToggleStyle` 指示符 | **仅按 `configuration.isOn` 二选一**（`square` / `checkmark.square.fill`），不区分 mixed | 三态：`square` / `minus.square.fill` / `checkmark.square.fill`，mixed 压过 `isOn` |
+| mixed 的取色 | （无此态） | `contentPrimary`，与 on 同为「已作用」；off 仍是 `contentSecondary` |
+| `.coreAnimation(.selection, value:)` 的触发值 | `configuration.isOn` | 三态枚举——否则 off ↔ mixed 不补间 |
+
+**下游要改什么：不用改。** 旧调用点（`Toggle(_:isOn:)`）只会产生 on / off，画出来一字未变。
+想要 mixed 的调用点用系统的 `Toggle(sources:isOn:label:)`——它从一组 `Binding<Bool>` 自动派生
+on / mixed / off，本库不新增任何入参（公开 API 无 Bool 入参这条不破）。示例见
+[checkbox.md](components/checkbox.md)。
+
+⚠️ 已经在用 `Toggle(sources:)` 的调用点会**看到外观变化**：那一行原先按 `isOn`（mixed 下
+实测为 `false`）画成空方框，现在画 `minus.square.fill`。点击行为一字未动——实测 mixed 下
+`isOn.toggle()` 把整组绑定写成全 `true`（全选），读数见 [checkbox.md](components/checkbox.md)。
+
+**Reduce Motion 开启时**：三态之间的符号替换与原来两态同路——`ContentTransition.identity`，
+直接换图、不描画。静息外观与 RM 开关无关。
+
 ## 未发布（相对 `v0.11.0`）——Issue #418：`SlideToConfirm` 滑动确认
 
 **纯新增，无破坏性变更。** 已有公开符号一个都没动。

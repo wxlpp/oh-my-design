@@ -151,7 +151,7 @@ extension ComponentMeta {
         ComponentMeta(id: "steps", name: "Steps", description: "步骤条：4 种呈现（steps / segmentedBar / navigation / text）× 点状 / 数字指示器", category: .indicator) {
             StepsPreview()
         },
-        ComponentMeta(id: "timeline", name: "Timeline", description: "时间线：4 种排布（vertical / alternate / horizontal / grouped），节点 + 连线 + 内容", category: .indicator) {
+        ComponentMeta(id: "timeline", name: "Timeline", description: "时间线：4 种排布（vertical / alternate / horizontal / grouped），节点 + 连线 + 内容；可选阶段（已完成 / 进行中 / 未开始）", category: .indicator) {
             TimelinePreview()
         },
 
@@ -167,6 +167,9 @@ extension ComponentMeta {
         },
         ComponentMeta(id: "carousel", name: "Carousel", description: "走马灯：ScrollView 分页滚动 + 自动轮播 + 页点指示器", category: .layout) {
             CarouselPreview()
+        },
+        ComponentMeta(id: "tree", name: "Tree", description: "层级树：受控展开（Set<ID>）+ 单选 / 多选 + 父节点三态复选框 + W3C Treeview 键盘导航", category: .layout) {
+            TreePreview()
         },
 
         // Container（Phase 2）
@@ -1706,14 +1709,13 @@ private struct StepsPreview: View {
 }
 
 private struct TimelinePreview: View {
-    private static var items: [TimelineItem] {
-        [
-            TimelineItem(status: .info) { Text("已创建").coreFont(.callout) },
-            TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) },
-            TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) },
-            TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) },
-            TimelineItem(status: .neutral) { Text("已归档").coreFont(.callout) },
-        ]
+    @ViewBuilder
+    private static var rows: some View {
+        TimelineItem(status: .info) { Text("已创建").coreFont(.callout) }
+        TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) }
+        TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) }
+        TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) }
+        TimelineItem(status: .neutral) { Text("已归档").coreFont(.callout) }
     }
 
     // ⚠️ `.alternate` 与 `.horizontal` 的几何**只在渲染时可见**，`swift build` / `swift test`
@@ -1722,31 +1724,71 @@ private struct TimelinePreview: View {
     // 恰恰是在内容固有宽度超过半槽时才会破。
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.lg) {
-            Timeline(items: Self.items)
-            Timeline(
-                items: [
-                    TimelineItem(status: .info) {
-                        // 本槽位存在的意义是「非文本的定高内容」，用真实的附件行
-                        // 而不是一块纯色，才看得出 `.alternate` 的对齐。
-                        HStack(spacing: CoreSpacing.xs) {
-                            Image(systemName: "paperclip")
-                                .foregroundStyle(Color.contentSecondary)
-                            Text(verbatim: "合同终稿.pdf").coreFont(.footnote)
-                            Text(verbatim: "2.4 MB").coreFont(.caption)
-                                .foregroundStyle(Color.contentSubtle)
-                        }
-                        .padding(.horizontal, CoreSpacing.sm)
-                        .frame(width: 220, height: 32, alignment: .leading)
-                        .background(Color.surfaceRaised, in: CoreShape.rounded(CoreRadius.small))
-                    },
-                    TimelineItem(status: .success) { Text("短").coreFont(.callout) },
-                    TimelineItem(status: .warning) { Text("再一条").coreFont(.callout) },
-                ],
-                layout: .alternate
-            )
-            Timeline(items: Self.items, layout: .horizontal)
-            Timeline(items: Self.items, layout: .grouped)
+            Timeline { Self.rows }
+            Timeline(layout: .alternate) {
+                TimelineItem(status: .info) {
+                    // 本槽位存在的意义是「非文本的定高内容」，用真实的附件行
+                    // 而不是一块纯色，才看得出 `.alternate` 的对齐。
+                    HStack(spacing: CoreSpacing.xs) {
+                        Image(systemName: "paperclip")
+                            .foregroundStyle(Color.contentSecondary)
+                        Text(verbatim: "合同终稿.pdf").coreFont(.footnote)
+                        Text(verbatim: "2.4 MB").coreFont(.caption)
+                            .foregroundStyle(Color.contentSubtle)
+                    }
+                    .padding(.horizontal, CoreSpacing.sm)
+                    .frame(width: 220, height: 32, alignment: .leading)
+                    .background(Color.surfaceRaised, in: CoreShape.rounded(CoreRadius.small))
+                }
+                TimelineItem(status: .success) { Text("短").coreFont(.callout) }
+                TimelineItem(status: .warning) { Text("再一条").coreFont(.callout) }
+            }
+            Timeline(layout: .horizontal) {
+                TimelineItem("已创建", time: Text(verbatim: "07-20 10:00"), status: .info)
+                TimelineItem("审核通过", time: Text(verbatim: "07-21 14:30"), status: .success)
+                TimelineItem("已归档", time: Text(verbatim: "07-25 08:00"), status: .neutral)
+            }
+            Timeline(layout: .grouped) {
+                Self.rows
+                // `.grouped` 不摆节点：这枚星形图标不显示、也不进无障碍树（调用方未隐藏它）。
+                TimelineItem { Image(systemName: "star.fill") } content: { Text("自定义节点行").coreFont(.callout) }
+            }
+            Timeline { PreviewSnapshotFixtures.timelineActivityRows }
+            Timeline { PreviewSnapshotFixtures.timelineDeployRows }
+            // `.horizontal` 活动流：头像节点未隐藏；末列是不传 status 的无标题自定义节点行（内容不合并）。
+            Timeline(layout: .horizontal) {
+                PreviewSnapshotFixtures.timelineActivityRows
+                TimelineItem { Avatar(name: "Kai", size: .fixed(40)) } content: {
+                    Text(verbatim: "Kai").coreFont(.callout)
+                    Text(verbatim: "left a review").coreFont(.footnote)
+                }
+            }
+            // 默认圆点 + 无标题 + 空内容的行。
+            Timeline {
+                TimelineItem(status: .danger) {}
+                TimelineItem(status: .success) { Text(verbatim: "Next row").coreFont(.callout) }
+            }
+            // 带阶段：订单进度（已完成实心、进行中靶心、未开始空心；已到达连线着 .tint）。
+            Timeline(progress: .inProgress(at: 2)) { PreviewSnapshotFixtures.timelineOrderRows }
+            // 带阶段的自定义节点：阶段外观由节点自己读 `timelinePhase` 决定。
+            Timeline(progress: .inProgress(at: 1)) {
+                TimelineItem("打包", step: 0) { TimelinePhaseIcon() } content: {}
+                TimelineItem("出库", step: 1) { TimelinePhaseIcon() } content: {}
+                TimelineItem("派送", step: 2) { TimelinePhaseIcon() } content: {}
+            }
+            .tint(Color.statusSuccessEmphasis)
+            Timeline(layout: .horizontal, progress: .inProgress(at: 2)) { PreviewSnapshotFixtures.timelineRoadmapRows }
         }
+    }
+}
+
+private struct TimelinePhaseIcon: View {
+    @Environment(\.timelinePhase) private var phase
+
+    var body: some View {
+        Image(systemName: self.phase == .completed ? "checkmark.circle.fill" : (self.phase == .inProgress ? "clock.fill" : "circle"))
+            .foregroundStyle(self.phase == .upcoming ? Color.contentSubtle : Color.statusSuccessEmphasis)
+            .accessibilityHidden(true)
     }
 }
 
@@ -2206,6 +2248,222 @@ private struct NetworkGraphDemo: View {
 
     var body: some View {
         NetworkGraph(nodes: Self.nodes, edges: Self.edges, tint: .teal).frame(height: 260)
+    }
+}
+
+private struct GalleryTreeNode: Identifiable {
+    let id: String
+    let name: String
+    let children: [GalleryTreeNode]?
+}
+
+private struct TreePreview: View {
+    private static let roots: [GalleryTreeNode] = [
+        GalleryTreeNode(id: "design", name: "Design", children: [
+            GalleryTreeNode(id: "tokens", name: "Tokens", children: [
+                GalleryTreeNode(id: "color", name: "Color", children: nil),
+                GalleryTreeNode(id: "spacing", name: "Spacing", children: nil),
+                GalleryTreeNode(id: "motion", name: "Motion", children: nil),
+            ]),
+            GalleryTreeNode(id: "icons", name: "Icons", children: nil),
+        ]),
+        GalleryTreeNode(id: "readme", name: "README.md", children: nil),
+        GalleryTreeNode(id: "tests", name: "Tests", children: [
+            GalleryTreeNode(id: "unit", name: "Unit", children: nil),
+            GalleryTreeNode(id: "snapshot", name: "Snapshot", children: nil),
+        ]),
+    ]
+
+    // ⚠️ 键盘导航在模拟器上只有接了硬件键盘才走得到；这一屏是它唯一的人工检查点。
+    @State private var expanded: Set<String> = Tree<[GalleryTreeNode], String, Text>.expandedIDs(
+        TreePreview.roots, id: \.id, children: \.children, toDepth: 2
+    )
+    @State private var selection: Set<String> = []
+    @State private var checked: Set<String> = ["color"]
+    @State private var activated: String = "—"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                Text(verbatim: "单选 / single").coreFont(.footnote).foregroundStyle(Color.contentSecondary)
+                Tree(
+                    Self.roots,
+                    children: \.children,
+                    expanded: self.$expanded,
+                    selection: self.$selection,
+                    onActivate: { self.activated = $0 }
+                ) { node in
+                    Text(verbatim: node.name).coreFont(.callout)
+                }
+            }
+            VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                Text(verbatim: "多选 + 三态复选框 / multiple + tri-state checkbox")
+                    .coreFont(.footnote).foregroundStyle(Color.contentSecondary)
+                Tree(
+                    Self.roots,
+                    children: \.children,
+                    expanded: self.$expanded,
+                    selection: self.$selection,
+                    selectionMode: .multiple,
+                    checked: self.$checked
+                ) { node in
+                    Text(verbatim: node.name).coreFont(.callout)
+                }
+            }
+            VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+                Text(verbatim: "导航器 / navigator（.treeStyle(.navigator) + .controlSize(.small) + .rowClickBehavior(.selectAndToggleExpansion) + 单选，VS Code Explorer 式：单击替换选中；单击文件夹行即展开 / 折叠，再点已选中的文件夹保持选中）")
+                    .coreFont(.footnote).foregroundStyle(Color.contentSecondary)
+                ExplorerTreePreview()
+            }
+            Text(verbatim: "expanded=\(self.expanded.sorted()) selection=\(self.selection.sorted()) checked=\(self.checked.sorted()) activated=\(self.activated)")
+                .coreFont(.caption)
+                .foregroundStyle(Color.contentSubtle)
+        }
+    }
+}
+
+private struct GalleryFileNode: Identifiable {
+    enum GitStatus { case modified, untracked }
+
+    let id: String
+    let name: String
+    let children: [GalleryFileNode]?
+    var git: GitStatus?
+}
+
+private struct ExplorerTreePreview: View {
+    static let roots: [GalleryFileNode] = [
+        GalleryFileNode(id: "Sources", name: "Sources", children: [
+            GalleryFileNode(id: "Sources/Tree", name: "Tree", children: [
+                GalleryFileNode(id: "Sources/Tree/Tree.swift", name: "Tree.swift", children: nil, git: .modified),
+                GalleryFileNode(id: "Sources/Tree/TreeCore.swift", name: "TreeCore.swift", children: nil),
+                GalleryFileNode(id: "Sources/Tree/TreeStyle.swift", name: "TreeStyle.swift", children: nil, git: .untracked),
+            ]),
+            GalleryFileNode(id: "Sources/Resources", name: "Resources", children: [
+                GalleryFileNode(id: "Sources/Resources/Localizable.strings", name: "Localizable.strings", children: nil),
+            ]),
+        ]),
+        GalleryFileNode(id: "docs", name: "docs", children: [
+            GalleryFileNode(id: "docs/tree.md", name: "tree.md", children: nil, git: .modified),
+            GalleryFileNode(id: "docs/component-registry.json", name: "component-registry.json", children: nil),
+        ]),
+        GalleryFileNode(id: "Package.swift", name: "Package.swift", children: nil),
+        GalleryFileNode(id: "README.md", name: "README.md", children: nil),
+    ]
+
+    @State private var expanded: Set<String> = Tree<[GalleryFileNode], String, Text>.expandedIDs(
+        ExplorerTreePreview.roots, id: \.id, children: \.children, toDepth: 3
+    )
+    @State private var selection: Set<String> = ["Sources/Tree/TreeStyle.swift"]
+    @State private var lastMenuAction: String = "—"
+    @State private var query: String = ""
+
+    private var isSearching: Bool {
+        !self.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var matchCount: Int {
+        Tree.searchMatches(Self.roots, id: \.id, children: \.children, query: self.query, text: \.name).count
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: CoreSpacing.xs) {
+            TextField("Filter files", text: self.$query)
+                .textFieldStyle(.roundedBorder)
+                .controlSize(.small)
+            self.explorer
+            if self.isSearching, self.matchCount == 0 {
+                ContentUnavailableView.search(text: self.query)
+            }
+            if self.isSearching {
+                Text(verbatim: "命中 / matches: \(self.matchCount)（直接命中的节点数，不计只作上下文保留的祖先 / 后代）")
+                    .coreFont(.caption)
+                    .foregroundStyle(Color.contentSecondary)
+            }
+            Text(verbatim: "搜索 / filter: \"\(self.query)\" — expanded=\(self.expanded.sorted())（搜索期间不写）")
+                .coreFont(.caption)
+                .foregroundStyle(Color.contentSubtle)
+            Text(verbatim: "右键菜单 / context menu: \(self.lastMenuAction)")
+                .coreFont(.caption)
+                .foregroundStyle(Color.contentSubtle)
+        }
+        .task(id: self.query) {
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled, self.isSearching else { return }
+            AccessibilityNotification.Announcement("\(self.matchCount) matches").post()
+        }
+    }
+
+    private var explorer: some View {
+        Tree(
+            Self.roots,
+            children: \.children,
+            expanded: self.$expanded,
+            selection: self.$selection,
+            selectionMode: .single
+        ) { node in
+            HStack(spacing: CoreSpacing.xs) {
+                Label {
+                    Text(verbatim: node.name, highlighting: self.query)
+                        .foregroundStyle(Self.tint(for: node.git) ?? Color.contentPrimary)
+                        .lineLimit(1)
+                } icon: {
+                    Image(systemName: Self.icon(for: node))
+                        .foregroundStyle(Color.contentSecondary)
+                }
+                .coreFont(.callout)
+                Spacer(minLength: 0)
+                if let git = node.git {
+                    Text(verbatim: Self.letter(for: git))
+                        .coreFont(.caption)
+                        .foregroundStyle(Self.tint(for: git) ?? Color.contentSecondary)
+                }
+            }
+        }
+        .searchFilter(self.query, text: \.name)
+        .rowClickBehavior(.selectAndToggleExpansion)
+        .rowContextMenu { targets in
+            Button("New File", systemImage: "doc.badge.plus") {
+                self.lastMenuAction = "New File in \(targets.sorted())"
+            }
+            Button("Rename", systemImage: "pencil") {
+                self.lastMenuAction = "Rename \(targets.sorted())"
+            }
+            .disabled(targets.count != 1)
+            Divider()
+            Button("Delete \(targets.count) item(s)", systemImage: "trash", role: .destructive) {
+                self.lastMenuAction = "Delete \(targets.sorted())"
+            }
+        }
+        .treeStyle(.navigator)
+        .controlSize(.small)
+        .padding(.vertical, CoreSpacing.xs)
+        .surface(.content)
+    }
+
+    private static func icon(for node: GalleryFileNode) -> String {
+        guard node.children == nil else { return "folder" }
+        switch (node.name as NSString).pathExtension {
+        case "swift": return "swift"
+        case "md": return "doc.richtext"
+        case "json": return "curlybraces"
+        default: return "doc"
+        }
+    }
+
+    private static func letter(for status: GalleryFileNode.GitStatus) -> String {
+        switch status {
+        case .modified: "M"
+        case .untracked: "U"
+        }
+    }
+
+    private static func tint(for status: GalleryFileNode.GitStatus?) -> Color? {
+        switch status {
+        case .modified: .warning
+        case .untracked: .success
+        case nil: nil
+        }
     }
 }
 

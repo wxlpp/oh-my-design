@@ -1,4 +1,9 @@
 import SwiftUI
+#if canImport(UIKit)
+    import UIKit
+#else
+    import AppKit
+#endif
 
 // MARK: - Interaction Colors / 交互颜色
 
@@ -49,6 +54,23 @@ public extension Color {
     static let neutralAccentPressed = Color.grey7
     static let neutralAccentDisabled = Color.grey2
 
+    // MARK: - 搜索命中 / Search match
+
+    /// 搜索命中片段的底色：系统黄淡染（亮色 35%、暗色 20%），与选中底色（强调色派生）分开，选中行上仍看得出命中。
+    /// 暗色取更淡的一档，是为了不压低叠在上面的彩色文字（如 git 状态色）的对比度。
+    static var searchMatchBackground: Color {
+        #if canImport(UIKit)
+            Color(uiColor: UIColor { traits in
+                UIColor.systemYellow.withAlphaComponent(traits.userInterfaceStyle == .dark ? 0.2 : 0.35)
+            })
+        #else
+            Color(nsColor: NSColor(name: nil) { appearance in
+                let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+                return NSColor.systemYellow.withAlphaComponent(isDark ? 0.2 : 0.35)
+            })
+        #endif
+    }
+
     /// 常规选中态背景：低调的强调色淡染。
     static var selectionBackground: Color {
         .accentSubtleBackground
@@ -86,7 +108,7 @@ public extension Color {
 
 // MARK: - 派生公式（单一来源）/ Derivation, single source
 
-/// accent 族四个派生态的**唯一**公式来源。静态 token 与 `ButtonRoleStyleRole`
+/// accent 族派生态的**唯一**公式来源。静态 token 与 `ButtonRoleStyleRole`
 /// 都调这里——两处各写一遍必然漂，而漂了不会有任何东西报错。
 extension Color {
     static func accentHover(from base: Color) -> Color {
@@ -103,6 +125,10 @@ extension Color {
 
     static func accentSubtleBackground(from base: Color) -> Color {
         base.opacity(0.08)
+    }
+
+    static func accentSelectedRowBackground(from base: Color) -> Color {
+        base.opacity(0.16)
     }
 
     static func accentSelectedBorder(from base: Color) -> Color {

@@ -416,18 +416,74 @@ private struct SkeletonPreviewsPreviewGallery: View {
 }
 
 
+// 快照宿主在挂载后才重排 / 展开版面，屏外的行随后变为可见会触发入场、截到第 0 帧；文档快照只要终态，Timeline 预览固定 `.resting`。
 #Preview("Timeline") {
-    Timeline(items: [
+    Timeline {
         TimelineItem(status: .success) {
             Text("审核通过").coreFont(.callout)
-        },
+        }
         TimelineItem(status: .warning) {
             Text("即将过期提醒").coreFont(.callout)
-        },
+        }
         TimelineItem(status: .danger) {
             Text("处理失败").coreFont(.callout)
-        },
-    ])
+        }
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+    .environment(\.coreMotionPresentationOverride, .resting)
+}
+
+#Preview("Timeline Activity") {
+    // 活动流：40pt 头像大于 24pt 下限，撑宽节点列；分组标题与纯运行期摘要是非行子视图 / 无标题行。
+    Timeline { PreviewSnapshotFixtures.timelineActivityRows }
+        .padding()
+        .background(Color.surfaceCanvas)
+        .environment(\.coreMotionPresentationOverride, .resting)
+}
+
+#Preview("Timeline Deploy Log") {
+    // 部署日志：自定义图标节点 + `status:`，状态随标题播报，图标自身的 label 已隐藏。
+    Timeline { PreviewSnapshotFixtures.timelineDeployRows }
+        .padding()
+        .background(Color.surfaceCanvas)
+        .environment(\.coreMotionPresentationOverride, .resting)
+}
+
+#Preview("Timeline Phases") {
+    // 带阶段：订单进度（纵向，默认圆点三形态 + 已到达连线着 .tint）与路线图（横向）。
+    VStack(alignment: .leading, spacing: CoreSpacing.xl) {
+        Timeline(progress: .inProgress(at: 2)) { PreviewSnapshotFixtures.timelineOrderRows }
+        Timeline(layout: .horizontal, progress: .inProgress(at: 2)) { PreviewSnapshotFixtures.timelineRoadmapRows }
+    }
+    .padding()
+    .background(Color.surfaceCanvas)
+    .environment(\.coreMotionPresentationOverride, .resting)
+}
+
+#Preview("Tree") {
+    VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+        Tree(
+            PreviewSnapshotFixtures.treeNodes,
+            children: \.children,
+            expanded: .constant(["design", "tokens"]),
+            selection: .constant(["icons"]),
+            selectionMode: .multiple,
+            checked: .constant(["color"])
+        ) { node in
+            Text(verbatim: node.name).coreFont(.callout)
+        }
+        Tree(
+            PreviewSnapshotFixtures.treeNodes,
+            children: \.children,
+            expanded: .constant(["design", "tokens", "tests"]),
+            selection: .constant(["spacing"])
+        ) { node in
+            Label(node.name, systemImage: node.children == nil ? "doc" : "folder").coreFont(.callout)
+        }
+        .treeStyle(.navigator)
+        .controlSize(.small)
+    }
     .padding()
     .background(Color.surfaceCanvas)
 }
@@ -438,22 +494,20 @@ private struct SkeletonPreviewsPreviewGallery: View {
     // 结构上暴露不出这个 case。
     ScrollView {
         VStack(alignment: .leading, spacing: CoreSpacing.lg) {
-            Timeline(
-                items: [
-                    TimelineItem(status: .info) {
-                        Color.statusAccentEmphasis.frame(width: 220, height: 32)
-                    },
-                    TimelineItem(status: .success) { Text("短").coreFont(.callout) },
-                    TimelineItem(status: .warning) { Text("再一条").coreFont(.callout) },
-                ],
-                layout: .alternate
-            )
-            Timeline(items: PreviewSnapshotFixtures.timelineItems, layout: .horizontal)
-            Timeline(items: PreviewSnapshotFixtures.timelineItems, layout: .grouped)
+            Timeline(layout: .alternate) {
+                TimelineItem(status: .info) {
+                    Color.statusAccentEmphasis.frame(width: 220, height: 32)
+                }
+                TimelineItem(status: .success) { Text("短").coreFont(.callout) }
+                TimelineItem(status: .warning) { Text("再一条").coreFont(.callout) }
+            }
+            Timeline(layout: .horizontal) { PreviewSnapshotFixtures.timelineRows }
+            Timeline(layout: .grouped) { PreviewSnapshotFixtures.timelineRows }
         }
         .padding()
     }
     .background(Color.surfaceCanvas)
+    .environment(\.coreMotionPresentationOverride, .resting)
 }
 
 #Preview("Timeline Alternate Widths") {
@@ -469,7 +523,7 @@ private struct SkeletonPreviewsPreviewGallery: View {
     // @3x 占 30px ⇒ 中心落在 x.5；1pt 连线 @3x 占 3px ⇒ 中心落在整数。两者奇偶必然不同，
     // 差半个像素消不掉。真正的回归长什么样有参照：第 3 轮那次是 **7.2pt**（= (24-10)/2）。
     //
-    // ⇒ 「不会冻结」由 `TimelineAlternateRowLayout` **无存储状态**这一结构事实保证（槽宽每次
+    // ⇒ 「不会冻结」由 `TimelineStackLayout` **无存储状态**这一结构事实保证（槽宽每次
     // `sizeThatFits` / `placeSubviews` 都从 proposal 现算），不由本预览保证。留着它是因为
     // 「不同宽度下各自居中 + 连线穿过圆点」本身值得看 —— 第 4 轮的 7pt 偏移正是在这张图上
     // 被量出来的。
@@ -479,7 +533,7 @@ private struct SkeletonPreviewsPreviewGallery: View {
                 Text(verbatim: "容器宽 \(Int(width))pt")
                     .coreFont(.caption)
                     .foregroundStyle(Color.contentSecondary)
-                Timeline(items: PreviewSnapshotFixtures.timelineItems, layout: .alternate)
+                Timeline(layout: .alternate) { PreviewSnapshotFixtures.timelineRows }
                     .frame(width: width)
                     .background(Color.surfaceRaised)
             }
@@ -487,6 +541,7 @@ private struct SkeletonPreviewsPreviewGallery: View {
     }
     .padding()
     .background(Color.surfaceCanvas)
+    .environment(\.coreMotionPresentationOverride, .resting)
 }
 
 #Preview("Spinning Presentations") {
@@ -528,13 +583,92 @@ enum PreviewSnapshotFixtures {
         ]
     }
 
-    static var timelineItems: [TimelineItem] {
+    @ViewBuilder
+    static var timelineRows: some View {
+        TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) }
+        TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) }
+        TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) }
+    }
+
+    /// 活动流参考形态：非行分组标题 + 头像节点的标题行 + 纯运行期文本的无标题行。
+    @ViewBuilder
+    static var timelineActivityRows: some View {
+        Text(verbatim: "Today")
+            .coreFont(.footnote)
+            .foregroundStyle(Color.contentSecondary)
+        ForEach(Self.timelineActivityEvents, id: \.actor) { event in
+            TimelineItem("\(event.actor) pushed \(event.count) commits", time: Text(verbatim: event.time)) {
+                Avatar(name: event.actor, size: .fixed(40))
+            } content: {}
+        }
+        TimelineItem {
+            Text(verbatim: "CI summary from server: 3 checks passed").coreFont(.callout)
+        }
+    }
+
+    static var timelineActivityEvents: [(actor: String, count: Int, time: String)] {
+        [("Evan", 3, "2h ago"), ("Mia", 2, "5h ago")]
+    }
+
+    /// 部署日志参考形态：逐项 success / danger 的自定义图标节点，状态随标题播报。
+    @ViewBuilder
+    static var timelineDeployRows: some View {
+        ForEach(Self.timelineDeploys, id: \.version) { deploy in
+            TimelineItem(
+                "Deployed \(deploy.version)", time: Text(verbatim: deploy.time), status: deploy.ok ? .success : .danger
+            ) {
+                Image(systemName: deploy.ok ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                    .foregroundStyle(deploy.ok ? Color.statusSuccessEmphasis : Color.statusDangerEmphasis)
+                    .accessibilityHidden(true)
+            } content: {
+                Text(verbatim: deploy.commit).coreFont(.caption).monospaced()
+            }
+        }
+    }
+
+    /// 订单进度参考形态：每行写 `step`，阶段由容器的 `progress` 决定。
+    @ViewBuilder
+    static var timelineOrderRows: some View {
+        TimelineItem("已下单", time: Text(verbatim: "09:00"), step: 0)
+        TimelineItem("已付款", time: Text(verbatim: "09:02"), step: 1)
+        TimelineItem("配送中", description: "预计今天 18:00 前送达", step: 2)
+        TimelineItem("已签收", step: 3)
+    }
+
+    /// 路线图参考形态（横向）。
+    @ViewBuilder
+    static var timelineRoadmapRows: some View {
+        TimelineItem("Q1 Alpha", step: 0)
+        TimelineItem("Q2 Beta", step: 1)
+        TimelineItem("Q3 GA", description: "Public launch", step: 2)
+        TimelineItem("Q4 v2", step: 3)
+    }
+
+    static var timelineDeploys: [(version: String, time: String, ok: Bool, commit: String)] {
+        [("1.4.0", "09:12", true, "a1b2c3d"), ("1.4.1", "11:40", false, "e4f5a6b"), ("1.4.2", "12:05", true, "c7d8e9f")]
+    }
+
+    static var treeNodes: [SnapshotTreeNode] {
         [
-            TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) },
-            TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) },
-            TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) },
+            SnapshotTreeNode(id: "design", name: "Design", children: [
+                SnapshotTreeNode(id: "tokens", name: "Tokens", children: [
+                    SnapshotTreeNode(id: "color", name: "Color", children: nil),
+                    SnapshotTreeNode(id: "spacing", name: "Spacing", children: nil),
+                ]),
+                SnapshotTreeNode(id: "icons", name: "Icons", children: nil),
+            ]),
+            SnapshotTreeNode(id: "readme", name: "README.md", children: nil),
+            SnapshotTreeNode(id: "tests", name: "Tests", children: [
+                SnapshotTreeNode(id: "unit", name: "Unit", children: nil),
+            ]),
         ]
     }
+}
+
+struct SnapshotTreeNode: Identifiable {
+    let id: String
+    let name: String
+    let children: [SnapshotTreeNode]?
 }
 
 #Preview("Rating") {

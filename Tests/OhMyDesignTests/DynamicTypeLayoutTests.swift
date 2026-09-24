@@ -197,18 +197,14 @@ struct DynamicTypeLayoutTests {
 
     @Test("Timeline 节点+内容行在 accessibility5 下行高随 Dynamic Type 增长、不重叠裁切")
     func timelineGrowsWithDynamicTypeWithoutOverlap() {
-        let timeline = Timeline(items: [
-            TimelineItem(status: .info) {
-                VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
-                    Text("A sufficiently long timeline entry title to wrap at accessibility sizes")
-                        .coreFont(.callout)
-                    Text("2026-07-20 10:00").coreFont(.footnote)
-                }
-            },
-            TimelineItem(status: .success) {
-                Text("Second entry").coreFont(.callout)
-            },
-        ])
+        let timeline = Timeline {
+            TimelineItem(
+                "A sufficiently long timeline entry title to wrap at accessibility sizes",
+                time: Text("2026-07-20 10:00"),
+                status: .info
+            )
+            TimelineItem("Second entry", status: .success)
+        }
         let small = self.renderedHeight(timeline, at: .large)
         let ax5 = self.renderedHeight(timeline, at: .accessibility5)
         #expect(small > 0, "渲染失败（uiImage nil）")

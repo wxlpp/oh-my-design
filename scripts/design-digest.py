@@ -39,10 +39,17 @@ FLOORS = {
     # #398：colors +2（systemGray5 / statusNeutralSubtle）。
     # #407：motion 新节 4（press / selection / reveal / scroll）、enums +1（CoreMotionToken）、
     # enumcases +4（同上四档）、viewext +1（View.coreAnimation）。
+    # #422：components +1（Tree）、enums +1（TreeSelectionMode）、enumcases +2（single / multiple）。
+    # #429：viewext +1（View.treeStyle）、others +1（TreeStyle，封闭 struct，不是协议也不是枚举）。
+    # #423：colors +2（systemYellow / searchMatchBackground）；Tree.searchFilter 与 Text.init(verbatim:highlighting:) 不在任何计数节里。
+    # #431：enums +1（TreeRowClickBehavior）、enumcases +2（select / selectAndToggleExpansion）；Tree.rowClickBehavior 不在任何计数节里。
+    # #420：TimelineItem 由数据载体 struct 变为 View ⇒ others −1、components +1。
+    # #420 PR 3：enums +2（TimelineProgress / TimelinePhase）、enumcases +6（3 + 3）；
+    # Timeline.init(layout:progress:content:) 与 EnvironmentValues.timelinePhase 不在任何计数节里。
     # #417：components +1（StatefulButton）、enums +1（StatefulButtonState）、
     # enumcases +4（idle / loading / success / failure）。#418：components +1（SlideToConfirm）。
-    "colors": 122, "components": 91, "enums": 46, "enumcases": 159,
-    "protocols": 6, "viewext": 46, "styleext": 15, "others": 28,
+    "colors": 124, "components": 93, "enums": 50, "enumcases": 169,
+    "protocols": 6, "viewext": 47, "styleext": 15, "others": 28,
 }
 
 # 组件判定：conformance 列表里出现这些名字之一，或以 Style 结尾。

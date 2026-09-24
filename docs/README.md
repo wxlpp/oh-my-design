@@ -61,6 +61,7 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 33 个 Apple HIG 对齐组件（�
 | ListRow | [<img src="snapshots/OhMyDesignPreview_Previews.swift_ListRow.png" width="200">](components/list-row.md) | [list-row.md](components/list-row.md) |
 | FlowLayout | [<img src="snapshots/OhMyDesignPreview_Previews.swift_FlowLayout.png" width="200">](components/flow-layout.md) | [flow-layout.md](components/flow-layout.md) |
 | Carousel | [<img src="snapshots/OhMyDesignPreview_Previews.swift_Carousel.png" width="200">](components/carousel.md) | [carousel.md](components/carousel.md) |
+| Tree | [<img src="snapshots/OhMyDesignPreview_Previews.swift_Tree.png" width="200">](components/tree.md) | [tree.md](components/tree.md) |
 
 ### Container 容器（Phase 2 · `0.4.0`）
 

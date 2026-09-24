@@ -28,7 +28,7 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 
 1. **资源调色板**（`Colors/ColorGrade.swift`）—— 17 种命名色相 × 10 个色阶（`brand-0`…`yellow-9`），由 `Resources.xcassets` 中的 color set 提供。通过 `Color("...", bundle: .module)` 加载。第 3 层迁到系统色后，本层现仅为 `StatusColors`（24 个状态色 token，Apple 无对应系统概念）与 `InteractionColors` 的 `secondaryAccent` / `neutralAccent` 族（显式定案保留品牌色阶）供色；组件代码中应避免直接使用第 1 层。
 2. **系统色桥接**（`Colors/SystemBackgroundColors.swift`、`SystemLabelColors.swift`）—— 通过 `#if canImport(UIKit)` / `AppKit` 把 `UIColor` / `NSColor` 系统色重新导出为 `Color`，保证同一名称在两端平台都能编译。现在是第 3 层大多数 token 的直接来源。
-3. **语义化 token**——`SurfaceColors`、`ContentColors`、`BorderColors`、`FillColors`、`InteractionColors`、`StatusColors`。命名描述用途而非色相（`surfaceRaised`、`contentPrimary`、`accent`、`accentPressed`、`statusDangerForeground`）。多数 token 直接改指系统语义色（`systemGroupedBackground` 族、`label` 族、`separator` 族、`systemFill` 族），随系统外观 / 对比度设置自动更新；`accent` 是**墨色**——第 2 层新桥接 `Color.inkPrimary`（iOS `label` / macOS `textColor`；⚠️ macOS 取 `textColor` 而非 `labelColor`，后者实测 α = 0.8471 会让每个比例都落不准）。**不再跟随宿主 `Color.accentColor`**；宿主换色走 `View.coreAccent(_:)`（`@Entry var coreAccent`），四个衍生态自动跟随。衍生态用 `Color.mix(with:by:in:)` / `.opacity()` 对 `accent` 调制，**混合目标是 `surfaceBase`（朝向背景）**——墨色处在明度极值，无法「更远离背景」。公式收成 `Color.accentHover(from:)` 等四个 internal `static func`，静态 token 与 `ButtonRoleStyleRole` 都调它，避免两处各写一遍。⚠️ 图表 / tag 走 **`dataAccent`**（系统蓝），刻意不跟随 accent——墨色的环会读成禁用。例外是 `TagGroup` 的**选中态**（底色 / 描边）：那是交互色，从环境 `coreAccent` 派生；tag 的内容色仍由调用方决定。`secondaryAccent`（现为 `grey7/8/9/2`）/ `neutralAccent` / `StatusColors` 显式定案保留 `ColorGrade` 品牌色阶——Apple HIG 没有"第二强调色"或"5 态状态色板"的系统概念，无桥接目标。
+3. **语义化 token**——`SurfaceColors`、`ContentColors`、`BorderColors`、`FillColors`、`InteractionColors`、`StatusColors`。命名描述用途而非色相（`surfaceRaised`、`contentPrimary`、`accent`、`accentPressed`、`statusDangerForeground`）。多数 token 直接改指系统语义色（`systemGroupedBackground` 族、`label` 族、`separator` 族、`systemFill` 族），随系统外观 / 对比度设置自动更新；`accent` 是**墨色**——第 2 层新桥接 `Color.inkPrimary`（iOS `label` / macOS `textColor`；⚠️ macOS 取 `textColor` 而非 `labelColor`，后者实测 α = 0.8471 会让每个比例都落不准）。**不再跟随宿主 `Color.accentColor`**；宿主换色走 `View.coreAccent(_:)`（`@Entry var coreAccent`），四个衍生态自动跟随。衍生态用 `Color.mix(with:by:in:)` / `.opacity()` 对 `accent` 调制，**混合目标是 `surfaceBase`（朝向背景）**——墨色处在明度极值，无法「更远离背景」。公式收成 `Color.accentHover(from:)` 等 internal `static func`，静态 token 与 `ButtonRoleStyleRole` 都调它，避免两处各写一遍。⚠️ 图表 / tag 走 **`dataAccent`**（系统蓝），刻意不跟随 accent——墨色的环会读成禁用。例外是 `TagGroup` 的**选中态**（底色 / 描边）：那是交互色，从环境 `coreAccent` 派生；tag 的内容色仍由调用方决定。`secondaryAccent`（现为 `grey7/8/9/2`）/ `neutralAccent` / `StatusColors` 显式定案保留 `ColorGrade` 品牌色阶——Apple HIG 没有"第二强调色"或"5 态状态色板"的系统概念，无桥接目标。
 4. **状态功能别名**（`Colors/FunctionalColor.swift`）—— `success`、`info`、`warning`、`danger` 及其现有变体。本层为 `public`，是最高层的 API 表面。
 
    **交互色不在此层**——`accent` / `secondaryAccent` / `neutralAccent` 等走第 3 层 `InteractionColors`。该层曾定义 `Color.primary/secondary/tertiary` 三组，因与 SwiftUI 内建成员同名而遮蔽它们（删除时编译器不报错，只静默改变解析目标），已于 Issue #93 移除。
@@ -85,6 +85,8 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 - 通过 `EnvironmentValues` 入口（`@Entry var bannerStyle`）和 `View.bannerStyle(_:)` modifier 注入。
 
 新增带样式的组件时复用该形态，不要另立平行模式。
+
+⚠️ 刻意例外：`TreeStyle`（`#429`）是**封闭外观配置**（`public struct` + `.automatic` / `.navigator` 两个静态成员，无公开 init / 属性），不是协议——理由见 `docs/superpowers/specs/2026-09-23-tree-style-design.md` §2.1。除非按那里的兼容路径升级（modifier 改取 `treeStyle(_: any TreeStyle)`，**不是** `some TreeStyle`），勿改成协议。
 
 ### 系统控件 `.core` style 与分组容器（Phase 2 / `0.4.0`）
 
@@ -321,9 +323,9 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
   **根本不带 `@MainActor`**（`defaultIsolation` 不作用于外来模块类型的扩展）；
   真实形态是**显式**写 `@MainActor`，或扩展一个自身就是 `@MainActor` 的第三方类型。
 
-### 「退出码 0，却一条测试都没跑」——已实测到的五种形态（`#302`）
+### 「退出码 0，却一条测试都没跑」——已实测到的六种形态（`#302` / `#429`）
 
-⚠️ 五种的共同点：**退出码是成功的**。只看 `$?` 的验证纪律对它们全部免疫，
+⚠️ 六种的共同点：**退出码是成功的**。只看 `$?` 的验证纪律对它们全部免疫，
 必须核对「到底跑了几条」。除第 4 条另有标注外，以下每条都在本仓实测过
 （Swift 6.3 / Xcode 26.4）：
 
@@ -390,6 +392,14 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
    —— 三个 target 都开了 `.defaultIsolation(MainActor.self)`，报
    `main actor-isolated initializer 'init()' has different actor isolation from nonisolated
    overridden declaration`。⇒ 那次尝试**不下结论**，成因仍然是开放问题。
+
+6. **某条测试让 `swift test` 进程中途以退出码 0 退出 ⇒ 后面的测试全部不跑**（`#429` 实测）。
+   形态：托管窗口里经 `sendEvent` 合成 `rightMouseDown` 让 `NSMenu` 进入模态追踪，再在
+   `didBeginTrackingNotification` 里异步 `cancelTracking()` 退出——该测试本身通过，返回后进程退出
+   （退出栈 `swift_task_asyncMainDrainQueue` → `exit`），`EXIT=0`，输出里**没有 `Test run with` 行**；
+   改成同步 `cancelTracking()` 则进程挂住。⇒ 判据：`Test run with` 行必须**存在**且条数对得上基线，
+   只看退出码会判绿。`main` 的 `ci.yml` 没有那道 `grep -qE 'Test run with [1-9]…'` 网 ⇒ 这类测试进了
+   `main` 会在 CI 上判绿、静默丢掉其后全部测试。详情见 `docs/components/tree.md`「右键菜单的真实唤起路径」。
 
 ⚠️ **`#302` 把第 5 条记成了「`--build-system swiftbuild --filter` 静默跑零个测试」——
 复现不出来**（本次在 `main` 与 `epic/shipswift-shaders` 各测一遍）：后者上

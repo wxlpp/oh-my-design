@@ -242,7 +242,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | `Color.dangerDisable` | → `.red2` |
 | `Color.dangerHover` | → `.red6` |
 
-## `InteractionColors`（21）
+## `InteractionColors`（22）
 
 | token | 说明 |
 |---|---|
@@ -261,6 +261,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | `Color.neutralAccentHover` | → `Color.grey6` |
 | `Color.neutralAccentPressed` | → `Color.grey7` |
 | `Color.neutralAccentDisabled` | → `Color.grey2` |
+| `Color.searchMatchBackground` | 搜索命中片段的底色：系统黄淡染（亮色 35%、暗色 20%），与选中底色（强调色派生）分开，选中行上仍看得出命中。 |
 | `Color.selectionBackground` | 常规选中态背景：低调的强调色淡染。 |
 | `Color.selectionBackgroundEmphasis` | 强调选中态背景：实心 `accent`，与 `contentOnAccent` 前景配对（该前景随主题反转，不再是白字）。 |
 | `Color.hoverBackground` | 中性 hover 底色。 |
@@ -335,7 +336,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | `Color.secondarySystemGroupedBackground` | 分组界面主要背景上层内容的颜色。 |
 | `Color.tertiarySystemGroupedBackground` | 内容层叠在分组界面次要背景之上的颜色。 |
 
-## `SystemLabelColors`（13）
+## `SystemLabelColors`（14）
 
 | token | 说明 |
 |---|---|
@@ -351,6 +352,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | `Color.opaqueSeparator` | 不透明的分隔线颜色，完全遮住下层内容（`UIColor.opaqueSeparator`）。 |
 | `Color.link` | 可点击链接文本的颜色，桥接 `UIColor.link` / `NSColor.linkColor`。 |
 | `Color.systemRed` | 系统红，桥接 `UIColor.systemRed` / `NSColor.systemRed`，随外观与对比度设置自动适配。 |
+| `Color.systemYellow` | 系统黄，桥接 `UIColor.systemYellow` / `NSColor.systemYellow`，随外观与对比度设置自动适配。 |
 | `Color.systemGray5` | 不透明的中浅灰，桥接 `UIColor.systemGray5`，明暗两种外观 α 均为 1。 |
 
 
@@ -447,7 +449,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 
 ### `Components/CheckBox/CheckBox.swift`
 
-- **`CheckBoxToggleStyle`** *: ToggleStyle* — 复选框样式 / CheckBox toggle style：把 SwiftUI `Toggle` 渲染为左侧方框 + 右侧 label 的复选框形态。
+- **`CheckBoxToggleStyle`** *: ToggleStyle* — 复选框样式 / CheckBox toggle style：把 SwiftUI `Toggle` 渲染为左侧方框 + 右侧 label 的复选框形态；勾选 / 未勾选之外，还读系统从 `Toggle(sources:isOn:)` 派生的 mixed 态并画出第三种符号。
 
 ### `Components/Form/Form.swift`
 
@@ -638,13 +640,21 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 
 ### `Components/Timeline/Timeline.swift`
 
-- **`Timeline`** *: View* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
+- **`Timeline`** *<Content: View>: View* — 组合式时间线：直接子视图里的 `TimelineItem` 是行（自己画节点），其余子视图（分组标题、页脚等） 是没有节点的非行子视图。（材质层: 内容 / 表面角色: 内容）
+- **`TimelineItem`** *<Node: View, Content: View>: View* — `Timeline` 的一行：自己画节点（默认圆点或 `node:` 槽），节点与内容作为两个子视图交给容器排布。
 - *enum* **`TimelineLayout`** — `Timeline` 的**整体排布形态**——与 `TimelineItem` 的 `node:` 外观槽**正交**： 本枚举决定「这组节点怎么排」，`node:` 决定「单个节点画成什么」。
-  - `.vertical` — 默认：左侧固定节点列 + 右侧内容，节点间竖向连线（现状形态）。
+  - `.vertical` — 默认：左侧节点列 + 右侧内容，节点间竖向连线（现状形态）。
   - `.alternate` — 左右交替：内容在中轴两侧交替排布。 业界来源：Ant Design Timeline 的 `mode="alternate"`。
-  - `.horizontal` — 横向：节点沿水平轴排列，内容在节点下方。 业界来源：PowerPoint SmartArt 的 Basic Timeline / Final Cut Pro 的横向事件时间线。
+  - `.horizontal` — 横向：节点沿水平轴排列，节点间有连线，内容在节点下方。 业界来源：PowerPoint SmartArt 的 Basic Timeline / Final Cut Pro 的横向事件时间线。
   - `.grouped` — 无连线的分组列表：删掉节点列与连线，只留内容；本形态下 `TimelineItem.node:` 槽不生效。
-- *struct* **`TimelineItem`** — `Timeline` 单条节点的数据载体。
+- *enum* **`TimelineProgress`** — 带阶段的时间线推进到哪里：与每行的 `step` 一起决定各行阶段与连线着色。
+  - `.notStarted` — 全部带 `step` 的行处于 `.upcoming`。
+  - `.inProgress` — `step` 小于参数的行已完成、等于的行进行中、大于的行未开始；参数不等于任何行的 `step` 时没有进行中的行。
+  - `.completed` — 全部带 `step` 的行已完成。
+- *enum* **`TimelinePhase`** — 一行在带阶段时间线里的阶段；只决定默认圆点形态、连线着色与无障碍播报，色相仍由 `status` 决定。
+  - `.completed` — 已完成：实心圆点，通向它的连线着 `.tint`。
+  - `.inProgress` — 进行中：实心圆点 + 隔一圈透明间隙的同色实线外环，通向它的连线着 `.tint`。
+  - `.upcoming` — 未开始：同色空心圆点，通向它的连线为底线色。
 
 ### `Components/Toast/Toast.swift`
 
@@ -659,6 +669,23 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 - *struct* **`ToastAction`** — Toast 上的单个动作按钮。
 - *enum* **`ToastDefaults`** — Toast 行为的默认值常量集合。
 - *final class* **`ToastHost`** — Scene 级的浮层 toast 队列与调度器，外壳形状由 `ToastPresentation` 三选一。
+
+### `Components/Tree/Tree.swift`
+
+- **`Tree`** *<Data: RandomAccessCollection, ID: Hashable, RowContent: View>: View* — 递归层级树 / Recursive tree：受控展开 + 行选中（单选 / 多选）+ 可选的三态复选框 + W3C ARIA Treeview 键盘导航。
+
+### `Components/Tree/TreeCore.swift`
+
+- *enum* **`TreeSelectionMode`** — `Tree` 的行选择模式。
+  - `.single` — 单选：选中一个未选行时，替换已选集合里属于本树的全部 ID（含被折叠而不可见的）。 不属于本树数据的 ID 原样保留；再选同一行取消（允许空选）。
+  - `.multiple` — 多选：逐行切换选中态。
+- *enum* **`TreeRowClickBehavior`** — 单击 `Tree` 的**父行**（行内容或缩进区，不含 chevron 与复选框）时做什么；经 `Tree.rowClickBehavior(_:)` 设置。
+  - `.select` — 只选中（默认）：展开 / 折叠只经 chevron 与 `←` / `→`。
+  - `.selectAndToggleExpansion` — 选中并切换展开（VS Code Explorer 式）：单击父行同时取反该行的展开态。
+
+### `Components/Tree/TreeStyle.swift`
+
+- *struct* **`TreeStyle`** — `Tree` 的行外观预设：`.automatic`（默认）或 `.navigator`。
 
 ### `Environment/EnergyPolicy.swift`
 
@@ -968,7 +995,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 
 # Modifier / Transition 入口点
 
-共 46 个（按 `Host.member` 去重，含参重载算一条）。
+共 47 个（按 `Host.member` 去重，含参重载算一条）。
 
 | target | 入口 | 说明 |
 |---|---|---|
@@ -982,6 +1009,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | `OhMyDesign` | `.segmentedControlStyle` on `View` | 为子树中的所有 `SegmentedControl` 设置外观（对齐 `View.bannerStyle(_:)`）。 |
 | `OhMyDesign` | `.skeletonShimmer` on `View` | 骨架屏 shimmer 扫光叠加。 |
 | `OhMyDesign` | `.toastHost` on `View` | 在当前 view 子树挂载一个 scene-scoped `ToastHost`，并在 `edge` 方向以 `safeAreaInset` 渲染当前队列的首条 toast。 |
+| `OhMyDesign` | `.treeStyle` on `View` | 为子树中的所有 `Tree` 设置行外观。 |
 | `OhMyDesign` | `.anchoredBadge` on `View` | 在宿主的一个角上叠加红点 / 计数 / 短文案徽标，不改变宿主布局尺寸。 |
 | `OhMyDesign` | `.bordered` on `View` | 叠加一圈描边 / Add a border.  - Parameters: - style: 描边样式，任意 `ShapeStyle`（含 `Color` 与渐变）。 |
 | `OhMyDesign` | `.coreFont` on `View` | 施加 OhMyDesign 排版 token（直接取系统文本样式，随 Dynamic Type 缩放）。 |
@@ -1061,12 +1089,12 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | elevation | 4 | 4 |
 | controlsize | 5 | 5 |
 | motion | 4 | 4 |
-| colors | 122 | 122 |
-| components | 91 | 91 |
-| enums | 46 | 46 |
-| enumcases | 159 | 159 |
+| colors | 124 | 124 |
+| components | 93 | 93 |
+| enums | 50 | 50 |
+| enumcases | 169 | 169 |
 | protocols | 6 | 6 |
-| viewext | 46 | 46 |
+| viewext | 47 | 47 |
 | styleext | 15 | 15 |
 | others | 28 | 28 |
 

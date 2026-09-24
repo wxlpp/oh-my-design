@@ -90,6 +90,14 @@ updated: 2026-09-22T22:10:00Z
 新形态参照 reui 的子组件分解，但**按 SwiftUI 惯例落地**（不照搬 Context + `data-*` + Tailwind 变体级联）：
 容器 + 行 + 行内可选构件（指示器 / 时间 / 标题 / 描述 / 富内容）。命名与分解由任务级 spec 定，须满足：
 
+> `#420` 定案（spec `docs/superpowers/specs/2026-09-24-timeline-composable-design.md` §12）：命名沿用
+> `Timeline` / `TimelineItem` + `node:`（行是 `View`、自己画节点）；阶段取值为**每行 `step` + 容器 `progress`**
+> （reui 模型，不是行序推导，也不是逐行显式阶段）。
+> c 项落地（PR 3）：`Timeline(layout:progress:content:)` + `TimelineProgress`（`.notStarted` / `.inProgress(at:)` / `.completed`）+
+> `TimelinePhase`（`.completed` / `.inProgress` / `.upcoming`）+ `EnvironmentValues.timelinePhase`；阶段真值表、连线归属（看后一行）、
+> 回退与纯活动流（不传 `progress` ⇒ 连线全 `dividerDefault`）见 spec §4 与 `docs/components/timeline.md`《阶段》。
+
+
 - **a. 四种布局全部保留**（`.vertical` / `.alternate` / `.horizontal` / `.grouped`），现有
   `TimelineAlternateRowLayout` 的几何判据（`alternateSlotWidth` / `alternateRowMetrics`，
   含 `infinity` / `nan` / 负数防御）继续有效。
@@ -143,7 +151,15 @@ Timeline 不吸收 Steps 的向导行为，Steps 不因本 epic 改动。两者�
 
 **FR-2 新增 `Tree`（受控展开）**
 
-用户已定案：**自己递归 + 每节点展开绑定**（而非包 `OutlineGroup`）。
+用户已定案：**每节点展开绑定；渲染按可见行展平**（而非包 `OutlineGroup`）。
+
+⚠️ **`#429` 修订（推翻 FR-2a 选定的路径 A「递归 `DisclosureGroup(isExpanded:)`」）**：`#422` 落地后，
+行布局、缩进、chevron、展开态播报已全部自绘，路径 A 相对「完全自定义」剩下的收益只有 `DisclosureGroup` 的
+内容插入过渡一项；而递归结构下一个根节点的整棵可见子树是 `LazyVStack` 的**一个**子项，惰性容器对单根大目录
+收益为零（实测 201 行全部构建）。展平后同一夹具只构建视口附近的 7 行，静态外观逐像素不变。无障碍树的变化
+（视口外的行不再在树里、父行复选框改报 `CheckBox`）见 `docs/components/tree.md`「无障碍与触控」。
+理由全文见 `docs/superpowers/specs/2026-09-23-tree-style-design.md` §5。
+下面「自己递归」一段是 FR-2a 之前的原始论证，保留作历史。
 
 ⚠️ **理由要写准**（上一版把两个独立选择绑在了一起，首轮评审指出）：
 被排除的只是 `OutlineGroup(_:children:content:)` 这条路径——官方文档明写
@@ -215,6 +231,51 @@ Timeline 不吸收 Steps 的向导行为，Steps 不因本 epic 改动。两者�
   modifier key, such as Shift or Control, while navigating」；另一套「Moving focus without holding the Shift
   or Control modifier **unselects all selected nodes except for the focused node**」。本仓取**推荐模型**。
 - **搜索过滤与命中高亮**：按关键词过滤，自动展开到命中节点并高亮匹配片段。
+  （`#423` 修订，定案细节见 `docs/components/tree.md`「搜索过滤与命中高亮」）搜索词由调用方持有，经
+  `Tree.searchFilter(_:text:)` 传入；组件不持有节点文案，调用方给**文案投影**，匹配谓词由组件固定（去首尾空白后
+  不区分大小写 / 变音符 / 全半角的子串），不开放自定谓词——保证高亮与过滤同源。留下的行 = 命中 ∪ 祖先 ∪ **后代**
+  （命中的文件夹可展开浏览，不自动展开）；自动临时展开的是命中的严格祖先。高亮不注入调用方的行内容，而是公开
+  `Text(verbatim:highlighting:)` 由调用方放进行内容（加粗 + 第 3 层 `Color.searchMatchBackground` 底色）。
+  （`#423` 第二轮修订：按用户拍板 + codex 只读评审处置）
+  · **术语**：「保留节点」= 命中 ∪ 祖先 ∪ 后代；「可见行」= 保留节点按当前生效展开态展平后的行序列（与视口无关）。
+  `Ctrl/Cmd+A`、键盘导航、右键目标、焦点归约作用于**可见行**；父行复选框作用于**保留**的叶后代（含因折叠未显示的）。
+  · **搜索期间的父行复选框**（用户拍板，是 `#423` 新增的搜索范围语义，**不由**第 6 行自动推出）：三态始终按**全部**叶后代
+  显示（保留的 A 勾、被过滤掉的 B 未勾 ⇒ mixed），清空搜索时三态不突变；点击按「保留的叶后代是否全勾」翻转——
+  全勾 ⇒ 取消保留的叶子，否则 ⇒ 勾上全部保留的叶子；范围外的叶子勾选值不变，父 ID 不进 `checked`；换词 / 清空本身
+  不写 `checked` / `selection`；搜索期间该复选框带本地化无障碍提示「仅作用于过滤结果」。不搜索时仍按第 2 行级联全部后代。
+  · **匹配与高亮**：过滤、公开入口 `Tree.searchMatches(_:id:children:query:text:)`（`nonisolated`，返回直接命中的节点 ID）
+  与高亮是同一条规则、同一个实现；**仅当**调用方给高亮与过滤传入相同的查询与相同的文案时片段一致。多字段可拼接为投影，
+  但拼接不是模糊匹配，且可能跨字段边界命中。
+  · **无结果**：可见行为空，内部行焦点置空；导航 / 激活 / 全选不操作此前的隐藏行，不改 `selection` / `checked` / `expanded`；
+  结果重现时按初始焦点规则恢复。组件不显示空态，宿主用 `searchMatches` 判空并显示本地化「无匹配结果」。
+  · **结果数与播报**：结果数 = 直接命中的节点数（不计只作上下文保留的祖先 / 后代），由宿主本地化播报；
+  **组件不自动播报**（本 epic 范围外）。
+  · **输入法组字**：Tree 对收到的每个 query 立即过滤、不识别组字状态；宿主应在组字期间保留上一次已提交的查询，
+  提交后再更新，取消组字不更新（`docs/components/tree.md` 给出桥接示例）。真 HID 下的组字行为**未验证**。
+  · **清空搜索**：丢弃全部搜索 overlay，使用调用方**当前**的 `expanded`；宿主在搜索期间未修改它时即为搜索前的展开态。
+  · **性能**：搜索期间每次 body 求值遍历整树一次（选中 / 焦点 / 方向键引起的重算都算在内），本轮不缓存（通用 `Data` 无法廉价判等；调用方版本号方案见 #441）；
+  macOS 单次遍历读数见 `docs/components/tree.md`「惰性」。**数值预算与支持规模发布前确定**（#441），未定之前不作为通过条件。
+- **密度与外观配置**（`#429` 修订）：两种外观共用环境 `controlSize` 推导的度量——**最小行高**、行间距、
+  展开槽宽、缩进、chevron 与复选框字形（推导表见 `docs/superpowers/specs/2026-09-23-tree-style-design.md`
+  §1.2–§1.4）。行高是下限，行内容可以把行撑高；iOS 上行、展开控件与 Tree 自建复选框的命中高度都 ≥ 44pt。
+  复选框的密度适配**只作用于 Tree 自建的复选框**；独立 `CheckBox` 与调用方放进行内容里的 `CheckBox`
+  行为与外观都不变。
+  `TreeStyle` **封闭配置**（`.automatic` / `.navigator`，经 `View.treeStyle(_:)` 注入）——**不是协议**，
+  升协议的兼容路径（modifier 取 `any TreeStyle`）见同一 spec §2.1。⚠️ 本轮定案的只是「非协议」这一 **API 形态**；
+  封闭预设是否算公约扩展点、悬停等差异如何分类，仍由 `docs/contract-defects.md` 的 `D-429-1` 待公约 owner 裁定——
+  本轮不改登记分类，J-2 计数不变。
+  两种外观的验收：`.automatic` 在 `.regular` 下保留既有外观；`.navigator` 按 spec §2.5 画——含缩进区的整行
+  选中 / 悬停底色、选中优先于悬停、焦点内描边、连续且随 RTL 镜像的缩进参考线、中性色 chevron；
+  底色、悬停、选中是**三档阶梯**（选中必须比悬停更偏离底色、两者一眼分得清，明暗两档都成立）。
+  验收覆盖五档密度、两种外观下行为与无障碍取值一致、点缩进区选中该行，按 spec §7.1–§7.5。
+  行为（键盘、选择归约、三态勾选、焦点、无障碍、命中区）留在组件内，外观只决定画法。
+- **整行右键菜单**（`#429` 修订，PR 3 已交付：`Tree.rowContextMenu(_:)`）：`rowContextMenu` 的目标集合——右键的行**已选中**时，
+  取选中集合与树的可见行的交集；**否则**只取右键那一行。「可见」指展开 / 过滤之后的行序列，不是视口内可见。
+  唤起菜单不改变选中、焦点或交互来源；不设置时不挂菜单。验收按 spec §4、§7.6。
+- **单击父行**（`#431` 已交付：`Tree.rowClickBehavior(_:)`，取值为枚举 `TreeRowClickBehavior` 的 `.select`（默认）/
+  `.selectAndToggleExpansion`）：后者下单击父行选中该行，**另外**取反该行的展开态，两份状态互不读取；`.single` 下再点已选中的父行
+  保持选中（VS Code 式），`.multiple` 下仍逐行切换；
+  chevron、复选框、叶行与键盘不受影响；搜索期间只写 overlay（与真值表第 4 行同一定案）。设计定案见 `docs/components/tree.md`「单击父行」。
 
 **FR-2 的行为真值表（本 PRD 定案，不留给实现期自选）**
 
@@ -227,8 +288,8 @@ Timeline 不吸收 Steps 的向导行为，Steps 不因本 epic 改动。两者�
 | 点击 mixed 父节点 | **全选**（级联到全部后代）；再点一次**全不选** | 与 Finder / Xcode 的多选层级一致；系统 `Toggle(sources:)` 的 `isOn.toggle()` 语义也是这样 |
 | 父节点自身 | **只由后代推导，不单独进选择集合** | 叶子才承载数据；父节点本身也是可选数据时，调用方把它建成叶子 |
 | 搜索期间的展开 | **不写进调用方的持久化 `Set<ID>`**，只临时展开 | 否则搜一次就永久改了用户的展开偏好 |
-| 清空搜索 | **恢复搜索前的展开态** | 与上一行是同一个决定的两面 |
-| 过滤后「全选」 | **范围是可见节点** | 「全选」作用在用户看得见的集合上；作用到全树会静默勾上看不见的项 |
+| 清空搜索 | **恢复搜索前的展开态**（`#423` 精确化：使用调用方当前的 `expanded`，搜索期间宿主未改它时即搜索前的展开态） | 与上一行是同一个决定的两面 |
+| 过滤后「全选」 | **范围是可见节点**（`Ctrl/Cmd+A`）。父行复选框的搜索范围语义见上方 `#423` 第二轮修订，不由本行推出 | 「全选」作用在用户看得见的集合上；作用到全树会静默勾上看不见的项 |
 | 焦点节点被过滤隐藏 | 移到**最近的仍可见祖先**；无祖先则移到首个可见节点 | 焦点不能落到不可见节点上，也不应直接丢失 |
 
 **FR-2a 实现路径与键盘先验实测（spike）—— 已完成，见 `.claude/epics/structure-components/419-spike.md`**
@@ -367,6 +428,11 @@ RM 下手势本身不受影响（手势驱动），但**回弹与触发后的转
   四种布局全部仍可用，`.horizontal` 现在画出节点间连线；阶段真值表的每一行都有对应判据。
 - **Tree**：能以「默认展开到第 2 层」启动，展开态可被外部读写；FR-2 行为真值表七行各有判据；
   键盘四项硬下限全部支持，可降级项按 FR-2a 实测结论显式登记。
+  搜索（`#423`）：父行复选框的显示与动作两面、无结果时的状态不变、公开匹配入口与过滤同一实现，各有判据；
+  搜索性能的数值预算**发布前确定**（当前只有 macOS 单次遍历读数，不作通过条件）。
+- **Tree 密度与外观**（`#429`）：五档 `controlSize` 的最小行高逐档有判据（iOS 命中高度 ≥ 44pt）；
+  `.automatic` 与 `.navigator` 下行为逐条一致（含点缩进区选中）；`.navigator` 的三档阶梯（底色 < 悬停 < 选中）
+  在明暗两档、iOS 与 macOS 两条腿上都有判据。
 - **CheckBox**：呈现系统 mixed 态；on / off × enabled / disabled / invalid 旧外观逐像素不变。
 - **StatefulButton**：托管与自管两套状态表各自有判据；loading 期间重复点击不重入，
   且**把态从外部改回 idle 也不能重入**（这条单独构造）；四态切换有无障碍播报。
@@ -393,6 +459,10 @@ RM 下手势本身不受影响（手势驱动），但**回弹与触发后的转
   ——权限树示例（`c-tree-7`）就是多个叶子复选框的受控勾选，且材料里明说「勾选与展开/选中是两套独立的点击目标」。
   ⚠️ 「7 个示例都没有行多选」这一条**未独立证实**（材料只存了其中两份完整源码），按未核实处理。
 - Tree 的 `F2` 重命名与 type-ahead——属 FR-2a 的可降级项，除实测证明成本很低否则不做。
+- Tree 搜索的**组件内**结果数播报、空态视图与输入法组字识别（`#423`）：三者由宿主负责，组件提供
+  `Tree.searchMatches` 作接入点；搜索性能的数值预算留待发布前确定。
+- ~~「单击父行即展开」~~ ——**已由 `#431` 交付**（`Tree.rowClickBehavior(_:)`，见 FR-2「单击父行」一条），
+  不再在范围外。原判「是**行为**不是外观，不进 `TreeStyle`（公约《边界条款：样式不得携带行为》）」不变。
 - `SlideToConfirm` 的速度补偿确认（显式不采，理由见 FR-4）。
 - `Steps` 组件的任何改动（边界见 FR-1）；`AsyncButton` 的重构或废弃。
 - `tripled-analysis.md` 里其余 P2 / P3 项（CountUpText、TypingIndicator、FloatButton 展开、

@@ -15,11 +15,17 @@ struct ComponentTextParamGuard {
     static let knownUnmappedOwnerParams: Set<String> = [
         "Color.init#text",
         "SettingsRowIcon.init#systemName",
+        "Text.init#content",
+        "Text.init#query",
     ]
 
     static let knownFunctionSideBareText: Set<String> = [
         "ToastHost.show#description",
         "ToastHost.show#title",
+        "Tree.searchFilter#query",
+        "Tree.searchFilter#text",
+        "Tree.searchMatches#query",
+        "Tree.searchMatches#text",
         "View.spray#symbol",
     ]
 
@@ -148,9 +154,9 @@ struct ComponentTextParamGuard {
                 需要人来决定是扩 FR-4 定义域还是移交
                 """)
 
-        #expect(result.localizedByType.count == 23,
+        #expect(result.localizedByType.count == 25,
                 """
-                LSK/LSR 由类型判定的键实测 23 条（`#373` 新增 FormField 的 label / description 后由 17 变为 19；`#376` Banner 便利 init 的 title / message 使 19 变为 21；`#417` StatefulButton 便利 init 的 titleKey 使 21 变为 22；`#418` SlideToConfirm 便利 init 的 titleKey 使 22 变为 23），实际 \(result.localizedByType.count)：\(result.localizedByType)。\
+                LSK/LSR 由类型判定的键实测 25 条（`#373` 新增 FormField 的 label / description 后由 17 变为 19；`#376` Banner 便利 init 的 title / message 使 19 变为 21；`#420` TimelineItem 的 title / description 使 21 变为 23；`#417` StatefulButton 便利 init 的 titleKey、`#418` SlideToConfirm 便利 init 的 titleKey 使 23 变为 25），实际 \(result.localizedByType.count)：\(result.localizedByType)。\
                 变化意味着有参数在 LSK/LSR 与裸串之间换了类型 —— 要人过目，不能静默
                 """)
         #expect(result.carrying.count == 7,
