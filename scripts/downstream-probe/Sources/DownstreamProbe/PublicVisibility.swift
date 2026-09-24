@@ -917,6 +917,7 @@ func consumeShaderBackgrounds() -> some View {
         ColorPanels(style: .crisp)
         StarNest(depth: .deep)
         GlassSymbol("sparkles", tint: .dataAccent, strength: .pronounced, accessibilityLabel: Text("Badge"))
+            .glassSymbolStyle(PlainGlassSymbolStyle())
     }
 }
 

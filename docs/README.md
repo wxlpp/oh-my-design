@@ -207,30 +207,28 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 ⚠️ **本组单位由 `#261` / `#283` / `#282` 落地、`#279` 接进登记表**（`#282` 的 paper 移植背景分批落地）。`#261` 的 8 个里
 `Starfield` 已随 `#281` 撤回（上游 CC BY-NC-SA 3.0 与本仓 MIT 分发不兼容），整件删除
 ⇒ 现存单位 = `#261` 的 7 个自有内容 / 重采样单位 + `#283` 的 `glassOrb` / `halftone` + `#282` 的 8 个移植背景（见下表）。
-⚠️ **逐单位 `components/*.md` 除 `GlassSymbol`（`#368`）外尚未落地**，其余行的「说明」列因此指向源码与
-provenance 对账表，而不是不存在的文档链接。⚠️ **本组一律不作原创声称**，逐件裁定见
-[`shader-provenance.md`](shader-provenance.md)。
-⚠️ 本 target 含 `.metal` 源，**原生 `swift build` 不编译它** —— 构建约束见仓根 `CLAUDE.md`。
+⚠️ **本组一律不作原创声称**，逐件裁定见 [`shader-provenance.md`](shader-provenance.md)。
+⚠️ 用原生 `swift build` 消费本 product 时须加 `--build-system swiftbuild`：原生构建不编译 `.metal`，shader 会静默失效。构建约束见仓根 `CLAUDE.md`。
 
 | 单位 | 入口 | 说明 |
 |---|---|---|
-| Plasma | `Plasma(tint:density:motion:)` | 程序化等离子背景（`Sources/OhMyDesignShaders/Plasma.swift`） |
-| FractalClouds | `FractalClouds(tint:density:motion:)` | 分形云层，FBM + 域扭曲（`Sources/OhMyDesignShaders/FractalClouds.swift`） |
-| InkSmoke | `InkSmoke(tint:density:motion:)` | 墨烟，两级域扭曲 + 陡对比（`Sources/OhMyDesignShaders/InkSmoke.swift`） |
-| LiquidChrome | `LiquidChrome(tint:density:motion:)` | 液态铬带（`Sources/OhMyDesignShaders/LiquidChrome.swift`） |
-| DotGrid | `DotGrid(tint:spacing:motion:)` | 规则点阵，可选同心波呼吸（`Sources/OhMyDesignShaders/DotGrid.swift`） |
+| Plasma | `Plasma(tint:density:motion:)` | [plasma.md](components/plasma.md)；程序化等离子背景 |
+| FractalClouds | `FractalClouds(tint:density:motion:)` | [fractal-clouds.md](components/fractal-clouds.md)；分形云层，FBM + 域扭曲 |
+| InkSmoke | `InkSmoke(tint:density:motion:)` | [ink-smoke.md](components/ink-smoke.md)；墨烟，两级域扭曲 + 陡对比 |
+| LiquidChrome | `LiquidChrome(tint:density:motion:)` | [liquid-chrome.md](components/liquid-chrome.md)；液态铬带 |
+| DotGrid | `DotGrid(tint:spacing:motion:)` | [dot-grid.md](components/dot-grid.md)；规则点阵，可选同心波呼吸 |
 | GlassSymbol | `GlassSymbol(_:tint:strength:accessibilityLabel:)` | [glass-symbol.md](components/glass-symbol.md)；渲染成折射玻璃的 SF Symbol，外观扩展点 `GlassSymbolStyle` / `.glassSymbolStyle(_:)` |
-| refractiveGlass | `View.refractiveGlass(corner:strength:rim:isEnabled:)` | 把内容渲染成折射玻璃；⚠️ 与系统 `.glassEffect()` 是两回事（`Sources/OhMyDesignShaders/RefractiveGlass.swift`） |
-| glassOrb | `View.glassOrb(size:magnification:)` | 跟手的玻璃珠放大镜，圆内随距离衰减地放大；⚠️ 移植自 Inferno 的 `WarpingLoupe.metal`（MIT，须署名）（`Sources/OhMyDesignShaders/GlassOrb.swift`） |
-| Metaballs | `Metaballs(tint:count:motion:)` | 彩色小球游走并融合成黏连形状；⚠️ 移植自 paper `metaballs.ts`（Apache-2.0，须署名 + 修改标注）（`Sources/OhMyDesignShaders/Metaballs.swift`） |
-| DotOrbit | `DotOrbit(tint:density:motion:)` | 点阵中每个点绕格心公转；⚠️ 移植自 paper `dot-orbit.ts`（Apache-2.0）（`Sources/OhMyDesignShaders/DotOrbit.swift`） |
-| Voronoi | `Voronoi(tint:cellSize:motion:)` | 漂移的 Voronoi 细胞；⚠️ 移植自 paper `voronoi.ts`（Apache-2.0）→ iq `ldl3W8`（MIT）（`Sources/OhMyDesignShaders/Voronoi.swift`） |
-| SmokeRing | `SmokeRing(tint:thickness:motion:)` | 噪声扰动的烟环；⚠️ 移植自 paper `smoke-ring.ts`（Apache-2.0）（`Sources/OhMyDesignShaders/SmokeRing.swift`） |
-| Swirl | `Swirl(tint:bands:motion:)` | 从中心旋出的彩色条带；⚠️ 移植自 paper `swirl.ts`（Apache-2.0）+ Ashima simplex（MIT）（`Sources/OhMyDesignShaders/Swirl.swift`） |
-| SimplexNoise | `SimplexNoise(tint:banding:motion:)` | 双层 simplex 噪声的阶梯色带；⚠️ 移植自 paper `simplex-noise.ts`（Apache-2.0）+ Ashima simplex（MIT）（`Sources/OhMyDesignShaders/SimplexNoise.swift`） |
-| ColorPanels | `ColorPanels(tint:style:motion:)` | 绕中轴翻转的半透明彩色面板；⚠️ 移植自 paper `color-panels.ts`（Apache-2.0）（`Sources/OhMyDesignShaders/ColorPanels.swift`） |
-| StarNest | `StarNest(tint:depth:motion:)` | 体积分形星云；⚠️ 移植自 Kali 的「Star Nest」（作者声明 MIT，原页许可头待人工目视核验）；`.deep` 成本高（`Sources/OhMyDesignShaders/StarNest.swift`） |
-| halftone | `View.halftone(dot:ink:paper:)` | 半调网屏，按 45° 网格用点的大小表示明暗；⚠️ 移植自 paper `halftone-dots.ts`（Apache-2.0，须署名 + 修改标注）（`Sources/OhMyDesignShaders/Halftone.swift`） |
+| refractiveGlass | `View.refractiveGlass(corner:strength:rim:isEnabled:)` | [refractive-glass.md](components/refractive-glass.md)；把内容渲染成折射玻璃；⚠️ 与系统 `.glassEffect()` 是两回事 |
+| glassOrb | `View.glassOrb(size:magnification:)` | [glass-orb.md](components/glass-orb.md)；跟手的玻璃珠放大镜，圆内随距离衰减地放大；⚠️ 移植自 Inferno 的 `WarpingLoupe.metal`（MIT，须署名） |
+| Metaballs | `Metaballs(tint:count:motion:)` | [metaballs.md](components/metaballs.md)；彩色小球游走并融合成黏连形状；⚠️ 移植自 paper `metaballs.ts`（Apache-2.0，须署名 + 修改标注） |
+| DotOrbit | `DotOrbit(tint:density:motion:)` | [dot-orbit.md](components/dot-orbit.md)；点阵中每个点绕格心公转；⚠️ 移植自 paper `dot-orbit.ts`（Apache-2.0） |
+| Voronoi | `Voronoi(tint:cellSize:motion:)` | [voronoi.md](components/voronoi.md)；漂移的 Voronoi 细胞；⚠️ 移植自 paper `voronoi.ts`（Apache-2.0）→ iq `ldl3W8`（MIT） |
+| SmokeRing | `SmokeRing(tint:thickness:motion:)` | [smoke-ring.md](components/smoke-ring.md)；噪声扰动的烟环；⚠️ 移植自 paper `smoke-ring.ts`（Apache-2.0） |
+| Swirl | `Swirl(tint:bands:motion:)` | [swirl.md](components/swirl.md)；从中心旋出的彩色条带；⚠️ 移植自 paper `swirl.ts`（Apache-2.0）+ Ashima simplex（MIT） |
+| SimplexNoise | `SimplexNoise(tint:banding:motion:)` | [simplex-noise.md](components/simplex-noise.md)；双层 simplex 噪声的阶梯色带；⚠️ 移植自 paper `simplex-noise.ts`（Apache-2.0）+ Ashima simplex（MIT） |
+| ColorPanels | `ColorPanels(tint:style:motion:)` | [color-panels.md](components/color-panels.md)；绕中轴翻转的半透明彩色面板；⚠️ 移植自 paper `color-panels.ts`（Apache-2.0） |
+| StarNest | `StarNest(tint:depth:motion:)` | [star-nest.md](components/star-nest.md)；体积分形星云；⚠️ 移植自 Kali 的「Star Nest」（作者声明 MIT，原页许可头待人工目视核验）；`.deep` 成本高 |
+| halftone | `View.halftone(dot:ink:paper:)` | [halftone.md](components/halftone.md)；半调网屏，按 45° 网格用点的大小表示明暗；⚠️ 移植自 paper `halftone-dots.ts`（Apache-2.0，须署名 + 修改标注） |
 
 ## NFR-1 帧率基准 / Frame-rate benchmark
 

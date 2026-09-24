@@ -789,6 +789,83 @@ permutation 表，与实际实现（值噪声 + 整数 hash + iq 级联）没有
 
 ⚠️ 另有 **Teschner et al. 2003** 的**学术引用**义务（三个素数是事实，不承载许可义务）。
 
+### 上表三条义务的兑现（`#284`，原文取于 2026-09-25）
+
+#### Inigo Quilez — MIT（`roundedBoxSDF`、域扭曲 `q` / `r` 三级级联）
+
+来源：`https://iquilezles.org/articles/distfunctions/`（`sdRoundBox`）、`https://iquilezles.org/articles/warp/`。
+站点级许可声明见 `https://iquilezles.org/articles/`，原文：
+
+> all technical code snippets you'll find are under the MIT license so you can easily reuse them, but the mathematical/shader art is protected and requires a license for use.
+
+本仓用到的是代码片段（`cd::roundedBoxSDF` 与 `ohMyDesignInkSmoke` 的域扭曲结构，后者由 `InkSmoke` / `FractalClouds` 使用），
+不含其 shader 艺术作品。articles 页没有给出带年份的版权行，下面按 MIT 条款具名转载许可正文：
+
+```
+Copyright (c) Inigo Quilez
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+#### Lode Vandevenne — BSD-2-Clause（`Plasma` 的四相正弦叠加）
+
+来源：`https://lodev.org/cgtutor/plasma.html`；代码许可见 `https://lodev.org/cgtutor/legal.html`，下面逐字转载：
+
+```
+Copyright (c) 2004-2007, Lode Vandevenne
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+⚠️ `docs/shader-provenance.md` 已把本条由「较大段落移植」下调为「参考算法思路」（本仓没有用他那组具体取值）；
+许可正文照样保留在这里，按 BSD 第 1 条的保守读法履行。
+
+#### Nathan Reed — CC-BY-4.0（`cd::wangHash` 的写法）
+
+`cd::wangHash` 的写法出自 Nathan Reed《Quick And Easy GPU Random Numbers In D3D11》（2013），
+`https://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/`；站点页脚原文
+「© 2007–2025 by Nathan Reed. Licensed CC-BY-4.0.」，许可见 `https://creativecommons.org/licenses/by/4.0/`。
+算法本身出自 Thomas Wang《Integer Hash Function》，Bob Jenkins 称其为公有领域。
+修改：由 HLSL 改写为 Metal Shading Language（函数名 `wang_hash` → `wangHash`、整数字面量加 `u` 后缀、`inline`），运算序列不变。
+
+#### Teschner et al. 2003 — 学术引用（`hash21` / `hash22` 的素数三元组）
+
+M. Teschner, B. Heidelberger, M. Müller, D. Pomeranets, M. Gross.
+*Optimized Spatial Hashing for Collision Detection of Deformable Objects.* Proc. Vision, Modeling, Visualization (VMV) 2003.
+
 ### ⚠️ The Book of Shaders 的许可实查（本文件最重要的一条）
 
 **实查 `raw.githubusercontent.com/patriciogonzalezvivo/thebookofshaders/master/LICENSE`：**
