@@ -236,7 +236,7 @@ private struct EntranceHarness: View {
                 }
             }
         }
-        .frame(width: 120, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
