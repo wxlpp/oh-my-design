@@ -59,81 +59,71 @@ struct TimelineTests {
         }
     }
 
-    // MARK: - TimelineItem：默认圆点节点 init
+    // MARK: - TimelineItem：四个 init 的存储
 
-    @Test("TimelineItem(status:content:)：node 为 nil，status 原样保留")
+    @Test("TimelineItem(status:content:)：默认圆点，status 原样保留，无标题")
     func defaultNodeInitStoresStatus() {
         let item = TimelineItem(status: .success) {
-            Text("Done")
+            Text(verbatim: "Done")
         }
         #expect(item.node == nil)
         #expect(item.status == .success)
+        #expect(item.title == nil)
+        #expect(item.step == nil)
     }
 
     @Test("TimelineItem(content:)：status 缺省为 .info")
     func defaultNodeInitDefaultsToInfo() {
         let item = TimelineItem {
-            Text("Created")
+            Text(verbatim: "Created")
         }
         #expect(item.status == .info)
     }
 
-    // MARK: - TimelineItem：自定义节点 init
-
-    @Test("TimelineItem(status:node:content:)：node 非 nil（自定义节点覆盖默认圆点）")
+    @Test("TimelineItem(status:node:content:)：自定义节点非 nil；status 缺省为 nil（不播报）")
     func customNodeInitStoresNode() {
         let item = TimelineItem(status: .danger) {
             Image(systemName: "xmark.circle.fill")
         } content: {
-            Text("Failed")
+            Text(verbatim: "Failed")
         }
         #expect(item.node != nil)
         #expect(item.status == .danger)
-    }
-
-    // MARK: - id：显式传入原样保留
-
-    @Test("TimelineItem：显式传入的 id 原样保留（不被 UUID() 缺省值覆盖）")
-    func explicitIDIsPreserved() {
-        let id = UUID()
-        let item = TimelineItem(id: id, status: .info) {
-            Text("Note")
+        let silent = TimelineItem {
+            Image(systemName: "xmark.circle.fill")
+        } content: {
+            Text(verbatim: "Failed")
         }
-        #expect(item.id == id)
+        #expect(silent.status == nil)
     }
 
-    // MARK: - Timeline：items 原样保留
-
-    @Test("Timeline(items:)：items 数量与顺序原样保留")
-    func timelineStoresItemsInOrder() {
-        let items = [
-            TimelineItem(status: .info) { Text("1") },
-            TimelineItem(status: .success) { Text("2") },
-        ]
-        let timeline = Timeline(items: items)
-        #expect(timeline.items.count == 2)
-        #expect(timeline.items.map(\.id) == items.map(\.id))
+    @Test("TimelineItem(_:time:description:step:status:)：结构件与 step 原样保留")
+    func structuredInitStoresParts() {
+        let item = TimelineItem("Deployed", time: Text(verbatim: "2h"), description: "v2", step: 3, status: .warning)
+        #expect(item.title != nil)
+        #expect(item.time != nil)
+        #expect(item.description != nil)
+        #expect(item.step == 3)
+        #expect(item.status == .warning)
+        #expect(item.node == nil)
+        let custom = TimelineItem("Deployed", step: 1) { Circle() } content: {}
+        #expect(custom.node != nil)
+        #expect(custom.status == nil)
+        #expect(custom.step == 1)
     }
 
-    @Test("Timeline(items:)：空数组不崩溃")
-    func timelineEmptyItemsDoesNotCrash() {
-        let timeline = Timeline(items: [])
-        #expect(timeline.items.isEmpty)
-    }
     // MARK: - TimelineLayout（`#60` 形态 D2）
 
-    @Test("Timeline：layout 默认 .vertical —— 现有调用方零影响")
+    @Test("Timeline：layout 默认 .vertical")
     func timelineLayoutDefaultsToVertical() {
-        let timeline = Timeline(items: [TimelineItem(status: .info) { Text(verbatim: "A") }])
+        let timeline = Timeline { TimelineItem(status: .info) { Text(verbatim: "A") } }
         #expect(timeline.layout == .vertical)
     }
 
     @Test("Timeline：layout 原样保留")
     func timelineStoresLayout() {
         for layout in [TimelineLayout.vertical, .alternate, .horizontal, .grouped] {
-            let timeline = Timeline(
-                items: [TimelineItem(status: .info) { Text(verbatim: "A") }], layout: layout
-            )
+            let timeline = Timeline(layout: layout) { TimelineItem(status: .info) { Text(verbatim: "A") } }
             #expect(timeline.layout == layout)
         }
     }
@@ -148,27 +138,15 @@ struct TimelineTests {
         }
     }
 
-    @Test("Timeline：.grouped 下 node: 槽仍被原样保留（不生效 ≠ 被改写）")
-    func timelineGroupedPreservesNodeSlot() {
-        let item = TimelineItem(status: .info) {
-            Text(verbatim: "custom-node")
-        } content: {
-            Text(verbatim: "content")
-        }
-        let timeline = Timeline(items: [item], layout: .grouped)
-        #expect(timeline.items.first?.node != nil, ".grouped 下 node 槽仍应原样保留")
-        #expect(timeline.layout == .grouped)
-    }
-
-    @Test("Timeline：四种布局都能构造且 body 可求值（不 crash）")
+    @Test("Timeline：四种布局都能构造且 body 可求值（不 crash），空内容也可")
     func timelineAllLayoutsRender() {
-        let items = [
-            TimelineItem(status: .info) { Text(verbatim: "A") },
-            TimelineItem(status: .danger) { Text(verbatim: "B") },
-            TimelineItem(status: .success) { Text(verbatim: "C") },
-        ]
         for layout in [TimelineLayout.vertical, .alternate, .horizontal, .grouped] {
-            _ = Timeline(items: items, layout: layout).body
+            _ = Timeline(layout: layout) {
+                TimelineItem(status: .info) { Text(verbatim: "A") }
+                TimelineItem("B", status: .danger)
+                Text(verbatim: "footer")
+            }.body
+            _ = Timeline(layout: layout) { EmptyView() }.body
         }
     }
 
@@ -202,31 +180,6 @@ struct TimelineTests {
         #expect(Timeline.alternateSlotWidth(forRowWidth: fixed - 1) == 0)
         #expect(Timeline.alternateSlotWidth(forRowWidth: -10) == 0)
         #expect(Timeline.alternateSlotWidth(forRowWidth: fixed + 2) > 0)
-    }
-
-    @MainActor
-    @Test("Timeline：.grouped 删掉节点列后，默认节点项的状态语义经 accessibilityValue 补回")
-    func timelineGroupedKeepsDefaultNodeStatusSemantics() {
-        let defaultNodeItem = TimelineItem(status: .danger) { Text(verbatim: "失败") }
-        #expect(defaultNodeItem.node == nil, "前提：这是默认节点项")
-        #expect(Timeline.groupedStatusKey(for: defaultNodeItem) == "Error")
-
-        let infoItem = TimelineItem(status: .info) { Text(verbatim: "已创建") }
-        #expect(Timeline.groupedStatusKey(for: infoItem) == "Info")
-
-        let customNodeItem = TimelineItem(status: .danger) {
-            Circle()
-        } content: {
-            Text(verbatim: "失败")
-        }
-        #expect(customNodeItem.node != nil, "前提：这是自定义节点项")
-        #expect(Timeline.groupedStatusKey(for: customNodeItem) == nil,
-                "自定义节点项不补状态播报，否则会覆盖调用方自己的语义")
-
-        for status in [StatusLevel.info, .success, .warning, .danger, .neutral] {
-            let item = TimelineItem(status: status) { Text(verbatim: "x") }
-            #expect(Timeline.groupedStatusKey(for: item) == Timeline.accessibilityLabelKey(for: status))
-        }
     }
 }
 
@@ -318,33 +271,41 @@ struct TimelineNodeColorRenderTests {
         return (image.width, image.height, bytes)
     }
 
-    private static func items(_ levels: [StatusLevel]) -> [TimelineItem] {
-        levels.map { level in TimelineItem(status: level) { Text(verbatim: "Event").coreFont(.callout) } }
+    private static func timeline(_ levels: [StatusLevel]) -> some View {
+        Timeline {
+            ForEach(Array(levels.enumerated()), id: \.offset) { _, level in
+                TimelineItem(status: level) { Text(verbatim: "Event").coreFont(.callout) }
+            }
+        }
+    }
+
+    private static func legacyItems(_ levels: [StatusLevel]) -> [Legacy420TimelineItem] {
+        levels.map { level in Legacy420TimelineItem(status: level) { Text(verbatim: "Event").coreFont(.callout) } }
     }
 
     @Test("暗色五档与旧实现（原样拷贝）在光栅化噪声内逐像素一致")
     func darkTimelineMatchesLegacy() throws {
-        let items = Self.items(Self.levels)
-        let now = try self.pixels(Timeline(items: items), scheme: .dark)
-        let old = try self.pixels(LegacyTimeline(items: items), scheme: .dark)
+        let levels: [StatusLevel] = Self.levels
+        let now = try self.pixels(Self.timeline(levels), scheme: .dark)
+        let old = try self.pixels(LegacyTimeline(items: Self.legacyItems(levels)), scheme: .dark)
         #expect(now.width == old.width && now.height == old.height)
         expectBitmapsEquivalent(now.bytes, old.bytes, maxChannelDelta: 1, "暗色 Timeline 与旧实现不同")
     }
 
     @Test("浅色 info / success / danger / neutral 与旧实现在光栅化噪声内逐像素一致")
     func lightNonWarningTimelineMatchesLegacy() throws {
-        let items = Self.items([.info, .success, .danger, .neutral])
-        let now = try self.pixels(Timeline(items: items), scheme: .light)
-        let old = try self.pixels(LegacyTimeline(items: items), scheme: .light)
+        let levels: [StatusLevel] = [.info, .success, .danger, .neutral]
+        let now = try self.pixels(Self.timeline(levels), scheme: .light)
+        let old = try self.pixels(LegacyTimeline(items: Self.legacyItems(levels)), scheme: .light)
         #expect(now.width == old.width && now.height == old.height)
         expectBitmapsEquivalent(now.bytes, old.bytes, maxChannelDelta: 1, "浅色非 warning 档与旧实现不同")
     }
 
     @Test("浅色 warning 只有圆点方框内的像素变化")
     func lightWarningChangesOnlyTheDot() throws {
-        let items = Self.items([.warning])
-        let now = try self.pixels(Timeline(items: items), scheme: .light)
-        let old = try self.pixels(LegacyTimeline(items: items), scheme: .light)
+        let levels: [StatusLevel] = [.warning]
+        let now = try self.pixels(Self.timeline(levels), scheme: .light)
+        let old = try self.pixels(LegacyTimeline(items: Self.legacyItems(levels)), scheme: .light)
         #expect(now.width == old.width && now.height == old.height)
         guard now.width == old.width, now.height == old.height else { return }
         let inset = Int((Timeline.minimumNodeExtent - Timeline.nodeDiameter) / 2)
@@ -375,7 +336,7 @@ struct TimelineNodeColorRenderTests {
 // MARK: - LegacyTimeline
 
 private struct LegacyTimeline: View {
-    let items: [TimelineItem]
+    let items: [Legacy420TimelineItem]
 
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.none) {
@@ -397,7 +358,7 @@ private struct LegacyTimeline: View {
 }
 
 private struct LegacyTimelineNodeView: View {
-    let item: TimelineItem
+    let item: Legacy420TimelineItem
 
     var body: some View {
         self.nodeContent
@@ -420,7 +381,7 @@ private struct LegacyTimelineNodeView: View {
 }
 
 private struct LegacyTimelineRowView: View {
-    let item: TimelineItem
+    let item: Legacy420TimelineItem
     let isLast: Bool
 
     var body: some View {

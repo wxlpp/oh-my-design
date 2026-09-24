@@ -1703,14 +1703,13 @@ private struct StepsPreview: View {
 }
 
 private struct TimelinePreview: View {
-    private static var items: [TimelineItem] {
-        [
-            TimelineItem(status: .info) { Text("已创建").coreFont(.callout) },
-            TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) },
-            TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) },
-            TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) },
-            TimelineItem(status: .neutral) { Text("已归档").coreFont(.callout) },
-        ]
+    @ViewBuilder
+    private static var rows: some View {
+        TimelineItem(status: .info) { Text("已创建").coreFont(.callout) }
+        TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) }
+        TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) }
+        TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) }
+        TimelineItem(status: .neutral) { Text("已归档").coreFont(.callout) }
     }
 
     // ⚠️ `.alternate` 与 `.horizontal` 的几何**只在渲染时可见**，`swift build` / `swift test`
@@ -1719,30 +1718,50 @@ private struct TimelinePreview: View {
     // 恰恰是在内容固有宽度超过半槽时才会破。
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.lg) {
-            Timeline(items: Self.items)
-            Timeline(
-                items: [
-                    TimelineItem(status: .info) {
-                        // 本槽位存在的意义是「非文本的定高内容」，用真实的附件行
-                        // 而不是一块纯色，才看得出 `.alternate` 的对齐。
-                        HStack(spacing: CoreSpacing.xs) {
-                            Image(systemName: "paperclip")
-                                .foregroundStyle(Color.contentSecondary)
-                            Text(verbatim: "合同终稿.pdf").coreFont(.footnote)
-                            Text(verbatim: "2.4 MB").coreFont(.caption)
-                                .foregroundStyle(Color.contentSubtle)
-                        }
-                        .padding(.horizontal, CoreSpacing.sm)
-                        .frame(width: 220, height: 32, alignment: .leading)
-                        .background(Color.surfaceRaised, in: CoreShape.rounded(CoreRadius.small))
-                    },
-                    TimelineItem(status: .success) { Text("短").coreFont(.callout) },
-                    TimelineItem(status: .warning) { Text("再一条").coreFont(.callout) },
-                ],
-                layout: .alternate
-            )
-            Timeline(items: Self.items, layout: .horizontal)
-            Timeline(items: Self.items, layout: .grouped)
+            Timeline { Self.rows }
+            Timeline(layout: .alternate) {
+                TimelineItem(status: .info) {
+                    // 本槽位存在的意义是「非文本的定高内容」，用真实的附件行
+                    // 而不是一块纯色，才看得出 `.alternate` 的对齐。
+                    HStack(spacing: CoreSpacing.xs) {
+                        Image(systemName: "paperclip")
+                            .foregroundStyle(Color.contentSecondary)
+                        Text(verbatim: "合同终稿.pdf").coreFont(.footnote)
+                        Text(verbatim: "2.4 MB").coreFont(.caption)
+                            .foregroundStyle(Color.contentSubtle)
+                    }
+                    .padding(.horizontal, CoreSpacing.sm)
+                    .frame(width: 220, height: 32, alignment: .leading)
+                    .background(Color.surfaceRaised, in: CoreShape.rounded(CoreRadius.small))
+                }
+                TimelineItem(status: .success) { Text("短").coreFont(.callout) }
+                TimelineItem(status: .warning) { Text("再一条").coreFont(.callout) }
+            }
+            Timeline(layout: .horizontal) {
+                TimelineItem("已创建", time: Text(verbatim: "07-20 10:00"), status: .info)
+                TimelineItem("审核通过", time: Text(verbatim: "07-21 14:30"), status: .success)
+                TimelineItem("已归档", time: Text(verbatim: "07-25 08:00"), status: .neutral)
+            }
+            Timeline(layout: .grouped) {
+                Self.rows
+                // `.grouped` 不摆节点：这枚星形图标不显示、也不进无障碍树（调用方未隐藏它）。
+                TimelineItem { Image(systemName: "star.fill") } content: { Text("自定义节点行").coreFont(.callout) }
+            }
+            Timeline { PreviewSnapshotFixtures.timelineActivityRows }
+            Timeline { PreviewSnapshotFixtures.timelineDeployRows }
+            // `.horizontal` 活动流：头像节点未隐藏；末列是不传 status 的无标题自定义节点行（内容不合并）。
+            Timeline(layout: .horizontal) {
+                PreviewSnapshotFixtures.timelineActivityRows
+                TimelineItem { Avatar(name: "Kai", size: .fixed(40)) } content: {
+                    Text(verbatim: "Kai").coreFont(.callout)
+                    Text(verbatim: "left a review").coreFont(.footnote)
+                }
+            }
+            // 默认圆点 + 无标题 + 空内容的行。
+            Timeline {
+                TimelineItem(status: .danger) {}
+                TimelineItem(status: .success) { Text(verbatim: "Next row").coreFont(.callout) }
+            }
         }
     }
 }

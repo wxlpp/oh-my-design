@@ -38,6 +38,56 @@
 | 空节点 / 多视图节点 | 现在：`node:` 闭包什么都不产出（如 `if` 不成立）时保留 24pt 空盒、内容与其他行对齐，该行上下的连线在空盒处断开 24pt；`node:` 里并列多个视图时叠在同一个节点盒里居中。原来按布局各不相同：`.vertical` 空节点整格消失、内容左移到节点列，多视图节点拆成并排的多个 24pt 格；`.horizontal` 多视图节点竖直堆叠成多个 24pt 格；`.alternate` 两种情况都整行不显示 |
 | `TimelineLayout` 标为 `nonisolated` | 可在非主 actor 语境里取用、比较；对已有调用点无影响 |
 
+### PR 2：组合式 API（**破坏性**）
+
+**移除**：`Timeline(items:layout:)`、数据载体 `struct TimelineItem: Identifiable` 及其两个 init（`id:status:content:` /
+`id:status:node:content:`）、`id:` 参数。旧写法编译失败（`[TimelineItem]` 不再是合法类型：`TimelineItem` 现为泛型 `View`），不会静默换义。
+
+**新增**：
+
+| 符号 | 说明 |
+|---|---|
+| `Timeline<Content: View>` | `init(layout: TimelineLayout = .vertical, @ViewBuilder content: () -> Content)` |
+| `TimelineItem<Node: View, Content: View>: View` | 四个 init：`(step:status:content:)`、`(step:status:node:content:)`、`(_:time:description:step:status:content:)`、`(_:time:description:step:status:node:content:)`；`title` / `description` 为 `LocalizedStringKey`，`time` 为 `Text?`，`step: Int? = nil` |
+
+`scripts/api-surface-diff.sh 99c6f48`（PR 1 合入态）读数：删除 `TimelineItem.ID` / `TimelineItem.id` /
+`init(id:status:node:content:)` / `init(id:status:content:)` / `Timeline.init(items:layout:)`；新增 `TimelineItem.Body` / `body` /
+`init(step:status:node:content:)` / `init(step:status:content:)` / `init(_:time:description:step:status:node:content:)` /
+`init(_:time:description:step:status:content:)` / `Timeline.init(layout:content:)`。
+
+**迁移**（机械）：
+
+```swift
+// 之前
+Timeline(items: [
+    TimelineItem(status: .success) { Text("审核通过") },
+    TimelineItem(status: .info) { Image(systemName: "star") } content: { Text("自定义") },
+], layout: .alternate)
+
+// 之后：数组 → @ViewBuilder，去掉逗号与 id:
+Timeline(layout: .alternate) {
+    TimelineItem(status: .success) { Text("审核通过") }
+    TimelineItem { Image(systemName: "star") } content: { Text("自定义") }   // 自定义节点不写 status 就不播报
+}
+```
+
+数据驱动时用 `ForEach(items) { item in TimelineItem(…) }`；存成属性的 `[TimelineItem]` 改成 `@ViewBuilder` 计算属性。
+
+**可见 / 可听的行为变化**：
+
+| 变化 | 影响 |
+|---|---|
+| 施在行上的修饰对节点与内容**各施一次** | 行的 body 产出节点、内容两个子视图。**布局**（`.padding` / `.frame` / `.offset`）：节点盒与内容各加一次，节点盒变大会撑宽整列（`.padding(10)` 让节点盒 24→44）——写进 `content:`。**视觉**（`.opacity` / `.background` / `.redacted` / `.transition` / `.accessibilityHidden`）：节点与内容一起生效（原来碰不到节点），`.background` 会铺成两块。**行为**（`.onAppear` / `.task` / `.onTapGesture` / `.contextMenu` / `.swipeActions`）：**挂两次**，`.onAppear` / `.task` **执行两次**——勿施在行上，写进 `content:` 或施在 `Timeline` 外层 |
+| 整行包 `Button` 不受支持 | `Button { … } label: { TimelineItem(…) }` 对容器是非行子视图：节点与内容竖叠、没有节点列、连线着色跳过它，点击区域覆盖节点。可点击的部分请把 `Button` / `NavigationLink` 放进 `content:` |
+| 被包进 `VStack` 等容器的行 | 降级为非行子视图，节点与内容仍可见（各布局下的样子见 `docs/components/timeline.md`） |
+| 默认圆点不再是无障碍元素 | 原来是一个独立的 10×10 元素（`label='Info'`，与内容分离；`.horizontal` 下五个状态元素排在五条内容之前）。现在圆点隐藏，状态作为值挂在行上：有标题的行挂**标题元素**，无标题的行挂**合并后的内容元素**（内容 `.accessibilityElement(children: .combine)`，内容里的按钮改走「操作」转子） |
+| `.grouped` 有标题的行改挂标题元素 | 原来 `.grouped` 的内容一律合并成一个元素、值挂在上面；现在有标题的行值挂在标题上，时间、描述各自可聚焦。无标题的行不变 |
+| 写了 `status:` 的自定义节点行新增状态播报 | 原来自定义节点行的 `status` 从不播报；现在自定义节点的 init 里 `status` 改为 `StatusLevel? = nil`，**传了才播报**（挂载点同上）。迁移时保留了 `status:` 的行会多读一个状态值；节点里自带 label 的图标请 `.accessibilityHidden(true)`，否则同一状态读两遍 |
+| `.grouped` 下自定义节点、无标题、不传 `status` 的行不再合并 | 原来 `.grouped` 对所有行的内容合并成一个元素；现在只有带状态值的无标题行合并 |
+| `.horizontal` 按列读 | 有标题的行、以及未合并的无标题行（自定义节点、不传 `status`）的内容在 `.horizontal` 下各是一个 `.contain` 容器；整条横向时间线也是一个 `.contain` 容器，各子视图按列序带 `accessibilitySortPriority`（本列节点 → 本列内容 → 下一列）。VoiceOver 读完本列（未隐藏的自定义节点、标题、时间、描述）再到下一列；原来先读完各列标题、再读各列时间，未隐藏的头像节点排在所有列的内容之前。⚠️ 无障碍树多一层匿名分组容器 |
+| 默认圆点 + 无标题 + 空内容的行 | `TimelineItem(status: .danger) {}` 的状态值挂在一个无 label、0×0 的元素上（iOS `axe` 读数 `GenericElement value='Error'`）；VoiceOver 能否聚焦 0×0 元素未验证。要播报状态请给内容或改用带标题的 init |
+| `content:` 多视图竖排、间距 0 | PR 1 起已生效，组合式 API 下不变 |
+
 ## 未发布（相对 `v0.11.0`）——Issue #422：新增 `Tree`
 
 **纯新增，不是破坏。** 已有公开符号一个都没变。新增的公开符号：

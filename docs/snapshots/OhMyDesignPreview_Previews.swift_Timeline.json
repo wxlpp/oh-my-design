@@ -10,7 +10,7 @@
       "orientation" : "portrait"
     },
     "simulator" : {
-      "device_name" : "omd-420-pr1",
+      "device_name" : "omd-420-pr2",
       "model_identifier" : "iPhone18,1"
     },
     "test_name" : "-[SnapshotTests portrait-Previews-0-28]"

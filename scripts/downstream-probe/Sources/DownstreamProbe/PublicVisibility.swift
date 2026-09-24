@@ -328,18 +328,29 @@ func consumeSteps() -> some View {
     )
 }
 
-// MARK: Timeline（Issue #164）——两个 designated init 都需覆盖
+// MARK: Timeline（Issue #164；#420 组合式 API）——四个 init、`step:`、自定义节点 `status:` 传与不传都需覆盖
 
 @MainActor
 func consumeTimeline() -> some View {
-    Timeline(items: [
-        TimelineItem(status: .success) { Text("默认圆点节点") },
-        TimelineItem(status: .info) {
+    Timeline(layout: .vertical) {
+        TimelineItem(step: 0, status: .success) { Text("默认圆点节点") }
+        TimelineItem(step: 1) {
             Image(systemName: "star")
         } content: {
-            Text("自定义节点")
-        },
-    ])
+            Text("自定义节点，不播报状态")
+        }
+        TimelineItem(status: .danger) {
+            Image(systemName: "xmark")
+        } content: {
+            Text("自定义节点，播报状态")
+        }
+        TimelineItem("结构件", time: Text("2h"), description: "描述", step: 2, status: .warning)
+        TimelineItem("结构件 + 富内容") { Text("富内容") }
+        TimelineItem("结构件 + 自定义节点", step: 3, status: nil) {
+            Image(systemName: "star")
+        } content: {}
+        Text("非行子视图")
+    }
 }
 
 // MARK: PinCode（Issue #166）

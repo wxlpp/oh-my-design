@@ -627,13 +627,13 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 
 ### `Components/Timeline/Timeline.swift`
 
-- **`Timeline`** *: View* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
+- **`Timeline`** *<Content: View>: View* — 组合式时间线：直接子视图里的 `TimelineItem` 是行（自己画节点），其余子视图（分组标题、页脚等） 是没有节点的非行子视图。（材质层: 内容 / 表面角色: 内容）
+- **`TimelineItem`** *<Node: View, Content: View>: View* — `Timeline` 的一行：自己画节点（默认圆点或 `node:` 槽），节点与内容作为两个子视图交给容器排布。
 - *enum* **`TimelineLayout`** — `Timeline` 的**整体排布形态**——与 `TimelineItem` 的 `node:` 外观槽**正交**： 本枚举决定「这组节点怎么排」，`node:` 决定「单个节点画成什么」。
   - `.vertical` — 默认：左侧节点列 + 右侧内容，节点间竖向连线（现状形态）。
   - `.alternate` — 左右交替：内容在中轴两侧交替排布。 业界来源：Ant Design Timeline 的 `mode="alternate"`。
   - `.horizontal` — 横向：节点沿水平轴排列，节点间有连线，内容在节点下方。 业界来源：PowerPoint SmartArt 的 Basic Timeline / Final Cut Pro 的横向事件时间线。
   - `.grouped` — 无连线的分组列表：删掉节点列与连线，只留内容；本形态下 `TimelineItem.node:` 槽不生效。
-- *struct* **`TimelineItem`** — `Timeline` 单条节点的数据载体。
 
 ### `Components/Toast/Toast.swift`
 
@@ -1069,11 +1069,11 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | controlsize | 5 | 5 |
 | motion | 4 | 4 |
 | colors | 124 | 124 |
-| components | 90 | 90 |
+| components | 91 | 91 |
 | enums | 47 | 47 |
 | enumcases | 159 | 159 |
 | protocols | 6 | 6 |
 | viewext | 47 | 47 |
 | styleext | 15 | 15 |
-| others | 29 | 29 |
+| others | 28 | 28 |
 

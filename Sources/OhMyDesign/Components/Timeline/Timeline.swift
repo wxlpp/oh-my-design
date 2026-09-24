@@ -1,54 +1,5 @@
 import SwiftUI
 
-// MARK: - TimelineItem
-
-/// `Timeline` 单条节点的数据载体。
-public struct TimelineItem: Identifiable {
-    public let id: UUID
-    let status: StatusLevel
-    let node: AnyView?
-    let content: AnyView
-
-    /// 使用默认圆点节点构造。
-    ///
-    /// - Parameters:
-    ///   - id: stable identity，缺省由 `UUID()` 生成。
-    ///   - status: 节点状态，决定默认圆点颜色，缺省 `.info`。
-    ///   - content: 节点右侧内容，任意视图。
-    public init<Content: View>(
-        id: UUID = UUID(),
-        status: StatusLevel = .info,
-        @ViewBuilder content: () -> Content
-    ) {
-        self.id = id
-        self.status = status
-        self.node = nil
-        self.content = AnyView(content())
-    }
-
-    /// 使用自定义节点视图构造（替代默认圆点）。
-    ///
-    /// - Parameters:
-    ///   - id: stable identity，缺省由 `UUID()` 生成。
-    ///   - status: 节点状态。当 `node` 已显式提供时，`status` 只作为语义标记保留
-    ///     （例如未来筛选/排序场景），不再驱动默认圆点颜色——颜色完全由 `node` 自身决定。
-    ///   - node: 自定义节点视图（图标 / 头像等），完全替代默认圆点，不叠加任何强制颜色。
-    ///     节点收到 24×24pt 的提议，节点盒取它报告的尺寸、下限 24pt；节点列宽取所有节点里
-    ///     最宽的那个，行高与连线端点按各自节点盒的实际高度算。
-    ///   - content: 节点右侧内容，任意视图。
-    public init<Node: View, Content: View>(
-        id: UUID = UUID(),
-        status: StatusLevel = .info,
-        @ViewBuilder node: () -> Node,
-        @ViewBuilder content: () -> Content
-    ) {
-        self.id = id
-        self.status = status
-        self.node = AnyView(node())
-        self.content = AnyView(content())
-    }
-}
-
 // MARK: - TimelineLayout
 
 /// `Timeline` 的**整体排布形态**——与 `TimelineItem` 的 `node:` 外观槽**正交**：
@@ -69,47 +20,65 @@ public nonisolated enum TimelineLayout: Sendable, Equatable {
 // MARK: - Timeline
 
 /// **材质层**: 内容. **表面角色**: 内容.
-public struct Timeline: View {
-    let items: [TimelineItem]
+///
+/// 组合式时间线：直接子视图里的 `TimelineItem` 是行（自己画节点），其余子视图（分组标题、页脚等）
+/// 是没有节点的非行子视图。
+public struct Timeline<Content: View>: View {
     let layout: TimelineLayout
+    let content: Content
 
+    /// 构造时间线。
+    ///
     /// - Parameters:
-    ///   - items: 时间线节点数据，按数组顺序排列。
-    ///   - layout: 整体排布形态，默认 `.vertical`（现状形态）⇒ **现有调用方零影响**。
-    ///     ⚠️ `.grouped` 下 `TimelineItem.node:` 槽不生效，见 `TimelineLayout` 的正交性说明。
-    public init(items: [TimelineItem], layout: TimelineLayout = .vertical) {
-        self.items = items
+    ///   - layout: 整体排布形态，默认 `.vertical`。⚠️ `.grouped` 下 `TimelineItem` 的 `node:` 槽不生效。
+    ///   - content: 行（`TimelineItem`）与非行子视图，按声明顺序排布。
+    public init(layout: TimelineLayout = .vertical, @ViewBuilder content: () -> Content) {
         self.layout = layout
+        self.content = content()
     }
 
     public var body: some View {
-        switch self.layout {
-        case .vertical, .alternate: self.stackBody
-        case .horizontal:
-            ScrollView(.horizontal, showsIndicators: false) {
-                self.stackBody
-            }
-        case .grouped: self.groupedBody
-        }
-    }
-
-    private var stackBody: some View {
-        TimelineStackLayout(layout: self.layout) {
-            ForEach(0..<Swift.max(0, self.items.count - 1), id: \.self) { segment in
-                TimelineConnector()
-                    .layoutValue(key: TimelineStackLayout.PartKey.self, value: .connector(segment))
-            }
-            ForEach(Array(self.items.enumerated()), id: \.element.id) { row, item in
-                TimelineNodeView(item: item)
-                    .layoutValue(key: TimelineStackLayout.PartKey.self, value: .node(row))
-                VStack(alignment: .leading, spacing: CoreSpacing.none) {
-                    item.content
+        Group(subviews: self.content.environment(\.timelineLayoutContext, self.layout)) { subviews in
+            let slots = TimelineStackLayout.pairParts(roles: subviews.map { $0.containerValues.timelinePart?.role })
+            switch self.layout {
+            case .vertical, .alternate:
+                self.stack(subviews, slots: slots)
+            case .horizontal:
+                ScrollView(.horizontal, showsIndicators: false) {
+                    self.stack(subviews, slots: slots)
                 }
-                .layoutValue(key: TimelineStackLayout.PartKey.self, value: .content(row))
+            case .grouped:
+                VStack(alignment: .leading, spacing: CoreSpacing.md) {
+                    ForEach(subviews) { subview in
+                        if subview.containerValues.timelinePart?.role != .node {
+                            subview.frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
             }
         }
     }
 
+    private func stack(_ subviews: SubviewsCollection, slots: [TimelineStackLayout.Slot]) -> some View {
+        let priorities = self.layout == .horizontal
+            ? TimelineStackLayout.readingPriorities(slots: slots, partCount: subviews.count)
+            : nil
+        return TimelineStackLayout(layout: self.layout, slots: slots, partCount: subviews.count) {
+            ForEach(0..<TimelineStackLayout.connectorCount(slots: slots, layout: self.layout), id: \.self) { _ in
+                TimelineConnector()
+            }
+            ForEach(Array(subviews.enumerated()), id: \.element.id) { index, subview in
+                subview
+                    .timelineSortPriority(priorities?[index])
+            }
+        }
+        .timelineContained(priorities != nil)
+    }
+}
+
+// MARK: - 静态取值 / Static metrics
+
+extension Timeline where Content == EmptyView {
     typealias AlternateRowMetrics = TimelineStackLayout.AlternateRowMetrics
 
     nonisolated static func alternateRowMetrics(forRowWidth rowWidth: CGFloat) -> AlternateRowMetrics {
@@ -118,18 +87,6 @@ public struct Timeline: View {
 
     nonisolated static func alternateSlotWidth(forRowWidth rowWidth: CGFloat) -> CGFloat {
         Self.alternateRowMetrics(forRowWidth: rowWidth).slotWidth
-    }
-
-    private var groupedBody: some View {
-        VStack(alignment: .leading, spacing: CoreSpacing.md) {
-            ForEach(self.items) { item in
-                GroupedRow(item: item)
-            }
-        }
-    }
-
-    static func groupedStatusKey(for item: TimelineItem) -> String? {
-        item.node == nil ? Self.accessibilityLabelKey(for: item.status) : nil
     }
 
     // MARK: - Layout metrics
@@ -151,7 +108,7 @@ public struct Timeline: View {
         }
     }
 
-    static func accessibilityLabelKey(for status: StatusLevel) -> String {
+    nonisolated static func accessibilityLabelKey(for status: StatusLevel) -> String {
         switch status {
         case .info: "Info"
         case .success: "Success"
@@ -160,12 +117,249 @@ public struct Timeline: View {
         case .neutral: "Neutral"
         }
     }
+
+    nonisolated static func accessibility(
+        status: StatusLevel?, hasCustomNode: Bool, hasTitle: Bool
+    ) -> TimelineRowAccessibility {
+        let status = hasCustomNode ? status : (status ?? .info)
+        guard let status else {
+            return TimelineRowAccessibility(valueKeys: [], mount: .none, combinesContent: false)
+        }
+        let keys = [Self.accessibilityLabelKey(for: status)]
+        if hasTitle {
+            return TimelineRowAccessibility(valueKeys: keys, mount: .title, combinesContent: false)
+        }
+        return TimelineRowAccessibility(valueKeys: keys, mount: .content, combinesContent: true)
+    }
+}
+
+// MARK: - TimelineItem
+
+/// `Timeline` 的一行：自己画节点（默认圆点或 `node:` 槽），节点与内容作为两个子视图交给容器排布。
+///
+/// ⚠️ 施在行上的修饰会**分别**作用于节点与内容：布局修饰（`.padding` / `.frame`）与行为修饰
+/// （`.onAppear` / `.task` / `.onTapGesture` / `.contextMenu`）请写进 `content:`；可点击的行把
+/// `Button` / `NavigationLink` 放进 `content:`，不要把整行包进 `Button`。
+public struct TimelineItem<Node: View, Content: View>: View {
+    let step: Int?
+    let status: StatusLevel?
+    let title: LocalizedStringKey?
+    let time: Text?
+    let description: LocalizedStringKey?
+    let node: Node?
+    let content: Content
+
+    @Environment(\.timelineLayoutContext) private var layoutContext
+
+    /// 富内容 + 默认圆点。
+    ///
+    /// - Parameters:
+    ///   - step: 该行的步骤号；纯活动流不写。
+    ///   - status: 决定默认圆点色相，并作为状态值播报在行上，缺省 `.info`。
+    ///   - content: 行内容；并列的多个视图竖排、左对齐、间距 0。
+    public init(
+        step: Int? = nil,
+        status: StatusLevel = .info,
+        @ViewBuilder content: () -> Content
+    ) where Node == EmptyView {
+        self.init(step: step, status: status, title: nil, time: nil, description: nil, node: nil, content: content())
+    }
+
+    /// 富内容 + 自定义节点（图标 / 头像等，替代默认圆点）。
+    ///
+    /// - Parameters:
+    ///   - step: 该行的步骤号；纯活动流不写。
+    ///   - status: 传了才把状态值播报在行上；节点里自带 label 的图标请由调用方 `.accessibilityHidden(true)`，
+    ///     否则同一状态读两遍。不传则不播报状态。
+    ///   - node: 自定义节点，收到 24×24pt 的提议；节点盒取它报告的尺寸、下限 24pt，节点列宽取所有节点里最宽的那个。
+    ///   - content: 行内容；并列的多个视图竖排、左对齐、间距 0。
+    public init(
+        step: Int? = nil,
+        status: StatusLevel? = nil,
+        @ViewBuilder node: () -> Node,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.init(step: step, status: status, title: nil, time: nil, description: nil, node: node(), content: content())
+    }
+
+    /// 结构件（标题 → 时间 → 描述 → 富内容）+ 默认圆点。
+    ///
+    /// - Parameters:
+    ///   - title: 标题，`.callout`、作为标题元素（`.isHeader`）并承载状态值。
+    ///   - time: 时间，通常是 `Text(date, style: .relative)` 这类格式化文本。
+    ///   - description: 描述。
+    ///   - step: 该行的步骤号；纯活动流不写。
+    ///   - status: 决定默认圆点色相，并作为状态值播报在标题上，缺省 `.info`。
+    ///   - content: 描述下方的富内容，缺省为空。
+    public init(
+        _ title: LocalizedStringKey,
+        time: Text? = nil,
+        description: LocalizedStringKey? = nil,
+        step: Int? = nil,
+        status: StatusLevel = .info,
+        @ViewBuilder content: () -> Content = { EmptyView() }
+    ) where Node == EmptyView {
+        self.init(step: step, status: status, title: title, time: time, description: description, node: nil, content: content())
+    }
+
+    /// 结构件（标题 → 时间 → 描述 → 富内容）+ 自定义节点。无富内容时写 `content: {}`。
+    ///
+    /// - Parameters:
+    ///   - title: 标题，`.callout`、作为标题元素（`.isHeader`）；传了 `status` 时承载状态值。
+    ///   - time: 时间，通常是 `Text(date, style: .relative)` 这类格式化文本。
+    ///   - description: 描述。
+    ///   - step: 该行的步骤号；纯活动流不写。
+    ///   - status: 传了才把状态值播报在标题上（节点里自带 label 的图标请由调用方隐藏）；不传则不播报状态。
+    ///   - node: 自定义节点，尺寸规则同 `init(step:status:node:content:)`。
+    ///   - content: 描述下方的富内容。
+    public init(
+        _ title: LocalizedStringKey,
+        time: Text? = nil,
+        description: LocalizedStringKey? = nil,
+        step: Int? = nil,
+        status: StatusLevel? = nil,
+        @ViewBuilder node: () -> Node,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.init(step: step, status: status, title: title, time: time, description: description, node: node(), content: content())
+    }
+
+    private init(
+        step: Int?, status: StatusLevel?, title: LocalizedStringKey?, time: Text?,
+        description: LocalizedStringKey?, node: Node?, content: Content
+    ) {
+        self.step = step
+        self.status = status
+        self.title = title
+        self.time = time
+        self.description = description
+        self.node = node
+        self.content = content
+    }
+
+    public var body: some View {
+        TimelineNodeView(status: self.status ?? .info, node: self.node)
+            .containerValue(\.timelinePart, TimelinePart(role: .node, step: self.step, status: self.status))
+        self.contentSlot
+            .containerValue(\.timelinePart, TimelinePart(role: .content, step: self.step, status: self.status))
+    }
+
+    private var accessibility: TimelineRowAccessibility {
+        Timeline.accessibility(status: self.status, hasCustomNode: self.node != nil, hasTitle: self.title != nil)
+    }
+
+    @ViewBuilder
+    private var contentSlot: some View {
+        let accessibility = self.accessibility
+        if let title = self.title {
+            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
+                Text(title)
+                    .coreFont(.callout)
+                    .foregroundStyle(Color.contentPrimary)
+                    .accessibilityAddTraits(.isHeader)
+                    .timelineAccessibilityValue(accessibility.mount == .title ? accessibility.valueText : nil)
+                if let time = self.time {
+                    time
+                        .coreFont(.footnote)
+                        .foregroundStyle(Color.contentSecondary)
+                }
+                if let description = self.description {
+                    Text(description)
+                        .coreFont(.footnote)
+                        .foregroundStyle(Color.contentSecondary)
+                }
+                self.content
+            }
+            .timelineContained(self.layoutContext == .horizontal)
+        } else {
+            VStack(alignment: .leading, spacing: CoreSpacing.none) {
+                self.content
+            }
+            .timelineCombined(accessibility.combinesContent)
+            .timelineContained(!accessibility.combinesContent && self.layoutContext == .horizontal)
+            .timelineAccessibilityValue(accessibility.mount == .content ? accessibility.valueText : nil)
+        }
+    }
+}
+
+// MARK: - 行内部件 / Row parts
+
+nonisolated struct TimelinePart: Hashable, Sendable {
+    let role: TimelineStackLayout.Role
+    let step: Int?
+    let status: StatusLevel?
+}
+
+nonisolated struct TimelineRowAccessibility: Equatable, Sendable {
+    enum Mount: Equatable, Sendable {
+        case title
+        case content
+        case none
+    }
+
+    let valueKeys: [String]
+    let mount: Mount
+    let combinesContent: Bool
+
+    @MainActor var valueText: String? {
+        guard !self.valueKeys.isEmpty else { return nil }
+        return self.valueKeys
+            .map { String(localized: String.LocalizationValue($0), bundle: .module) }
+            .joined(separator: ", ")
+    }
+}
+
+extension ContainerValues {
+    @Entry var timelinePart: TimelinePart? = nil
+}
+
+extension EnvironmentValues {
+    @Entry var timelineLayoutContext: TimelineLayout? = nil
+}
+
+private extension View {
+    @ViewBuilder
+    func timelineContained(_ contains: Bool) -> some View {
+        if contains {
+            self.accessibilityElement(children: .contain)
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func timelineSortPriority(_ priority: Double?) -> some View {
+        if let priority {
+            self.accessibilitySortPriority(priority)
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func timelineCombined(_ combines: Bool) -> some View {
+        if combines {
+            self.accessibilityElement(children: .combine)
+        } else {
+            self
+        }
+    }
+
+    @ViewBuilder
+    func timelineAccessibilityValue(_ value: String?) -> some View {
+        if let value {
+            self.accessibilityValue(Text(verbatim: value))
+        } else {
+            self
+        }
+    }
 }
 
 // MARK: - TimelineNodeView
 
-struct TimelineNodeView: View {
-    let item: TimelineItem
+struct TimelineNodeView<Node: View>: View {
+    let status: StatusLevel
+    let node: Node?
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -177,30 +371,13 @@ struct TimelineNodeView: View {
 
     @ViewBuilder
     private var nodeContent: some View {
-        if let node = self.item.node {
+        if let node = self.node {
             node
         } else {
             Circle()
-                .fill(Timeline.nodeColor(for: self.item.status, in: self.colorScheme))
+                .fill(Timeline.nodeColor(for: self.status, in: self.colorScheme))
                 .frame(width: Timeline.nodeDiameter, height: Timeline.nodeDiameter)
-                .accessibilityLabel(
-                    Text(LocalizedStringKey(Timeline.accessibilityLabelKey(for: self.item.status)), bundle: .module)
-                )
-        }
-    }
-}
-
-private struct GroupedRow: View {
-    let item: TimelineItem
-
-    var body: some View {
-        let base = self.item.content
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityElement(children: .combine)
-        if let key = Timeline.groupedStatusKey(for: self.item) {
-            base.accessibilityValue(Text(LocalizedStringKey(key), bundle: .module))
-        } else {
-            base
+                .accessibilityHidden(true)
         }
     }
 }
@@ -229,105 +406,64 @@ private struct TimelinePreviewGallery: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: CoreSpacing.xl) {
-                VStack(alignment: .leading, spacing: CoreSpacing.sm) {
-                    Text("默认圆点节点（5 种 StatusLevel 状态色）")
-                        .coreFont(.footnote)
-                        .foregroundStyle(.secondary)
-                    Timeline(items: [
-                        TimelineItem(status: .info) {
-                            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
-                                Text("已创建").coreFont(.callout)
-                                Text("2026-07-20 10:00").coreFont(.footnote).foregroundStyle(.secondary)
-                            }
-                        },
-                        TimelineItem(status: .success) {
-                            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
-                                Text("审核通过").coreFont(.callout)
-                                Text("2026-07-21 14:30").coreFont(.footnote).foregroundStyle(.secondary)
-                            }
-                        },
-                        TimelineItem(status: .warning) {
-                            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
-                                Text("即将过期提醒").coreFont(.callout)
-                                Text("2026-07-23 09:15").coreFont(.footnote).foregroundStyle(.secondary)
-                            }
-                        },
-                        TimelineItem(status: .danger) {
-                            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
-                                Text("处理失败").coreFont(.callout)
-                                Text("2026-07-24 18:45").coreFont(.footnote).foregroundStyle(.secondary)
-                            }
-                        },
-                        TimelineItem(status: .neutral) {
-                            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
-                                Text("已归档").coreFont(.callout)
-                                Text("2026-07-25 08:00").coreFont(.footnote).foregroundStyle(.secondary)
-                            }
-                        },
-                    ])
+                self.section("默认圆点节点（5 种 StatusLevel 状态色）") {
+                    Timeline {
+                        TimelineItem("已创建", time: Text(verbatim: "2026-07-20 10:00"), status: .info)
+                        TimelineItem("审核通过", time: Text(verbatim: "2026-07-21 14:30"), status: .success)
+                        TimelineItem("即将过期提醒", time: Text(verbatim: "2026-07-23 09:15"), status: .warning)
+                        TimelineItem("处理失败", time: Text(verbatim: "2026-07-24 18:45"), status: .danger)
+                        TimelineItem("已归档", time: Text(verbatim: "2026-07-25 08:00"), status: .neutral)
+                    }
                 }
 
-                VStack(alignment: .leading, spacing: CoreSpacing.sm) {
-                    Text("自定义节点（图标 / 头像替代默认圆点）")
-                        .coreFont(.footnote)
-                        .foregroundStyle(.secondary)
-                    Timeline(items: [
-                        TimelineItem(status: .success) {
+                self.section("自定义节点（图标 / 头像替代默认圆点）") {
+                    Timeline {
+                        TimelineItem("订单已发货", status: .success) {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundStyle(Color.statusSuccessEmphasis)
-                        } content: {
-                            Text("订单已发货").coreFont(.callout)
-                        },
-                        TimelineItem(status: .info) {
+                                .accessibilityHidden(true)
+                        } content: {}
+                        TimelineItem("客服已接入", description: "由「小 A」跟进处理，预计 30 分钟内响应。") {
                             Circle()
                                 .fill(.blue)
                                 .frame(width: 20, height: 20)
-                        } content: {
-                            VStack(alignment: .leading, spacing: CoreSpacing.xxs) {
-                                Text("客服已接入").coreFont(.callout)
-                                Text("由「小 A」跟进处理，预计 30 分钟内响应。")
-                                    .coreFont(.footnote)
-                                    .foregroundStyle(.secondary)
-                            }
-                        },
-                        TimelineItem(status: .danger) {
+                        } content: {}
+                        TimelineItem("配送异常", status: .danger) {
                             Image(systemName: "xmark.circle.fill")
                                 .foregroundStyle(Color.statusDangerEmphasis)
-                        } content: {
-                            Text("配送异常").coreFont(.callout)
-                        },
-                    ])
+                                .accessibilityHidden(true)
+                        } content: {}
+                    }
                 }
 
                 // MARK: `#60` 形态 D2 新增的三种排布
 
                 self.section("交替 · alternate（节点须在**同一条中轴**上，连线贯穿）") {
-                    Timeline(items: Self.statusItems, layout: .alternate)
+                    Timeline(layout: .alternate) { Self.statusRows }
                 }
 
                 self.section("交替 · 单条（无连线）") {
-                    Timeline(items: [Self.statusItems[0]], layout: .alternate)
+                    Timeline(layout: .alternate) {
+                        TimelineItem(status: .info) { Text("已创建").coreFont(.callout) }
+                    }
                 }
 
                 self.section("横向 · horizontal（可横向滚动，节点间有连线）") {
-                    Timeline(items: Self.statusItems, layout: .horizontal)
+                    Timeline(layout: .horizontal) { Self.statusRows }
                 }
 
                 self.section("分组 · grouped（无节点列；默认节点项仍播报状态）") {
-                    Timeline(items: Self.statusItems, layout: .grouped)
+                    Timeline(layout: .grouped) { Self.statusRows }
                 }
 
-                self.section("分组 · 自定义节点项（状态播报交还调用方，不臆造）") {
-                    Timeline(
-                        items: [
-                            TimelineItem(status: .success) {
-                                Image(systemName: "checkmark.circle.fill")
-                            } content: {
-                                Text("订单已发货").coreFont(.callout)
-                            },
-                        ],
-                        layout: .grouped
-                    )
+                self.section("分组 · 自定义节点项（不传 status 不播报状态）") {
+                    Timeline(layout: .grouped) {
+                        TimelineItem {
+                            Image(systemName: "checkmark.circle.fill")
+                        } content: {
+                            Text("订单已发货").coreFont(.callout)
+                        }
+                    }
                 }
             }
             .padding()
@@ -335,13 +471,12 @@ private struct TimelinePreviewGallery: View {
         .background(Color.surfaceCanvas)
     }
 
-    private static var statusItems: [TimelineItem] {
-        [
-            TimelineItem(status: .info) { Text("已创建").coreFont(.callout) },
-            TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) },
-            TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) },
-            TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) },
-        ]
+    @ViewBuilder
+    private static var statusRows: some View {
+        TimelineItem(status: .info) { Text("已创建").coreFont(.callout) }
+        TimelineItem(status: .success) { Text("审核通过").coreFont(.callout) }
+        TimelineItem(status: .warning) { Text("即将过期提醒").coreFont(.callout) }
+        TimelineItem(status: .danger) { Text("处理失败").coreFont(.callout) }
     }
 
     @ViewBuilder

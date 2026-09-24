@@ -99,17 +99,36 @@ struct TimelineGeometryPureTests {
         }
     }
 
-    @Test("pairRows：按行号配对；缺节点或缺内容的行照样成行（缺的一格为 nil），不丢行、不串行；同一行重复的部件取先到的")
-    func pairRowsKeepsIncompleteRows() {
-        typealias Part = TimelineStackLayout.Part
-        typealias Row = TimelineStackLayout.Row
-        let parts: [Part?] = [.connector(0), .connector(1), .node(0), .content(0), .content(1), .node(2), .content(2), nil]
-        let paired = TimelineStackLayout.pairRows(parts: parts)
-        #expect(paired.rows == [Row(node: 2, content: 3), Row(node: nil, content: 4), Row(node: 5, content: 6)])
-        #expect(paired.connectors == [0: 0, 1: 1])
-        #expect(TimelineStackLayout.pairRows(parts: [.node(0)]).rows == [Row(node: 0, content: nil)])
-        #expect(TimelineStackLayout.pairRows(parts: [.node(0), .node(0), .content(0)]).rows == [Row(node: 0, content: 2)])
-        #expect(TimelineStackLayout.pairRows(parts: []).rows.isEmpty)
+    @Test("pairParts：「节点紧跟内容」成行；孤立的节点 / 内容与无角色子视图成非行；每个下标恰出现一次（不丢、不重）")
+    func pairPartsPartitionsEverySubview() {
+        typealias Slot = TimelineStackLayout.Slot
+        let roles: [TimelineStackLayout.Role?] = [nil, .node, .content, .content, .node, .node, .content, nil, .node]
+        let slots = TimelineStackLayout.pairParts(roles: roles)
+        #expect(slots == [.free(0), .row(node: 1, content: 2), .free(3), .free(4), .row(node: 5, content: 6), .free(7), .free(8)])
+        let covered = slots.flatMap { slot -> [Int] in
+            switch slot {
+            case .row(let node, let content): [node, content]
+            case .free(let index): [index]
+            }
+        }
+        #expect(covered == Array(roles.indices), "每个子视图必须恰好被放置一次：\(covered)")
+        #expect(TimelineStackLayout.pairParts(roles: []).isEmpty)
+        #expect(TimelineStackLayout.pairParts(roles: [.content, .node]) == [.free(0), .free(1)])
+    }
+
+    @Test("segments / connectorCount：段只连相邻两个行（跨过非行），按行在槽序列里的序号取；.alternate 每夹一个非行多一截")
+    func segmentsFollowRowOrdinals() {
+        typealias Slot = TimelineStackLayout.Slot
+        let slots: [Slot] = [.free(0), .row(node: 1, content: 2), .free(3), .free(4), .row(node: 5, content: 6), .row(node: 7, content: 8), .free(9)]
+        #expect(TimelineStackLayout.segments(slots: slots) == [
+            TimelineStackLayout.Segment(from: 1, to: 4, free: [2, 3]),
+            TimelineStackLayout.Segment(from: 4, to: 5, free: []),
+        ])
+        #expect(TimelineStackLayout.connectorCount(slots: slots, layout: .vertical) == 2)
+        #expect(TimelineStackLayout.connectorCount(slots: slots, layout: .horizontal) == 2)
+        #expect(TimelineStackLayout.connectorCount(slots: slots, layout: .alternate) == 4)
+        #expect(TimelineStackLayout.connectorCount(slots: slots, layout: .grouped) == 0)
+        #expect(TimelineStackLayout.segments(slots: [.row(node: 0, content: 1)]).isEmpty)
     }
 
     @Test("connectorSpan：两盒相邻边的距离，恒 ≥ 0，非有限得 0")
@@ -245,19 +264,18 @@ struct TimelineGeometryRenderTests {
         }
     }
 
-    private static func mixedItems() -> [TimelineItem] {
-        [
-            TimelineItem(status: .neutral) { Color.black.frame(width: 24, height: 24) } content: { Self.block(height: 60) },
-            TimelineItem(status: .neutral) { Self.tallHollowNode() } content: { Self.block(height: 20) },
-            TimelineItem(status: .neutral) { Color.black.frame(width: 20, height: 20) } content: { Self.block(height: 20) },
-        ]
+    @ViewBuilder
+    private static func mixedRows() -> some View {
+        TimelineItem(status: .neutral) { Color.black.frame(width: 24, height: 24) } content: { Self.block(height: 60) }
+        TimelineItem(status: .neutral) { Self.tallHollowNode() } content: { Self.block(height: 20) }
+        TimelineItem(status: .neutral) { Color.black.frame(width: 20, height: 20) } content: { Self.block(height: 20) }
     }
 
     private static let rowTops: [CGFloat] = [0, 76, 140]
 
     @Test("列宽 = 最宽节点：24 / 40×56 / 20 三行，内容左缘都在 40 + md，节点中心都在 20")
     func columnWidthIsWidestNode() {
-        let canvas = Self.render(Timeline(items: Self.mixedItems()))
+        let canvas = Self.render(Timeline { Self.mixedRows() })
         for (row, top) in Self.rowTops.enumerated() {
             let left = canvas.firstX(inRow: top + 10, canvas.isBlue)
             #expect(left.map { abs($0 - 52) <= 1 } == true, "第 \(row) 行内容左缘 \(String(describing: left))，应为 52")
@@ -272,7 +290,7 @@ struct TimelineGeometryRenderTests {
 
     @Test("高节点不被穿过：40×56 盒内部无连线像素，连线从盒下沿起、到下一盒上沿止")
     func tallNodeIsNotCrossed() {
-        let canvas = Self.render(Timeline(items: Self.mixedItems()))
+        let canvas = Self.render(Timeline { Self.mixedRows() })
         let column = Int(20 * canvas.pixels.scale)
         let d = canvas.deltaFromWhite(device: column, Int(50 * canvas.pixels.scale))
         #expect(d >= 6, "连线在白底上与背景只差 \(d)，无法下结论")
@@ -303,7 +321,7 @@ struct TimelineGeometryRenderTests {
 
     @Test(".alternate 中轴一致：三行节点中心都在行宽 / 2，两侧内容与中轴等距 = 列宽 / 2 + md")
     func alternateAxisIsShared() {
-        let canvas = Self.render(Timeline(items: Self.mixedItems(), layout: .alternate))
+        let canvas = Self.render(Timeline(layout: .alternate) { Self.mixedRows() })
         for y in [CGFloat(12), 80, 152] {
             let center = canvas.blackCenterX(inRow: y)
             #expect(center.map { abs($0 - 150) <= 1 } == true, "y=\(y) 的节点中心 \(String(describing: center))，应为 150")
@@ -316,12 +334,11 @@ struct TimelineGeometryRenderTests {
 
     @Test(".horizontal 横轴与内容顶：盒高 24 / 56 混排，节点中心同一行、内容顶都在 56 + sm，横轴上有连线")
     func horizontalAxisAndContentTop() {
-        let items = [
-            TimelineItem(status: .neutral) { Color.black.frame(width: 24, height: 24) } content: { Self.block(height: 20) },
-            TimelineItem(status: .neutral) { Color.black.frame(width: 20, height: 56) } content: { Self.block(height: 20) },
-            TimelineItem(status: .neutral) { Color.black.frame(width: 24, height: 24) } content: { Self.block(height: 20) },
-        ]
-        let canvas = Self.render(Timeline(items: items, layout: .horizontal))
+        let canvas = Self.render(Timeline(layout: .horizontal) {
+            TimelineItem(status: .neutral) { Color.black.frame(width: 24, height: 24) } content: { Self.block(height: 20) }
+            TimelineItem(status: .neutral) { Color.black.frame(width: 20, height: 56) } content: { Self.block(height: 20) }
+            TimelineItem(status: .neutral) { Color.black.frame(width: 24, height: 24) } content: { Self.block(height: 20) }
+        })
         for x in [CGFloat(30), 106, 182] {
             let center = canvas.blackCenterY(inColumn: x)
             #expect(center.map { abs($0 - 28) <= 1 } == true, "x=\(x) 的节点中心 \(String(describing: center))，应在横轴 28")
@@ -336,14 +353,13 @@ struct TimelineGeometryRenderTests {
 
     @Test("空节点（if 不成立）：本行照常成行、节点盒取下限 24，内容不落到容器中心，后续行不错位")
     func emptyNodeKeepsItsRow() {
-        let items = [
-            TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: { Self.block(height: 20) },
+        let canvas = Self.render(Timeline {
+            TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: { Self.block(height: 20) }
             TimelineItem(status: .neutral) {
                 if Self.nodeIsShown { Color.black.frame(width: 10, height: 10) }
-            } content: { Self.block(width: 40, height: 20) },
-            TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: { Self.block(height: 20) },
-        ]
-        let canvas = Self.render(Timeline(items: items))
+            } content: { Self.block(width: 40, height: 20) }
+            TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: { Self.block(height: 20) }
+        })
         for (row, top) in [CGFloat(0), 36, 72].enumerated() {
             let blue = canvas.bounds(x: 0...300, y: top...(top + 20), canvas.isBlue)
             #expect(blue.map { abs($0.minX - 36) <= 1 && abs($0.minY - top) <= 1 } == true,
@@ -357,14 +373,13 @@ struct TimelineGeometryRenderTests {
 
     @Test("多视图节点：两个视图叠在同一个节点盒里（居中），不拆成两格、不落到容器中心")
     func multiViewNodeSharesOneBox() {
-        let items = [
+        let canvas = Self.render(Timeline {
             TimelineItem(status: .neutral) {
                 Color.black.frame(width: 16, height: 4)
                 Color.black.frame(width: 4, height: 16)
-            } content: { Self.block(height: 20) },
-            TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: { Self.block(height: 20) },
-        ]
-        let canvas = Self.render(Timeline(items: items))
+            } content: { Self.block(height: 20) }
+            TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: { Self.block(height: 20) }
+        })
         let node = canvas.bounds(x: 0...300, y: 0...30, canvas.isBlack)
         #expect(node.map { abs($0.midX - 12) <= 1 && abs($0.midY - 12) <= 1 && abs($0.width - 16) <= 1 && abs($0.height - 16) <= 1 } == true,
                 "多视图节点像素 \(String(describing: node))，应是以 (12, 12) 为中心的 16×16 十字")
@@ -376,14 +391,13 @@ struct TimelineGeometryRenderTests {
 
     @Test("多视图内容：竖排在同一内容格里（左缘相等、间距 0），行高按两者之和算")
     func multiViewContentStacks() {
-        let items = [
+        let canvas = Self.render(Timeline {
             TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: {
                 Self.block(height: 20)
                 Color(red: 1, green: 0, blue: 0).frame(width: 40, height: 20)
-            },
-            TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: { Self.block(height: 20) },
-        ]
-        let canvas = Self.render(Timeline(items: items))
+            }
+            TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: { Self.block(height: 20) }
+        })
         let first = canvas.bounds(x: 0...300, y: 0...40, canvas.isBlue)
         let second = canvas.bounds(x: 0...300, y: 0...40, canvas.isRed)
         #expect(first.map { abs($0.minX - 36) <= 1 && abs($0.minY) <= 1 } == true, "第一个内容视图 \(String(describing: first))")
@@ -395,11 +409,10 @@ struct TimelineGeometryRenderTests {
 
     @Test("内容高 10 的非末行：行高 = 盒高 24 + sm = 32（旧实现为 max(24, 10 + lg) = 26）")
     func shortContentRowIsBoxPlusGap() {
-        let items = [
-            TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: { Self.block(height: 10) },
-            TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: { Self.block(height: 10) },
-        ]
-        let canvas = Self.render(Timeline(items: items))
+        let canvas = Self.render(Timeline {
+            TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: { Self.block(height: 10) }
+            TimelineItem(status: .neutral) { Color.black.frame(width: 10, height: 10) } content: { Self.block(height: 10) }
+        })
         let second = canvas.firstY(inColumn: 50, from: 11, canvas.isBlue)
         #expect(second.map { abs($0 - 32) <= 1 } == true, "第 1 行内容顶 \(String(describing: second))，应为 32")
     }
@@ -410,8 +423,8 @@ struct TimelineGeometryRenderTests {
         view.frame(width: 300).padding(.horizontal, 50)
     }
 
-    private static func textItems(longRow: Int) -> [TimelineItem] {
-        (0..<2).map { row in
+    private static func textRows(longRow: Int) -> some View {
+        ForEach(0..<2, id: \.self) { row in
             TimelineItem(status: .neutral) {
                 Color(red: 1, green: 0, blue: 0).frame(width: 10, height: 10)
             } content: {
@@ -424,7 +437,7 @@ struct TimelineGeometryRenderTests {
           arguments: [LayoutDirection.leftToRight, .rightToLeft], [0, 1])
     func alternateTextWrapsInsideSlot(direction: LayoutDirection, longRow: Int) {
         let canvas = Self.render(
-            Self.slotted(Timeline(items: Self.textItems(longRow: longRow), layout: .alternate)),
+            Self.slotted(Timeline(layout: .alternate) { Self.textRows(longRow: longRow) }),
             size: CGSize(width: 400, height: 240), direction: direction
         )
         let onLeading = longRow.isMultiple(of: 2)
@@ -440,13 +453,13 @@ struct TimelineGeometryRenderTests {
     @Test(".alternate 220pt 固定宽色块：宽于槽时越过槽外缘向外溢出，不压节点（左右槽、RTL 同一规则）",
           arguments: [LayoutDirection.leftToRight, .rightToLeft])
     func alternateFixedWidthOverflowsOutward(direction: LayoutDirection) {
-        let items = (0..<2).map { _ in
+        let rows = ForEach(0..<2, id: \.self) { _ in
             TimelineItem(status: .neutral) {
                 Color(red: 1, green: 0, blue: 0).frame(width: 10, height: 10)
             } content: { Self.block(width: 220, height: 24) }
         }
         let canvas = Self.render(
-            Self.slotted(Timeline(items: items, layout: .alternate)), size: CGSize(width: 400, height: 240), direction: direction
+            Self.slotted(Timeline(layout: .alternate) { rows }), size: CGSize(width: 400, height: 240), direction: direction
         )
         let scale = canvas.pixels.scale
         for y in [CGFloat(12), 52] {
@@ -463,15 +476,15 @@ struct TimelineGeometryRenderTests {
 
     @Test(".alternate RTL 图 = LTR 图水平翻转（220pt 溢出色块 + 节点 + 连线）")
     func alternateRightToLeftMirrors() {
-        let items = (0..<3).map { row in
+        let items = ForEach(0..<3, id: \.self) { row in
             TimelineItem(status: .neutral) {
                 Color(red: 1, green: 0, blue: 0).frame(width: 10, height: 10)
             } content: { Self.block(width: row == 1 ? 60 : 220, height: 24) }
         }
         let size = CGSize(width: 400, height: 240)
-        let ltr = Self.render(Self.slotted(Timeline(items: items, layout: .alternate)), size: size).pixels
+        let ltr = Self.render(Self.slotted(Timeline(layout: .alternate) { items }), size: size).pixels
         let rtl = Self.render(
-            Self.slotted(Timeline(items: items, layout: .alternate)), size: size, direction: .rightToLeft
+            Self.slotted(Timeline(layout: .alternate) { items }), size: size, direction: .rightToLeft
         ).pixels
         let axis = Int(200 * ltr.scale)
         let band = (axis - 2)...(axis + 1)
@@ -480,7 +493,7 @@ struct TimelineGeometryRenderTests {
             Self.masking(columns: band, in: rtl.bytes, width: rtl.width),
             maxChannelDelta: 2, ".alternate RTL（中轴连线列以外）不是 LTR 的水平翻转：1pt 连线跨在两个设备像素上，镜像后取整方向不同"
         )
-        let red = Self.render(Self.slotted(Timeline(items: items, layout: .alternate)), size: size, direction: .rightToLeft)
+        let red = Self.render(Self.slotted(Timeline(layout: .alternate) { items }), size: size, direction: .rightToLeft)
         #expect(red.isRed(Int(200 * ltr.scale), Int(12 * ltr.scale)), "RTL 中轴上的节点被遮住或不在中轴")
     }
 
@@ -505,20 +518,19 @@ struct TimelineGeometryRenderTests {
         return mirrored
     }
 
-    private static func oddWidthItems() -> [TimelineItem] {
-        [
-            TimelineItem(status: .neutral) { Color.black.frame(width: 25, height: 25) } content: { Self.block(height: 60) },
-            TimelineItem(status: .neutral) {
-                Color.clear.frame(width: 41, height: 56).overlay(alignment: .top) { Color.black.frame(width: 11, height: 11) }
-            } content: { Self.block(height: 20) },
-            TimelineItem(status: .neutral) { Color.black.frame(width: 21, height: 21) } content: { Self.block(height: 20) },
-        ]
+    @ViewBuilder
+    private static func oddWidthRows() -> some View {
+        TimelineItem(status: .neutral) { Color.black.frame(width: 25, height: 25) } content: { Self.block(height: 60) }
+        TimelineItem(status: .neutral) {
+            Color.clear.frame(width: 41, height: 56).overlay(alignment: .top) { Color.black.frame(width: 11, height: 11) }
+        } content: { Self.block(height: 20) }
+        TimelineItem(status: .neutral) { Color.black.frame(width: 21, height: 21) } content: { Self.block(height: 20) }
     }
 
     @Test("RTL：.vertical 的 RTL 图 = LTR 图水平翻转（奇数宽节点，使节点与连线落在整点上、不受取整方向影响）")
     func rightToLeftMirrorsLeftToRight() {
-        let ltr = Self.render(Timeline(items: Self.oddWidthItems())).pixels
-        let rtl = Self.render(Timeline(items: Self.oddWidthItems()), direction: .rightToLeft).pixels
+        let ltr = Self.render(Timeline { Self.oddWidthRows() }).pixels
+        let rtl = Self.render(Timeline { Self.oddWidthRows() }, direction: .rightToLeft).pixels
         guard let bytes = ltr.bytes else {
             expectBitmapsEqual(ltr.bytes, rtl.bytes, "LTR 未渲染")
             return

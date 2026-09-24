@@ -37,6 +37,11 @@
 | **P8** | 入场动效：`onScrollVisibilityChange` + `keyframeAnimator(initialValue: 1)` 首帧是否先画终态（`cacheDisplay` 每 8ms 采一帧，节点 20pt，量黑色像素宽度） | **同步置 trigger**：挂载（无滚动宿主）与滚入两种情形首帧都已是 16pt（≈ 0.86 档），3/3 次无终态闪帧；但 **`ImageRenderer` 静态渲染读到 17pt**（节点被画成缩小态）。**改为下一轮 runloop 再置 trigger**（P8b）：`ImageRenderer` 恢复 20pt，但托管窗口首帧是 20pt、第二帧起 16pt ⇒ **闪一帧**，3/3 次复现。详见 §6.3 |
 | **P9** | iOS 基线：`f0f03c2` 上的 Timeline 画廊（`PREVIEW_COMPONENT_ID=timeline`）无障碍树 | 见 §7.1 |
 | **P10** | iOS 原型：U8 各候选的无障碍树（整树 + `--point` 命中测试） | 见 §7.2 |
+| **E2-1**（PR 2） | 四个 init 加 `step: Int? = nil`、② / ④ 的 `status` 改 `StatusLevel? = nil` 后的重载解析（`-default-isolation MainActor`，13 种调用形态） | 全部无歧义、落到预期 init：`TimelineItem { … }` → ①、`TimelineItem("A") { Text("rich") }` → ③、`TimelineItem("A", step: 1) { … } content: {}` → ④、`TimelineItem(status: .success) { … }` → ①、`TimelineItem(status: .success) { … } content: { … }` → ② 等 |
+| **E2-2**（PR 2） | 泛型 `Timeline<Content>` 能否被 J-2 识别为 `TimelineLayout` 的宿主 | 能：`ComponentExtensionPointGuard` 1 条通过，定义域仍 16、`missing` 为空 |
+| **E2-3**（PR 2） | `.grouped` 下未摆放的节点子视图是否进无障碍树（iOS 26.4，`axe`） | 不进：未隐藏的自定义节点 `star.fill` 在整树里缺席（整树连隐藏元素都列）；其位置 `--point` 命中该行内容 |
+| **E2-4**（PR 2） | `.horizontal` 三列「标题 + 时间」的读序：a4 vs a4 + 内容 `.contain` | a4 单独：整树顺序为三个标题在前、三个时间在后；加 `.contain` 后按列（标题 1、时间 1、标题 2 …），`--point` 命中标题仍带值 ⇒ `.horizontal` 下有标题行的内容加 `.contain` |
+| **P1b 细化**（PR 2） | 对解析后的 `Subview` 施 `.environment`，哪些 body 读不到 | 只有**子视图根上那个自定义 View 自己的 body** 读不到（它在解析时已求值，scratch 与本仓两处复现）；嵌在它里面、渲染时才求值的视图**读得到**（本仓：节点槽 / 内容槽里的探针在该变异下仍读到 `.vertical`）。⇒ 解析前通路判据须含「直接子视图自身 body」这一格，只放槽内探针会对该变异恒绿 |
 
 P6 修饰对照（行 = `TimelineItem`；节点红 10×10 于 24×24 盒、内容蓝 100×20，白底）：
 
@@ -780,7 +785,7 @@ PR 2 在该组的 `// MARK:` 标题里注明它是**合成夹具**、与 registr
 | 配对与行序 | `ImageRenderer` 渲染每行内容为不同宽度色块的夹具（含 `ForEach` / `if` / 非行子视图 / 调用方多视图节点闭包 / **多视图内容** / **空内容与 `if false` 内容**）：量内容左缘 / 顶沿顺序；多视图节点仍只占一个节点盒；多视图内容竖排在同一内容格里（左缘相等、顶沿递增、间距 0）；空内容行的节点照常画、后续行不错位 |
 | 行上修饰作用于节点 | `.opacity(0.5)` 施在行上：节点色块与内容色块**都**半透（P6 同形）；变异见下 |
 | 行被包进 `VStack` | 节点与内容仍出现（降级可见） |
-| 解析前通路 | 自定义节点与内容各放一个读内部环境键 `timelineLayoutContext` 的探针，读数画成不同宽度色块：两处都读到传给 `Timeline` 的 `layout`；`Timeline` 外读到默认值（PR 3 在同一通路上加 `timelinePhase`，届时本条扩为「`timelinePhase` 两槽有值」） |
+| 解析前通路 | 自定义节点与内容各放一个、再放一个**直接子视图**（自身 body 读环境，见 §0「P1b 细化」）读内部环境键 `timelineLayoutContext` 的探针，读数画成不同宽度色块：三处都读到传给 `Timeline` 的 `layout`；`Timeline` 外读到默认值（PR 3 在同一通路上加 `timelinePhase`，届时本条扩为「`timelinePhase` 两槽有值」） |
 | `.grouped` 不摆节点 | 位图：无节点像素；iOS `axe --point` 在节点位置命中不到任何元素（手工读一次，写 PR 正文） |
 | 旧实现闸门 | §9.1 同一矩阵，新 API 写法 |
 | J-2 / registry / README / 引文 / 文案 | `ComponentExtensionPointGuard`（仍 16，U12）、`ComponentRegistryGuard`（59）、`QuotedEvidenceGuard`、`ComponentTextParamGuard`（23）、`BoolExemptionGuard` |
