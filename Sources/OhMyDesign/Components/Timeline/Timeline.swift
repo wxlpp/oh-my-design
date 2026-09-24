@@ -63,6 +63,10 @@ public struct Timeline<Content: View>: View {
     let progress: TimelineProgress?
     let content: Content
 
+    @State private var motion: TimelineMotion?
+    @State private var isMounting = true
+    @Environment(\.coreMotionPresentation) private var presentation
+
     /// 构造时间线。
     ///
     /// - Parameters:
@@ -93,37 +97,68 @@ public struct Timeline<Content: View>: View {
             .environment(\.timelineLayoutContext, self.layout)
             .environment(\.timelineProgressContext, self.progress)
             .environment(\.timelinePhase, nil)
+            .environment(\.timelineMotion, self.motion)
+            .environment(\.timelineMountWindowOpen, self.isMounting)
         ) { subviews in
             let slots = TimelineStackLayout.pairParts(roles: subviews.map { $0.containerValues.timelinePart?.role })
-            switch self.layout {
-            case .vertical, .alternate:
-                self.stack(subviews, slots: slots)
-            case .horizontal:
-                ScrollView(.horizontal, showsIndicators: false) {
-                    self.stack(subviews, slots: slots)
-                }
-            case .grouped:
-                VStack(alignment: .leading, spacing: CoreSpacing.md) {
-                    ForEach(subviews) { subview in
-                        if subview.containerValues.timelinePart?.role != .node {
-                            subview.frame(maxWidth: .infinity, alignment: .leading)
+            let steps = Self.steps(subviews, slots: slots)
+            Group {
+                switch self.layout {
+                case .vertical, .alternate:
+                    self.stack(subviews, slots: slots, steps: steps)
+                case .horizontal:
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        self.stack(subviews, slots: slots, steps: steps)
+                    }
+                case .grouped:
+                    VStack(alignment: .leading, spacing: CoreSpacing.md) {
+                        ForEach(subviews) { subview in
+                            if subview.containerValues.timelinePart?.role != .node {
+                                subview.frame(maxWidth: .infinity, alignment: .leading)
+                            }
                         }
                     }
+                }
+            }
+            .onChange(of: TimelineMotion(progress: self.progress, steps: steps), initial: true) { _, target in
+                self.advance(to: target)
+            }
+        }
+        .onAppear {
+            RunLoop.main.perform(inModes: [.common]) {
+                MainActor.assumeIsolated {
+                    self.isMounting = false
                 }
             }
         }
     }
 
-    private func stack(_ subviews: SubviewsCollection, slots: [TimelineStackLayout.Slot]) -> some View {
+    private func advance(to target: TimelineMotion?) {
+        guard self.motion != nil, target != nil else {
+            self.motion = target
+            return
+        }
+        withAnimation(CoreMotionToken.reveal.animation(for: self.presentation)) {
+            self.motion = target
+        }
+    }
+
+    private func stack(
+        _ subviews: SubviewsCollection, slots: [TimelineStackLayout.Slot], steps: [Int?]
+    ) -> some View {
         let priorities = self.layout == .horizontal
             ? TimelineStackLayout.readingPriorities(slots: slots, partCount: subviews.count)
             : nil
-        let fractions = TimelineStackLayout.connectorFractions(
-            slots: slots, steps: Self.steps(subviews, slots: slots), progress: self.progress, layout: self.layout
+        let pieces = TimelineStackLayout.connectorMotionPieces(
+            slots: slots, steps: steps, progress: self.motion?.progress ?? self.progress, layout: self.layout
         )
+        let position = self.motion?.position
         return TimelineStackLayout(layout: self.layout, slots: slots, partCount: subviews.count) {
-            ForEach(fractions.indices, id: \.self) { index in
-                TimelineConnector(fraction: fractions[index], axis: self.layout == .horizontal ? .horizontal : .vertical)
+            ForEach(pieces.indices, id: \.self) { index in
+                TimelineConnector(
+                    piece: pieces[index], position: position ?? 0, target: position,
+                    axis: self.layout == .horizontal ? .horizontal : .vertical
+                )
             }
             ForEach(Array(subviews.enumerated()), id: \.element.id) { index, subview in
                 subview
@@ -229,6 +264,7 @@ public struct TimelineItem<Node: View, Content: View>: View {
 
     @Environment(\.timelineLayoutContext) private var layoutContext
     @Environment(\.timelineProgressContext) private var progressContext
+    @Environment(\.timelineMotion) private var motion
 
     /// 富内容 + 默认圆点。
     ///
@@ -318,7 +354,10 @@ public struct TimelineItem<Node: View, Content: View>: View {
 
     public var body: some View {
         let phase = self.phase
-        TimelineNodeView(status: self.status ?? .info, phase: phase, node: self.node)
+        TimelineNodeView(
+            status: self.status ?? .info, phase: self.displayedPhase, step: self.step,
+            position: self.motion?.position, node: self.node
+        )
             .environment(\.timelinePhase, phase)
             .containerValue(\.timelinePart, TimelinePart(role: .node, step: self.step, status: self.status))
         self.contentSlot
@@ -328,6 +367,11 @@ public struct TimelineItem<Node: View, Content: View>: View {
 
     private var phase: TimelinePhase? {
         guard let step = self.step, let progress = self.progressContext else { return nil }
+        return progress.phase(forStep: step)
+    }
+
+    private var displayedPhase: TimelinePhase? {
+        guard let step = self.step, let progress = self.motion?.progress ?? self.progressContext else { return nil }
         return progress.phase(forStep: step)
     }
 
@@ -405,6 +449,8 @@ extension ContainerValues {
 extension EnvironmentValues {
     @Entry var timelineLayoutContext: TimelineLayout? = nil
     @Entry var timelineProgressContext: TimelineProgress? = nil
+    @Entry var timelineMotion: TimelineMotion? = nil
+    @Entry var timelineMountWindowOpen: Bool = true
 }
 
 private nonisolated struct TimelinePhaseKey: EnvironmentKey {
@@ -463,6 +509,8 @@ private extension View {
 struct TimelineNodeView<Node: View>: View {
     let status: StatusLevel
     let phase: TimelinePhase?
+    let step: Int?
+    let position: Double?
     let node: Node?
 
     @Environment(\.colorScheme) private var colorScheme
@@ -471,6 +519,7 @@ struct TimelineNodeView<Node: View>: View {
         ZStack {
             self.nodeContent
         }
+        .modifier(TimelineEntranceModifier())
     }
 
     @ViewBuilder
@@ -478,45 +527,131 @@ struct TimelineNodeView<Node: View>: View {
         if let node = self.node {
             node
         } else {
-            let color = Timeline.nodeColor(for: self.status, in: self.colorScheme)
-            switch self.phase {
-            case nil, .completed:
-                Circle()
-                    .fill(color)
-                    .frame(width: Timeline.nodeDiameter, height: Timeline.nodeDiameter)
-                    .accessibilityHidden(true)
-            case .inProgress:
-                Circle()
-                    .fill(color)
-                    .frame(width: Timeline.nodeDiameter, height: Timeline.nodeDiameter)
-                    .background {
-                        Circle()
-                            .strokeBorder(color, lineWidth: CoreBorderWidth.thick)
-                            .frame(width: Timeline.inProgressRingDiameter, height: Timeline.inProgressRingDiameter)
-                    }
-                    .accessibilityHidden(true)
-            case .upcoming:
-                Circle()
-                    .strokeBorder(color, lineWidth: CoreBorderWidth.thick)
-                    .frame(width: Timeline.nodeDiameter, height: Timeline.nodeDiameter)
-                    .accessibilityHidden(true)
-            }
+            TimelineDefaultDot(
+                color: Timeline.nodeColor(for: self.status, in: self.colorScheme),
+                phase: self.phase, step: self.step, position: self.position ?? 0, target: self.position
+            )
+            .accessibilityHidden(true)
         }
     }
 }
 
-private struct TimelineConnector: View {
-    let fraction: CGFloat
-    let axis: Axis
+private struct TimelineEntranceModifier: ViewModifier {
+    @Environment(\.coreMotionPresentation) private var presentation
+    @Environment(\.timelineMountWindowOpen) private var mountWindowOpen
+    @State private var entrance = TimelineEntrance()
+
+    func body(content: Content) -> some View {
+        let frame = self.entrance.frame
+        content
+            .scaleEffect(frame.scale)
+            .opacity(frame.opacity)
+            .onScrollVisibilityChange(threshold: 0.5) { isVisible in
+                let next = self.entrance.visibilityChanged(
+                    isVisible, mountWindowOpen: self.mountWindowOpen, presentation: self.presentation
+                )
+                self.entrance = next.entrance
+                guard next.plays else { return }
+                RunLoop.main.perform(inModes: [.common]) {
+                    MainActor.assumeIsolated {
+                        withAnimation(CoreMotionToken.reveal.animation(for: self.presentation)) {
+                            self.entrance.isWaiting = false
+                        }
+                    }
+                }
+            }
+    }
+}
+
+nonisolated struct TimelineEntrance: Equatable, Sendable {
+    var isWaiting = false
+    var isSettled = false
+
+    var frame: TimelineEntranceFrame {
+        self.isWaiting ? .entering : .resting
+    }
+
+    func visibilityChanged(
+        _ isVisible: Bool, mountWindowOpen: Bool, presentation: MotionPresentation
+    ) -> (entrance: TimelineEntrance, plays: Bool) {
+        guard isVisible, !self.isSettled else { return (self, false) }
+        let plays = TimelineEntranceFrame.plays(mountWindowOpen: mountWindowOpen, presentation: presentation)
+        return (TimelineEntrance(isWaiting: plays, isSettled: true), plays)
+    }
+}
+
+nonisolated struct TimelineEntranceFrame: Equatable, Sendable {
+    var scale: CGFloat
+    var opacity: Double
+
+    static let resting = TimelineEntranceFrame(scale: 1, opacity: 1)
+
+    static let entering = TimelineEntranceFrame(scale: Self.enteringScale, opacity: 0)
+
+    static let enteringScale: CGFloat = 0.86
+
+    static func plays(mountWindowOpen: Bool, presentation: MotionPresentation) -> Bool {
+        !mountWindowOpen && presentation == .animated
+    }
+}
+
+private struct TimelineDefaultDot: View, Animatable {
+    let color: Color
+    let phase: TimelinePhase?
+    let step: Int?
+    var position: Double
+    let target: Double?
+
+    nonisolated var animatableData: Double {
+        get { self.position }
+        set { self.position = newValue }
+    }
 
     var body: some View {
+        let layers = TimelineStackLayout.dotLayers(
+            phase: self.phase,
+            morph: TimelineStackLayout.dotMorph(step: self.step, position: self.position, target: self.target)
+        )
+        Circle()
+            .strokeBorder(self.color, lineWidth: CoreBorderWidth.thick)
+            .opacity(layers.hollow)
+            .overlay {
+                Circle()
+                    .fill(self.color)
+                    .opacity(layers.fill)
+            }
+            .frame(width: Timeline.nodeDiameter, height: Timeline.nodeDiameter)
+            .background {
+                Circle()
+                    .strokeBorder(self.color, lineWidth: CoreBorderWidth.thick)
+                    .frame(width: Timeline.inProgressRingDiameter, height: Timeline.inProgressRingDiameter)
+                    .opacity(layers.ring)
+            }
+    }
+}
+
+private struct TimelineConnector: View, Animatable {
+    let piece: TimelineStackLayout.ConnectorPiece
+    var position: Double
+    let target: Double?
+    let axis: Axis
+
+    @Environment(\.coreMotionPresentation) private var presentation
+
+    nonisolated var animatableData: Double {
+        get { self.position }
+        set { self.position = newValue }
+    }
+
+    var body: some View {
+        let fraction = self.piece.fraction(position: self.position, target: self.target)
+        let grows = self.presentation == .animated
         Rectangle()
             .fill(Color.dividerDefault)
             .overlay {
-                if self.fraction > 0 {
-                    TimelineConnectorReach(fraction: self.fraction, axis: self.axis)
-                        .fill(.tint)
-                }
+                TimelineConnectorReach(fraction: grows || fraction == 0 ? fraction : 1, axis: self.axis)
+                    .fill(.tint)
+                    .opacity(grows ? 1 : Double(fraction))
             }
             .accessibilityHidden(true)
     }
@@ -542,11 +677,13 @@ private struct TimelineConnectorReach: Shape {
 #Preview("Timeline — Light") {
     TimelinePreviewGallery()
         .preferredColorScheme(.light)
+        .environment(\.coreMotionPresentationOverride, .resting)
 }
 
 #Preview("Timeline — Dark") {
     TimelinePreviewGallery()
         .preferredColorScheme(.dark)
+        .environment(\.coreMotionPresentationOverride, .resting)
 }
 
 private struct TimelinePreviewGallery: View {

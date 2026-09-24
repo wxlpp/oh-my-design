@@ -73,7 +73,7 @@ extension EnvironmentValues { public internal(set) var timelinePhase: TimelinePh
   ⚠️ **未设置 `.tint` 时取宿主 App 的 AccentColor**（macOS 为用户在系统设置里选的强调色），不是本库的墨色 `accent`；
   **`.coreAccent(_:)` 改不了连线色**，要统一色调请在 `Timeline` 外层写 `.tint(_:)`。纯活动流（不传 `progress`）的连线全是 `dividerDefault`。
 - 段系数与 `phase(forStep:)` 同源、逐个整数判定：后一行阶段不是 `upcoming` ⇒ 1，否则 0（后一行 `step == nil` 或不传 `progress` 恒为 0），
-  与上一条逐段等价。连续的推进位置 `P`（`step` 空间，spec §6.2）只在推进动效（`#420` PR 4）里引入。
+  与上一条逐段等价。连续的推进位置 `P`（`step` 空间，spec §6.2）只在推进动效的在飞帧里使用，见《动效》。
 - **`timelinePhase`**：在 `Timeline(progress:)` 内、带 `step` 的 `TimelineItem` 的 `node:` 与 `content:` **两个槽**里都有值；
   无 `step` 的行、非行子视图、不传 `progress` 的 `Timeline` 与 `Timeline` 外恒为 `nil`。只读（`internal(set)`）。
   嵌套时也成立：`Timeline` 在解析子视图前先把它置空（逐字 `.environment(\.timelinePhase, nil)`），外层行内容里的内层时间线，
@@ -95,8 +95,8 @@ extension EnvironmentValues { public internal(set) var timelinePhase: TimelinePh
 - **自定义节点**不叠加任何阶段画法：调用方读 `@Environment(\.timelinePhase)` 自行决定（例如未开始的图标降低不透明度）。
   在 `#Preview` 里看自定义节点某一阶段的样子，包一层带阶段的时间线即可：
   `Timeline(progress: .inProgress(at: 0)) { TimelineItem(step: 0) { MyNode() } content: {} }`。
-- 连线的着色层逐字 `.fill(.tint)`，盖在 `dividerDefault` 底线之上；不传 `progress` 时不画着色层（与 `#420` 之前逐像素相同，
-  `TimelineLegacy420GateTests` 以「各行写了 `step`、外层 `.tint(.black)`、不传 `progress`」对照旧实现兜住）。
+- 连线的着色层逐字 `.fill(.tint)`，盖在 `dividerDefault` 底线之上；不传 `progress` 时着色层长度为 0、不画出任何像素
+  （`TimelinePhaseRenderTests` 以「外层 `.tint(.black)`、不传 `progress` ⇒ 四段全是底线色」兜住）。
 
 ### `TimelineLayout`（`#60` 形态 D2「配置枚举」）
 
@@ -270,6 +270,34 @@ Timeline(layout: .grouped) { rows }   // node: 槽在此形态下不生效
   竖向长连线用 1pt 比 separator hairline（0.5pt）观感更实，是对 phase0「连线对齐 separator」
   决策的有意偏离（与 Steps 横向连线同源，指示性连线需强于分隔线；phase0/013 统一记录）
 - 行间距：内容下方 `CoreSpacing.lg`、节点下方至少 `CoreSpacing.sm`（最后一条不追加）；节点列与 content 横向间距 `CoreSpacing.md`
+
+## 动效
+
+两类，分开定义，都取 `CoreMotionToken.reveal`（0.25s），随 `coreMotionPresentation` 降级；两类都是一次性过渡，不接能耗闸。
+
+| | 阶段推进 | 节点入场 |
+|---|---|---|
+| 触发 | `progress` 变化（`step` 集合变化使推进位置变化时同样） | 行节点在 `Timeline` 挂载之后第一次变为可见（阈值 0.5） |
+| `.animated` | 连线沿线生长、回退从远端收；默认圆点在空心 / 靶心 / 实心之间插值，与通向它的那段连线同步；一次补间，总时长与跨越段数无关（推进位置夹在首末 `step` 之外一格内，越界的 `inProgress(at:)` 不会拉长可见运动） | 缩放 0.86 → 1 + 淡入 |
+| `.resting`（系统「减弱动态效果」） | 连线不生长：新到达的段整段淡入着色、退回的段淡出（`easeInOut`），跨多段时按段依次淡入；圆点形态照旧按不透明度插值 | 不播 |
+| `.hidden`（只来自注入覆盖） | 直接到终态 | 不播 |
+
+- 挂载时直接是终态，推进不补间。
+- **入场只作用于挂载后才变为可见的行**（挂载时在屏外、后来滚入；挂载后追加的行；容器在挂载后长大——sheet 展开、窗口放大——露出的行）。
+  挂载时已在屏上的行（没有滚动宿主时即挂载时的全部行）不播 ⇒ `ImageRenderer` 导出总是终态，调用方不必注入任何呈现覆盖；
+  挂载后追加的行即使没有滚动宿主也会播。在 `withAnimation` 里追加时，默认的插入淡入与入场淡入叠加，互不干扰。
+  可见比例以 0.5 为阈值：首屏底部只露出一小截的行，要再滚一点、节点可见过半时才播。
+- 滚入之前节点保持终态（不预先隐藏）；只在第一次变为可见时先置为 0.86×、透明，再补间回来。
+- 截图工具若在挂载后改变可见区域再立刻截图（本仓 SnapshotPreviews 会展开 `ScrollView`），会截到入场第 0 帧（节点透明）；
+  本仓文档快照的 Timeline `#Preview` 因此固定 `.environment(\.coreMotionPresentationOverride, .resting)`。
+- 不重播：每个节点身份只播一次（状态存在节点视图里）；身份丢失时会重播——惰性容器回收、`ForEach` 的 id 变化、`.id(_:)`。
+- `Timeline` 自身在 `LazyVStack` 等惰性容器里随滚动被创建时，那一刻就是它的挂载 ⇒ 当时在屏上的行不播。
+- 多行同时滚入时同时播，不错峰。
+- `.horizontal` 在 RTL 下，部分着色的连线同样从前一行一侧长出（SwiftUI 对容器级 `Layout` 与其中的绘制整体镜像，组件不另做翻转；在飞帧判据两个方向都核）。
+- `.alternate` 里被非行子视图截断的段，各截按顺序依次填满、每截等时（不按长度分配）。
+- 推进位置 `P` 在 `step` 空间里插值；**静止时**连线与圆点仍按 `phase(forStep:)` 逐个整数判定，只有在飞帧才用浮点插值 ⇒ `step` 取
+  `Int.min` / `Int.max` 附近时在飞的先后次序可能不精确，静止帧不受影响。
+- 自定义节点只参与入场，不参与推进插值（它的阶段外观由调用方经 `timelinePhase` 决定，阶段值在推进开始时即切到新值）。
 
 ## Accessibility
 

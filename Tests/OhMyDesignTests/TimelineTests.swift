@@ -279,8 +279,8 @@ struct TimelineNodeColorRenderTests {
         }
     }
 
-    private static func legacyItems(_ levels: [StatusLevel]) -> [Legacy420TimelineItem] {
-        levels.map { level in Legacy420TimelineItem(status: level) { Text(verbatim: "Event").coreFont(.callout) } }
+    private static func legacyItems(_ levels: [StatusLevel]) -> [LegacyTimelineItem] {
+        levels.map { level in LegacyTimelineItem(status: level) { Text(verbatim: "Event").coreFont(.callout) } }
     }
 
     @Test("暗色五档与旧实现（原样拷贝）在光栅化噪声内逐像素一致")
@@ -335,8 +335,20 @@ struct TimelineNodeColorRenderTests {
 
 // MARK: - LegacyTimeline
 
+private struct LegacyTimelineItem: Identifiable {
+    let id = UUID()
+    let status: StatusLevel
+    let node: AnyView? = nil
+    let content: AnyView
+
+    init(status: StatusLevel, @ViewBuilder content: () -> some View) {
+        self.status = status
+        self.content = AnyView(content())
+    }
+}
+
 private struct LegacyTimeline: View {
-    let items: [Legacy420TimelineItem]
+    let items: [LegacyTimelineItem]
 
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.none) {
@@ -358,7 +370,7 @@ private struct LegacyTimeline: View {
 }
 
 private struct LegacyTimelineNodeView: View {
-    let item: Legacy420TimelineItem
+    let item: LegacyTimelineItem
 
     var body: some View {
         self.nodeContent
@@ -381,7 +393,7 @@ private struct LegacyTimelineNodeView: View {
 }
 
 private struct LegacyTimelineRowView: View {
-    let item: Legacy420TimelineItem
+    let item: LegacyTimelineItem
     let isLast: Bool
 
     var body: some View {

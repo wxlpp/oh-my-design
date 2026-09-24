@@ -519,6 +519,8 @@ P7 读数（macOS 托管窗口 390×844、`ScrollView` 内、`-O`，两轮取后
 
 ### 6.3 节点入场（「进入视口才播」）
 
+⚠️ 本节的触发实现（`keyframeAnimator`、同步 / 推迟触发）与闪帧分析已被 §6.7 更正。
+
 候选比较：
 
 | 方案 | 行为 | 结论 |
@@ -586,6 +588,28 @@ U17 让挂载时可见的行根本不触发，冲突随之消失。定案：
 - `transformLedger` 登记入场缩放调用点（理由：「只在 `.animated` 下、挂载后滚入时触发；`.resting` / `.hidden` 不触发」）。
 - ⚠️ 该守卫**不覆盖** `Shape` 的 `animatableData` 与 `keyframeAnimator` 闭包（其文档注释已列为已知不覆盖）⇒ 通路 A 与入场缩放的
   RM 分支**只能**由 §9.5 在飞帧判据兜。
+
+### 6.7 PR 4 实测与落地差异（2026-09-24；macOS 托管窗口 + iOS 26.4 模拟器）
+
+- **E4-0 挂载窗口**：(a) 无滚动宿主、(b) `ScrollView` 首屏行、(d) `ImageRenderer` 的首次 `true` 回调都落在窗口开着时，(c) 挂载后滚入时窗口已关。
+  iOS（`UIWindow` + `UIHostingController`，纵向滚动 / 无滚动 / 纵向内嵌横向三种）时序相同：屏外行先收到 `false`，首屏行只收到 `true`，都在窗口关闭之前。
+  关窗用 `RunLoop.main.perform(inModes: [.common])`；`DispatchQueue.main.async` 在单测进程里整个测试期间都不执行（MainActor 作业占着主队列）。
+- **E4-1 / R12**：解析前下发的环境值在 `withAnimation` 里变化时，行内 `Animatable` 视图的 `animatableData` 被逐帧插值（Canvas 宽度 4 → 114 → 173 → … → 200）⇒ 圆点与连线同一个 `P` 驱动，§9.5「圆点与连线同步」保留为判据。
+- **静止帧取整数判定**：`P` 为 `Double`，静止时（插值值 == 模型值）连线与圆点仍按 `phase(forStep:)` 判，端点 ±1 在 `Double` 里做 ⇒ §4.1 登记的溢出不再 trap。推进位置夹在 `[最小 step − 1, 最大 step + 1]`，否则 `.inProgress(at: 100)`（step 0…4）的补间只有开头约 5% 可见。
+- **形态插值不换分支**：圆点的空心环 / 实心 / 外环恒在、只调不透明度（实心为 `overlay`、外环为 `background`，报告尺寸仍是 10pt）；连线着色层恒挂、长度 0 即不画。`if` / `switch` 换分支会在动画事务里带出淡入淡出转场，第 3 行圆点从第 1 帧起变化（实测）。
+- **入场的触发写法**：`keyframeAnimator` 在单测进程里时钟几乎不走（0.4s 只推进约 7ms 的关键帧进度）；「插值值 ≠ 模型值」的 `Animatable` 起止两端模型输出相同（都是 1×），在飞帧不进渲染。
+  「挂载时收到 `false` 即置透明待入场」也否决：SnapshotPreviews 快照宿主里首屏节点全部透明（宿主误报或晚报时内容直接消失）。
+  落地为 **fail-safe**：`false` 不改任何状态；首个 `true` 时若窗口已关且 `.animated`，同步置为待入场（0.86×、透明，这一帧即非终态 ⇒ 无闪帧），
+  下一轮 runloop（`RunLoop.main.perform`）在 `withAnimation(reveal)` 里回到终态。最坏情况是某宿主从不报 `true`，节点仍是终态。
+  ⇒ 挂载后追加、直接出现在屏上的行会播（挂载后才出现）；§6.3 的闪帧分析与 §9.5「trigger 推迟 ⇒ 闪帧」变异的形式不再适用。
+- **E4-2（iOS 观感）**：画廊 Timeline 页首屏所有节点正常显示；横向活动流向左滑动，Kai 头像的首个可见截图外接框 118px（终态 120px）且颜色偏淡 ⇒ 横向滚入在 iOS 上播入场。`simctl io screenshot` 间隔约百毫秒，只拍得到尾段一帧。
+- **E4-3（快照）**：SnapshotPreviews 宿主在挂载后才重排 / 展开版面（`ExpandingViewController` 反复撑高 `ScrollView`），屏外行随后变为可见 ⇒ 按本设计视为挂载后出现、播入场，截图落在第 0 帧。
+  这不是挂载窗口失效，而是宿主在截图前改变了可见区域；`ImageRenderer` 导出仍由 `TimelineRestingFrameTests` 兜住。文档快照的 Timeline `#Preview` 固定 `.resting`。
+  固定后与 PR 3 合入态同宿主重渲比对：8 张 Timeline 快照 7 张逐像素相同；`Timeline Layouts` 一颗横向首列圆点亚像素偏移（150 像素）——
+  来自入场修饰在静止态下的恒等 `scaleEffect(1)` / `opacity(1)`（把修饰换成 `EmptyModifier` 即归零），不是入场帧。
+- **RTL 横向部分着色**（PR 3 登记的缺口）：SwiftUI 对容器级 `Layout` 与其中连线的绘制整体镜像，着色层不需要 `flipsForRightToLeftLayoutDirection`（加与不加读数逐帧相同）；把着色层改为从尾端长出的变异在 LTR 与 RTL 都判红。
+- **入场变异**（本设计下，只跑渲染判据、不含纯函数套件）：不看挂载窗口 ⇒「挂载时可见不播」与「静止帧 `.animated`」红；不同步置待入场（等同推迟触发）⇒「无闪帧」红；
+  去掉结算闩锁 ⇒「不重播」红；不看呈现 ⇒「RM 不播」红。逐条读数见 PR 正文。
 
 ## 7. f：无障碍不回退，且状态播报在行上
 
@@ -824,6 +848,8 @@ PR 2 在该组的 `// MARK:` 标题里注明它是**合成夹具**、与 registr
 `git diff` 核 `Sources/OhMyDesign/Components/Steps/` 零改动。
 
 ### 9.5 动效与 Reduce Motion（PR 4）
+
+⚠️ 「入场无闪帧」的形式与「trigger 推迟」变异的预期已被 §6.7 更正（首帧同步置为待入场态，补间推迟一轮 runloop）。
 
 在飞帧判据只在 macOS 腿（`CoreMotionTokenInFlightTests` 已登记原因：iOS 的 `layer.render(in:)` 拍不到进行中的帧），承重量取结构量：
 
