@@ -117,7 +117,7 @@ Timeline(items: items, layout: .grouped)
   连线在横轴上，从前一盒右沿画到后一盒左沿。
 - **`.grouped`**：`VStack(spacing: CoreSpacing.md)`，只摆内容，不摆节点、不画连线。
 - RTL 下整体水平镜像（自定义 `Layout` 自动镜像）。
-- 节点与内容各包在一个容器里：`node:` 闭包什么都不产出时保留 24pt 空盒，并列多个视图时叠在同一个盒里居中；
+- 节点与内容各包在一个容器里：`node:` 闭包什么都不产出时保留 24pt 空盒（该行上下的连线在空盒处断开 24pt），并列多个视图时叠在同一个盒里居中；
   `content:` 里并列的多个视图竖排（`VStack(alignment: .leading, spacing: 0)`）。
 - 内容**只收到宽度提议、不收到高度提议**（节点固定收到 `24×24` 提议）⇒ 纵向贪婪的内容（裸 `Color`、
   `.frame(maxHeight: .infinity)`）缩到理想高度（裸 `Color` 为 10pt），不会撑满容器；要固定高度请显式写 `.frame(height:)`。
