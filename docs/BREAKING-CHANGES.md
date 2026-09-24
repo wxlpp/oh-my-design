@@ -50,6 +50,11 @@
 | `Timeline<Content: View>` | `init(layout: TimelineLayout = .vertical, @ViewBuilder content: () -> Content)` |
 | `TimelineItem<Node: View, Content: View>: View` | 四个 init：`(step:status:content:)`、`(step:status:node:content:)`、`(_:time:description:step:status:content:)`、`(_:time:description:step:status:node:content:)`；`title` / `description` 为 `LocalizedStringKey`，`time` 为 `Text?`，`step: Int? = nil` |
 
+`scripts/api-surface-diff.sh 99c6f48`（PR 1 合入态）读数：删除 `TimelineItem.ID` / `TimelineItem.id` /
+`init(id:status:node:content:)` / `init(id:status:content:)` / `Timeline.init(items:layout:)`；新增 `TimelineItem.Body` / `body` /
+`init(step:status:node:content:)` / `init(step:status:content:)` / `init(_:time:description:step:status:node:content:)` /
+`init(_:time:description:step:status:content:)` / `Timeline.init(layout:content:)`。
+
 **迁移**（机械）：
 
 ```swift
