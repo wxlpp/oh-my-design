@@ -86,7 +86,7 @@ extension EnvironmentValues { public internal(set) var timelinePhase: TimelinePh
   | 阶段 | 形态 |
   |---|---|
   | `nil`（活动流）/ `completed` | 实心圆 Ø10（与 `#420` 之前逐点相同） |
-  | `inProgress` | **靶心**：实心圆 Ø10 + 透明间隙 + 同色实线外环（不降不透明度）。外径逐字 `static let inProgressRingDiameter: CGFloat = Self.nodeDiameter + 2 * (Self.inProgressRingGap + CoreBorderWidth.thick)`，间隙 `CoreSpacing.xxs`（= 18pt），仍在 24pt 盒内；静态强调，不做脉冲 |
+  | `inProgress` | **靶心**：实心圆 Ø10 + 透明间隙 + 同色实线外环（不降不透明度）。外径逐字 `static let inProgressRingDiameter: CGFloat = Self.nodeDiameter + 2 * (Self.inProgressRingGap + CoreBorderWidth.thick)`，间隙 `CoreSpacing.xxs`（2pt），外径 18pt，仍在 24pt 盒内；静态强调，不做脉冲 |
   | `upcoming` | 同色空心圆 Ø10，线宽 `CoreBorderWidth.thick` |
 
 - 外环间隙是**挖空**：外环是描边环，圆点与环之间什么都不画，露出的是 `Timeline` 身后的背景——放在卡片、带色表面上也不会露出一圈
@@ -262,6 +262,7 @@ Timeline(layout: .grouped) { rows }   // node: 槽在此形态下不生效
   | 暗 · `info` | 4.53:1 | 4.53:1 | 3.67:1 |
   | 暗 · `neutral` | 6.36:1 | 6.36:1 | 5.94:1 |
   | 暗 · `warning` | 4.52:1 | 4.52:1 | 3.66:1 |
+  ⚠️ `neutral` 亮色在 iOS 上对 3:1 只有 0.29–0.44 的余量：外环对比度判据将来变红时，先查系统色（`secondaryLabel`）是否被 OS 调整，别去改阈值。
 
   status 资源色在 macOS `swift test` 腿上解析为全透明，这张表只在 iOS 腿上有判据；macOS 腿用 `.neutral`（系统 `secondaryLabel`）核同一条
   「外环 ≥ 3:1 且与圆点同档」，并在红底上核间隙即底色。

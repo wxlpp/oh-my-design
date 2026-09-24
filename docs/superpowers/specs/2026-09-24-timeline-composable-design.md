@@ -447,7 +447,7 @@ P7 读数（macOS 托管窗口 390×844、`ScrollView` 内、`-O`，两轮取后
 **位置 `P`**：以 §6.2 的 `step` 空间定义为准（`P_step`，上表第三列）；本节早先的「配对序号空间」写法已由 §6.2 取代。
 静态（PR 3）段系数不经 `P`，与 `phase(forStep:)` 同源、逐个整数判定：段 `j`（行 `j` → 行 `j+1`）的系数
 = 后一行 `step` 非 `nil` 且 `progress.phase(forStep: s_{j+1}) != .upcoming` ? 1 : 0——就是上面「看后一行」这条规则本身。
-连续的 `P_step` 与插值系数只在 PR 4 的推进动效里引入（整数判定避免 `step` 取极值时 `CGFloat` 精度把相邻两个 `step` 判成同一点）。
+连续的 `P_step` 与插值系数只在 PR 4 的推进动效里引入（整数判定避免 `step` 取极值时 `CGFloat` 精度把相邻两个 `step` 判成同一点）。PR 4 引入 `P_step` 时另须处理整数溢出：`.notStarted` 的「最小 `step` − 1」与 `.completed` 的「最大 `step` + 1」在 `Int.min` / `Int.max` 下会 trap。
 
 ### 4.2 默认圆点的形态（色相仍由 `status` 经 `Timeline.nodeColor(for:in:)` 决定，U3）
 
