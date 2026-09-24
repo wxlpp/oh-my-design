@@ -629,9 +629,9 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 
 - **`Timeline`** *: View* — ⚠️ 源码缺摘要（材质层: 内容 / 表面角色: 内容）
 - *enum* **`TimelineLayout`** — `Timeline` 的**整体排布形态**——与 `TimelineItem` 的 `node:` 外观槽**正交**： 本枚举决定「这组节点怎么排」，`node:` 决定「单个节点画成什么」。
-  - `.vertical` — 默认：左侧固定节点列 + 右侧内容，节点间竖向连线（现状形态）。
+  - `.vertical` — 默认：左侧节点列 + 右侧内容，节点间竖向连线（现状形态）。
   - `.alternate` — 左右交替：内容在中轴两侧交替排布。 业界来源：Ant Design Timeline 的 `mode="alternate"`。
-  - `.horizontal` — 横向：节点沿水平轴排列，内容在节点下方。 业界来源：PowerPoint SmartArt 的 Basic Timeline / Final Cut Pro 的横向事件时间线。
+  - `.horizontal` — 横向：节点沿水平轴排列，节点间有连线，内容在节点下方。 业界来源：PowerPoint SmartArt 的 Basic Timeline / Final Cut Pro 的横向事件时间线。
   - `.grouped` — 无连线的分组列表：删掉节点列与连线，只留内容；本形态下 `TimelineItem.node:` 槽不生效。
 - *struct* **`TimelineItem`** — `Timeline` 单条节点的数据载体。
 

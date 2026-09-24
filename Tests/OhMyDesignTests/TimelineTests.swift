@@ -102,42 +102,6 @@ struct TimelineTests {
         #expect(item.id == id)
     }
 
-    // MARK: - isLastItem：最后一条不渲染连线的 identity 判定
-
-    @Test("isLastItem：数组末条返回 true")
-    func isLastItemTrueForLastElement() {
-        let items = [
-            TimelineItem { Text("1") },
-            TimelineItem { Text("2") },
-            TimelineItem { Text("3") },
-        ]
-        #expect(Timeline.isLastItem(items[2], in: items) == true)
-    }
-
-    @Test("isLastItem：非末条返回 false")
-    func isLastItemFalseForNonLastElements() {
-        let items = [
-            TimelineItem { Text("1") },
-            TimelineItem { Text("2") },
-            TimelineItem { Text("3") },
-        ]
-        #expect(Timeline.isLastItem(items[0], in: items) == false)
-        #expect(Timeline.isLastItem(items[1], in: items) == false)
-    }
-
-    @Test("isLastItem：单条数组，唯一元素即末条")
-    func isLastItemSingleElementArray() {
-        let items = [TimelineItem { Text("only") }]
-        #expect(Timeline.isLastItem(items[0], in: items) == true)
-    }
-
-    @Test("isLastItem：item 不在 items 中（不同 id）返回 false，不崩溃")
-    func isLastItemNotInArrayReturnsFalse() {
-        let items = [TimelineItem { Text("1") }]
-        let stray = TimelineItem { Text("stray") }
-        #expect(Timeline.isLastItem(stray, in: items) == false)
-    }
-
     // MARK: - Timeline：items 原样保留
 
     @Test("Timeline(items:)：items 数量与顺序原样保留")
@@ -210,7 +174,7 @@ struct TimelineTests {
 
     @Test("Timeline.alternateSlotWidth：三列几何的槽宽，且节点中心恰落在行中心")
     func timelineAlternateSlotWidth() {
-        let fixed = Timeline.nodeColumnWidth + 2 * CoreSpacing.md
+        let fixed = Timeline.minimumNodeExtent + 2 * CoreSpacing.md
 
         let w = Timeline.alternateSlotWidth(forRowWidth: 320)
         #expect(w == (320 - fixed) / 2)
@@ -221,7 +185,7 @@ struct TimelineTests {
             let rowCenter: CGFloat = rowWidth / 2
             #expect(metrics.nodeCenterX == rowCenter,
                     "行宽 \(rowWidth)：节点中心 \(metrics.nodeCenterX) 必须等于行中心 \(rowCenter)")
-            let fixed = Timeline.nodeColumnWidth + 2 * CoreSpacing.md
+            let fixed = Timeline.minimumNodeExtent + 2 * CoreSpacing.md
             #expect(metrics.slotWidth * 2 + fixed == rowWidth)
         }
 
@@ -383,7 +347,7 @@ struct TimelineNodeColorRenderTests {
         let old = try self.pixels(LegacyTimeline(items: items), scheme: .light)
         #expect(now.width == old.width && now.height == old.height)
         guard now.width == old.width, now.height == old.height else { return }
-        let inset = Int((Timeline.nodeColumnWidth - Timeline.nodeDiameter) / 2)
+        let inset = Int((Timeline.minimumNodeExtent - Timeline.nodeDiameter) / 2)
         let antialiasReach = 1
         let dot = (inset - antialiasReach)..<(inset + Int(Timeline.nodeDiameter) + antialiasReach)
         func split(_ bytes: [UInt8]) -> (inside: [UInt8], outside: [UInt8]) {
@@ -416,7 +380,7 @@ private struct LegacyTimeline: View {
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.none) {
             ForEach(self.items) { item in
-                LegacyTimelineRowView(item: item, isLast: Timeline.isLastItem(item, in: self.items))
+                LegacyTimelineRowView(item: item, isLast: item.id == self.items.last?.id)
             }
         }
     }
@@ -437,7 +401,7 @@ private struct LegacyTimelineNodeView: View {
 
     var body: some View {
         self.nodeContent
-            .frame(width: Timeline.nodeColumnWidth, height: Timeline.nodeColumnWidth)
+            .frame(width: 24, height: 24)
     }
 
     @ViewBuilder
@@ -470,7 +434,7 @@ private struct LegacyTimelineRowView: View {
         .background(alignment: .topLeading) {
             if !self.isLast {
                 LegacyTimelineConnector()
-                    .padding(.leading, (Timeline.nodeColumnWidth - CoreBorderWidth.thin) / 2)
+                    .padding(.leading, (24 - CoreBorderWidth.thin) / 2)
             }
         }
     }
@@ -482,6 +446,6 @@ private struct LegacyTimelineConnector: View {
             .fill(Color.dividerDefault)
             .frame(width: CoreBorderWidth.thin)
             .frame(maxHeight: .infinity)
-            .padding(.top, Timeline.nodeColumnWidth)
+            .padding(.top, 24)
     }
 }

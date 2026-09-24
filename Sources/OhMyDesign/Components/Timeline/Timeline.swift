@@ -33,11 +33,8 @@ public struct TimelineItem: Identifiable {
     ///   - status: 节点状态。当 `node` 已显式提供时，`status` 只作为语义标记保留
     ///     （例如未来筛选/排序场景），不再驱动默认圆点颜色——颜色完全由 `node` 自身决定。
     ///   - node: 自定义节点视图（图标 / 头像等），完全替代默认圆点，不叠加任何强制颜色。
-    ///     **尺寸约束**：节点方框固定 24×24pt（`Timeline.nodeColumnWidth`）且**不裁剪**——
-    ///     自定义 node 应 ≤ 24×24；更大的视图（如 32–40pt 头像）会上下溢出方框、上沿侵入
-    ///     上一行、下沿被连线穿过。需要更大节点时请自行把内容缩放到 24pt（如
-    ///     `.frame(width: 24, height: 24)` + `.clipShape(Circle())`），或等节点列高度自适应
-    ///     的后续增强（归 Phase 3 视觉评审裁决）。
+    ///     节点收到 24×24pt 的提议，节点盒取它报告的尺寸、下限 24pt；节点列宽取所有节点里
+    ///     最宽的那个，行高与连线端点按各自节点盒的实际高度算。
     ///   - content: 节点右侧内容，任意视图。
     public init<Node: View, Content: View>(
         id: UUID = UUID(),
@@ -56,13 +53,13 @@ public struct TimelineItem: Identifiable {
 
 /// `Timeline` 的**整体排布形态**——与 `TimelineItem` 的 `node:` 外观槽**正交**：
 /// 本枚举决定「这组节点怎么排」，`node:` 决定「单个节点画成什么」。
-public enum TimelineLayout: Sendable, Equatable {
-    /// 默认：左侧固定节点列 + 右侧内容，节点间竖向连线（现状形态）。
+public nonisolated enum TimelineLayout: Sendable, Equatable {
+    /// 默认：左侧节点列 + 右侧内容，节点间竖向连线（现状形态）。
     case vertical
     /// 左右交替：内容在中轴两侧交替排布。
     /// 业界来源：Ant Design Timeline 的 `mode="alternate"`。
     case alternate
-    /// 横向：节点沿水平轴排列，内容在节点下方。
+    /// 横向：节点沿水平轴排列，节点间有连线，内容在节点下方。
     /// 业界来源：PowerPoint SmartArt 的 Basic Timeline / Final Cut Pro 的横向事件时间线。
     case horizontal
     /// 无连线的分组列表：删掉节点列与连线，只留内容；本形态下 `TimelineItem.node:` 槽不生效。
@@ -87,64 +84,40 @@ public struct Timeline: View {
 
     public var body: some View {
         switch self.layout {
-        case .vertical: self.verticalBody
-        case .alternate: self.alternateBody
-        case .horizontal: self.horizontalBody
+        case .vertical, .alternate: self.stackBody
+        case .horizontal:
+            ScrollView(.horizontal, showsIndicators: false) {
+                self.stackBody
+            }
         case .grouped: self.groupedBody
         }
     }
 
-    private var verticalBody: some View {
-        VStack(alignment: .leading, spacing: CoreSpacing.none) {
-            ForEach(self.items) { item in
-                TimelineRowView(item: item, isLast: Self.isLastItem(item, in: self.items))
+    private var stackBody: some View {
+        TimelineStackLayout(layout: self.layout) {
+            ForEach(0..<Swift.max(0, self.items.count - 1), id: \.self) { segment in
+                TimelineConnector()
+                    .layoutValue(key: TimelineStackLayout.PartKey.self, value: .connector(segment))
+            }
+            ForEach(Array(self.items.enumerated()), id: \.element.id) { row, item in
+                TimelineNodeView(item: item)
+                    .layoutValue(key: TimelineStackLayout.PartKey.self, value: .node(row))
+                VStack(alignment: .leading, spacing: CoreSpacing.none) {
+                    item.content
+                }
+                .layoutValue(key: TimelineStackLayout.PartKey.self, value: .content(row))
             }
         }
     }
 
-    private var alternateBody: some View {
-        VStack(spacing: CoreSpacing.none) {
-            ForEach(Array(self.items.enumerated()), id: \.element.id) { index, item in
-                TimelineAlternateRowView(
-                    item: item,
-                    isLast: Self.isLastItem(item, in: self.items),
-                    contentSide: index.isMultiple(of: 2) ? .leading : .trailing
-                )
-            }
-        }
-    }
-
-    struct AlternateRowMetrics: Equatable {
-        let slotWidth: CGFloat
-        let nodeCenterX: CGFloat
-        let rowWidth: CGFloat
-    }
+    typealias AlternateRowMetrics = TimelineStackLayout.AlternateRowMetrics
 
     nonisolated static func alternateRowMetrics(forRowWidth rowWidth: CGFloat) -> AlternateRowMetrics {
-        let fixed = Self.nodeColumnWidth + 2 * CoreSpacing.md
-        guard rowWidth.isFinite else {
-            return AlternateRowMetrics(slotWidth: 0, nodeCenterX: fixed / 2, rowWidth: fixed)
-        }
-        let slot = Swift.max(0, (rowWidth - fixed) / 2)
-        let width = Swift.max(rowWidth, fixed)
-        return AlternateRowMetrics(slotWidth: slot, nodeCenterX: width / 2, rowWidth: width)
+        TimelineStackLayout.alternateRowMetrics(forRowWidth: rowWidth, nodeColumnWidth: Self.minimumNodeExtent)
     }
 
     nonisolated static func alternateSlotWidth(forRowWidth rowWidth: CGFloat) -> CGFloat {
         Self.alternateRowMetrics(forRowWidth: rowWidth).slotWidth
-    }
-
-    private var horizontalBody: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: CoreSpacing.lg) {
-                ForEach(self.items) { item in
-                    VStack(alignment: .center, spacing: CoreSpacing.sm) {
-                        TimelineNodeView(item: item)
-                        item.content
-                    }
-                }
-            }
-        }
     }
 
     private var groupedBody: some View {
@@ -161,7 +134,7 @@ public struct Timeline: View {
 
     // MARK: - Layout metrics
 
-    nonisolated static let nodeColumnWidth: CGFloat = 24
+    nonisolated static let minimumNodeExtent: CGFloat = 24
 
     static let nodeDiameter: CGFloat = 10
 
@@ -187,13 +160,9 @@ public struct Timeline: View {
         case .neutral: "Neutral"
         }
     }
-
-    static func isLastItem(_ item: TimelineItem, in items: [TimelineItem]) -> Bool {
-        item.id == items.last?.id
-    }
 }
 
-// MARK: - TimelineRowView
+// MARK: - TimelineNodeView
 
 struct TimelineNodeView: View {
     let item: TimelineItem
@@ -201,8 +170,9 @@ struct TimelineNodeView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        self.nodeContent
-            .frame(width: Timeline.nodeColumnWidth, height: Timeline.nodeColumnWidth)
+        ZStack {
+            self.nodeContent
+        }
     }
 
     @ViewBuilder
@@ -217,115 +187,6 @@ struct TimelineNodeView: View {
                     Text(LocalizedStringKey(Timeline.accessibilityLabelKey(for: self.item.status)), bundle: .module)
                 )
         }
-    }
-}
-
-private struct TimelineRowView: View {
-    let item: TimelineItem
-    let isLast: Bool
-
-    var body: some View {
-        HStack(alignment: .top, spacing: CoreSpacing.md) {
-            TimelineNodeView(item: self.item)
-
-            self.item.content
-                .padding(.bottom, self.isLast ? CoreSpacing.none : CoreSpacing.lg)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .background(alignment: .topLeading) {
-            if !self.isLast {
-                TimelineConnector()
-                    .padding(.leading, (Timeline.nodeColumnWidth - CoreBorderWidth.thin) / 2)
-            }
-        }
-    }
-}
-
-private struct TimelineAlternateRowView: View {
-    let item: TimelineItem
-    let isLast: Bool
-    let contentSide: HorizontalEdge
-
-    var body: some View {
-        TimelineAlternateRowLayout {
-            self.slot(.leading)
-            TimelineNodeView(item: self.item)
-            self.slot(.trailing)
-        }
-        .background(alignment: .top) {
-            if !self.isLast {
-                TimelineConnector()
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func slot(_ side: HorizontalEdge) -> some View {
-        if side == self.contentSide {
-            self.item.content
-                .padding(.bottom, self.isLast ? CoreSpacing.none : CoreSpacing.lg)
-                .frame(maxWidth: .infinity, alignment: side == .leading ? .trailing : .leading)
-        } else {
-            Color.clear
-                .frame(height: 0)
-                .accessibilityHidden(true)
-        }
-    }
-}
-
-private struct TimelineAlternateRowLayout: Layout {
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let metrics = Self.metrics(for: proposal, subviews: subviews)
-        let heights = Self.subviewHeights(subviews, slotWidth: metrics.slotWidth)
-        return CGSize(width: metrics.rowWidth, height: heights.max() ?? 0)
-    }
-
-    func placeSubviews(
-        in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()
-    ) {
-        guard subviews.count == 3 else { return }
-        let metrics = Timeline.alternateRowMetrics(forRowWidth: bounds.width)
-        let slot = metrics.slotWidth
-        let node = Timeline.nodeColumnWidth
-        let gap = CoreSpacing.md
-
-        subviews[0].place(
-            at: CGPoint(x: bounds.minX, y: bounds.minY), anchor: .topLeading,
-            proposal: ProposedViewSize(width: slot, height: nil)
-        )
-        subviews[1].place(
-            at: CGPoint(x: bounds.minX + metrics.nodeCenterX, y: bounds.minY), anchor: .top,
-            proposal: ProposedViewSize(width: node, height: node)
-        )
-        subviews[2].place(
-            at: CGPoint(x: bounds.minX + slot + gap + node + gap, y: bounds.minY),
-            anchor: .topLeading,
-            proposal: ProposedViewSize(width: slot, height: nil)
-        )
-    }
-
-    private static func metrics(
-        for proposal: ProposedViewSize, subviews: Subviews
-    ) -> Timeline.AlternateRowMetrics {
-        if let width = proposal.width, width.isFinite {
-            return Timeline.alternateRowMetrics(forRowWidth: width)
-        }
-        guard subviews.count == 3 else { return Timeline.alternateRowMetrics(forRowWidth: 0) }
-        let idealSlot = Swift.max(
-            subviews[0].sizeThatFits(.unspecified).width,
-            subviews[2].sizeThatFits(.unspecified).width
-        )
-        let rowWidth = idealSlot * 2 + Timeline.nodeColumnWidth + 2 * CoreSpacing.md
-        return Timeline.alternateRowMetrics(forRowWidth: rowWidth)
-    }
-
-    private static func subviewHeights(_ subviews: Subviews, slotWidth: CGFloat) -> [CGFloat] {
-        guard subviews.count == 3 else { return [] }
-        return [
-            subviews[0].sizeThatFits(ProposedViewSize(width: slotWidth, height: nil)).height,
-            Timeline.nodeColumnWidth,
-            subviews[2].sizeThatFits(ProposedViewSize(width: slotWidth, height: nil)).height,
-        ]
     }
 }
 
@@ -348,9 +209,7 @@ private struct TimelineConnector: View {
     var body: some View {
         Rectangle()
             .fill(Color.dividerDefault)
-            .frame(width: CoreBorderWidth.thin)
-            .frame(maxHeight: .infinity)
-            .padding(.top, Timeline.nodeColumnWidth)
+            .accessibilityHidden(true)
     }
 }
 
@@ -450,7 +309,7 @@ private struct TimelinePreviewGallery: View {
                     Timeline(items: [Self.statusItems[0]], layout: .alternate)
                 }
 
-                self.section("横向 · horizontal（可横向滚动，无连线）") {
+                self.section("横向 · horizontal（可横向滚动，节点间有连线）") {
                     Timeline(items: Self.statusItems, layout: .horizontal)
                 }
 

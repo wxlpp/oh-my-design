@@ -75,7 +75,7 @@ struct QuotedEvidenceGuard {
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/StateLabel/StateLabel.swift", "let defaultLabel: String"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Modifier/TelegramGlassButtonModifier.swift", "self.border ?? Color.white.opacity(CoreButtonMetrics.glassBorderOpacity)"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Modifier/TelegramGlassButtonModifier.swift", "isPressed: self.pressFeedback && self.isPressed,"),
-        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Timeline/Timeline.swift", "static let nodeColumnWidth: CGFloat = 24"),
+        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Timeline/Timeline.swift", "static let minimumNodeExtent: CGFloat = 24"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/Tree.swift", "LazyVStack(alignment: .leading, spacing: self.context.metrics.rowSpacing) {"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeCore.swift", "nonisolated struct TreeExpansionState<ID: Hashable>: Equatable {"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeCore.swift", "static func effective<ID: Hashable>( _ focus: ID?, visibleRows rows: [TreeRow<ID>], selection: Set<ID>, ancestors: (ID) -> [ID] ) -> ID? {"),
