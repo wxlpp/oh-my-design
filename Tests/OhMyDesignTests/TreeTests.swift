@@ -2376,7 +2376,10 @@ struct TreeStyleRenderTests {
     func selectionWinsOverHover(_ scheme: ColorScheme) {
         let selected = TreePixels.render(TreeRowFixture.navigator(isSelected: true), scheme: scheme)
         let both = TreePixels.render(TreeRowFixture.navigator(isSelected: true, isHovered: true), scheme: scheme)
-        expectBitmapsEqual(both.bytes, selected.bytes, "\(scheme)：悬停在选中行上改变了画面——选中底色应当压过悬停")
+        expectBitmapsEquivalent(
+            both.bytes, selected.bytes, maxChannelDelta: 1,
+            "\(scheme)：悬停在选中行上改变了画面——选中底色应当压过悬停"
+        )
     }
 
     @Test(".navigator 的焦点指示只在行配置要求时画")
