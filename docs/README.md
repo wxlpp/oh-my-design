@@ -252,7 +252,7 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 
 ⚠️ **Simulator 上跑绿不构成 NFR-1 达标证据**（PRD 钉的是「iPhone 15 满帧」，
 Simulator 没有真实 GPU 调度）。真机跑法见脚本头部注释。
-⚠️ **真机那一次尚未执行**（`#256` 的三条腿与 `#284` 的 14 条 shader 腿都是）。
+真机已在 `#284` 跑过（iPhone 15 Pro，全部 17 条腿通过，读数见该 issue）。⚠️ 那次按 60 Hz 调度，120 Hz 下没有量过。
 ⚠️ **本脚本不在任何 CI 腿里**（`App/` 整个不在 CI 里，见 `.github/workflows/ci.yml`）
 —— 上面那类回归只能靠有人手跑它才会被发现。
 

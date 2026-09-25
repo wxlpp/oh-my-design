@@ -9,8 +9,8 @@ set -euo pipefail
 # 合成走宿主 Mac 的显卡与 CoreSimulator 的窗口服务 —— 量到的数只能当**趋势参考**。
 # 判据本身（掉帧率 ≤ 5%）两种环境同一条，但**只有真机那一次的输出**能当 NFR-1 的证据。
 #
-# ⚠️ **截至 `#256` 合入，真机那一次尚未执行**（实现者没有物理设备）。
-# 本脚本交付的是「一台可重复跑的秤」，不是「已达标」的结论。
+# 真机已在 `#284` 跑过（iPhone 15 Pro，读数贴在该 issue）。⚠️ 那次 `CADisplayLink` 按 60 Hz 调度
+# （宿主未设 `CADisableMinimumFrameDurationOnPhone`），120 Hz 下没有量过。
 #
 # ## 为什么是「启动 App + 解析 stdout」而不是 xcodebuild test
 #

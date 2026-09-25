@@ -10,7 +10,8 @@ import SwiftUI
 ///
 /// 移植自「Star Nest」by Pablo Roman Andrioli（Kali），Shadertoy `XlfGRj`，作者在源码头声明 MIT；
 /// 修改逐项写在 `OhMyDesignShaders.metal` 的分节头；署名见 `ACKNOWLEDGEMENTS.md`。
-/// ⚠️ 成本随全屏像素 × 体积步数 × 迭代数线性增长，`.deep` 即上游的 20 × 17。
+/// ⚠️ 成本随全屏像素 × 体积步数 × 迭代数线性增长。`.deep` 为 16 × 17，比上游的 20 × 17 少 4 个体积步，
+/// 是 iPhone 15 Pro 全屏 60 Hz 帧预算内的上限。
 /// 浅色外观下是浅底深星；要深色星空，在该区域写 `.environment(\.colorScheme, .dark)`（本件不替调用方翻转外观）。
 public struct StarNest: View {
 
@@ -22,7 +23,7 @@ public struct StarNest: View {
             switch self {
             case .shallow: (10, 12)
             case .regular: (14, 15)
-            case .deep: (20, 17)
+            case .deep: (16, 17)
             }
         }
     }
