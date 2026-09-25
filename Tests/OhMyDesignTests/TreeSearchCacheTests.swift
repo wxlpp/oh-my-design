@@ -148,6 +148,24 @@ struct TreeRowsMemoTests {
     }
 }
 
+extension TreeRowsMemoTests {
+    @Test("契约：同键同展开时返回缓存的旧元素，即使数据里的元素已经变了——所以数据变了必须换版本号")
+    func sameKeyReturnsTheCachedElements() {
+        var memo = TreeRowsMemo<TreeJudgeNode, String>()
+        let key = TreeSearchCacheKey(
+            query: "", version: AnyHashable(1), id: \TreeJudgeNode.id, children: \TreeJudgeNode.children
+        )
+        let old = memo.rows(for: key, expanded: []) {
+            [TreeRenderItem(row: TreeRow(id: "a", level: 1, parent: nil, hasChildren: false), element: TreeJudgeNode(id: "a", children: nil))]
+        }
+        let again = memo.rows(for: key, expanded: []) {
+            [TreeRenderItem(row: TreeRow(id: "a", level: 1, parent: nil, hasChildren: true), element: TreeJudgeNode(id: "a", children: [TreeJudgeNode(id: "a9", children: nil)]))]
+        }
+        #expect(again.items.map(\.element) == old.items.map(\.element), "同键同展开却换成了新元素")
+        #expect(again.items.first?.element.children == nil)
+    }
+}
+
 // MARK: - 父行勾选范围缓存 / Check scope memo
 
 @Suite("Tree 父行勾选范围：缓存按行与（搜索词, 版本号）取；过滤后的叶子用留下的集合筛，与按留下的集合遍历等价")

@@ -5,6 +5,10 @@
 # layoutSubtreeIfNeeded() 返回（body 重算 + 视口内的行更新）。每格预热 3 次后取 SAMPLES 次的中位数 / p95，
 # 每格每轮起一个新进程，跑 ROUNDS 轮，汇总取各轮的中位数。stale 列必须为 0（改动没触发重算时计数）。
 #
+# 前置条件：macOS 26 + Xcode 26（Swift 6.3）、python3（汇总表）、显示器亮着的登录会话（显示器睡眠时读数明显偏低）。
+# BASE= 指向的 checkout 必须已含 #423（`searchFilter(_:text:)` 与 `Text(verbatim:highlighting:)`），否则编译不过。
+# 耗时量级：首跑要 release 构建一遍库（带 BASE= 时两遍），约 1–3 分钟；默认 3 轮 × 全部场景约 15–25 分钟。
+#
 # 用法：
 #   scripts/tree-search-benchmark/run.sh                       # 本仓，带 / 不带版本号两种
 #   BASE=/path/to/old/checkout scripts/tree-search-benchmark/run.sh   # 另加修前那份 checkout 作对照（只测不带版本号）
