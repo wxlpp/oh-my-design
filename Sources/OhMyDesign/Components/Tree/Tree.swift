@@ -514,18 +514,19 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         let elementID = self.element[keyPath: self.context.id]
         let isExpanded = self.context.expanded.contains(elementID)
         let isSelected = self.context.selection.contains(elementID)
+        let checkScope = self.context.checked.map { _ in self.checkScope }
         let configuration = TreeRowConfiguration(
             label: self.context.content(self.element)
                 .accessibilityValue(self.expansionValue(isExpanded: isExpanded))
                 .accessibilityHint(Text(LocalizedStringKey(self.clickHint ?? ""), bundle: .module), isEnabled: self.clickHint != nil)
                 .accessibilityAddTraits(TreeRowAccessibility.traits(isSelected: isSelected))
-                .accessibilityActions { self.checkAction },
+                .accessibilityActions { self.checkAction(checkScope) },
             disclosure: TreeDisclosureControl(
                 hasChildren: self.hasChildren, isExpanded: isExpanded, metrics: self.context.metrics
             ) {
                 self.context.toggleExpansion(elementID)
             },
-            checkBox: self.context.checked.map { self.checkBox($0) },
+            checkBox: self.context.checked.flatMap { checked in checkScope.map { self.checkBox(checked, scope: $0) } },
             level: self.level,
             hasChildren: self.hasChildren,
             isExpanded: isExpanded,
@@ -558,26 +559,31 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         }
     }
 
-    private func checkBox(_ checked: Binding<Set<ID>>) -> TreeRowCheckBox {
+    private var checkScope: TreeRowCheckScope<ID> {
         let leaves = TreeFlatten.descendantLeafIDs(
             of: self.element, id: self.context.id, children: self.context.children
         )
+        guard self.context.included != nil else { return TreeRowCheckScope(display: leaves, action: leaves) }
+        let retained = TreeFlatten.descendantLeafIDs(
+            of: self.element, id: self.context.id, children: self.context.children, within: self.context.included
+        )
+        return TreeRowCheckScope(display: leaves, action: retained)
+    }
+
+    private func checkBox(_ checked: Binding<Set<ID>>, scope: TreeRowCheckScope<ID>) -> TreeRowCheckBox {
         guard let hint = TreeRowAccessibility.checkBoxHintKey(
             hasChildren: self.hasChildren, isSearching: self.context.included != nil
         ) else {
             return TreeRowCheckBox(
-                sources: leaves.map { self.context.checkState(of: $0, in: checked) },
+                sources: scope.display.map { self.context.checkState(of: $0, in: checked) },
                 label: AnyView(self.context.content(self.element)),
                 hint: nil,
                 metrics: self.context.metrics
             )
         }
-        let retained = TreeFlatten.descendantLeafIDs(
-            of: self.element, id: self.context.id, children: self.context.children, within: self.context.included
-        )
         return TreeRowCheckBox(
             sources: TreeCheckBindings.scoped(
-                display: leaves, scope: retained, in: checked, onWrite: self.context.notePointerCheck
+                display: scope.display, scope: scope.action, in: checked, onWrite: self.context.notePointerCheck
             ),
             label: AnyView(self.context.content(self.element)),
             hint: hint,
@@ -586,19 +592,12 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     }
 
     @ViewBuilder
-    private var checkAction: some View {
-        if let checked = self.context.checked {
-            let scope = TreeFlatten.descendantLeafIDs(
-                of: self.element, id: self.context.id, children: self.context.children, within: self.context.included
-            )
+    private func checkAction(_ scope: TreeRowCheckScope<ID>?) -> some View {
+        if let checked = self.context.checked, let scope {
             Button {
-                self.context.notePointerCheck()
-                checked.wrappedValue = TreeChecking.togglingRow(
-                    self.element, id: self.context.id, children: self.context.children,
-                    within: self.context.included, in: checked.wrappedValue
-                )
+                checked.wrappedValue = TreeChecking.toggling(scope: scope.action, in: checked.wrappedValue)
             } label: {
-                Text(LocalizedStringKey(TreeRowAccessibility.checkActionKey(scope: scope, in: checked.wrappedValue)), bundle: .module)
+                Text(LocalizedStringKey(TreeRowAccessibility.checkActionName(scope: scope.action, in: checked.wrappedValue)), bundle: .module)
             }
         }
     }
@@ -648,7 +647,7 @@ struct TreeRowCheckBox: View {
     private let hint: String?
     let metrics: TreeRowMetrics
 
-    init(sources: [Binding<Bool>], label: AnyView = AnyView(EmptyView()), hint: String? = nil, metrics: TreeRowMetrics) {
+    init(sources: [Binding<Bool>], label: AnyView, hint: String? = nil, metrics: TreeRowMetrics) {
         self.sources = sources
         self.label = label
         self.hint = hint
@@ -667,6 +666,13 @@ struct TreeRowCheckBox: View {
             CheckBoxLayout(glyph: self.metrics.checkBoxGlyph, minHeight: self.metrics.rowHeight)
         )
     }
+}
+
+// MARK: - 勾选范围 / Check scope
+
+struct TreeRowCheckScope<ID: Hashable> {
+    let display: [ID]
+    let action: [ID]
 }
 
 // MARK: - 搜索期间的父行复选框 / Parent check box under search

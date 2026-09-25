@@ -135,6 +135,8 @@ iOS 26.4 模拟器 `axe describe-ui` 实读：`Toggle("Accept terms", isOn:)` �
 - **`.labelsHidden()` 时不画 label**（`#427` 起）：body 读环境 `labelsVisibility`，隐藏时只画指示符，并把 label 交给
   `accessibilityLabel`。此前样式不看这个环境值、照样画出 label；而 label 若是 `EmptyView`，系统只能拿到指示符的
   SF Symbol 名，读作 "Square" / "Remove" / "Selected"。`Tree` 的复选框走的正是「行内容作 label + `.labelsHidden()`」这条路。
+  隐藏时 `FormField` 的校验失败原因 / 说明（`fieldAccessibilityHint`）改挂在整个复选框上，不随 label 一起丢掉；
+  ⚠️ 这一条只有源码，没有实读。
 - ⚠️ 在样式 body 上加 `accessibilityValue` / `accessibilityHidden` / `accessibilityElement(children:)`：iOS 实读**不生效**
   （系统 `Toggle` 的元素照旧给 `0` / `1` / `2`），所以没有自造三态文案。
 - ⚠️ VoiceOver 实际念出来的字（尤其 `2` 念作什么）未验证：装置只读得到 AX 快照。

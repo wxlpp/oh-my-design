@@ -96,7 +96,9 @@ private struct CheckBoxHiddenLabel: ViewModifier {
 
     func body(content: Content) -> some View {
         if self.visibility == .hidden {
-            content.accessibilityLabel { _ in self.label }
+            content
+                .accessibilityLabel { _ in self.label }
+                .fieldAccessibilityHint()
         } else {
             content
         }

@@ -26,8 +26,13 @@
 
 - `CheckBoxToggleStyle` 尊重 `.labelsHidden()`：隐藏时只画指示符，label 只作无障碍标签。此前样式照样画出 label。
   **下游要改什么**：若依赖「`.labelsHidden()` 下 label 仍显示」，去掉 `.labelsHidden()`。
+  在 `FormField` 里时，校验失败原因 / 说明仍挂在复选框的无障碍 hint 上（隐藏 label 时改挂在整个复选框上）。
 - `Tree` 传了 `checked:` 时：新增 `⌥Space` 切换焦点行的勾选（父行按 off / mixed → 全勾、on → 全不勾级联）；
   行内容带「Check / Uncheck」无障碍动作；复选框的无障碍标签取行内容。
+  ⚠️ 已知冲突：Alfred、Raycast 的出厂全局热键就是 `⌥Space`，装了它们时这一键到不了 app。替代通路是点复选框或用
+  「Check / Uncheck」无障碍动作；也可以请用户把启动器热键改成别的组合。
+  行内容多一个副本作复选框的无障碍标签：评审探针实测（macOS 托管窗口、无辅助技术客户端）它不求值 body、不触发 `onAppear`；
+  辅助技术接入时是否求值未验证。
 - `Tree` 的展开态 value / 单击提示 / `.isSelected` trait 改为只施在行内容上：chevron 与复选框不再带这些取值。
   **下游要改什么：不用改。**
 

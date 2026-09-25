@@ -410,7 +410,7 @@ nonisolated enum TreeRowAccessibility {
         hasChildren && clickBehavior == .selectAndToggleExpansion ? Self.clickTogglesHintKey : nil
     }
 
-    static func checkActionKey<ID: Hashable>(scope leaves: [ID], in checked: Set<ID>) -> String {
+    static func checkActionName<ID: Hashable>(scope leaves: [ID], in checked: Set<ID>) -> String {
         !leaves.isEmpty && leaves.allSatisfy(checked.contains) ? Self.uncheckActionKey : Self.checkActionKey
     }
 

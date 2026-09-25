@@ -101,10 +101,10 @@ struct TreeCheckRowToggleTests {
 struct TreeCheckAccessibilityTests {
     @Test("范围内的叶子全勾时动作名是 Uncheck，否则是 Check")
     func actionNameFollowsTheScope() {
-        #expect(TreeRowAccessibility.checkActionKey(scope: ["a1x", "a2"], in: ["a1x", "a2"]) == "Uncheck")
-        #expect(TreeRowAccessibility.checkActionKey(scope: ["a1x", "a2"], in: ["a1x"]) == "Check")
-        #expect(TreeRowAccessibility.checkActionKey(scope: ["a1x", "a2"], in: []) == "Check")
-        #expect(TreeRowAccessibility.checkActionKey(scope: [String](), in: ["a1x"]) == "Check")
+        #expect(TreeRowAccessibility.checkActionName(scope: ["a1x", "a2"], in: ["a1x", "a2"]) == "Uncheck")
+        #expect(TreeRowAccessibility.checkActionName(scope: ["a1x", "a2"], in: ["a1x"]) == "Check")
+        #expect(TreeRowAccessibility.checkActionName(scope: ["a1x", "a2"], in: []) == "Check")
+        #expect(TreeRowAccessibility.checkActionName(scope: [String](), in: ["a1x"]) == "Check")
     }
 
     @Test("两个动作名 key 都在模块的 Localizable.strings 里")

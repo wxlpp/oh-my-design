@@ -178,6 +178,7 @@ public extension Color {
 | 问题 | 定案 | 理由 / 放弃的方案 |
 |---|---|---|
 | 用哪个键 | **`⌥Space` 切换勾选，`Space` 仍只切换选中**（有无 `checked:` 都一样） | `Space` 在 `.single` 下是唯一的键盘选中手势（方向键不改选中），让它随 `checked:` 改义会让单选树失去键盘选中、同一个键的语义随配置漂移；因此保 W3C 契约不变，另加一个专用键。放弃「有 `checked:` 时 `Space` 改切勾选」（Windows TreeView 的 CheckBoxes 模式如此，但那里选中跟随焦点、`Space` 本来空着，本组件没有这个前提）。放弃 `Shift+Space`：W3C APG 把它留给「从上一个选中行到焦点行的范围选中」。放弃 `Ctrl+Space` / `Cmd+Space`：macOS 默认分别是切换输入法与 Spotlight。放弃字母键（如 `x`）：W3C 把可打印字符留给 type-ahead |
+| 已知冲突：全局热键 | **保留 `⌥Space`**。Alfred、Raycast 的出厂全局热键都是 `⌥Space`，装了它们的机器上这一键在到达 app 之前就被吃掉，Tree 收不到 | 替代通路：点该行复选框，或用行内容上的 "Check" / "Uncheck" 无障碍动作（VoiceOver 转子 / Full Keyboard Access 的动作菜单）。建议这类用户把启动器的热键改成别的组合（两者都能在设置里改）。没有另设第二个键：可选的组合都有同类问题（见上一行），多一个键只多一份契约 |
 | 父行 | 按父行复选框的显示态级联：off / mixed → 全部叶后代勾上，on → 全不勾；父 ID 不进 `checked` | 与点父行复选框同一结果（`TreeChecking.toggling` → `applying`） |
 | 搜索期间 | 只作用于**保留**的叶后代，与点父行复选框同一范围 | 与「搜索过滤」一节父行复选框的定案一致 |
 | 选中 / 展开 / 焦点 | 都不动；交互来源置为键盘（焦点环照画） | 勾选是数据语义，与行选中是两套独立状态 |
@@ -502,9 +503,11 @@ struct CommittedSearchField: UIViewRepresentable {
 - **复选框的名字 = 行内容**（`#427`）：`Tree` 把行内容作为复选框 `Toggle` 的 label 传入并 `.labelsHidden()`；
   `CheckBoxToggleStyle` 在 labels 隐藏时不画 label、只把它交给无障碍标签（见 [checkbox.md](checkbox.md)）。
   勾选态由系统 `Toggle` 自己报：AXValue `0` / `1` / `2`（off / on / mixed，`2` 由 `Toggle(sources:)` 派生）。
-  ⚠️ 代价：传了 `checked:` 时每行的行内容要多构建一份（作复选框的无障碍标签，不画出来）。行内容里有 `@State` 时两份各自独立。
+  传了 `checked:` 时行内容多一个副本（作复选框的无障碍标签，不画出来）。评审探针实测（macOS 托管窗口、没有辅助技术客户端）：
+  这份副本**不求值 body、不触发 `onAppear`**。有辅助技术客户端接入时是否求值、行内容里的 `@State` 是否另起一份：**未验证**。
 - **行内容上的勾选动作**（`#428`）：传了 `checked:` 时，行内容带自定义无障碍动作 "Check" / "Uncheck"
   （动作范围的叶子全勾时是 "Uncheck"），作用与点该行复选框相同（父行级联、搜索期间只作用于保留的叶子）。
+  执行动作**不改交互来源**（不同于点复选框会置为指针）：键盘用户用动作勾选后焦点环照旧。
   行内容是多个元素时（例如 `Label` 的图标与文字），每个元素都带这个动作。
 - **chevron 命中槽 = 展开槽宽 × 行高**（`.regular` 为 24×44 pt；iOS 各档高都 ≥ 44）。
   原先按钮只有图标大小（实测 12×7 pt），在 iOS 上偏离 10 pt 的点击会落到紧邻的父行复选框上，
@@ -586,7 +589,9 @@ struct CommittedSearchField: UIViewRepresentable {
   ⇒ 万级节点下一次遍历就超过 60 Hz 的一帧（16.7 ms）。**数值预算与支持规模未定，发布前确定**（跟进 `#441`）。
   未测：iOS 设备、峰值内存、查询输入到画面呈现的端到端延迟、带 `checked` 时父行复选框的额外代价。
 - ⚠️ 传了 `checked` 时，父行复选框的三态要读它**全部叶后代**的勾选态，因此会遍历该父行的整棵子树，
-  折叠与否都一样。这是三态派生本身的代价。
+  折叠与否都一样。这是三态派生本身的代价。行宿主每次 body 求一份勾选范围（`TreeRowCheckScope`），复选框与行内容上的
+  勾选动作共用：不搜索时遍历子树 **1** 次（显示与动作范围相同），搜索期间 **2** 次（全部叶后代 + 保留的叶后代）。
+  `⌥Space` 只在按键时对焦点行遍历一次。
 
 ## 判据覆盖到哪、哪些接线不在 CI
 
@@ -679,7 +684,13 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
 - `TreeCheckAccessibilityTests`（双腿）：动作名取值，两个 key 已登记进 `Localizable.strings`。
 - `TreeHostedWiringTests.optionSpaceWritesTheCheckedSet`（**仅 macOS**，两种外观）：合成 ⌥Space 经 `onKeyPress` 写回宿主 `checked`
   （变异实测：把写回短路后两种外观各红 3 条）。
-- ⚠️ 无判据：复选框的无障碍 label 取自行内容、行内容上挂着勾选动作——托管窗口读不到无障碍子树，只有上面的实读。
+- `TreeHostedWiringTests.optionSpaceUnderSearchWritesRetainedLeavesOnly`（**仅 macOS**，两种外观）：`searchFilter("y")` 下对 `a`
+  按两次 ⌥Space，只勾上 / 取消保留的 `a1y`，已勾的 `a2` 与被过滤掉的 `a1x` 不动（变异实测：把写回的 `within: frame.included`
+  换成 `nil`，两种外观各红 2 条）。
+- 行内容上勾选动作的**范围**与父行复选框共用同一份 `TreeRowCheckScope`：把它的 `within: self.context.included` 换成 `nil`，
+  既有的 `TreeSearchHostedTests.checkCascadeUnderSearch` 红 12 条——范围的计算有判据。
+- ⚠️ 无判据：复选框的无障碍 label 取自行内容；行内容上确实挂着勾选动作、执行动作确实写回 `checked`（动作闭包本身）
+  ——托管窗口读不到无障碍子树、也执行不了自定义动作，只有上面的实读（iOS `axe` 读到动作名，macOS 用 AX API 执行过一次）。
 
 `#431` 起的单击行为判据：
 - `TreeRowClickBehaviorTests`（双腿，纯函数 `TreeInteractionReducer.pointerClick` / `pointerToggle`）：`.select` 与既有点选归约逐字段相同、不动展开；

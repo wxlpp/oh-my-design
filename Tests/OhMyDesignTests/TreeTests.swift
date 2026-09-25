@@ -1765,6 +1765,26 @@ struct TreeHostedWiringTests {
         #expect(log.selection.isEmpty, "\(appearance)：⌥Space 不该改行选中，实得 \(log.selection)")
     }
 
+    @Test("搜索期间 ⌥Space 只写保留的叶子：a 下只有 a1y 被搜索留下，a2 已勾、a1x 未勾都不动", arguments: TreeHostedAppearance.allCases)
+    func optionSpaceUnderSearchWritesRetainedLeavesOnly(appearance: TreeHostedAppearance) {
+        let model = TreeSearchHostedModel(query: "y")
+        model.checked = ["a2"]
+        let window = HostedWindow(
+            TreeSearchHostedHarness(model: model, style: appearance.style, showsCheckBoxes: .shown),
+            size: CGSize(width: 260, height: 400),
+            scheme: .light
+        )
+        defer { window.close() }
+        let optionSpace = {
+            window.sendKey(keyCode: 49, characters: "\u{00A0}", ignoringModifiers: " ", modifiers: .option)
+            window.settle()
+        }
+        optionSpace()
+        #expect(model.checked == ["a1y", "a2"], "\(appearance)：首键焦点落在 a，⌥Space 应只勾上保留的 a1y，实得 \(model.checked.sorted())")
+        optionSpace()
+        #expect(model.checked == ["a2"], "\(appearance)：保留的 a1y 已全勾，再按应只取消 a1y、a2 不动，实得 \(model.checked.sorted())")
+    }
+
     @Test("点复选框勾选：叶行勾自己，父行级联全部叶后代；不动行选中", arguments: TreeHostedAppearance.allCases)
     func clickingCheckBoxesWritesTheCheckedSet(appearance: TreeHostedAppearance) {
         let log = TreeHostedLog()
