@@ -322,15 +322,16 @@ struct CoreMotionTokenInFlightTests {
         #expect(atRelease.lowerBound < rest.lowerBound, "合成拖动没有带动 Toast（\(atRelease) vs \(rest)），判据无效")
         let releaseCentroid = try #require(Self.contentCentroid(released, empty: empty), "拖动后 Toast 不见了")
         window.sendMouse(.leftMouseUp, at: CGPoint(x: grab.x, y: grab.y - 40))
-        var centroids: [Double] = []
+        // 先取帧、窗口结束后再算质心：质心放进循环（debug 构建每帧约 90 ms）会把采样间隔拉到与 0.25 s 退场动画同量级。
+        var frames: [HostedPixels] = []
         let start = Date()
         while Date().timeIntervalSince(start) < duration {
             RunLoop.main.run(until: Date().addingTimeInterval(0.008))
-            if let centroid = Self.contentCentroid(window.pixels(), empty: empty),
-               centroid.weight * 20 >= releaseCentroid.weight {
-                centroids.append(centroid.row)
-            }
+            frames.append(window.pixels())
         }
+        let centroids = frames.compactMap { Self.contentCentroid($0, empty: empty) }
+            .filter { $0.weight * 20 >= releaseCentroid.weight }
+            .map(\.row)
         return centroids.map { abs($0 - releaseCentroid.row) }.max() ?? -1
     }
 
