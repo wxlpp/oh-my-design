@@ -391,7 +391,8 @@ struct TreeKeyboardTests {
         _ modifiers: EventModifiers = [],
         focus: String,
         expanded: Set<String> = Self.expanded,
-        mode: TreeSelectionMode = .multiple
+        mode: TreeSelectionMode = .multiple,
+        checkColumn: TreeCheckColumn = .absent
     ) -> TreeKeyAction<String> {
         TreeKeyboard.action(
             for: key,
@@ -399,7 +400,8 @@ struct TreeKeyboardTests {
             rows: TreeJudgeFixture.rows(expanded: expanded),
             focus: focus,
             expanded: expanded,
-            mode: mode
+            mode: mode,
+            checkColumn: checkColumn
         )
     }
 
@@ -535,6 +537,18 @@ struct TreeKeyboardTests {
         #expect(Self.act(.space, focus: "zz") == .unhandled)
     }
 
+    @Test("⌥Space：有勾选列时切换焦点行的勾选，没有时交回系统；不带修饰键的 Space 仍只切换选中")
+    func optionSpaceTogglesTheFocusedCheck() {
+        for id in Self.rows.map(\.id) {
+            #expect(Self.act(.space, .option, focus: id, checkColumn: .present) == .toggleCheck(id))
+            #expect(Self.act(.space, .option, focus: id, checkColumn: .absent) == .unhandled)
+            #expect(Self.act(.space, focus: id, checkColumn: .present) == .toggleSelection(id))
+        }
+        for modifiers: EventModifiers in [.shift, [.option, .shift], [.option, .command], .control, .command] {
+            #expect(Self.act(.space, modifiers, focus: "a", checkColumn: .present) == .unhandled, "\(modifiers)")
+        }
+    }
+
     @Test("KeyEquivalent → TreeKey 的映射覆盖契约里的每一个键")
     func keyMappingCoversTheContract() {
         #expect(TreeKeyboard.key(for: .upArrow) == .up)
@@ -555,7 +569,7 @@ struct TreeKeyboardTests {
             .moveFocus("a"), .moveFocus("b"),
             .moveFocusAndToggleSelection("a"),
             .expand("a"), .collapse("a"),
-            .toggleSelection("a"), .activate("a"),
+            .toggleSelection("a"), .toggleCheck("a"), .activate("a"),
             .selectAllVisible, .doNothing, .unhandled,
         ]
         var collisions: [String] = []
@@ -565,7 +579,7 @@ struct TreeKeyboardTests {
             }
         }
         #expect(collisions.isEmpty, "有 \(collisions.count) 对取值相等：\(collisions)")
-        #expect(values.count == 10, "取值面被改小了，实得 \(values.count) 个")
+        #expect(values.count == 11, "取值面被改小了，实得 \(values.count) 个")
         for value in values {
             #expect(value == value, "自反性都不成立，Equatable 被改坏了")
         }
@@ -1625,6 +1639,7 @@ struct TreeHostedWiringTests {
     )
     private static let leftArrow = String(Character(UnicodeScalar(NSLeftArrowFunctionKey)!))
     private static let downArrow = String(Character(UnicodeScalar(NSDownArrowFunctionKey)!))
+    private static let upArrow = String(Character(UnicodeScalar(NSUpArrowFunctionKey)!))
 
     private static func centerY(ofRow index: Int) -> CGFloat {
         CGFloat(index) * Self.pitch + Self.regular.rowHeight / 2
@@ -1728,6 +1743,46 @@ struct TreeHostedWiringTests {
         Self.click(window, at: CGPoint(x: indentX, y: Self.centerY(ofRow: 1)))
         #expect(log.selection == ["a1"], "\(appearance)：点 a1 行缩进区（x = \(indentX)）应选中 a1，实得 \(log.selection)")
         #expect(log.expanded == ["a"], "\(appearance)：点缩进区不该改展开态，实得 \(log.expanded)")
+    }
+
+    @Test("⌥Space 勾选焦点行：叶行勾自己，父行级联全部叶后代、全勾后再按全不勾；不动行选中", arguments: TreeHostedAppearance.allCases)
+    func optionSpaceWritesTheCheckedSet(appearance: TreeHostedAppearance) {
+        let log = TreeHostedLog()
+        let window = Self.window(log, appearance: appearance, showsCheckBoxes: .shown)
+        defer { window.close() }
+        let optionSpace = { window.sendKey(keyCode: 49, characters: "\u{00A0}", ignoringModifiers: " ", modifiers: .option) }
+        optionSpace()
+        window.settle()
+        #expect(log.checked == ["a1x", "a1y", "a2"], "\(appearance)：首键焦点落在 a，⌥Space 应级联勾上 a 的全部叶后代，实得 \(log.checked)")
+        window.sendKey(keyCode: 125, characters: Self.downArrow)
+        optionSpace()
+        window.settle()
+        #expect(log.checked == ["a1x", "a1y", "a2", "b"], "\(appearance)：↓ 到 b 后 ⌥Space 应勾上 b，实得 \(log.checked)")
+        window.sendKey(keyCode: 126, characters: Self.upArrow)
+        optionSpace()
+        window.settle()
+        #expect(log.checked == ["b"], "\(appearance)：a 已全勾，再按 ⌥Space 应取消 a 的全部叶后代，实得 \(log.checked)")
+        #expect(log.selection.isEmpty, "\(appearance)：⌥Space 不该改行选中，实得 \(log.selection)")
+    }
+
+    @Test("搜索期间 ⌥Space 只写保留的叶子：a 下只有 a1y 被搜索留下，a2 已勾、a1x 未勾都不动", arguments: TreeHostedAppearance.allCases)
+    func optionSpaceUnderSearchWritesRetainedLeavesOnly(appearance: TreeHostedAppearance) {
+        let model = TreeSearchHostedModel(query: "y")
+        model.checked = ["a2"]
+        let window = HostedWindow(
+            TreeSearchHostedHarness(model: model, style: appearance.style, showsCheckBoxes: .shown),
+            size: CGSize(width: 260, height: 400),
+            scheme: .light
+        )
+        defer { window.close() }
+        let optionSpace = {
+            window.sendKey(keyCode: 49, characters: "\u{00A0}", ignoringModifiers: " ", modifiers: .option)
+            window.settle()
+        }
+        optionSpace()
+        #expect(model.checked == ["a1y", "a2"], "\(appearance)：首键焦点落在 a，⌥Space 应只勾上保留的 a1y，实得 \(model.checked.sorted())")
+        optionSpace()
+        #expect(model.checked == ["a2"], "\(appearance)：保留的 a1y 已全勾，再按应只取消 a1y、a2 不动，实得 \(model.checked.sorted())")
     }
 
     @Test("点复选框勾选：叶行勾自己，父行级联全部叶后代；不动行选中", arguments: TreeHostedAppearance.allCases)

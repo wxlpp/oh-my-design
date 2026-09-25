@@ -30,6 +30,7 @@ nonisolated struct TreeInteractionOutcome<ID: Hashable>: Equatable {
     var result: KeyPress.Result
     var expansionMotion: MotionPresentation?
     var activated: ID?
+    var checkToggled: ID?
 }
 
 // MARK: - 交互归约 / Interaction reducer
@@ -42,6 +43,7 @@ nonisolated enum TreeInteractionReducer {
         rows: [TreeRow<ID>],
         mode: TreeSelectionMode,
         activation: TreeActivation,
+        checkColumn: TreeCheckColumn = .absent,
         motion: MotionPresentation,
         treeIDs: () -> Set<ID>,
         ancestors: (ID) -> [ID]
@@ -55,11 +57,13 @@ nonisolated enum TreeInteractionReducer {
         }
         next.focus = focused
         let action = TreeKeyboard.action(
-            for: key, modifiers: modifiers, rows: rows, focus: focused, expanded: state.expanded, mode: mode
+            for: key, modifiers: modifiers, rows: rows, focus: focused, expanded: state.expanded, mode: mode,
+            checkColumn: checkColumn
         )
         let rowIDs = Set(rows.map(\.id))
         var expansionMotion: MotionPresentation?
         var activated: ID?
+        var checkToggled: ID?
         switch action {
         case .unhandled:
             return TreeInteractionOutcome(state: next, result: .ignored)
@@ -85,11 +89,15 @@ nonisolated enum TreeInteractionReducer {
         case .activate(let id):
             guard activation == .enabled else { return TreeInteractionOutcome(state: next, result: .ignored) }
             activated = id
+        case .toggleCheck(let id):
+            checkToggled = id
         case .selectAllVisible:
             next.selection = TreeSelection.selectingAll(in: next.selection, rowIDs: rows.map(\.id))
         }
         next.lastInteraction = .keyboard
-        return TreeInteractionOutcome(state: next, result: .handled, expansionMotion: expansionMotion, activated: activated)
+        return TreeInteractionOutcome(
+            state: next, result: .handled, expansionMotion: expansionMotion, activated: activated, checkToggled: checkToggled
+        )
     }
 
     static func pointerSelect<ID: Hashable>(

@@ -6,6 +6,7 @@
 "Activate to expand or collapse" = "Activate to expand or collapse";
 "Alert" = "Alert";
 "Applies to filtered results only" = "Applies to filtered results only";
+"Check" = "Check";
 "Collapse" = "Collapse";
 "Collapsed" = "Collapsed";
 "Completed" = "Completed";
@@ -26,6 +27,7 @@
 "Search" = "Search";
 "Success" = "Success";
 "Tap to dismiss" = "Tap to dismiss";
+"Uncheck" = "Uncheck";
 "Untitled" = "Untitled";
 "Upcoming" = "Upcoming";
 "Verification code" = "Verification code";
