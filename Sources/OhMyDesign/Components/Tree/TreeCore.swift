@@ -172,6 +172,11 @@ nonisolated enum TreeFlatten {
         return out
     }
 
+    // 与 `descendantLeafIDs(of:id:children:within:)` 等价的前提：搜索留下的集合对祖先封闭，且留下的父节点至少留下一个子节点。
+    static func retainedLeafIDs<ID: Hashable>(_ leaves: [ID], within included: Set<ID>) -> [ID] {
+        leaves.filter(included.contains)
+    }
+
     static func allIDs<Data: RandomAccessCollection, ID: Hashable>(
         _ data: Data,
         id: KeyPath<Data.Element, ID>,
@@ -275,6 +280,10 @@ nonisolated enum TreeChecking {
 
     static func indicatorSources<ID: Hashable>(ofLeaves leaves: [ID], in checked: Set<ID>) -> [Bool] {
         [leaves.contains(where: checked.contains), !leaves.isEmpty && leaves.allSatisfy(checked.contains)]
+    }
+
+    static func indicatorSources<ID: Hashable>(ofLeafSet leaves: Set<ID>, in checked: Set<ID>) -> [Bool] {
+        [!leaves.isDisjoint(with: checked), !leaves.isEmpty && leaves.isSubset(of: checked)]
     }
 
     static func toggling<ID: Hashable>(scope leaves: [ID], in checked: Set<ID>) -> Set<ID> {

@@ -61,6 +61,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     @State private var lastInteraction: TreeInteraction = .pointer
     @State private var pointerClaimsFocus = false
     @State private var searchSession: TreeSearchSession<ID>?
+    @State private var searchCache = TreeSearchCache<ID>()
     @FocusState private var isFocused: Bool
     @Environment(\.coreMotionPresentation) private var motionPresentation
     @Environment(\.controlSize) private var controlSize
@@ -115,7 +116,8 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         TreeSearch.frame(
             self.data, id: self.id, children: self.children,
             query: self.search?.query, text: self.search?.text,
-            persisted: self.expanded, session: self.searchSession
+            persisted: self.expanded, session: self.searchSession,
+            version: self.search?.version, memo: &self.searchCache.memo
         )
     }
 
@@ -229,6 +231,15 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         TreeFlatten.ancestorIDs(of: hidden, in: self.data, id: self.id, children: self.children)
     }
 
+    private func checkScope(of element: Data.Element, frame: TreeSearchFrame<ID>) -> TreeRowCheckScope<ID> {
+        let key = self.search?.version.map {
+            TreeSearchCacheKey(query: frame.query ?? "", version: $0, id: self.id, children: self.children)
+        }
+        return self.searchCache.checkScopes.scope(of: element[keyPath: self.id], for: key) {
+            TreeRowCheckScope.resolve(element, id: self.id, children: self.children, within: frame.included)
+        }
+    }
+
     private func context(
         rows: [TreeRow<ID>],
         metrics: TreeRowMetrics,
@@ -252,6 +263,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             notePointerCheck: {
                 self.commit(TreeInteractionReducer.pointerCheck(state: self.interactionState(frame)), frame: frame)
             },
+            checkScope: { element in self.checkScope(of: element, frame: frame) },
             rowMenu: self.rowMenu,
             selectedVisible: self.rowMenu == nil
                 ? []
@@ -275,6 +287,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
 struct TreeSearchSpec<Element> {
     let query: String
     let text: (Element) -> String
+    let version: AnyHashable?
 }
 
 // MARK: - 搜索过滤 / Search filter
@@ -296,7 +309,29 @@ public extension Tree {
     /// - Returns: 带搜索过滤的同一棵树。
     func searchFilter(_ query: String, text: @escaping (Data.Element) -> String) -> Tree {
         var tree = self
-        tree.search = TreeSearchSpec(query: query, text: text)
+        tree.search = TreeSearchSpec(query: query, text: text, version: nil)
+        return tree
+    }
+
+    /// 同 `searchFilter(_:text:)`，但按调用方给的版本号缓存过滤结果：搜索词（去首尾空白后）与 `version`
+    /// 都没变时，选中、焦点、展开与勾选变化引起的重算不再遍历整棵树。
+    ///
+    /// `data` 或 `text` 给出的文案有任何变化时，调用方必须同时换一个 `version`，否则显示的仍是旧数据的过滤结果。
+    /// 数据量大（数千节点以上）、搜索期间又有频繁的选中 / 键盘操作时用这个重载；不确定时用不带版本号的那个，
+    /// 它每次重算都重新过滤，永远不会过期。
+    ///
+    /// - Parameters:
+    ///   - query: 当前搜索词，由调用方持有。
+    ///   - text: 从元素取用于匹配的文案。
+    ///   - version: 数据与文案的版本号，二者任一变化时必须随之变化（如数据模型的修改计数）。
+    /// - Returns: 带搜索过滤的同一棵树。
+    func searchFilter(
+        _ query: String,
+        text: @escaping (Data.Element) -> String,
+        version: some Hashable
+    ) -> Tree {
+        var tree = self
+        tree.search = TreeSearchSpec(query: query, text: text, version: AnyHashable(version))
         return tree
     }
 
@@ -454,6 +489,7 @@ struct TreeContext<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     let click: (ID) -> Void
     let toggleExpansion: (ID) -> Void
     let notePointerCheck: () -> Void
+    let checkScope: (Data.Element) -> TreeRowCheckScope<ID>
     let rowMenu: ((Set<ID>) -> AnyView)?
     let selectedVisible: Set<ID>
     let content: (Data.Element) -> RowContent
@@ -514,7 +550,7 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         let elementID = self.element[keyPath: self.context.id]
         let isExpanded = self.context.expanded.contains(elementID)
         let isSelected = self.context.selection.contains(elementID)
-        let checkScope = self.context.checked.map { _ in self.checkScope }
+        let checkScope = self.context.checked.map { _ in self.context.checkScope(self.element) }
         let configuration = TreeRowConfiguration(
             label: self.context.content(self.element)
                 .accessibilityValue(self.expansionValue(isExpanded: isExpanded))
@@ -559,17 +595,6 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         }
     }
 
-    private var checkScope: TreeRowCheckScope<ID> {
-        let leaves = TreeFlatten.descendantLeafIDs(
-            of: self.element, id: self.context.id, children: self.context.children
-        )
-        guard self.context.included != nil else { return TreeRowCheckScope(display: leaves, action: leaves) }
-        let retained = TreeFlatten.descendantLeafIDs(
-            of: self.element, id: self.context.id, children: self.context.children, within: self.context.included
-        )
-        return TreeRowCheckScope(display: leaves, action: retained)
-    }
-
     private func checkBox(_ checked: Binding<Set<ID>>, scope: TreeRowCheckScope<ID>) -> TreeRowCheckBox {
         guard let hint = TreeRowAccessibility.checkBoxHintKey(
             hasChildren: self.hasChildren, isSearching: self.context.included != nil
@@ -583,7 +608,8 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         }
         return TreeRowCheckBox(
             sources: TreeCheckBindings.scoped(
-                display: scope.display, scope: scope.action, in: checked, onWrite: self.context.notePointerCheck
+                display: scope.display, indexed: scope.displaySet, scope: scope.action, in: checked,
+                onWrite: self.context.notePointerCheck
             ),
             label: AnyView(self.context.content(self.element)),
             hint: hint,
@@ -670,9 +696,25 @@ struct TreeRowCheckBox: View {
 
 // MARK: - 勾选范围 / Check scope
 
-struct TreeRowCheckScope<ID: Hashable> {
+nonisolated struct TreeRowCheckScope<ID: Hashable> {
     let display: [ID]
     let action: [ID]
+    var displaySet: Set<ID>?
+
+    static func resolve<Data: RandomAccessCollection>(
+        _ element: Data.Element,
+        id: KeyPath<Data.Element, ID>,
+        children: KeyPath<Data.Element, Data?>,
+        within included: Set<ID>?
+    ) -> TreeRowCheckScope<ID> {
+        let leaves = TreeFlatten.descendantLeafIDs(of: element, id: id, children: children)
+        guard let included else { return TreeRowCheckScope(display: leaves, action: leaves) }
+        return TreeRowCheckScope(display: leaves, action: TreeFlatten.retainedLeafIDs(leaves, within: included))
+    }
+
+    func indexed() -> TreeRowCheckScope<ID> {
+        TreeRowCheckScope(display: self.display, action: self.action, displaySet: Set(self.display))
+    }
 }
 
 // MARK: - 搜索期间的父行复选框 / Parent check box under search
@@ -682,17 +724,22 @@ enum TreeCheckBindings {
     // 系统把 mixed 点成 on 时，三种态下写入的新值都与它的现值相反，即使系统只写值有变化的来源也写得到它。
     static func scoped<ID: Hashable>(
         display leaves: [ID],
+        indexed leafSet: Set<ID>? = nil,
         scope retained: [ID],
         in checked: Binding<Set<ID>>,
         onWrite: @escaping () -> Void
     ) -> [Binding<Bool>] {
-        [
+        let sources: (Set<ID>) -> [Bool] = { current in
+            leafSet.map { TreeChecking.indicatorSources(ofLeafSet: $0, in: current) }
+                ?? TreeChecking.indicatorSources(ofLeaves: leaves, in: current)
+        }
+        return [
             Binding(
-                get: { TreeChecking.indicatorSources(ofLeaves: leaves, in: checked.wrappedValue)[0] },
+                get: { sources(checked.wrappedValue)[0] },
                 set: { _ in }
             ),
             Binding(
-                get: { TreeChecking.indicatorSources(ofLeaves: leaves, in: checked.wrappedValue)[1] },
+                get: { sources(checked.wrappedValue)[1] },
                 set: { _ in
                     onWrite()
                     checked.wrappedValue = TreeChecking.toggling(scope: retained, in: checked.wrappedValue)
