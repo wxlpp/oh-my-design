@@ -59,7 +59,18 @@ SearchField(text: $query, placeholder: "Filter issues") { submitted in
   **复现不出**：SwiftUI 对 representable 承载的 `UIControl` / `NSControl` 自动同步 `isEnabled`
   （`SearchFieldNativeStateTests`：默认 `true`、`.disabled(true)` 为 `false`、运行期切换双向跟随，
   iOS Simulator 与 macOS 两端一致；模拟器里对禁用的搜索框点按后输入，值不变）。因此**未加**
-  手动透传代码，测试留作回归判据。禁用外观由系统提供：iOS 背景退为灰底，取值文字颜色不变。
+  手动透传代码，测试留作回归判据。禁用外观：iOS 系统只把背景退为灰底、取值文字颜色不变，
+  组件补上取值文字 → `Color.contentDisabled`（#404）；macOS `NSSearchField` 自带变淡，不另加。
+  实测（sRGB，文字区最深 / 最亮像素）：
+
+  | | 启用 | 禁用（改动前） | 禁用（改动后） | 占位文案 |
+  |---|---|---|---|---|
+  | iOS 亮 | 0 | 0 | 202 | 184 |
+  | iOS 暗 | 255 | 255 | 51 | 74 |
+  | macOS 亮 | 43 | 176 | 176（未改） | 139 |
+  | macOS 暗 | 225 | 96 | 96（未改） | 163 |
+
+  判据 `SearchFieldHostedSnapshotTests.disabledValueTextDims`（iOS）。
 
 ⚠️ **`#222` 的 a11y 行为改由系统提供**：清除按钮及其可访问名现在来自平台，
 库不再自带 `clearLabel(for:)`，`Localizable.strings` 里的 `"Clear %@"` 已移除。

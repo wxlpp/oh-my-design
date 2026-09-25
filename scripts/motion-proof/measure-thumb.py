@@ -11,7 +11,7 @@
 早先那一版按「亮度低于某阈值的连续段」找 thumb，**三个方向都会错**，逐条实测过：
 - **极性是会翻的**。iOS 默认的 `GlassSegmentedControlStyle` 走原生 `UISegmentedControl`，
   thumb **比轨道暗**（浅色实测 231 vs 251）；`PlainSegmentedControlStyle` 走 SwiftUI 回退，
-  thumb 是 `surfaceCanvasSubtle`（白 255）、**比轨道亮**（实测 255 vs 228）。
+  thumb 当时是 `surfaceCanvasSubtle`（白 255）、**比轨道亮**（实测 255 vs 228；#435 起改取 `surfaceElevated`）。
   阈值法在极性翻转时**不报错**，会从「轨道减 thumb」剩下的那块里挑一段，给出一个假坐标。
 - **非选中的文字会被并进 thumb 段**（它本就低于阈值），中段坐标带 ±40 px 的系统偏差。
 - **阈值贴太紧会丢帧**，看上去像「thumb 消失了」。

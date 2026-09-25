@@ -172,7 +172,9 @@ enum FieldControlSample: CaseIterable, CustomStringConvertible {
 
     var legacyDisabled: AnyView {
         switch self {
-        case .pinCode, .pinCodeSecure, .tagInput: AnyView(self.legacy.disabled(true))
+        case .pinCode, .pinCodeSecure: AnyView(self.legacy.disabled(true))
+        case .tagInput:
+            AnyView(LegacyTagInput(tags: ["design", "ios"], chipOpacity: FieldAppearance.disabledControlOpacity).disabled(true))
         case .checkBoxOff, .checkBoxOn, .radioVertical, .radioHorizontal:
             AnyView(self.legacy.disabled(true).opacity(FieldAppearance.disabledControlOpacity))
         }
@@ -367,6 +369,31 @@ struct FieldControlFollowUpTests {
         }
     }
 
+    // 回归钉：6 = CoreSpacing.sm − CoreBorderWidth.thick（光晕外扩 2pt）；#404 实测修前 4pt。
+    @Test(
+        "PinCode 获焦 invalid 格的光晕与相邻格之间留出 ≥ 6pt（light / dark）",
+        .enabled(if: assetCatalogIsCompiled, Comment(rawValue: Self.catalogOnly))
+    )
+    func pinCodeHaloLeavesRoomForNeighbor() throws {
+        for scheme in ControlRender.schemes {
+            let row = HStack(spacing: CoreSpacing.sm) {
+                PinCodeCell(character: nil, isSecure: false, isCurrent: true)
+                PinCodeCell(character: nil, isSecure: false, isCurrent: false)
+            }
+            .fieldValidation(sampleInvalid)
+            let image = try #require(ControlRender.image(row, scheme: scheme))
+            let bytes = try #require(ControlRender.pixels(image))
+            let canvas = ControlRender.resolved(.surfaceCanvas, scheme: scheme)
+            let y = image.height / 2
+            let inked = (0..<image.width).map { x in !ControlRender.matches(bytes, at: (y * image.width + x) * 4, canvas, tolerance: 6) }
+            let first = try #require(inked.firstIndex(of: true))
+            let firstEnd = try #require(inked[first...].firstIndex(of: false))
+            let second = try #require(inked[firstEnd...].firstIndex(of: true))
+            let gap = CGFloat(second - firstEnd) / CGFloat(ControlRender.scale)
+            #expect(gap >= 6, "\(scheme)：光晕外沿离相邻格只有 \(gap)pt")
+        }
+    }
+
     @Test("PinCode 获焦 valid 格与旧实现在光栅化噪声内逐像素一致（光晕只属于 invalid，light / dark）")
     func pinCodeFocusedValidCellUnchanged() {
         for scheme in ControlRender.schemes {
@@ -389,6 +416,26 @@ struct FieldControlFollowUpTests {
                 ControlRender.pixels(sample.legacy.opacity(FieldAppearance.disabledControlOpacity), scheme: scheme),
                 maxChannelDelta: 1,
                 "\(scheme)"
+            )
+        }
+    }
+
+    @Test("TagInput disabled 时 chip 整体降到禁用不透明度，且与改动前（chip 不变淡）不同（light / dark，两条腿）")
+    func tagInputChipsDimWhenDisabled() {
+        for scheme in ControlRender.schemes {
+            let disabled = ControlRender.pixels(TagInput(tags: .constant(["design", "ios"])).disabled(true), scheme: scheme)
+            expectEquivalentAroundNativePlaceholder(
+                disabled,
+                ControlRender.pixels(
+                    LegacyTagInput(tags: ["design", "ios"], chipOpacity: FieldAppearance.disabledControlOpacity).disabled(true),
+                    scheme: scheme
+                ),
+                "\(scheme)"
+            )
+            expectBitmapsDiffer(
+                disabled,
+                ControlRender.pixels(LegacyTagInput(tags: ["design", "ios"]).disabled(true), scheme: scheme),
+                "\(scheme)：disabled 下 chip 没有变淡"
             )
         }
     }
@@ -569,11 +616,13 @@ private struct LegacyPinCodeCell: View {
 
 private struct LegacyTagInput: View {
     let tags: [String]
+    var chipOpacity: Double = 1
 
     var body: some View {
         FlowLayout(spacing: CoreSpacing.sm) {
             ForEach(Array(self.tags.enumerated()), id: \.offset) { _, tag in
                 Tag(tag, color: .contentSecondary, removable: true) {}
+                    .opacity(self.chipOpacity)
             }
 
             TextField("Add tag", text: .constant(""))

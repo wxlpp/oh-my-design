@@ -51,17 +51,28 @@ SegmentedControl(
 | 实现 | UIKit `UISegmentedControl` + `UIGlassEffect` | `SwiftUISegmentedControl` |
 | 外框形状 | `glassView.cornerConfiguration = .capsule()`（`:320`，设的是**外框** `UIVisualEffectView`） | `Capsule(style: .continuous)` |
 | thumb 形状 | `UISegmentedControl` 自带的选中指示器，**本仓从未配置** | `Capsule(style: .continuous)` |
-| thumb 填充 | `selectedSegmentTintColor` = `.label` 8%（浅）/ 15%（深） | `Color.surfaceCanvasSubtle` |
+| thumb 填充 | `selectedSegmentTintColor` = `.label` 8%（浅）/ 15%（深） | `Color.surfaceElevated`（→ `tertiarySystemGroupedBackground`） |
 | 外框填充 | 玻璃 | `Capsule` 填 `Color.surfaceInteractive` + `borderSubtle` hairline |
 | segment 间距 | 无（a11y 实测三段连续：30 → 144 → 258 pt，宽 114） | `CoreSpacing.xxs`（实测有 2 pt 缝：142.67 → 144.67） |
 | 字号 | `systemFont(ofSize: 15)` 经 `UIFontMetrics(.body)` | `.coreFont(.callout)` |
 | 切换动画 | UIKit 自己的 | `CoreMotionToken.selection`（`.snappy`，0.22 s）+ `matchedGeometryEffect`；Reduce Motion 下滑块不滑，旧位置淡出、新位置淡入（#407） |
-| thumb 与轨道的明暗 | thumb **更暗**（浅色实测 231 vs 251） | thumb **更亮**（浅色实测 255 vs 228） |
+| thumb 与轨道的明暗 | thumb **更暗**（浅色实测 231 vs 251） | iOS 两档与 macOS 浅色 thumb **更亮**，macOS 深色 thumb **更暗**（读数见下表） |
+
+SwiftUI 那条路的 thumb 原取 `surfaceCanvasSubtle`，iOS 暗色下与轨道几乎同值（#435）。实测（sRGB，thumb vs 轨道）：
+
+| | 原 `surfaceCanvasSubtle` | 现 `surfaceElevated` |
+|---|---|---|
+| macOS 亮 | 255 vs 243 | 255 vs 243（不变，同为 `controlBackgroundColor`） |
+| macOS 暗 | 30 vs 41 | 30 vs 41（不变） |
+| iOS 亮 | 255 vs (227, 227, 233)，差 28 | (242, 242, 247) vs (227, 227, 233)，差 15 |
+| iOS 暗 | (28, 28, 30) vs (28, 28, 31)，差 1 | (44, 44, 46) vs (28, 28, 31)，差 16 |
+
+判据 `SegmentedControlTests.plainThumbStandsOutFromTrack`（双腿，明 / 暗）：滑块与轨道逐通道最大差 ≥ 8。
 
 ⚠️ **本节此前的四条与源码不符**，`#233` 顺带更正（逐条对着
 `Sources/OhMyDesign/Components/SegmentedControl/SegmentedControl.swift` 核过）：
 外框背景写的是 `surfaceMuted`（实为 `surfaceInteractive`，`:430`）、thumb 写的是
-`surfaceRaised`（实为 `surfaceCanvasSubtle`，`:158`）、两处圆角写的是 `CoreRadius.medium` /
+`surfaceRaised`（当时实为 `surfaceCanvasSubtle`，`:158`；#435 起为 `surfaceElevated`）、两处圆角写的是 `CoreRadius.medium` /
 `.small`（**实为 `Capsule`，不走 `CoreRadius`**，`:115` / `:152`）、字号写的是
 `CoreTypography.bodyMediumFont`（实为 `.coreFont(.callout)`，`:134`）。
 ⚠️ **第三条不只是换个名字**：那四条一起读会让人以为 thumb 是个圆角矩形，而它是胶囊。
