@@ -76,12 +76,17 @@ final class HostedWindow {
         self.window.sendEvent(event)
     }
 
-    func sendKey(keyCode: UInt16, characters: String, modifiers: NSEvent.ModifierFlags = []) {
+    func sendKey(
+        keyCode: UInt16,
+        characters: String,
+        ignoringModifiers: String? = nil,
+        modifiers: NSEvent.ModifierFlags = []
+    ) {
         for type in [NSEvent.EventType.keyDown, .keyUp] {
             guard let event = NSEvent.keyEvent(
                 with: type, location: .zero, modifierFlags: modifiers, timestamp: ProcessInfo.processInfo.systemUptime,
                 windowNumber: self.window.windowNumber, context: nil, characters: characters,
-                charactersIgnoringModifiers: characters, isARepeat: false, keyCode: keyCode
+                charactersIgnoringModifiers: ignoringModifiers ?? characters, isARepeat: false, keyCode: keyCode
             ) else { continue }
             self.window.sendEvent(event)
         }
