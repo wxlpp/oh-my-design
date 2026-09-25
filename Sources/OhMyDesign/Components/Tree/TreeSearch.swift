@@ -91,9 +91,35 @@ nonisolated struct TreeCheckScopeMemo<ID: Hashable> {
     }
 }
 
-final class TreeSearchCache<ID: Hashable> {
+nonisolated struct TreeRowsMemo<Element, ID: Hashable> {
+    private(set) var key: TreeSearchCacheKey?
+    private var expanded: Set<ID> = []
+    private var cached: TreeVisibleRows<Element, ID>?
+
+    mutating func rows(
+        for key: TreeSearchCacheKey?,
+        expanded: Set<ID>,
+        compute: () -> [TreeRenderItem<Element, ID>]
+    ) -> TreeVisibleRows<Element, ID> {
+        if let key, key == self.key, expanded == self.expanded, let cached = self.cached { return cached }
+        let items = compute()
+        let fresh = TreeVisibleRows(items: items, rows: items.map(\.row))
+        self.key = key
+        self.expanded = key == nil ? [] : expanded
+        self.cached = key == nil ? nil : fresh
+        return fresh
+    }
+}
+
+nonisolated struct TreeVisibleRows<Element, ID: Hashable> {
+    let items: [TreeRenderItem<Element, ID>]
+    let rows: [TreeRow<ID>]
+}
+
+final class TreeSearchCache<Element, ID: Hashable> {
     var memo = TreeSearchMemo<ID>()
     var checkScopes = TreeCheckScopeMemo<ID>()
+    var rows = TreeRowsMemo<Element, ID>()
 }
 
 nonisolated enum TreeSearch {

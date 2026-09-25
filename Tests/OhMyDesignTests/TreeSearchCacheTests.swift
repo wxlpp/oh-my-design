@@ -109,6 +109,45 @@ struct TreeSearchMemoTests {
     }
 }
 
+// MARK: - 可见行缓存 / Visible rows memo
+
+@Suite("Tree 可见行缓存：键与生效展开集合都不变才复用；键为 nil 每次展平")
+struct TreeRowsMemoTests {
+    private static func key(_ query: String, version: Int) -> TreeSearchCacheKey {
+        TreeSearchCacheKey(
+            query: query, version: AnyHashable(version), id: \TreeJudgeNode.id, children: \TreeJudgeNode.children
+        )
+    }
+
+    @Test("同键同展开只展平一次；换展开、换版本号、换搜索词都重新展平；键为 nil 每次展平")
+    func keyAndExpansionDecideRecomputation() {
+        var memo = TreeRowsMemo<TreeJudgeNode, String>()
+        var computed = 0
+        func rows(_ key: TreeSearchCacheKey?, _ expanded: Set<String>) -> [TreeRow<String>] {
+            memo.rows(for: key, expanded: expanded) {
+                computed += 1
+                return TreeFlatten.items(
+                    TreeJudgeFixture.roots, id: \TreeJudgeNode.id, children: \TreeJudgeNode.children, expanded: expanded
+                )
+            }.rows
+        }
+        _ = rows(Self.key("", version: 1), ["a"])
+        let hit = rows(Self.key("", version: 1), ["a"])
+        #expect(computed == 1, "键与展开都没变却重新展平了")
+        #expect(hit == TreeJudgeFixture.rows(expanded: ["a"]))
+        let expanded = rows(Self.key("", version: 1), ["a", "a1"])
+        #expect(computed == 2, "展开变了没有重新展平")
+        #expect(expanded == TreeJudgeFixture.rows(expanded: ["a", "a1"]))
+        _ = rows(Self.key("", version: 2), ["a", "a1"])
+        #expect(computed == 3, "版本号变了没有重新展平")
+        _ = rows(Self.key("y", version: 2), ["a", "a1"])
+        #expect(computed == 4, "搜索词变了没有重新展平")
+        _ = rows(nil, ["a", "a1"])
+        _ = rows(nil, ["a", "a1"])
+        #expect(computed == 6)
+    }
+}
+
 // MARK: - 父行勾选范围缓存 / Check scope memo
 
 @Suite("Tree 父行勾选范围：缓存按行与（搜索词, 版本号）取；过滤后的叶子用留下的集合筛，与按留下的集合遍历等价")
@@ -206,6 +245,7 @@ struct TreeCheckScopeMemoTests {
 @MainActor
 @Observable
 final class TreeSearchCacheModel {
+    var roots = TreeJudgeFixture.roots
     var query = "y"
     var version = 0
     var expanded: Set<String> = []
@@ -232,7 +272,7 @@ struct TreeSearchCacheHarness: View {
 
     var body: some View {
         let tree = Tree(
-            TreeJudgeFixture.roots,
+            self.model.roots,
             children: \.children,
             expanded: Binding(get: { self.model.expanded }, set: { self.model.expanded = $0 }),
             selection: Binding(get: { self.model.selection }, set: { self.model.selection = $0 }),
@@ -266,6 +306,14 @@ struct TreeSearchCacheHostedTests {
             scheme: .light
         )
     }
+
+    private static func key(_ window: HostedWindow, _ code: UInt16, _ characters: String, modifiers: NSEvent.ModifierFlags = []) {
+        window.sendKey(keyCode: code, characters: characters, modifiers: modifiers)
+        window.settle()
+    }
+
+    private static let leftArrow = String(Character(UnicodeScalar(NSLeftArrowFunctionKey)!))
+    private static let downArrow = String(Character(UnicodeScalar(NSDownArrowFunctionKey)!))
 
     private static func reads(_ window: HostedWindow, _ model: TreeSearchCacheModel, after change: () -> Void) -> Int {
         let before = model.textReads
@@ -316,6 +364,37 @@ struct TreeSearchCacheHostedTests {
         window.sendMouse(.leftMouseUp, at: point)
         window.settle()
         #expect(model.checked == click.second, "\(versioning) / \(click.reason)：第二次点击实得 \(model.checked.sorted())")
+    }
+
+    @Test("带版本号：搜索期间 ← 在 overlay 里折叠后可见行随之变化，清空搜索后回到宿主的展开态")
+    func versionedRowsFollowTheExpansion() {
+        let model = TreeSearchCacheModel()
+        model.expanded = ["a"]
+        let window = Self.window(model, .versioned)
+        defer { window.close() }
+        Self.key(window, 123, Self.leftArrow)
+        Self.key(window, 125, Self.downArrow)
+        Self.key(window, 49, " ")
+        #expect(model.selection == ["a"], "← 折叠 a 后应当只剩一行（↓ 不动），实得选中 \(model.selection.sorted())")
+        model.selection = []
+        model.query = ""
+        window.settle()
+        Self.key(window, 125, Self.downArrow)
+        Self.key(window, 49, " ")
+        #expect(model.selection == ["a1"], "清空后 a 应当恢复展开（↓ 从 a 到 a1），实得选中 \(model.selection.sorted())")
+    }
+
+    @Test("带版本号：数据变了并换版本号后，行按新数据显示（全选选到新增的根）")
+    func versionedRowsFollowNewDataWithANewVersion() {
+        let model = TreeSearchCacheModel()
+        model.query = ""
+        let window = Self.window(model, .versioned)
+        defer { window.close() }
+        model.roots = TreeJudgeFixture.roots + [TreeJudgeNode(id: "d", children: nil)]
+        model.version += 1
+        window.settle()
+        Self.key(window, 0, "a", modifiers: .command)
+        #expect(model.selection.contains("d"), "换版本号后新增的根 d 没有出现在可见行里：\(model.selection.sorted())")
     }
 }
 #endif

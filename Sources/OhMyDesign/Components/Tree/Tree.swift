@@ -61,18 +61,16 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     @State private var lastInteraction: TreeInteraction = .pointer
     @State private var pointerClaimsFocus = false
     @State private var searchSession: TreeSearchSession<ID>?
-    @State private var searchCache = TreeSearchCache<ID>()
+    @State private var searchCache = TreeSearchCache<Data.Element, ID>()
     @FocusState private var isFocused: Bool
     @Environment(\.coreMotionPresentation) private var motionPresentation
     @Environment(\.controlSize) private var controlSize
 
     public var body: some View {
         let frame = self.searchFrame
-        let items = TreeFlatten.items(
-            self.data, id: self.id, children: self.children,
-            expanded: frame.expansion.effective, included: frame.included
-        )
-        let rows = items.map(\.row)
+        let visible = self.visibleRows(frame)
+        let items = visible.items
+        let rows = visible.rows
         let metrics = TreeRowMetrics.resolve(self.controlSize)
         return TreeRowStack(items: items, context: self.context(rows: rows, metrics: metrics, frame: frame))
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -193,7 +191,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             id,
             behavior: self.clickBehavior,
             state: self.interactionState(frame),
-            rows: self.visibleRows(frame),
+            rows: self.visibleRows(frame).rows,
             mode: self.selectionMode,
             motion: self.motionPresentation,
             treeIDs: { self.treeIDs }
@@ -209,16 +207,24 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     private func toggleExpansion(_ id: ID) {
         let frame = self.searchFrame
         let outcome = TreeInteractionReducer.pointerToggle(
-            id, state: self.interactionState(frame), rows: self.visibleRows(frame), motion: self.motionPresentation
+            id, state: self.interactionState(frame), rows: self.visibleRows(frame).rows, motion: self.motionPresentation
         )
         self.commit(outcome.state, frame: frame, expansionMotion: outcome.expansionMotion)
     }
 
-    private func visibleRows(_ frame: TreeSearchFrame<ID>) -> [TreeRow<ID>] {
-        TreeFlatten.rows(
-            self.data, id: self.id, children: self.children,
-            expanded: frame.expansion.effective, included: frame.included
-        )
+    private func visibleRows(_ frame: TreeSearchFrame<ID>) -> TreeVisibleRows<Data.Element, ID> {
+        let expanded = frame.expansion.effective
+        return self.searchCache.rows.rows(for: self.cacheKey(frame), expanded: expanded) {
+            TreeFlatten.items(
+                self.data, id: self.id, children: self.children, expanded: expanded, included: frame.included
+            )
+        }
+    }
+
+    private func cacheKey(_ frame: TreeSearchFrame<ID>) -> TreeSearchCacheKey? {
+        self.search?.version.map {
+            TreeSearchCacheKey(query: frame.query ?? "", version: $0, id: self.id, children: self.children)
+        }
     }
 
     // MARK: - 派生 / Derived
@@ -232,10 +238,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     }
 
     private func checkScope(of element: Data.Element, frame: TreeSearchFrame<ID>) -> TreeRowCheckScope<ID> {
-        let key = self.search?.version.map {
-            TreeSearchCacheKey(query: frame.query ?? "", version: $0, id: self.id, children: self.children)
-        }
-        return self.searchCache.checkScopes.scope(of: element[keyPath: self.id], for: key) {
+        self.searchCache.checkScopes.scope(of: element[keyPath: self.id], for: self.cacheKey(frame)) {
             TreeRowCheckScope.resolve(element, id: self.id, children: self.children, within: frame.included)
         }
     }
@@ -313,17 +316,18 @@ public extension Tree {
         return tree
     }
 
-    /// 同 `searchFilter(_:text:)`，但按调用方给的版本号缓存过滤结果：搜索词（去首尾空白后）与 `version`
-    /// 都没变时，选中、焦点、展开与勾选变化引起的重算不再遍历整棵树。
+    /// 同 `searchFilter(_:text:)`，但按调用方给的版本号缓存：搜索词（去首尾空白后）与 `version` 都没变时，
+    /// 复用上一次的过滤结果、可见行（展开态也没变时）与各父行复选框的叶后代，不再遍历整棵树。
+    /// 可见行与叶后代的缓存**不论是否在搜索**都生效。
     ///
-    /// `data` 或 `text` 给出的文案有任何变化时，调用方必须同时换一个 `version`，否则显示的仍是旧数据的过滤结果。
-    /// 数据量大（数千节点以上）、搜索期间又有频繁的选中 / 键盘操作时用这个重载；不确定时用不带版本号的那个，
-    /// 它每次重算都重新过滤，永远不会过期。
+    /// `data` 或 `text` 给出的文案有任何变化时，调用方必须同时换一个 `version`。否则：显示的是旧数据的过滤结果与行；
+    /// 父行复选框按旧的叶后代显示三态，点击时把旧的叶子 ID 并进 `checked`——已删除叶子的 ID 会被写入、新增的叶子会被漏掉。
     ///
     /// - Parameters:
     ///   - query: 当前搜索词，由调用方持有。
     ///   - text: 从元素取用于匹配的文案。
     ///   - version: 数据与文案的版本号，二者任一变化时必须随之变化（如数据模型的修改计数）。
+    ///     同一棵 Tree 先后显示不同数据源时，版本号必须跨数据源唯一（如「数据源 ID + 修改计数」）。
     /// - Returns: 带搜索过滤的同一棵树。
     func searchFilter(
         _ query: String,
@@ -729,17 +733,19 @@ enum TreeCheckBindings {
         in checked: Binding<Set<ID>>,
         onWrite: @escaping () -> Void
     ) -> [Binding<Bool>] {
-        let sources: (Set<ID>) -> [Bool] = { current in
-            leafSet.map { TreeChecking.indicatorSources(ofLeafSet: $0, in: current) }
-                ?? TreeChecking.indicatorSources(ofLeaves: leaves, in: current)
-        }
-        return [
+        [
             Binding(
-                get: { sources(checked.wrappedValue)[0] },
+                get: {
+                    leafSet.map { TreeChecking.anyChecked(ofLeafSet: $0, in: checked.wrappedValue) }
+                        ?? TreeChecking.anyChecked(ofLeaves: leaves, in: checked.wrappedValue)
+                },
                 set: { _ in }
             ),
             Binding(
-                get: { sources(checked.wrappedValue)[1] },
+                get: {
+                    leafSet.map { TreeChecking.allChecked(ofLeafSet: $0, in: checked.wrappedValue) }
+                        ?? TreeChecking.allChecked(ofLeaves: leaves, in: checked.wrappedValue)
+                },
                 set: { _ in
                     onWrite()
                     checked.wrappedValue = TreeChecking.toggling(scope: retained, in: checked.wrappedValue)
