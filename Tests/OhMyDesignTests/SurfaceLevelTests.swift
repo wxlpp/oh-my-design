@@ -360,32 +360,47 @@ struct PresentedSheetLevelTests {
         }
     }
 
+    private typealias SetDeferTransitions = @convention(c) (AnyObject, Selector, Bool) -> Void
+
+    // xctest 宿主里没有 UIApplication，而 UIKit 默认把 modal 转场交给 UIApp 延后执行，于是转场被丢弃、sheet 内容永不渲染（#391）。
+    private func withoutDeferredTransitions<T>(_ body: () async -> T) async -> T? {
+        let selector = NSSelectorFromString("_setShouldDeferTransitions:")
+        let target = UIViewController.self as AnyObject
+        guard
+            target.responds(to: selector),
+            let previous = (UIViewController.self as AnyObject as? NSObject)?.value(forKey: "_shouldDeferTransitions") as? Bool,
+            let method = class_getClassMethod(UIViewController.self, selector)
+        else {
+            Issue.record("UIKit 已无 _setShouldDeferTransitions: / _shouldDeferTransitions，需重新评估 #391 的前提")
+            return nil
+        }
+        let set = unsafeBitCast(method_getImplementation(method), to: SetDeferTransitions.self)
+        set(target, selector, false)
+        defer { set(target, selector, previous) }
+        return await body()
+    }
+
     private func presentedLevel(
         _ presentation: Presentation = .sheet,
         _ decorate: @escaping (Probe) -> AnyView
     ) async -> SurfaceLevel? {
-        let box = Box()
-        for _ in 0..<6 where box.level == nil {
+        await self.withoutDeferredTransitions {
+            let box = Box()
             let host = PresentingHost(presentation: presentation) { decorate(Probe(box: box)) }
                 .surface(.content)
                 .surface(.content)
-            let window: UIWindow
-            if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
-                window = UIWindow(windowScene: scene)
-            } else {
-                window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
-            }
+            let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
             window.rootViewController = UIHostingController(rootView: host)
             window.makeKeyAndVisible()
-            for _ in 0..<100 where box.level == nil {
+            for _ in 0..<50 where box.level == nil {
                 window.rootViewController?.presentedViewController?.view.layoutIfNeeded()
-                try? await Task.sleep(for: .milliseconds(100))
+                try? await Task.sleep(for: .milliseconds(20))
             }
             window.rootViewController?.dismiss(animated: false)
             window.isHidden = true
             window.rootViewController = nil
-        }
-        return box.level
+            return box.level
+        } ?? nil
     }
 
     @Test("普通 .sheet 的内容继承宿主层级（elevated）")
