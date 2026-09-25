@@ -41,7 +41,7 @@ Aceternity `stateful-button` 的 `delay: 2` 一致；两个停留时长可分别
 本组件自己只决定配件槽画什么、槽多宽（槽宽取
 `CoreControlMetrics.iconSize(for:)`，随 `controlSize` 变化）。唯一例外是结果符号的**圆底**：
 success 取 `Color.success`、failure 取 `Color.danger`；圆里的字形仍走外层前景色，所以在
-`.solid(role: .danger)` 这种红底上圆底隐没，白色的叉照样可见。
+`.solid(role: .danger)` 这种红底上圆底隐没，取 on-accent 色的叉照样可见。
 
 ## 状态机
 

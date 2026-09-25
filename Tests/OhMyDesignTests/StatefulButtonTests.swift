@@ -417,7 +417,7 @@ struct StatefulButtonInFlightTests {
         return (peak, before.bytes != after.bytes)
     }
 
-    @Test("idle → loading：RM 关时配件槽出现、宽度补间有中间帧，RM 开时直接跳到位")
+    @Test("idle → loading：RM 关时有中间帧（转圈层与宽度补间不区分），RM 开时直接跳到位")
     func layoutTransitionInFlight() {
         let resting = Self.peak(from: .idle, to: .loading, reduceMotion: true, sampleFor: 0.3)
         #expect(resting.changed, "配件槽没有出现，判据无效")

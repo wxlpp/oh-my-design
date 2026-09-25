@@ -344,10 +344,12 @@ public struct StatefulButton<Label: View>: View {
         .modifier(StatefulButtonShake(trigger: self.failureShakes))
         .sensoryFeedback(trigger: state) { _, next in next.sensoryFeedback }
         .modifier(StatefulButtonAccessibility(state: state))
-        .onChange(of: state) { _, next in
+        .onChange(of: state, initial: true) { _, next in
             if next.isResult {
                 self.lastResult = next
             }
+        }
+        .onChange(of: state) { _, next in
             if next == .failure, self.motionPresentation == .animated {
                 self.failureShakes += 1
             }
