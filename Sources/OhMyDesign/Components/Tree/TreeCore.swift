@@ -281,6 +281,19 @@ nonisolated enum TreeChecking {
         let allChecked = !leaves.isEmpty && leaves.allSatisfy(checked.contains)
         return Self.applying(!allChecked, toLeaves: leaves, in: checked)
     }
+
+    static func togglingRow<Data: RandomAccessCollection, ID: Hashable>(
+        _ element: Data.Element,
+        id: KeyPath<Data.Element, ID>,
+        children: KeyPath<Data.Element, Data?>,
+        within included: Set<ID>?,
+        in checked: Set<ID>
+    ) -> Set<ID> {
+        Self.toggling(
+            scope: TreeFlatten.descendantLeafIDs(of: element, id: id, children: children, within: included),
+            in: checked
+        )
+    }
 }
 
 // MARK: - 行选中归约 / Row-selection reducer
@@ -378,6 +391,8 @@ nonisolated enum TreeRowAccessibility {
     static let collapseActionKey = "Collapse"
     static let searchScopeHintKey = "Applies to filtered results only"
     static let clickTogglesHintKey = "Activate to expand or collapse"
+    static let checkActionKey = "Check"
+    static let uncheckActionKey = "Uncheck"
 
     static func expansionValueKey(isExpanded: Bool) -> String {
         isExpanded ? Self.expandedKey : Self.collapsedKey
@@ -393,6 +408,10 @@ nonisolated enum TreeRowAccessibility {
 
     static func rowHintKey(hasChildren: Bool, clickBehavior: TreeRowClickBehavior) -> String? {
         hasChildren && clickBehavior == .selectAndToggleExpansion ? Self.clickTogglesHintKey : nil
+    }
+
+    static func checkActionKey<ID: Hashable>(scope leaves: [ID], in checked: Set<ID>) -> String {
+        !leaves.isEmpty && leaves.allSatisfy(checked.contains) ? Self.uncheckActionKey : Self.checkActionKey
     }
 
     static func traits(isSelected: Bool) -> AccessibilityTraits {

@@ -126,7 +126,7 @@ public extension Color {
 |---|---|---|
 | 语义 | 导航：当前高亮哪几行 | 数据：勾了哪些 |
 | 谁能进集合 | 任意行（含父节点） | **只有叶节点** |
-| 改变方式 | 点行、`Space`、`Shift+↑/↓`、`Ctrl/Cmd+A` | 点复选框 |
+| 改变方式 | 点行、`Space`、`Shift+↑/↓`、`Ctrl/Cmd+A` | 点复选框、`⌥Space`（焦点行，`#428`）、行内容上的无障碍动作 "Check" / "Uncheck"（`#428`） |
 
 `rowClickBehavior(.selectAndToggleExpansion)`（`#431`）下点父行还会取反展开态——那是第三份状态。行选中照旧按下面的规则变化，
 唯一例外是该模式下 `single` 再点已选中的**父行**保持选中（见「单击父行」一节）。
@@ -167,10 +167,31 @@ public extension Color {
 | `←` | 已展开的父节点：折叠；子级的叶 / 折叠节点：焦点移到父节点；**根级**的叶 / 折叠节点：does nothing |
 | `Home` / `End` | 焦点到首行 / 最后一个**可见**行 |
 | `Space` | 切换焦点行的选中态 |
+| `⌥Space`（Option+Space） | 仅传了 `checked:`：切换焦点行的勾选（`#428`，见下「勾选的键盘定案」）；没有勾选列时交回系统 |
 | `Enter` | 激活焦点行（调 `onActivate`），不改选中 |
 | `Shift+↓` / `Shift+↑` | 仅 `multiple`：移焦并切换目标行的选中态；`single` 下退化为纯移焦 |
 | `Ctrl+A` / `Cmd+A` | 仅 `multiple`：全选可见行 |
 | 其它字符键、`Tab` | 交回系统（不吞） |
+
+### 勾选的键盘定案（`#428`）
+
+| 问题 | 定案 | 理由 / 放弃的方案 |
+|---|---|---|
+| 用哪个键 | **`⌥Space` 切换勾选，`Space` 仍只切换选中**（有无 `checked:` 都一样） | `Space` 在 `.single` 下是唯一的键盘选中手势（方向键不改选中），让它随 `checked:` 改义会让单选树失去键盘选中、同一个键的语义随配置漂移；因此保 W3C 契约不变，另加一个专用键。放弃「有 `checked:` 时 `Space` 改切勾选」（Windows TreeView 的 CheckBoxes 模式如此，但那里选中跟随焦点、`Space` 本来空着，本组件没有这个前提）。放弃 `Shift+Space`：W3C APG 把它留给「从上一个选中行到焦点行的范围选中」。放弃 `Ctrl+Space` / `Cmd+Space`：macOS 默认分别是切换输入法与 Spotlight。放弃字母键（如 `x`）：W3C 把可打印字符留给 type-ahead |
+| 父行 | 按父行复选框的显示态级联：off / mixed → 全部叶后代勾上，on → 全不勾；父 ID 不进 `checked` | 与点父行复选框同一结果（`TreeChecking.toggling` → `applying`） |
+| 搜索期间 | 只作用于**保留**的叶后代，与点父行复选框同一范围 | 与「搜索过滤」一节父行复选框的定案一致 |
+| 选中 / 展开 / 焦点 | 都不动；交互来源置为键盘（焦点环照画） | 勾选是数据语义，与行选中是两套独立状态 |
+| 修饰键 | 只认恰为 `option`；`⌥⇧Space`、`⌥⌘Space` 等交回系统 | 与其它键同一白名单口径 |
+
+- 行为落在 `TreeKeyboard.action`（`.toggleCheck`）→ `TreeInteractionReducer.key`（带出 `checkToggled`）→ 视图按
+  `TreeChecking.togglingRow` 写回 `checked`。
+- 真 HID 读数（`422-probe`，`checked` 事件逐条）：macOS 26 System Events 发 `key code 49 using {option down}`：
+  焦点 `a` 上 ⌥Space → `+["a1x", "a1y", "a2"]`；↓ 三次到 `b` 再 ⌥Space → `+["b"]`；Home 再 ⌥Space → `-["a1x", "a1y", "a2"]`；
+  随后不带修饰键的 `Space` 只产生 `SELECT +["a"]`。iOS 26.4 模拟器 `axe key-combo --modifiers 226 --key 44`：
+  点 `README.md` 行后 ⌥Space → `checked` 加入 `readme`；移到 mixed 的 `Design` 再 ⌥Space → 它的全部叶后代勾上。
+- 键盘层按 `KeyPress.key` 判键，上面两条腿的真 HID 都接住了 ⌥Space。托管窗口判据合成的事件取
+  `characters` U+00A0（不间断空格）、`charactersIgnoringModifiers` 空格——这是按 macOS 美式布局下 Option+Space
+  的形态写的，**未抓真事件核对**；其它键盘布局下是否同样接住未验证。
 
 - **初始焦点**：第一下键到达时焦点尚未确定，先按 W3C 规则解析（无选中 → 首行；有选中 → 可见顺序里
   第一个已选行），再执行这一键。
@@ -474,16 +495,44 @@ struct CommittedSearchField: UIViewRepresentable {
 - 父行 `accessibilityValue` 播报 "Expanded" / "Collapsed"（自绘 `Button` 不会被系统自动播报，这一层是唯一来源）；
   chevron 的 `accessibilityLabel` 说的是**动作**（"Expand" / "Collapse"）。四个 key 都走 `bundle: .module`。
 - 已选行带 `.isSelected` trait。
+- **行级无障碍取值只挂在行内容上**（`#427` 起）：展开态 value、单击提示、`.isSelected` trait 与勾选动作都施在
+  `content` 上，不再施在整行上。整行不是一个元素，施在整行时这些取值会复制到行里的每个元素上——复选框因此报成
+  `'Expanded'` / `''`，把系统给的勾选值盖掉了（`#427` 的一半根因）。代价：chevron 不再带 "Expanded" / "Collapsed"
+  value（它的 label 仍说动作）。
+- **复选框的名字 = 行内容**（`#427`）：`Tree` 把行内容作为复选框 `Toggle` 的 label 传入并 `.labelsHidden()`；
+  `CheckBoxToggleStyle` 在 labels 隐藏时不画 label、只把它交给无障碍标签（见 [checkbox.md](checkbox.md)）。
+  勾选态由系统 `Toggle` 自己报：AXValue `0` / `1` / `2`（off / on / mixed，`2` 由 `Toggle(sources:)` 派生）。
+  ⚠️ 代价：传了 `checked:` 时每行的行内容要多构建一份（作复选框的无障碍标签，不画出来）。行内容里有 `@State` 时两份各自独立。
+- **行内容上的勾选动作**（`#428`）：传了 `checked:` 时，行内容带自定义无障碍动作 "Check" / "Uncheck"
+  （动作范围的叶子全勾时是 "Uncheck"），作用与点该行复选框相同（父行级联、搜索期间只作用于保留的叶子）。
+  行内容是多个元素时（例如 `Label` 的图标与文字），每个元素都带这个动作。
 - **chevron 命中槽 = 展开槽宽 × 行高**（`.regular` 为 24×44 pt；iOS 各档高都 ≥ 44）。
   原先按钮只有图标大小（实测 12×7 pt），在 iOS 上偏离 10 pt 的点击会落到紧邻的父行复选框上，
   **一次点击勾上整棵子树**；判据 `TouchTargetTests.treeDisclosureMeetsMinimumTouchTarget`（iOS 腿，五档参数化）。
 - 行高 ≥ 44 pt（五档）：判据 `TouchTargetTests.treeRowMeetsMinimumTouchTarget` 与
   `TouchTargetTests.treeCheckBoxRowMeetsMinimumTouchTarget`（iOS 腿，五档参数化）。
 - ⚠️ 横向：展开槽宽 20–32 pt < 44 pt，现判据只核高度，登记为已知项。
-- 行在无障碍树里**不是一个元素**：iOS `axe describe-ui` 实读，父行拆成 chevron（`Button`）、复选框、
-  行内容三个元素，行上的 `accessibilityValue`（"Expanded" / "Collapsed"）被复制到这三个元素上。
+- 行在无障碍树里**不是一个元素**：父行拆成 chevron（`Button`）、复选框、行内容三个元素（`#427` 保持这个形状）。
   没有改成 `.accessibilityElement(children: .combine)`：合并后 chevron 与复选框不再是独立可激活的目标，
-  而这套装置读不到 VoiceOver 的激活语义，无法确认合并后展开 / 勾选仍可达。行元素的整体设计并入 `#427` / `#428`。
+  调用方行内容里的 `Button` 也会被并进去。⚠️ 仍未处理：`Label` 行内容的图标是独立的 `AXImage`、label 是 SF Symbol 名
+  （`folder` 读作 "Move"），`#427` 的评论里登记过，本次没动（修法要么合并行内容、要么由调用方给图标 `accessibilityHidden`）。
+- **`#427` / `#428` 前后的无障碍实读**：iOS 26.4 模拟器（预览宿主 Tree 画廊，`axe describe-ui`），多选 + 三态复选框那棵树
+  （`checked = ["color"]`）：
+
+  | 元素 | 修前 AXLabel / AXValue | 修后 AXLabel / AXValue / 自定义动作 |
+  |---|---|---|
+  | 父行 `Design` 复选框（mixed） | `Remove` / `Expanded` | `Design` / `2` |
+  | 叶行 `README.md` 复选框（off） | `Square` / `''` | `README.md` / `0` |
+  | 叶行 `Icons` 复选框，点一下之后 | —— | `Icons` / `1` |
+  | 行内容 `Design` | `Design` / `Expanded` | `Design` / `Expanded` / `['Check']` |
+  | 行内容 `Icons`（已勾） | —— | `Icons` / `''` / `['Uncheck']` |
+  | chevron | `Collapse` / `Expanded` | `Collapse` / 无 |
+
+  macOS 26（`422-probe`，`AXUIElementCopyAttributeValue` 读 `AXDescription` / `AXValue`，动作取 `AXUIElementCopyActionNames`）：
+  修前叶 / 父复选框都是 `AXCheckBox` desc `Square`、value `0`；修后 desc 为行文字（`Alpha`、`Beta`…）、value `0` / `1`，
+  行文字元素带 `Check` / `Uncheck` 动作；对 `row-c1` 执行 `Check` 动作，`checked` 事件为 `+["c1"]`。
+  ⚠️ System Events 的 `description` 在这类 SwiftUI 元素上取不到 label（报 attribute 不存在），要用 AX API 直接读。
+  ⚠️ VoiceOver 实际念出来的字、以及 VoiceOver 双击激活复选框是否切换：**未验证**（装置只读快照、只能执行动作）。
 - **展平前后的无障碍树对照**（`#429`，iOS 26.4 模拟器，预览宿主 Tree 画廊，同一操作序列——组件详情页、展开到第 3 层、
   再滚动一屏——各读一次 `axe describe-ui`，逐元素比对类型 / label / value / frame）：
   1. **视口外的行不在无障碍树里**：展平前 6 棵树（明 / 暗各 3 棵）的全部行都在，不论是否在屏幕上；展平后只有与窗口
@@ -492,20 +541,19 @@ struct CommittedSearchField: UIViewRepresentable {
      ⚠️ 不放在可滚动容器里、又被裁出屏幕的行，辅助技术**够不到**——展平前它们至少还在树里。
      VoiceOver 实际的逐项滑动能否滚到视口外的行，**未验证**（本套装置只读快照，读不到 VoiceOver 的导航）。
   2. 每棵树多出一个匿名 `AXGroup` 容器包住它的行。
-  3. **父行复选框的元素类型从 `Button` 变为 `CheckBox`（`AXSwitch`）**，与叶行一致；label 仍是 SF Symbol 名（见 `#427`）。
+  3. **父行复选框的元素类型从 `Button` 变为 `CheckBox`（`AXSwitch`）**，与叶行一致；label 仍是 SF Symbol 名（见 `#427`；已修，见本节下方）。
   4. 放在 `ScrollView` 里时，`.navigator` 示例里 `Label` 的图标展平前不是独立元素、展平后是独立的 `AXImage`
      （详情页展开后那一屏：展平前 0 个、展平后 11 个）。实读：`folder` 图标是 `AXImage`，label `'Move'`（SF Symbol 的名字），
      value `'Expanded'`——行上的 `accessibilityValue` 被复制到了图标上。⚠️ 这不是本次独有：展平前的直达预览
-     已有同样 12 个 `AXImage`、取值相同。成因未查明。处置并入 `#427`。
+     已有同样 12 个 `AXImage`、取值相同。成因未查明。并入 `#427` 后仍未处置（见本节上方「行在无障碍树里不是一个元素」）。
   5. 其余视口内元素的类型、label、value、frame 逐一相同。
   ⚠️ 以上 1–5 都是 **iOS** 读数；**macOS 的无障碍树未做前后对照**（本次会话屏幕锁定，System Events 读不到窗口）。
   ⚠️ `axe describe-ui` 的输出不含 traits，`.isSelected` 这一项读不到；它的取值由 `TreeAccessibilityTests` 的纯函数判据
   与行宿主上未改动的 `accessibilityAddTraits` 保证。
-- ⚠️ **已知缺口（`#427`）**：复选框没有可读的 label、不报勾选态——iOS 实读叶行、父行均为 `CheckBox`（`#429` 起；
-  此前父行是 `Button`），AXLabel 都是 SF Symbol 的名字（"Square" 等）。根因在 `CheckBoxToggleStyle`（裸 `Image` + `onTapGesture`），
-  Tree 又是 `labelsHidden()` + 空 label。试过给行内容与复选框配 `accessibilityLabeledPair`：
-  iOS AXLabel 仍为 "Square"、macOS `AXTitleUIElement` 仍缺失，两条腿都无效，未采用。
-- ⚠️ **已知缺口（`#428`）**：勾选态无法用键盘操作——`Space` 切换的是行选中，没有键改变勾选。
+- `#427` 的根因更正：issue 原写根因在 `CheckBoxToggleStyle`（裸 `Image` + `onTapGesture`、没有无障碍修饰）。实测独立使用的
+  `Toggle("Accept terms", isOn:)` + `CheckBoxToggleStyle` 修前就读作 `Accept terms` / `0`——无障碍元素由系统 `Toggle` 提供，
+  样式 body 里加的 `accessibilityValue` / `accessibilityHidden` 在 iOS 上实读**不生效**（试过，已撤掉）。
+  真正的根因在 Tree：label 是 `EmptyView()`（系统只能取到指示符的符号名），且行上的 `accessibilityValue` 盖掉了系统的勾选值。
 - ⚠️ **未验证**：macOS 上 `.focusable()` 容器是否另画一圈系统焦点环（与行上的焦点环叠加）。
   本机会话没有屏幕录制权限，`screencapture` 取不到图，没能实看；iOS 截图上没有容器级的环。
 
@@ -622,6 +670,16 @@ macOS 托管窗口判据 `TreeHostedWiringTests` 另外覆盖：按键经 `onKey
   `transaction` / `withTransaction`（按名禁调用，不看实参——局部别名绕不过去；`CoreMotionToken.x.animation(for:)`
   这类取 token 的调用也会被拦，这是刻意的）；`.onHover` 只在行宿主的 `case .navigator` 分支内；容器无悬停状态；
   行为 / 无障碍只挂在行宿主上。
+
+`#427` / `#428` 起的勾选判据：
+- `TreeKeyboardTests.optionSpaceTogglesTheFocusedCheck`（双腿）：有勾选列时 ⌥Space 在每一行上都是 `.toggleCheck`，
+  没有时交回系统，不带修饰键的 `Space` 仍是 `.toggleSelection`；其它修饰键组合交回系统。
+- `TreeCheckKeyboardReducerTests`（双腿）：⌥Space 带出焦点行、不动选中与展开、交互来源置为键盘；首键先解析初始焦点。
+- `TreeCheckRowToggleTests`（双腿）：叶行切换自身；父行 off / mixed → 全勾、on → 全不勾；搜索范围外的叶子不动。
+- `TreeCheckAccessibilityTests`（双腿）：动作名取值，两个 key 已登记进 `Localizable.strings`。
+- `TreeHostedWiringTests.optionSpaceWritesTheCheckedSet`（**仅 macOS**，两种外观）：合成 ⌥Space 经 `onKeyPress` 写回宿主 `checked`
+  （变异实测：把写回短路后两种外观各红 3 条）。
+- ⚠️ 无判据：复选框的无障碍 label 取自行内容、行内容上挂着勾选动作——托管窗口读不到无障碍子树，只有上面的实读。
 
 `#431` 起的单击行为判据：
 - `TreeRowClickBehaviorTests`（双腿，纯函数 `TreeInteractionReducer.pointerClick` / `pointerToggle`）：`.select` 与既有点选归约逐字段相同、不动展开；

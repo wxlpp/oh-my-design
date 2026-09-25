@@ -126,11 +126,25 @@ struct ConsentForm: View {
   macOS 腿 22 条**全绿**、iOS 腿 2 条判红（都落在 `mixed / invalid` 那个参数上）——实测。
   ⇒ mixed 的校验态覆盖必须留着，且它天然只在 iOS 腿作数。
 
+## 无障碍 / Accessibility
+
+无障碍元素由系统 `Toggle` 提供，不由样式造：label 取 `Toggle` 的 label，勾选态是系统给的 AXValue
+`0` / `1` / `2`（off / on / mixed），角色是 switch（iOS）/ `AXCheckBox`（macOS），激活即切换。
+iOS 26.4 模拟器 `axe describe-ui` 实读：`Toggle("Accept terms", isOn:)` → `CheckBox` label `Accept terms`、value `0`。
+
+- **`.labelsHidden()` 时不画 label**（`#427` 起）：body 读环境 `labelsVisibility`，隐藏时只画指示符，并把 label 交给
+  `accessibilityLabel`。此前样式不看这个环境值、照样画出 label；而 label 若是 `EmptyView`，系统只能拿到指示符的
+  SF Symbol 名，读作 "Square" / "Remove" / "Selected"。`Tree` 的复选框走的正是「行内容作 label + `.labelsHidden()`」这条路。
+- ⚠️ 在样式 body 上加 `accessibilityValue` / `accessibilityHidden` / `accessibilityElement(children:)`：iOS 实读**不生效**
+  （系统 `Toggle` 的元素照旧给 `0` / `1` / `2`），所以没有自造三态文案。
+- ⚠️ VoiceOver 实际念出来的字（尤其 `2` 念作什么）未验证：装置只读得到 AX 快照。
+
 ## API
 
 ### `CheckBoxToggleStyle`
 
 无参构造，无配置项。三态的符号与取色都不可配置——那是设计系统的决定，不是调用点的选择。
+尊重 `.labelsHidden()`（见上「无障碍」）。
 
 ## 预览 / Preview
 

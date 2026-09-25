@@ -5,6 +5,7 @@ import SwiftUI
 /// 复选框样式 / CheckBox toggle style：把 SwiftUI `Toggle` 渲染为左侧方框 +
 /// 右侧 label 的复选框形态；勾选 / 未勾选之外，还读系统从
 /// `Toggle(sources:isOn:)` 派生的 mixed 态并画出第三种符号。
+/// `.labelsHidden()` 时不画 label，label 只作复选框的无障碍标签。
 public struct CheckBoxToggleStyle: ToggleStyle {
     /// 无参构造 / Memberwise-free init：显式声明才能让下游可达
     /// （Swift 默认合成的 memberwise init 是 internal）。
@@ -61,6 +62,7 @@ private struct CheckBoxBody: View {
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.fieldValidation) private var validation
     @Environment(\.coreMotionPresentation) private var motionPresentation
+    @Environment(\.labelsVisibility) private var labelsVisibility
 
     var body: some View {
         let appearance = FieldAppearance.resolve(isEnabled: self.isEnabled, validation: self.validation, isFocused: false)
@@ -72,8 +74,10 @@ private struct CheckBoxBody: View {
                 .font(.system(size: self.layout?.glyph ?? CoreControlMetrics.iconSize(for: .regular)))
                 .foregroundStyle(appearance.indicatorColor(normal: indicator.normalColor))
                 .contentTransition(self.motionPresentation.symbolReplacement)
-            self.configuration.label
-                .fieldAccessibilityHint()
+            if self.labelsVisibility != .hidden {
+                self.configuration.label
+                    .fieldAccessibilityHint()
+            }
         }
         .opacity(appearance.controlOpacity)
         .frame(minHeight: self.layout?.minHeight ?? CoreControlMetrics.height(for: .regular))
@@ -81,6 +85,20 @@ private struct CheckBoxBody: View {
         .coreAnimation(.selection, value: indicator)
         .onTapGesture {
             self.configuration.isOn.toggle()
+        }
+        .modifier(CheckBoxHiddenLabel(visibility: self.labelsVisibility, label: self.configuration.label))
+    }
+}
+
+private struct CheckBoxHiddenLabel: ViewModifier {
+    let visibility: Visibility
+    let label: ToggleStyleConfiguration.Label
+
+    func body(content: Content) -> some View {
+        if self.visibility == .hidden {
+            content.accessibilityLabel { _ in self.label }
+        } else {
+            content
         }
     }
 }

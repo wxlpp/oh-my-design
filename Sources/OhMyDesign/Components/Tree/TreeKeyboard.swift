@@ -22,10 +22,18 @@ nonisolated enum TreeKeyAction<ID: Hashable>: Equatable {
     case expand(ID)
     case collapse(ID)
     case toggleSelection(ID)
+    case toggleCheck(ID)
     case activate(ID)
     case selectAllVisible
     case doNothing
     case unhandled
+}
+
+// MARK: - TreeCheckColumn
+
+nonisolated enum TreeCheckColumn: Hashable, Sendable {
+    case present
+    case absent
 }
 
 // MARK: - TreeKeyboard
@@ -56,7 +64,8 @@ nonisolated enum TreeKeyboard {
         rows: [TreeRow<ID>],
         focus: ID,
         expanded: Set<ID>,
-        mode: TreeSelectionMode
+        mode: TreeSelectionMode,
+        checkColumn: TreeCheckColumn = .absent
     ) -> TreeKeyAction<ID> {
         let pressed = Self.selectionModifiers(modifiers)
         guard let index = rows.firstIndex(where: { $0.id == focus }) else { return .unhandled }
@@ -96,6 +105,9 @@ nonisolated enum TreeKeyboard {
             return .moveFocus(last.id)
 
         case .space:
+            if pressed == .option {
+                return checkColumn == .present ? .toggleCheck(row.id) : .unhandled
+            }
             guard pressed.isEmpty else { return .unhandled }
             return .toggleSelection(row.id)
 

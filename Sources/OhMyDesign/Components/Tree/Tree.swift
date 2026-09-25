@@ -30,8 +30,9 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     ///   - selection: 已选中行 ID 集合的双向绑定。
     ///   - selectionMode: 行选择模式，默认 `.single`。
     ///   - checked: 已勾选叶节点 ID 集合的双向绑定；传 `nil`（默认）时不显示复选框。
+    ///     传入时 `⌥Space` 切换焦点行的勾选，行内容带「Check / Uncheck」无障碍动作。
     ///   - onActivate: `Enter` 激活焦点行时的回调；与选中**分开**。传 `nil` 时 `Enter` 交回系统。
-    ///   - content: 由元素生成行内容，常为 `Text` 或 `Label`。
+    ///   - content: 由元素生成行内容，常为 `Text` 或 `Label`；也用作该行复选框的无障碍标签。
     public init(
         _ data: Data,
         id: KeyPath<Data.Element, ID>,
@@ -76,7 +77,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             .frame(maxWidth: .infinity, alignment: .leading)
             .focusable()
             .focused(self.$isFocused)
-            .onKeyPress(phases: .down) { press in self.handle(press, rows: rows, frame: frame) }
+            .onKeyPress(phases: .down) { press in self.handle(press, items: items, frame: frame) }
             .onChange(of: rows) { oldRows, newRows in
                 self.commit(
                     TreeInteractionReducer.rowsChanged(state: self.interactionState(frame), from: oldRows, to: newRows),
@@ -144,20 +145,31 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         }
     }
 
-    private func handle(_ press: KeyPress, rows: [TreeRow<ID>], frame: TreeSearchFrame<ID>) -> KeyPress.Result {
+    private func handle(
+        _ press: KeyPress,
+        items: [TreeRenderItem<Data.Element, ID>],
+        frame: TreeSearchFrame<ID>
+    ) -> KeyPress.Result {
         let outcome = TreeInteractionReducer.key(
             TreeKeyboard.key(for: press.key),
             modifiers: press.modifiers,
             state: self.interactionState(frame),
-            rows: rows,
+            rows: items.map(\.row),
             mode: self.selectionMode,
             activation: self.onActivate == nil ? .disabled : .enabled,
+            checkColumn: self.checked == nil ? .absent : .present,
             motion: self.motionPresentation,
             treeIDs: { self.treeIDs },
             ancestors: self.ancestors(of:)
         )
         self.commit(outcome.state, frame: frame, expansionMotion: outcome.expansionMotion)
         if let activated = outcome.activated { self.onActivate?(activated) }
+        if let target = outcome.checkToggled, let checked = self.checked,
+           let item = items.first(where: { $0.id == target }) {
+            checked.wrappedValue = TreeChecking.togglingRow(
+                item.element, id: self.id, children: self.children, within: frame.included, in: checked.wrappedValue
+            )
+        }
         return outcome.result
     }
 
@@ -503,7 +515,11 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         let isExpanded = self.context.expanded.contains(elementID)
         let isSelected = self.context.selection.contains(elementID)
         let configuration = TreeRowConfiguration(
-            label: self.context.content(self.element),
+            label: self.context.content(self.element)
+                .accessibilityValue(self.expansionValue(isExpanded: isExpanded))
+                .accessibilityHint(Text(LocalizedStringKey(self.clickHint ?? ""), bundle: .module), isEnabled: self.clickHint != nil)
+                .accessibilityAddTraits(TreeRowAccessibility.traits(isSelected: isSelected))
+                .accessibilityActions { self.checkAction },
             disclosure: TreeDisclosureControl(
                 hasChildren: self.hasChildren, isExpanded: isExpanded, metrics: self.context.metrics
             ) {
@@ -526,13 +542,10 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
                 targets: TreeContextMenu.targets(for: elementID, selectedVisible: self.context.selectedVisible)
             ))
             .onTapGesture { self.context.click(elementID) }
-            .accessibilityValue(self.expansionValue(isExpanded: isExpanded))
-            .accessibilityHint(Text(LocalizedStringKey(self.clickHint ?? ""), bundle: .module), isEnabled: self.clickHint != nil)
-            .accessibilityAddTraits(TreeRowAccessibility.traits(isSelected: isSelected))
     }
 
     @ViewBuilder
-    private func row(_ configuration: TreeRowConfiguration<RowContent>) -> some View {
+    private func row<Label: View>(_ configuration: TreeRowConfiguration<Label>) -> some View {
         switch self.style.appearance {
         case .automatic:
             AutomaticTreeRow(configuration: configuration)
@@ -554,6 +567,7 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         ) else {
             return TreeRowCheckBox(
                 sources: leaves.map { self.context.checkState(of: $0, in: checked) },
+                label: AnyView(self.context.content(self.element)),
                 hint: nil,
                 metrics: self.context.metrics
             )
@@ -565,9 +579,28 @@ struct TreeRowHost<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             sources: TreeCheckBindings.scoped(
                 display: leaves, scope: retained, in: checked, onWrite: self.context.notePointerCheck
             ),
+            label: AnyView(self.context.content(self.element)),
             hint: hint,
             metrics: self.context.metrics
         )
+    }
+
+    @ViewBuilder
+    private var checkAction: some View {
+        if let checked = self.context.checked {
+            let scope = TreeFlatten.descendantLeafIDs(
+                of: self.element, id: self.context.id, children: self.context.children, within: self.context.included
+            )
+            Button {
+                self.context.notePointerCheck()
+                checked.wrappedValue = TreeChecking.togglingRow(
+                    self.element, id: self.context.id, children: self.context.children,
+                    within: self.context.included, in: checked.wrappedValue
+                )
+            } label: {
+                Text(LocalizedStringKey(TreeRowAccessibility.checkActionKey(scope: scope, in: checked.wrappedValue)), bundle: .module)
+            }
+        }
     }
 
     private var clickHint: String? {
@@ -611,18 +644,20 @@ struct TreeDeferredMenu<ID: Hashable>: View {
 
 struct TreeRowCheckBox: View {
     private let sources: [Binding<Bool>]
+    private let label: AnyView
     private let hint: String?
     let metrics: TreeRowMetrics
 
-    init(sources: [Binding<Bool>], hint: String? = nil, metrics: TreeRowMetrics) {
+    init(sources: [Binding<Bool>], label: AnyView = AnyView(EmptyView()), hint: String? = nil, metrics: TreeRowMetrics) {
         self.sources = sources
+        self.label = label
         self.hint = hint
         self.metrics = metrics
     }
 
     var body: some View {
         Toggle(sources: self.sources, isOn: \.self) {
-            EmptyView()
+            self.label
         }
         .toggleStyle(CheckBoxToggleStyle())
         .labelsHidden()

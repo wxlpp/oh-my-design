@@ -20,6 +20,17 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.11.0`）——Issue #427 / #428：Tree 复选框的无障碍与键盘勾选
+
+**行为变更（无签名破坏）。**
+
+- `CheckBoxToggleStyle` 尊重 `.labelsHidden()`：隐藏时只画指示符，label 只作无障碍标签。此前样式照样画出 label。
+  **下游要改什么**：若依赖「`.labelsHidden()` 下 label 仍显示」，去掉 `.labelsHidden()`。
+- `Tree` 传了 `checked:` 时：新增 `⌥Space` 切换焦点行的勾选（父行按 off / mixed → 全勾、on → 全不勾级联）；
+  行内容带「Check / Uncheck」无障碍动作；复选框的无障碍标签取行内容。
+- `Tree` 的展开态 value / 单击提示 / `.isSelected` trait 改为只施在行内容上：chevron 与复选框不再带这些取值。
+  **下游要改什么：不用改。**
+
 ## 未发布（相对 `v0.11.0`）——Issue #282：Shaders 程序化背景接入能耗闸（NFR-7）
 
 **行为变更（无签名破坏）。** `Plasma` / `DotGrid` / `FractalClouds` / `InkSmoke` / `LiquidChrome` 这 5 个程序化背景
@@ -197,7 +208,7 @@ chevron、复选框、叶行与键盘不受影响；行内容里调用方自己�
 按快照归约还会把旧展开态写回，搜索期间实测刚折叠的父行被重新展开——本次一并避开。**下游要改什么：不用改。**
 可能碰到的是**类型名歧义**：下游若也声明了 `TreeRowClickBehavior`，同 `Tree` 一条的处置。
 
-行为契约（两套独立状态、键盘表、Reduce Motion 取值、搜索过滤、单击父行、已知缺口 `#427` / `#428`）见
+行为契约（两套独立状态、键盘表、Reduce Motion 取值、搜索过滤、单击父行、`#427` / `#428` 的勾选无障碍与键盘）见
 [tree.md](components/tree.md)。
 
 ## 未发布（相对 `v0.11.0`）——Issue #421：CheckBox 增读系统 mixed 态
