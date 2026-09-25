@@ -23,15 +23,19 @@ Button("Press Me") {}
     .buttonStyle(.solidButton(role: .primary))
 ```
 
-本包提供三个 library product，按需选取：
+本包提供四个 library product，按需选取：
 
 | product | 内容 | 状态 |
 |---|---|---|
 | `OhMyDesign` | 组件、四层色彩、token、modifier | 主体 |
-| `OhMyDesignEffects` | 表达性视觉层（微交互 / 转场 / 动效） | **骨架**，组件由 epic `#242` 下的 `#250`–`#254` 落地 |
-| `OhMyDesignCharts` | Swift Charts 原生画不出来的四类图表 | **骨架**，组件由 epic `#242` 下的 `#255` 落地 |
+| `OhMyDesignEffects` | 表达性视觉层（微交互 / 转场 / 动效） | 已落地 36 个 API 单位（epic `#242`） |
+| `OhMyDesignCharts` | Swift Charts 原生画不出来的四类图表 | 已落地 4 个图表（epic `#242`） |
+| `OhMyDesignShaders` | Metal 着色器背景与内容层效果 | 已落地 17 个 API 单位（epic `shipswift-shaders`），见 `docs/README.md` |
 
-后两个依赖 `OhMyDesign`；`OhMyDesign` 不反向依赖它们，只 `import OhMyDesign` 不会把它们拖进来。
+后三个依赖 `OhMyDesign`；`OhMyDesign` 不反向依赖它们，只 `import OhMyDesign` 不会把它们拖进来。
+
+`OhMyDesignShaders`：
+⚠️ 用原生 `swift build` 消费本 product 时须加 `--build-system swiftbuild`：原生构建不编译 `.metal`，shader 会静默失效。
 
 ## Development
 

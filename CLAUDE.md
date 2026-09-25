@@ -39,29 +39,43 @@ swift package clean                          # 缓存出问题时清除 .build/ 
 
 ### 多 target 结构
 
-本包不再是单 target。`Package.swift` 现有三个 library product：
+本包不再是单 target。`Package.swift` 现有四个 library product：
 
 | product | 内容 | 备注 |
 |---|---|---|
 | `OhMyDesign` | 系统原生观感的组件、四层色彩、token、modifier | 主体，**不依赖**下面两个 |
 | `OhMyDesignEffects` | 表达性视觉层：微交互 / 转场 / 庆祝与处理中动效 | 依赖 `OhMyDesign` |
 | `OhMyDesignCharts` | Swift Charts 原生画不出来的四类图表（雷达图 / 活动环 / 贡献热力图 / 力导向网络图） | 依赖 `OhMyDesign`；**有意不 `import Charts`** |
+| `OhMyDesignShaders` | Metal shader 程序化背景与内容层效果 | 依赖 `OhMyDesign`；⚠️ **含 `.metal` 源，构建有额外约束**——见下 |
 
 拆开的理由：只想要系统原生观感的消费者不必背上动效与图表。依赖是**单向**的
 （`OhMyDesign` 的 `target_dependencies` 必须恒为 `[]`），两条 `swift package describe`
 判据守着它，见下方《验证边界与常见坑》。
 
-⚠️ **新 target 各有独立的 test target**（`OhMyDesignEffectsTests` / `OhMyDesignChartsTests`），
+⚠️ **新 target 各有独立的 test target**（`OhMyDesignEffectsTests` / `OhMyDesignChartsTests` /
+`OhMyDesignShadersTests`），
 **不并进 `OhMyDesignTests`**——并进去需要 `@testable import`，会让 `OhMyDesignTests` 的
 依赖图包含新 target，破坏上面那条隔离判据。
 
-⚠️ **源码守卫的扫描根有三个入口，不要混为一谈**（`#246` 落地、`#270` 收口后）：
+⚠️ **`OhMyDesignShaders` 的构建约束**：**原生 `swift build` 不编译 `.metal`** —— 它只会把
+声明为资源的 `.metal` **源码**拷进 bundle，`default.metallib` 不会产生；只有
+`swift build --build-system swiftbuild` 与 `xcodebuild` 会真编。
+⚠️ 用原生 `swift build` 消费本 product 时须加 `--build-system swiftbuild`：原生构建不编译 `.metal`，shader 会静默失效。⇒ 本地跑 shader 测试须用
+`swift test --build-system swiftbuild --filter OhMyDesignShadersTests`；CI 的 SwiftPM 腿
+**显式 `--skip OhMyDesignShadersTests`** 并另起一步用 swiftbuild 跑它（步骤名
+`Test (swiftbuild) — OhMyDesignShaders`，末尾带一道 fail-closed 的 `Test run with [1-9]…` grep 网）。
+⚠️ **不要整腿切 swiftbuild**：那会让 `ColorAssetGuardTests` 的 colorset 存在性守卫
+**静默跳过**（swiftbuild 调 actool 把 `.xcassets` 编成 `Assets.car`，而那个 suite 的
+启用条件是「`Resources.xcassets/` 以目录形式存在」）。
+
+⚠️ **源码守卫的扫描根有三个入口，不要混为一谈**（`#246` 落地、`#270` 收口、
+`#279` 把 `OhMyDesignShaders` 接进来后）：
 
 | 根列表 | 谁在用 | 覆盖 |
 |---|---|---|
-| `GuardScanRoots.allRoots`（`Tests/OhMyDesignTests/GuardScanRoots.swift`） | Bool 纪律（`BoolExemptionGuard` / `BoolParameterScanner`）、a11y 字面量、NFR-4 的 `@unchecked Sendable` grep | 三个 target 全覆盖 |
+| `GuardScanRoots.allRoots`（`Tests/OhMyDesignTests/GuardScanRoots.swift`） | Bool 纪律（`BoolExemptionGuard` / `BoolParameterScanner`）、a11y 字面量、NFR-4 的 `@unchecked Sendable` grep | 四个 target 全覆盖 |
 | `GuardScanRoots.newTargetRoots` | `EffectsColorLiteralGuard`（禁色相字面量）、`ChromeTextLiteralGuard`（禁 A 类 chrome 文案）、`ExtensionEntryPointGuard`（扩展成员入口点） | **只有**新 target，有意不回溯改造 OhMyDesign 现状 |
-| `ComponentRegistryGuard` 的 `componentScanRoots`（`#270` 前叫 `coreDesignSources`，当时确是单根） | 组件登记表与 J-2 / J-3 / FR-4 那一串判据 | **`#270` 起直接返回 `GuardScanRoots.allRoots`，三 target 全覆盖**，不另列一份根名（两套根必然漂）。⚠️ 本行原写「仍只有 `Sources/OhMyDesign`、扩它会顶动 AD-4《下游连锁一》那串断言、归 `#255` 处置」——`#270` 落地后**已失真**，`ComponentExtensionPointGuard` 的 `inspected.count`（**`#312` 落地时确为 17**——`911e15d` 逐字 `#expect(result.inspected.count == 17,`；`39fecab` 移除 `Sidebar` / `BottomInputBar` 后**降到 16**，判据现逐字 `== 16` 并列出这 16 个组件名）在三根下照样成立。⚠️ 本行曾停在 17 未随 `39fecab` 同步 —— **那个数在当时是对的，失真的是这条注记**；⚠️ `docs/components/orbiting-logos.md` 里的「J-2 定义域 **17** 条」是 `#312` 的**历史记账**，正确、不要改成 16 |
+| `ComponentRegistryGuard` 的 `componentScanRoots`（`#270` 前叫 `coreDesignSources`，当时确是单根） | 组件登记表与 J-2 / J-3 / FR-4 那一串判据 | **`#270` 起直接返回 `GuardScanRoots.allRoots`，四 target 全覆盖**，不另列一份根名（两套根必然漂）。⚠️ 本行原写「仍只有 `Sources/OhMyDesign`、扩它会顶动 AD-4《下游连锁一》那串断言、归 `#255` 处置」——`#270` 落地后**已失真**，`ComponentExtensionPointGuard` 的 `inspected.count`（判据现逐字 `== 17` 并列出这 17 个组件名：`39fecab` 移除 `Sidebar` / `BottomInputBar` 后为 16，`#368` 加入 `GlassSymbol` 后为 17）在四根下照样成立。⚠️ `docs/components/orbiting-logos.md` 里的「J-2 定义域 **17** 条」是 `#312` 的**历史记账**，正确、不要改成 16 |
 
 ⚠️ 新增 library target 时**必须**把它加进 `GuardScanRoots.targetNames`——该表与
 `Package.swift` 声明的 library target 做双向差集，忘了扩根会当场判红（这是刻意的

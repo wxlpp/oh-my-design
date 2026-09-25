@@ -23,6 +23,7 @@ struct SPIVisibilityGuard {
     nonisolated static let registry: Set<SPIDeclaration> = [
         .init(group: "OhMyDesignBenchmark", name: "ConfettiRenderProbe"),
         .init(group: "OhMyDesignBenchmark", name: "NetworkGraphRenderProbe"),
+        .init(group: "OhMyDesignBenchmark", name: "ShaderRenderProbe"),
     ]
 
     // MARK: - 纯扫描器（供合成输入的变红自证使用）
@@ -94,7 +95,7 @@ struct SPIVisibilityGuard {
         return found
     }
 
-    @Test("R1：SPI 面与登记表逐条吻合（双向差集），且集合大小钉死为 2")
+    @Test("R1：SPI 面与登记表逐条吻合（双向差集），且集合大小钉死为 3")
     func spiSurfaceMatchesRegistry() {
         GuardScanRoots.assertRootsExist(GuardScanRoots.allRoots)
         let found = Self.scanAllSources()
@@ -119,8 +120,8 @@ struct SPIVisibilityGuard {
         位置：\(extra.compactMap { found[$0] })
         """)
 
-        #expect(actual.count == 2, "扫到 \(actual.count) 条 `@_spi` public 声明，登记的是 2 条")
-        #expect(Self.registry.count == 2, "登记表被改成了 \(Self.registry.count) 条 —— 见上一条")
+        #expect(actual.count == 3, "扫到 \(actual.count) 条 `@_spi` public 声明，登记的是 3 条")
+        #expect(Self.registry.count == 3, "登记表被改成了 \(Self.registry.count) 条 —— 见上一条")
 
         let groups = Set(actual.map(\.group))
         #expect(groups == [Self.expectedGroup], "SPI 组名不再是唯一的 \(Self.expectedGroup)：\(groups.sorted())")

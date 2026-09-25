@@ -8,8 +8,11 @@ OhMyDesign 的部分实现衍生自第三方开源项目。按各自许可的要
 > 本文件是**对外的许可声明**。前者判为可落地的行，**在其真正落地时**必须在本文件
 > 有对应条目。
 >
-> ⚠️ **本文件目前只有骨架**（#249 建）。**逐组件 / 逐 shader 的条目由各自落地的 task
-> 追加**——闸②虽已通过，仍不得署名尚未落地的东西。
+> ⚠️ **本文件由 #249 建为骨架，逐条由各自落地的 task 填实**——闸②虽已通过，
+> 仍不得署名尚未落地的东西。
+> **已生效的 shader 条目（`#283`）**：《Inferno — Warping Loupe》（`View.glassOrb`）与
+> 《paper-design/shaders》（`View.halftone`，**只对 `Halftone` 一件生效**）。
+> 仍为**占位**的：《Star Nest》，以及 paper 那一档里尚未落地的另外 7 个。
 
 ## 归属分档
 
@@ -43,14 +46,14 @@ OhMyDesign 的部分实现衍生自第三方开源项目。按各自许可的要
 
 ## ShipSwift
 
-OhMyDesign 的表达性视觉层（`OhMyDesignEffects`，以及**计划中、尚未合入本仓**的
-`OhMyDesignShaders`）与图表层（`OhMyDesignCharts`）的**点子与算法**来自
+OhMyDesign 的表达性视觉层（`OhMyDesignEffects` / `OhMyDesignShaders`）与图表层
+（`OhMyDesignCharts`）的**点子与算法**来自
 [ShipSwift](https://github.com/signerlabs/ShipSwift)（SignerLabs）。
-⚠️ **`OhMyDesignShaders` 的状态**：本仓 `Package.swift` **有意不预留**该 product/target
-（见其 `products:` 处注释），它由 `shipswift-shaders` 在两闸通过后单独引入，
-当前只存在于**未合入**的 PR #261。⇒ 本文件凡提到 `OhMyDesignShaders` 的小节
-（下方《Inferno》《Star Nest》《paper-design/shaders》《`OhMyDesignShaders` 的共享原语
-与公开配方》）**一律是预登记的占位，不是已生效的对外声明**。
+⚠️ **`OhMyDesignShaders` 的状态**：它已在本仓 `epic/shipswift-shaders` 集成分支落地
+（`Package.swift` 声明了该 product/target，源码在 `Sources/OhMyDesignShaders/`）。
+⇒ 本文件凡提到 `OhMyDesignShaders` 的小节（下方《Inferno》《Star Nest》
+《paper-design/shaders》《`OhMyDesignShaders` 的共享原语与公开配方》等）**已随之启用**，
+不再是预登记的占位。
 
 ⚠️ **归档义务（不是既成陈述）**：OhMyDesign 的实现**须**按自身 API 公约与色彩地基重做；
 逐组件属于哪一档见其 `docs/components/*.md`。
@@ -130,72 +133,570 @@ SOFTWARE.
 
 ---
 
-## Inferno — Warping Loupe（待 `GlassOrb` 落地时启用）
+## Inferno — Warping Loupe（`View.glassOrb`，**已落地** · `#283`）
 
-> ⚠️ 占位。`OhMyDesignShaders` 的 `GlassOrb` 落地时（`shipswift-shaders` B-3）填入，
-> 并转载 Inferno 的完整 MIT 正文。
+⚠️ **本节 `#283` 由占位改为生效**：`View.glassOrb(size:magnification:)` 已落地在
+`Sources/OhMyDesignShaders/GlassOrb.swift` + `OhMyDesignShaders.metal` 的
+`ohMyDesignGlassOrb`。
 
-裁定依据（`docs/shader-provenance.md`《统一裁定表》的 `GlassOrb` 行，论证见同文
-《A. 有上游标注的 7 个》的 `GlassOrb` 行）：**已追到兼容许可 · MIT，链条闭合**。
-Inferno 的 LICENSE 附逐 shader 移植来源清单（**6 组**：Circle/Circle Wave/Diamond/
-Diamond Wave ← PolkaDotsCurtain、Crosswarp、Radial、Swirl、Wind、Genie），
-**"Warping Loupe" 不在其中** ⇒ **推论**为 Inferno 原创，由其 MIT 覆盖。
+- **上游**：[Inferno](https://github.com/twostraws/Inferno) 的
+  `Sources/Inferno/Shaders/Transformation/WarpingLoupe.metal`（Paul Hudson 等）
+- **许可**：**MIT**
+- **档位**：**较大段落移植** —— ⚠️ 落地后定案（上一版写的是「预期档位」）。
+  保留的是它的算法结构与表达：`totalZoom = 1` → 区域内 `totalZoom /= zoomFactor`
+  → `totalZoom += smoothstep(…) / 2` → `newPosition = delta * totalZoom + center`
+  → `layer.sample(newPosition)`。
+- **我们的修改**（逐条列在 `ohMyDesignGlassOrb` 的文档注释里，此处摘要）：
+  ① 坐标空间由 UV（并用 `dx² + dy²/aspect` 近似圆）改为**点空间**的真圆，
+     `radius` 的含义因此与上游的 `maxDistance` 不同；
+  ② 新增 `softness` 系数（0…1），供 Reduce Transparency 下取 0，
+     那时圆内是常数放大 + 硬边；
+  ③ ⚠️⚠️ **衰减项由 `+= smoothstep(…) / 2` 改为「向 1.0 插值」**
+     `+= (1 - totalZoom) * smoothstep(…)`。**本条是 PR #303 终审 C-1 补记的**
+     ——上一版只列了 ①②，漏了后果最重的这一条。上游那个 `/2` 与它自己 `zoomFactor`
+     的默认值 **2** 配套（`1/2 + 1/2 = 1`，边界恰好回到 1）；本仓**同时**改了坐标空间
+     **并且**自选了 1.6 / 2.4 / 4.0 三档，**一档都不是 2** ⇒ 照抄那个常数，
+     边界处 `totalZoom` 分别是 1.125 / 0.917 / 0.750，三档各留一道接缝
+     （gentle 档还会**反向缩小**）。⇒ 那个常数赖以成立的前提已被我们自己打破，
+     必须改，而**改了就要列出来**——这正是本节存在的理由。
 
-- 上游：[Inferno](https://github.com/twostraws/Inferno) by Paul Hudson — MIT
-- 预期档位：**较大段落移植**（折射数学预计保留自原实现）⚠️ 代码尚未落地，**档位待落地时定案**
+### 许可全文（MIT）
+
+⚠️ **逐字转载**（`raw.githubusercontent.com/twostraws/Inferno/main/LICENSE`，
+含其自带的移植来源清单——**一并转载，不裁剪**）：
+
+```
+MIT License
+
+Copyright (c) 2023 Paul Hudson and other authors.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+
+
+Many shaders were ported to Metal from elsewhere then had comments added, and
+some were subsequently extended to add extra functionality. The original authors
+and sources and linked below. All licenses are MIT. Any mistakes or performance
+problems introduced in the porting process are entirely my fault.
+
+
+Circle, Circle Wave, Diamond, Diamond Wave
+---
+Based on: https://gl-transitions.com/editor/PolkaDotsCurtain
+Original author: bobylito,
+Metal port and enhancements: Paul Hudson
+License: MIT
+
+
+Crosswarp
+---
+Based on: https://gl-transitions.com/editor/crosswarp
+Original author: Eke Péter
+Metal port: Paul Hudson
+License: MIT
+
+
+Radial
+---
+Based on: https://gl-transitions.com/editor/Radial
+Original author: Xaychru / gre
+Metal port: Paul Hudson
+License: MIT
+
+
+Swirl
+---
+Based on: https://gl-transitions.com/editor/Swirl
+Author: Sergey Kosarevsky / gre
+Metal port: Paul Hudson
+License: MIT
+
+
+Wind
+---
+Based on: https://gl-transitions.com/editor/wind
+Original author: gre
+Metal port: Paul Hudson
+License: MIT
+
+Genie
+---
+Based on: https://www.shadertoy.com/view/flyfRt
+Original author: altaha-ansari
+Metal port: twodayslate
+License: MIT
+```
+
+### ⚠️ 一条必须写在明处的残余风险
+
+`docs/shader-provenance.md`《#280 的落地前核验》③ 把「"Warping Loupe" 不在 Inferno 的
+移植清单内 ⇒ 推论为其原创」这条推论的**前提下调**了：Inferno 的 LICENSE 清单（**6 组**）
+与 README 清单（**7 条**，多一个 `Shimmer`）**互不一致**，且两份清单**从未声称穷尽**
+——LICENSE 逐字 "**Many** shaders were ported"，README 逐字 "**Some**"
+⇒ **清单不能当穷尽名单用**，"不在清单上"能推出的东西相应变少。
+
+支持不掉档的三条（同为一手）：① Inferno 以 MIT 对**整仓**授权；
+② `warpingLoupe` 函数体**零魔数**（全部字面量是 `0.0h` / `1.0h` / `2.0h`）⇒ 无指纹可追，
+也无处藏抄袭；③ 其文档自述 "This works identically to the simple loupe shader…"
+⇒ 派生自 Inferno **自有**的 `SimpleLoupe`。
+
+⇒ 若 "Warping Loupe" 其实是一个**未登记的、来自非 MIT 来源**的移植，Inferno 对它就是
+无权再许可，我们跟着错。**这不是再查一轮能消除的风险**（追不到就是追不到），
+是**接受并记录**的；本节即那份记录，`#283` 的 PR 正文亦已点名待用户确认。
 
 ---
 
-## Star Nest（待 `StarNest` 落地时启用）
-
-> ⚠️ 占位。落地时（`shipswift-shaders` B-2）填入并转载 MIT 正文。
+## Star Nest —— `StarNest`，**已落地** · `#282`
 
 - 上游：["Star Nest" by Pablo Roman Andrioli（Kali）](https://www.shadertoy.com/view/XlfGRj) — 作者在源码头声明 MIT
-- 预期档位：**较大段落移植**（分形"magic formula"与体积步进预计保留）⚠️ 档位待落地时定案
-- ⚠️ **落地 task 的硬 AC**：人工目视确认该 Shadertoy 页面源码头的 MIT 声明——自动抓取
-  返回 403，现有证据是**五个**独立第三方移植的逐字一致记录，非一手。
+- 已落地的件：`StarNest(tint:depth:motion:)` · `ohMyDesignStarNest`
+- 档位：**较大段落移植**（分形 "magic formula" 与体积步进保留；配色、鼠标旋转、固定步数的修改写在 `.metal` 分节头）
+- 源码头（取自 Shadertoy 公开 API 对该 shader 的响应，经 `GabeRundlett/shadertoy-api-shaders` `f6d538adf936` 转储），逐字：
+
+  ```
+  // Star Nest by Pablo Roman Andrioli
+  // License: MIT
+  ```
+
+  ⚠️ 这是一个**形式不完整的 MIT 授予**：只有作者名与 `License: MIT`，没有版权行。
+  本仓只写「Star Nest — Pablo Roman Andrioli（Kali），作者声明 MIT」，**不替作者补造版权行**。
+  MIT 授予条款全文如下（作者未附，此处按 MIT 标准文本转载，不附任何版权行）：
+
+  ```
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+  ```
+
+- ⚠️ **待人工目视核验**：`https://www.shadertoy.com/view/XlfGRj` 原页源码头（`shadertoy.com` 对自动访问全站 403）。
+  核验后照抄**当天页面上的实际写法**替换上面的源码头（见 `docs/shader-provenance.md`《须用户人工完成的核验》第 1 项）。
+  ⚠️ 原定「未核验前本件不随 `epic → main` 合入」；2026-09-25 仓库所有者明确决定在核验完成前随 epic 合入 `main`，核验仍待做。
 
 ---
 
-## paper-design/shaders（Apache-2.0，待相应 shader 落地时启用）
+## paper-design/shaders（Apache-2.0）—— `View.halftone` + `#282` 的移植背景，**部分落地**
 
-> ⚠️ 占位。`docs/shader-provenance.md` 裁定为 **`已追到兼容许可 · Apache-2.0` 的 9 个**
-> shader（Voronoi / Swirl / SimplexNoise / Water / ColorPanels / DotOrbit / SmokeRing /
-> Metaballs / Halftone）落地时填入。
->
-> ⚠️ **`NeuroNoise` 与 `GrainGradient` 不在本名单内**：两者同样追到 paper，但裁定是
-> **`待追溯`**——前者的上游是一条无许可声明的推文、paper 的再许可断言无法独立核实；
-> 后者参数仅部分匹配、匹配未确认。⇒ 追完一轮改判为 Apache-2.0 之前，
-> **不得随本节署名落地**（上一版把 `NeuroNoise` 写进名单、且写作「10 个」，
-> 与 provenance 表的 Apache-2.0 档 = 9 打架，PR #259 review round-2 指出）。
+`docs/shader-provenance.md` 判为 `已追到兼容许可 · Apache-2.0` 的共 **8** 个
+（Voronoi / Swirl / SimplexNoise / ColorPanels / DotOrbit / SmokeRing / Metaballs / Halftone）。
+按本文件开头那条「不得署名尚未落地的东西」，本节的逐件条目只列**已落地**的：
+`Halftone`（`#283`）与 `#282` 的 `Metaballs` / `DotOrbit` / `Voronoi` / `SmokeRing` / `Swirl` / `SimplexNoise` / `ColorPanels`。
+⚠️ 上一版把 `Water` 写进名单——**#280 已把它由 Apache-2.0 改判 `待追溯`**
+（其 `getCausticNoise()` 与 `neuro-noise.ts` 是同一算法、同源于同一条无许可推文，
+而 paper 这次连来源都没标），本版一并删掉。`NeuroNoise` / `GrainGradient` 同样不在名单内。
 
-- 上游：[paper-design/shaders](https://github.com/paper-design/shaders) — **Apache-2.0**
-- 档位：**较大段落移植**
-- ⚠️ **Apache-2.0 的义务比 MIT 多，三条缺一不可**：
-  1. 转载 **LICENSE 全文**；
-  2. 转载其 **`NOTICE`**：`Powered by Paper Shaders: https://shaders.paper.design`（§4(d)）；
-  3. **标注修改**（§4(b)）——我们改了参数化与色彩层。
-- ⚠️ **paper 之上还有一层**，落地前须直读确认：`voronoi.ts` 指向 iq 的 Shadertoy
-  `ldl3W8`（该 shader 许可**变过**：旧拷贝头 CC BY-NC-SA 3.0、新拷贝头 MIT）；
-  `neuro-noise.ts` 指向一条**无许可声明的推文**——**这正是 `NeuroNoise` 被排除在上面
-  9 个名单之外的原因**（provenance 表《汇总与闸②判定》第 5 轮终审 I4）。
+- **上游**：[paper-design/shaders](https://github.com/paper-design/shaders) — **Apache-2.0**
+- **已落地的件**（`#282` 各件移植自 commit `43cd68db79fa0b1759f72ffc941b3238e2a3954c`）：
+  - `View.halftone(dot:ink:paper:)` ← `packages/shaders/src/shaders/halftone-dots.ts`
+  - `Metaballs` ← `packages/shaders/src/shaders/metaballs.ts`
+  - `DotOrbit` ← `packages/shaders/src/shaders/dot-orbit.ts`
+  - `Voronoi` ← `packages/shaders/src/shaders/voronoi.ts`（算法上游为 Inigo Quilez，见下方 MIT 段）
+  - `SmokeRing` ← `packages/shaders/src/shaders/smoke-ring.ts`
+  - `Swirl` ← `packages/shaders/src/shaders/swirl.ts`（噪声为 Ashima simplex，见下方 MIT 段）
+  - `SimplexNoise` ← `packages/shaders/src/shaders/simplex-noise.ts`（同上）
+  - `ColorPanels` ← `packages/shaders/src/shaders/color-panels.ts`
+- **档位**：**较大段落移植**
+
+### Apache-2.0 §4 的四条义务，逐条兑现
+
+1. **转载 LICENSE 全文** —— 见下方《许可全文（Apache-2.0）》；
+2. **转载 `NOTICE`** —— ⚠️ 一手核，paper 的 `NOTICE` **全文就是这两行**：
+
+   ```
+   Powered by Paper Shaders:
+   https://shaders.paper.design
+   ```
+
+3. **标注修改**（§4(b)）—— 我们改了参数化与色彩层，**且只移植了其中一部分**。
+   逐条差异写在 `Sources/OhMyDesignShaders/OhMyDesignShaders.metal` 的
+   `ohMyDesignHalftone` 文档注释里；摘要：只移植 `classic` 一种点形（`gooey` / `holes` /
+   `soft`、六边形网格、`inverted`、对比度 sigmoid、三档颗粒**均未移植**）；
+   只移植 `halftone-dots.ts`（**`halftone-cmyk.ts` 未移植**）；新增网屏角度参数化；
+   两色输出改由 Swift 侧传入（FR-8：`.metal` 零硬编码色）。
+   `#282` 各件的逐条修改写在 `.metal` 对应分节头；共同的几条：paper 的噪声纹理
+   （`textureRandomizer*`）改为本仓程序化 hash（`cd::hash21/22`，同为 `floor` 语义）；
+   颜色数组收成由单一 `tint` 推导的三档；丢弃 `colorBandingFix`；UV 改为以视图中心为原点、
+   按短边归一化（paper 的 fit / scale / rotation 顶点层没有移植）；时间按本仓 `ShaderMotion` 换算；
+   公开参数收成语义档位枚举，不照搬上游 uniform 列表。
+4. **`.metal` 文件头注明对应 `.ts` 路径** —— 见 `ohMyDesignHalftone` 的 Provenance 段与
+   `#282` 各件分节头（`paper packages/shaders/src/shaders/<name>.ts @ 43cd68d`）。
+
+### ⚠️⚠️ 第 5 条：paper **之外**的第三方 MIT 通知义务（paper 一个字都没给）
+
+**Apache-2.0 不能替代第三方的 MIT 通知义务。** `docs/shader-provenance.md`《落地义务》
+第 5 条点名 `Halftone` 涉及两位权利人 —— 其 hash 一族追到 **Dave Hoskins**（常量 `19.19`；
+旁证：BigWings 在 `bigwings-luminescence.glsl:230` 把同一式子标为
+`// 3 out, 1 in... DAVE HOSKINS`）与 **Inigo Quilez**（`0.3183099` = 1/π 的签名式）。
+两者**都是 MIT**（与本仓兼容，不影响可落地），但 "The above copyright notice … shall be
+included in all copies" **必须由我们自己转载**。
+
+⚠️ **一条如实说明**：本次移植的 `ohMyDesignHalftone` **没有复制那两份 hash**
+——它一个 hash 都不调用（上游用 hash 的是 grain 与 CMYK 的格心抖动，两者都没移植）。
+通知**仍然照给**：义务跟着 `Halftone` 这个档位走，宁可多给，成本为零。
+**不要**把这句读成"其实不欠"——它记录的是覆盖面，不是撤回。
+
+#### Inigo Quilez — MIT
+
+⚠️ **前两行带 `//` 是逐字转载的一部分，不是本文件的排版**：上游把版权头写在
+Shadertoy 源码的**注释**里（`// The MIT License` / `// Copyright © 2013 Inigo Quilez`），
+其后的许可正文是不带注释前缀的 MIT 标准文本。⇒ 块内混两种形态**是原样，不是拼接**；
+**不要**为了观感统一去掉或补上 `//`——那会改动一份逐字转载。（Hoskins 那块同理。）
+
+```
+// The MIT License
+// Copyright © 2013 Inigo Quilez
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+适用件：`Halftone`（`0.3183099` 签名式，见上）· `Voronoi`（两趟边界算法；paper `voronoi.ts` 自注
+「Original algorithm: https://www.shadertoy.com/view/ldl3W8」，该注释原样保留在 `ohMyDesignVoronoi` 分节头）。
+
+出处：Shadertoy `ldl3W8` 源码头 · 站点级声明
+`https://iquilezles.org/articles/`（逐字「all technical code snippets you'll find are
+under the MIT license」）。
+
+#### David Hoskins — MIT
+
+```
+// Copyright (c)2014 David Hoskins.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+出处：Shadertoy `4djSRW`（"Hash without Sine"）源码头。
+
+#### Ashima Arts / Stefan Gustavson — MIT（`Swirl` / `SimplexNoise`）
+
+paper 的 `shader-utils.ts` 里的 `simplexNoise` 与 Ashima Arts 的 `webgl-noise`（`noise2D.glsl`）逐行同构，
+paper 删去了原许可头（`docs/shader-provenance.md` ⑥-A）⇒ 本仓按原作者转载：
+
+```
+Copyright (C) 2011 by Ashima Arts (Simplex noise)
+Copyright (C) 2011-2016 by Stefan Gustavson (Classic noise and others)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+出处：https://github.com/ashima/webgl-noise · https://github.com/stegu/webgl-noise
+
+### ⚠️ 一条"不要写"的义务
+
+`colorBandingFix` 里的 `12.9898 / 78.233 / 43758.5453123` 是无从指认著作权人的通行
+sin-fract hash ⇒ 署名指向**算法本身**，**不得**引 The Book of Shaders
+（本仓已实查其 LICENSE 为 `All rights reserved`，见本文件下方专节）。
+⚠️ 该常量组**没有**出现在本仓任何代码里，此条是预防性留痕。
+
+### 许可全文（Apache-2.0）
+
+⚠️ **逐字转载**（`raw.githubusercontent.com/paper-design/shaders/main/LICENSE`）：
+
+```
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+
+   APPENDIX: How to apply the Apache License to your work.
+
+      To apply the Apache License to your work, attach the following
+      boilerplate notice, with the fields enclosed by brackets "[]"
+      replaced with your own identifying information. (Don't include
+      the brackets!)  The text should be enclosed in the appropriate
+      comment syntax for the file format. We also recommend that a
+      file or class name and description of purpose be included on the
+      same "printed page" as the copyright notice for easier
+      identification within third-party archives.
+
+   Copyright [yyyy] [name of copyright owner]
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+```
 
 ---
+
+## `OhMyDesignShaders` 逐单位归档（`#284`）
+
+本组 17 个 API 单位**一律不作原创声称**；逐件裁定以 `docs/shader-provenance.md`《统一裁定表》为准，下表只给落脚点。
+
+| 单位 | 上游与许可 | 本文件对应小节 |
+|---|---|---|
+| `Plasma` | 本体未指认到上游；四相正弦叠加的公式出自 Lode Vandevenne（BSD-2-Clause） | 《上表三条义务的兑现》· 《共享原语与公开配方》 |
+| `FractalClouds` | 本体未指认到上游；单级域扭曲属 iq 一族（MIT） | 同上 |
+| `InkSmoke` | 本体未指认到上游；域扭曲 `q` / `r` 三级级联出自 iq（MIT） | 同上 |
+| `LiquidChrome` | 未指认到上游（待追溯 · 低指纹） | 《共享原语与公开配方》 |
+| `DotGrid` | 未指认到上游（待追溯 · 低指纹） | 《共享原语与公开配方》 |
+| `View.refractiveGlass` | 主体未指认到上游；`roundedBoxSDF` 出自 iq（MIT） | 《上表三条义务的兑现》 |
+| `GlassSymbol` | 无自有 shader，档位随 `View.refractiveGlass` | 同上 |
+| `View.glassOrb` | Inferno「Warping Loupe」（MIT） | 《Inferno — Warping Loupe》 |
+| `View.halftone` | paper-design/shaders（Apache-2.0）；随 paper `halftone-dots.ts` 附 Dave Hoskins / iq 的 MIT 通知（本件未调用其 hash） | 《paper-design/shaders（Apache-2.0）》 |
+| `Metaballs` / `DotOrbit` / `SmokeRing` / `ColorPanels` | paper-design/shaders（Apache-2.0） | 同上 |
+| `Voronoi` | paper-design/shaders（Apache-2.0），算法上游 iq `ldl3W8`（MIT） | 同上 |
+| `Swirl` / `SimplexNoise` | paper-design/shaders（Apache-2.0）＋ Ashima Arts simplex noise（MIT） | 同上 |
+| `StarNest` | Pablo Roman Andrioli（Kali）「Star Nest」（作者声明 MIT） | 《Star Nest》 |
 
 ## `OhMyDesignShaders` 的共享原语与公开配方
 
-> ⚠️ **占位（与上面三节同一规则）**：本节描述的代码只存在于**未合并**的
-> `shaders-plasma` 分支（PR #261）。从 `epic/shipswift-foundation` 的角度看，
-> 它描述的东西**还不存在**。⇒ 本节**在 #261 合入时启用**。
->
-> ⚠️ **为什么它仍然现在就写下来**：`docs/shader-provenance.md` 与 #261 互为前提
-> （#261 的 5 处引用**全部指向 provenance 表**），而本文件是那张表判为可落地行的
-> **对外落脚点** ⇒ 本节随表一并预登记。
-> ⚠️ **上一版这里写「#261 多处引用本文件」——实查 `git grep ACKNOWLEDGEMENTS` 零命中**
->（第 2 轮终审 I-a）。而这条理由是本节豁免「不得署名尚未落地的东西」的**唯一依据**
-> ——依据本身是假的，等于没有豁免。已改为真实的那条。
-> 本节是**预登记**，不是已生效的对外声明——这与「逐 shader 条目由各自落地的 task
-> 追加」不冲突：那条规则约束的是**逐件**条目，本节是**共享原语**。
+本节描述的共享原语随 `#261` 合入，已是生效的对外声明。
 
 ⚠️⚠️ **本节取代了第 1 版的「噪声参考实现（clean-room）」一节，因为那一节整个是错的。**
 
@@ -226,19 +727,151 @@ permutation 表，与实际实现（值噪声 + 整数 hash + iq 级联）没有
 
 | 原语 / 片段 | 来源（URL） | 复制程度 | 许可地位 |
 |---|---|---|---|
-| `wangHash`（`0x27d4eb2d`） | Thomas Wang 整数 hash；GPU 版见 Nathan Reed《Quick And Easy GPU Random Numbers in D3D11》(2013)　`https://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/` | **较大段落移植**（逐字符一致） | ⚠️ **页面无许可声明** ⇒ `待追溯（低指纹）` |
+| `wangHash`（`0x27d4eb2d`） | 算法：Thomas Wang《Integer Hash Function》（页面已失效，Wayback 2007 快照）；「公有领域」的说法出自 Bob Jenkins　`http://www.burtleburtle.net/bob/hash/integer.html`。⚠️ **本仓逐字符复制的是 Nathan Reed 的写法**　`https://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/` | **较大段落移植**（逐字符一致；判别点：Wang/Jenkins 写 `a + (a << 3)`，**Reed 与本仓都写 `*= 9`**） | ⚠️⚠️ **上一版「页面无许可声明」是事实错误（#281 实查推翻）**。Jenkins 逐字：「The hashes on this page … are all public domain. **So are the ones on Thomas Wang's page.**」⇒ 算法层 **PD**；而 Reed 站点页脚逐字「**© 2007–2025 by Nathan Reed. Licensed CC-BY-4.0.**」⇒ **本仓实际复制的那一份是 CC-BY-4.0，署名是许可条件** ⇒ `已追到兼容许可`（⚠️ 取值域缺 `CC-BY` 档，见 provenance 表）|
 | `hash21`/`hash22` 的素数三元组 | Teschner et al. 2003《Optimized Spatial Hashing for Collision Detection of Deformable Objects》（VMV 2003 论文） | 参考算法思路（三个常数） | **事实性常数** ⇒ 可落地 |
 | `valueNoise` | 值噪声的标准形式（嵌套 `mix` 双线性插值 + `smoothstep` 权重） | 参考算法思路 | **教科书算法** ⇒ 可落地 |
+| `hash22` 的第四个素数 `50331653` | SGI STL / libstdc++ 的标准哈希表素数梯（`gcc-mirror/gcc` 的 `libstdc++-v3/include/backward/hashtable.h`：`25165843ul, 50331653ul, 100663319ul, …`） | 参考算法思路（1 个常数） | **事实性常数** ⇒ 可落地。⚠️ **上一版本行缺失**——本文件刚宣布「逐常量 grep 无条件适用」，而一个已知落在具名来源之外的常数就漏在表外（#261 自己记下的遗留项，#281 补入）|
 | `fbm` | **算法本身**：fBm 标准形式（gain 0.5 / lacunarity 2.0），Mandelbrot–Perlin–Musgrave 谱系，见 Ebert et al.《Texturing & Modeling》 | 参考算法思路 | **事实性算法** ⇒ 可落地。⚠️ **见下方 The Book of Shaders 的许可实查** |
-| 域扭曲的 `q`/`r` 三级级联（落地函数 `coreDesignInkSmoke`；组件 `InkSmoke` / `FractalClouds`） | Inigo Quilez《Domain Warping》　`https://iquilezles.org/articles/warp/` | **较大段落移植**（结构 + 变量名保留） | ⚠️ 页面无许可声明 ⇒ `待追溯（强指纹 · 阻断）` |
-| `Plasma` 的四相正弦叠加 | Lode Vandevenne《Lode's Computer Graphics Tutorial — Plasma》　`https://lodev.org/cgtutor/plasma.html` | **较大段落移植**（逐项对应） | ⚠️ 页面无许可声明 ⇒ `待追溯` |
-| `roundedBoxSDF` | Inigo Quilez, 2D distance functions　`https://iquilezles.org/articles/distfunctions2d/` | **较大段落移植**（标准闭式解） | ⚠️ 页面无许可声明 ⇒ `待追溯（低指纹）` |
-| `edgeWidth`（`max(fwidth, ε)` + smoothstep） | iq 的 distance-AA 惯用法（同上页面一族） | 参考算法思路 | **公开惯用法** ⇒ `待追溯（低指纹）` |
+| 域扭曲的 `q`/`r` 三级级联（落地函数 `ohMyDesignInkSmoke`；组件 `InkSmoke` / `FractalClouds`） | Inigo Quilez《Domain Warping》　`https://iquilezles.org/articles/warp/` | **较大段落移植**（结构 + 变量名保留） | ⚠️⚠️ **上一版「页面无许可声明」是事实错误（#281 实查推翻）**：warp 页本身确无，但其父页 `https://iquilezles.org/articles/` 逐字「**all technical code snippets you'll find are under the MIT license**」⇒ **`已追到兼容许可 · MIT`**。⇒ **强指纹档的阻断义务已兑现**（既追到、许可又兼容），义务转为**转载 MIT 通知 + 具名 iq** |
+| `Plasma` 的四相正弦叠加 | Lode Vandevenne《Lode's Computer Graphics Tutorial — Plasma》　`https://lodev.org/cgtutor/plasma.html`；⚠️ **许可在另一页**：`https://lodev.org/cgtutor/legal.html` | **参考算法思路**（⚠️ **由「较大段落移植」下调**：#281 比对后确认他那组具体取值——中心 `(128,128)`/`(64,64)`/`(192,64)`/`(192,100)`、除数 `/8 /8 /7 /8`——**本仓一个都没用**，四项全部参数化且各带不同时间相位） | ⚠️⚠️ **上一版「页面无许可声明」是事实错误（#281 实查推翻）**：plasma 页页脚确为 `All rights reserved`，但 legal.html **把散文与代码分开授权**，代码逐字为 **BSD-2-Clause** ⇒ `已追到兼容许可`。⚠️ **义务：源码中保留版权通知 + 两条条件 + 免责声明全文**，一句「参考自 Lode 的教程」不满足第 1 条 |
+| `roundedBoxSDF` | Inigo Quilez —— ⚠️ **精确来源是 3D 页的单半径 `sdRoundBox`**　`https://iquilezles.org/articles/distfunctions/`（2D 页上的 `sdRoundedBox` 是四半径 `vec4` 变体，**不是**本仓这一份） | **较大段落移植**（2 行，标准闭式解的 2D 降维） | ⚠️ **上一版「页面无许可声明」是事实错误**：站点级声明见 `https://iquilezles.org/articles/` ⇒ **`已追到兼容许可 · MIT`**，义务是转载 MIT 通知 + 具名 iq |
+| `edgeWidth`（`max(fwidth, ε)` + smoothstep） | ⚠️⚠️ **归属改判：无可归属的上游。** 上一版写「iq 的 distance-AA 惯用法」——**#281 逐页 grep 了 iq 的五篇相关文章，`fwidth` 一次都没出现**。最接近的具名发表是 Stefan Gustavson《2D Shape Rendering by Distance Fields》(OpenGL Insights ch.12, 2011)，其代码自述「This code is in the public domain.」，**但他写的是 `0.7 * length(vec2(dFdx, dFdy))`，不是同一表达** | 参考算法思路（1 行） | **无可归属上游的通用惯用法**（一手读到三份互不相关的独立实现）⇒ `待追溯（低指纹）`，风险低于上一版认定 |
 | `ramp3` | **未指认到具体上游** | **未知（上游未指认）** | `待追溯（低指纹）`——⚠️「指认不到」不等于「原创」 |
-| `coreDesignRefractiveGlass` 的位移 + 通道色散主体（= 组件侧 `Glass`（`RefractiveGlass`）的主体原语） | SwiftUI `layerEffect` "liquid glass" 一族的通行形态，**未指认到具体上游** | **未知（上游未指认）** | ⚠️ `待追溯（强指纹 · 阻断）`——provenance 表自评「指纹强度不低于 `InkSmoke` 的 `q`/`r` 级联」⇒ **阻断 epic→main** |
+| `ohMyDesignRefractiveGlass` 的位移 + 通道色散主体（= 组件侧 `Glass`（`RefractiveGlass`）的主体原语） | ⚠️⚠️ **上一版「SwiftUI `layerEffect` "liquid glass" 一族的通行形态」经 #281 追溯被证伪——逐个读完具名的 SwiftUI-Metal 玻璃库后，没有找到这样一族。** 仍**未指认到具体上游** | **未知（上游未指认）** | ⚠️ `待追溯`，分档由**强指纹改判低指纹**（三条强档判据逐条不成立；逐常量 grep 零命中）⇒ **不再阻断 epic→main**，⚠️ 但该改判须评审确认。详见 provenance 表专节 |
 
 ⚠️ **许可地位一列已逐行给出，不再有"统一登记"这句**（上一版那句与表格直接打架）。
-无许可正文可转载的行，**明写「页面无许可声明」**而不是留白。
+
+⚠️⚠️⚠️ **#281 的实查结论：上一版有 5 行写着「页面无许可声明」，其中 4 行是事实错误。**
+本文件当时写下「无许可正文可转载的行，**明写"页面无许可声明"**而不是留白」——
+这条规矩本身是对的，**但它被当成了终点**：写下"没找到许可"之后就没有人再去找了。
+实查结果是 **iq（MIT）· Lode Vandevenne（BSD-2-Clause）· Nathan Reed（CC-BY-4.0）
+三家都有真实许可，而且三家都带署名义务**。
+⇒ **规矩补一条：写「页面无许可声明」时必须同时写明"读了哪一页"**
+（许可常常不在那篇文章上，而在站点的 `/articles/` 或 `legal.html`）。
+
+### ⚠️⚠️⚠️ #281 追到的**不兼容**许可：`Starfield`（本文件最重的一条，**撤回已执行**）
+
+上表是**共享原语**层。**shader 本体层出了一件更严重的**，记在这里以免只读本文件的人漏掉。
+⚠️ **本条保留在文件里是有意的**：`Starfield` 已经不在树上了（见文末的执行记录），
+但「为什么这个仓不提供星空 shader」只有这条记录能回答——删掉记录，下一个人会重新写一遍。
+
+> **`Starfield`（`ohMyDesignStarfield`）的上游是 Martijn Steinrucken（BigWings /
+> *The Art of Code*）的《Starfield Tutorial》(2020)，源码头逐字：**
+>
+> ```
+> // Starfield Tutorial by Martijn Steinrucken aka BigWings - 2020
+> // License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
+> ```
+>
+> **CC BY-NC-SA 3.0 与 OhMyDesign 的 MIT 分发不兼容**（既禁商用，又有传染性 share-alike）。
+
+⚠️ **旁证**：`OhMyDesignShaders.metal` 自己的注释记着 `hash21` 第一版是
+`fract(p * float2(123.34, 456.21)); p += dot(p, p + 45.32)` ——**那正是同一份文件里
+`Hash21` 的常量，逐字符一致** ⇒ 接触与复制均有直接证据，不是巧合。
+
+⇒ **裁定 `不落地`**（`docs/shader-provenance.md`《`Starfield` 的追溯》专节）。
+⚠️ **本文件不为 `Starfield` 写署名条目**——署名解决不了 NC 与 share-alike，
+**唯一的出路是不分发它**。
+
+#### ✅ 执行记录：撤回已完成
+
+**`Starfield` 已从 `OhMyDesignShaders` 整件删除**（`Starfield.swift` 整份 +
+`OhMyDesignShaders.metal` 的 `ohMyDesignStarfield` 段 + 两份测试里的对应用例）。
+⇒ ⚠️ **本条不再阻断 `epic → main`**。
+
+⚠️ **未走「重写那 5 行以保留它」的替代方案**：那需要 owner 显式承担
+"残留对应部分不达独创性门槛"的判断，且重写者已读过原文、独立性存疑。本次是**纯撤回**。
+
+⚠️ **`cd::hash21` / `cd::hash22` / `cd::wangHash` 留下**，理由与撤回时核实的事实：
+当前 `hash21` 是 **Wang/Reed 整数构造**（`seed ^ 61`→`*= 9`→`*= 0x27d4eb2d`）+
+**Teschner 素数三元组**，`123.34 / 456.21 / 45.32` 那组 CC BY-NC-SA 常量**早已不在代码里**
+（只作为历史记录留在注释与本表中）⇒ 撤回 `Starfield` 即清干净了这条污染，
+不需要连带撤回原语。`hash22` 因此暂时无调用方，**有意保留**——它自身许可已清偿。
+
+### ⚠️ #281 新增的三条署名义务（`epic → main` 前必须在本文件落地）
+
+| 权利人 | 许可 | 覆盖的原语 | 义务的**具体形态**（不是"提一下" |
+|---|---|---|---|
+| **Inigo Quilez** | **MIT**（`https://iquilezles.org/articles/` 站点级声明）| `roundedBoxSDF` · 域扭曲 `q`/`r` 三级级联 | 转载 MIT 许可通知全文 + 具名 + 原始 URL |
+| **Lode Vandevenne** | **BSD-2-Clause**（`https://lodev.org/cgtutor/legal.html`）| `Plasma` 的四相正弦叠加 | ⚠️ **保留版权通知 + 两条条件 + 免责声明全文**——BSD 第 1 条逐字要求 "retain the above copyright notice, this list of conditions and the following disclaimer" |
+| **Nathan Reed** | **CC-BY-4.0**（站点页脚）| `wangHash`（本仓复制的是他的 `seed *= 9` 写法）| 署名 Reed + 链接许可；并注明算法本身出自 Thomas Wang（Jenkins 称其为公有领域）|
+
+⚠️ 另有 **Teschner et al. 2003** 的**学术引用**义务（三个素数是事实，不承载许可义务）。
+
+### 上表三条义务的兑现（`#284`，原文取于 2026-09-25）
+
+#### Inigo Quilez — MIT（共享原语层：`roundedBoxSDF`、域扭曲）
+
+来源：`https://iquilezles.org/articles/distfunctions/`（`sdRoundBox`）、`https://iquilezles.org/articles/warp/`。
+站点级许可声明见 `https://iquilezles.org/articles/`（须带浏览器 User-Agent 请求才返回正文，裸 `curl` 得到的是不含声明的空壳页），原文：
+
+> all technical code snippets you'll find are under the MIT license so you can easily reuse them, but the mathematical/shader art is protected and requires a license for use.
+
+本仓用到的是代码片段（`cd::roundedBoxSDF`、`ohMyDesignInkSmoke` 的 `q` / `r` 三级级联与 `ohMyDesignFractalClouds` 的单级 warp，同属 iq 的域扭曲一族），
+不含其 shader 艺术作品。作者未附版权行，此处按 MIT 标准文本转载，不替作者补造版权行（与《Star Nest》一节同一处置）：
+
+```
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+#### Lode Vandevenne — BSD-2-Clause（`Plasma` 的四相正弦叠加）
+
+来源：`https://lodev.org/cgtutor/plasma.html`；代码许可见 `https://lodev.org/cgtutor/legal.html`，下面逐字转载：
+
+```
+Copyright (c) 2004-2007, Lode Vandevenne
+
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+```
+
+⚠️ `docs/shader-provenance.md` 已把本条由「较大段落移植」下调为「参考算法思路」（本仓没有用他那组具体取值）；
+许可正文照样保留在这里，按 BSD 第 1 条的保守读法履行。
+
+#### Nathan Reed — CC-BY-4.0（`cd::wangHash` 的写法）
+
+`cd::wangHash` 的写法出自 Nathan Reed《Quick And Easy GPU Random Numbers In D3D11》（2013），
+`https://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/`；站点页脚原文
+「© 2007–2025 by Nathan Reed. Licensed CC-BY-4.0.」，许可见 `https://creativecommons.org/licenses/by/4.0/`。
+算法本身出自 Thomas Wang《Integer Hash Function》，Bob Jenkins 称其为公有领域。
+修改：由 HLSL 改写为 Metal Shading Language（函数名 `wang_hash` → `wangHash`、整数字面量加 `u` 后缀、`inline`），运算序列不变。
+
+#### Teschner et al. 2003 — 学术引用（`hash21` / `hash22` 的素数三元组）
+
+M. Teschner, B. Heidelberger, M. Müller, D. Pomeranets, M. Gross.
+*Optimized Spatial Hashing for Collision Detection of Deformable Objects.* Proc. Vision, Modeling, Visualization (VMV) 2003.
 
 ### ⚠️ The Book of Shaders 的许可实查（本文件最重要的一条）
 
@@ -269,7 +902,6 @@ website or project.
 `All rights reserved` 的来源上。**两个方向都要查实。**
 
 ---
-
 ## 图片与其他资源
 
 > ⚠️ 占位。OhMyDesign 目前未引入第三方图片资源。若将来引入，须在此逐条声明——

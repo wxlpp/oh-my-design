@@ -24,15 +24,16 @@
 - 长度单位一律 **pt**。间距标度见下方 `CoreSpacing` 表，**不是纯 8 的倍数**：`xxs` / `xs` / `md` 三档（2 / 4 / 12pt）不是。
 - 字号**不写数字**：走 Apple 系统文本样式，随 Dynamic Type 缩放。
 
-## 三个 target（依赖单向）
+## 四个 target（依赖单向）
 
 | target | 内容 | 依赖 |
 |---|---|---|
 | `OhMyDesign` | 系统原生观感的组件、四层色彩、token、modifier | 无（恒为空） |
 | `OhMyDesignEffects` | 微交互 / 转场 / 常驻动效 | → `OhMyDesign` |
 | `OhMyDesignCharts` | Swift Charts 画不出来的四类图表 | → `OhMyDesign` |
+| `OhMyDesignShaders` | Metal 着色器背景与内容层效果 | → `OhMyDesign` |
 
-标注元素时**写明它来自哪个 target**——只要系统原生观感的消费者不会引入后两个。
+标注元素时**写明它来自哪个 target**——只要系统原生观感的消费者不会引入后三个。
 
 ## 硬规则（违反即为误标）
 
@@ -692,9 +693,9 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 - *enum* **`RenderPolicy`** — 一层常驻渲染件在当前能耗状态下的渲染策略。
   - `.full` — 满帧。
   - `.reduced` — 降帧，但**仍然在动**。
-  - `.paused` — 完全停摆：驱动动画的 `TimelineView` **不建**（不是「建了但暂停」）。
+  - `.paused` — 完全停摆：驱动动画的 `TimelineView` **不建**（不是「建了但暂停」）。 ⚠️ `OhMyDesignShaders` 的全幅背景是例外：暂停并保留最后一帧，理由见其 `ProceduralBackground`。
 - *enum* **`MotionPresentation`** — 两道闸（NFR-7 能耗闸 + Reduce Motion 闸）**一起**裁出来的结果：这一层到底呈现什么。
-  - `.hidden` — 一个像素都不画（NFR-7 停摆）。**优先级最高**——它在 Reduce Motion 之前裁决。
+  - `.hidden` — 一个像素都不画（NFR-7 停摆）。**优先级最高**——它在 Reduce Motion 之前裁决。 ⚠️ `OhMyDesignShaders` 的全幅背景在此档暂停并保留最后一帧，见其 `ProceduralBackground`。
   - `.resting` — 画，但静止（Reduce Motion：保留视觉、去掉运动）。
   - `.animated` — 正常动。
 - *struct* **`EnergyState`** — 「注入值优先、否则从系统读」的解析结果，以及它推出的渲染策略。
@@ -990,12 +991,112 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
   - `.segmentedRings` — 分段同心环：几何与 `.rings` 完全相同，只把每环连续的进度弧切成 `RingChart.segmentCount` 段离散段。业界来源：Ant Design `Progress` 组件的 `steps` 属性。
   - `.stackedBar` — 堆叠条：N 个同心环塌成一条水平堆叠柱，段序 = 值序。 业界来源：GitLab Pajamas 的 stacked column。语义仍是「完成度」——轨道总长代表 N × goal。
 
+## `OhMyDesignShaders`
+
+### `ColorPanels.swift`
+
+- **`ColorPanels`** *: View* — 一组半透明彩色面板绕中轴翻转，像透视中的百叶。
+- *enum* **`ColorPanels.Style`**: `.soft`, `.regular`, `.crisp` — 面板质感。
+
+### `DotGrid.swift`
+
+- **`DotGrid`** *: View* — 规则点阵背景，可选同心波呼吸。
+- *enum* **`DotGrid.Spacing`**: `.loose`, `.regular`, `.tight` — 点距。
+
+### `DotOrbit.swift`
+
+- **`DotOrbit`** *: View* — 点阵中的每个点绕各自的格心公转，点色在两档之间按格随机取。
+- *enum* **`DotOrbit.Density`**: `.sparse`, `.regular`, `.dense` — 点的疏密与公转幅度。
+
+### `FractalClouds.swift`
+
+- **`FractalClouds`** *: View* — 分形云层背景。
+- *enum* **`FractalClouds.Density`**: `.soft`, `.regular`, `.turbulent` — 云的细腻程度。
+
+### `GlassOrb.swift`
+
+- *enum* **`GlassOrbSize`**: `.small`, `.regular`, `.large` — 放大镜的尺寸。
+- *enum* **`GlassOrbMagnification`**: `.gentle`, `.regular`, `.strong` — 放大倍率。
+
+### `GlassSymbol.swift`
+
+- **`GlassSymbol`** *: View* — 渲染成折射玻璃的 SF Symbol。
+
+### `GlassSymbolStyle.swift`
+
+- **`PlainGlassSymbolStyle`** *: GlassSymbolStyle* — 默认外观：只渲染符号本体，不加任何附加层。
+- *protocol* **`GlassSymbolStyle`** — `GlassSymbol` 外观的扩展点，形态对齐 Apple `ButtonStyle` 与本仓的 `RatingStyle`： 在符号本体周围加等级标签、进度环这类附加层。
+- *struct* **`GlassSymbolStyleConfiguration`** — 传给 `GlassSymbolStyle.makeBody` 的上下文：已渲染好的折射符号本体与背衬基色。
+
+### `Halftone.swift`
+
+- *enum* **`HalftoneDot`**: `.fine`, `.regular`, `.coarse` — 网点粗细。
+
+### `InkSmoke.swift`
+
+- **`InkSmoke`** *: View* — 墨烟背景。
+- *enum* **`InkSmoke.Density`**: `.faint`, `.regular`, `.heavy` — 丝缕强度。
+
+### `LiquidChrome.swift`
+
+- **`LiquidChrome`** *: View* — 液态铬背景。
+- *enum* **`LiquidChrome.Density`**: `.wide`, `.regular`, `.fine` — 带的疏密。
+
+### `Metaballs.swift`
+
+- **`Metaballs`** *: View* — 一组彩色小球绕中心游走、彼此融合成黏连的有机形状。
+- *enum* **`Metaballs.Count`**: `.few`, `.regular`, `.many` — 小球的数量与大小。
+
+### `OhMyDesignShaders.swift`
+
+- *enum* **`ShaderLibraryError`**: `.noMetalDevice`, `.libraryMissing`, `.functionMissing` — 加载检查失败的原因。
+- *enum* **`OhMyDesignShaders`** — `OhMyDesignShaders` 的命名空间与模块标识。
+
+### `Plasma.swift`
+
+- **`Plasma`** *: View* — 程序化等离子背景。
+- *enum* **`Plasma.Density`**: `.subtle`, `.regular`, `.dense` — 视觉密度。
+
+### `RefractiveGlass.swift`
+
+- *enum* **`RefractiveGlassStrength`**: `.subtle`, `.regular`, `.pronounced` — 折射强度。
+
+### `ShaderSupport.swift`
+
+- *enum* **`ShaderMotion`**: `.still`, `.calm`, `.regular`, `.lively` — 运动速度档位。
+- *enum* **`ShaderRenderProbe`** — 所有 `ProceduralBackground` 实例共用的 `visualEffect` 闭包求值计数（存活读数，不是帧数、不是 GPU 提交次数）。
+
+### `SimplexNoise.swift`
+
+- **`SimplexNoise`** *: View* — 双层 simplex 噪声的等高色带：三档颜色之间按阶梯过渡。
+- *enum* **`SimplexNoise.Banding`**: `.soft`, `.regular`, `.stepped` — 色带的阶梯感。
+
+### `SmokeRing.swift`
+
+- **`SmokeRing`** *: View* — 被多层噪声扰动的烟环，环心与环边各取一档颜色。
+- *enum* **`SmokeRing.Thickness`**: `.thin`, `.regular`, `.thick` — 环的粗细与噪声细节。
+
+### `StarNest.swift`
+
+- **`StarNest`** *: View* — 体积分形星云：一路穿行的星尘与暗物质。
+- *enum* **`StarNest.Depth`**: `.shallow`, `.regular`, `.deep` — 体积深度，同时决定渲染成本。
+
+### `Swirl.swift`
+
+- **`Swirl`** *: View* — 从中心旋出的彩色条带，可扭成漩涡，带轻微噪声扰动。
+- *enum* **`Swirl.Bands`**: `.few`, `.regular`, `.many` — 条带数与扭转强度。
+
+### `Voronoi.swift`
+
+- **`Voronoi`** *: View* — 缓慢漂移的 Voronoi 细胞：浅色细胞、较深的间隙线与向边缘渐强的内光。
+- *enum* **`Voronoi.CellSize`**: `.large`, `.regular`, `.small` — 细胞大小。
+
 
 ---
 
 # Modifier / Transition 入口点
 
-共 47 个（按 `Host.member` 去重，含参重载算一条）。
+共 51 个（按 `Host.member` 去重，含参重载算一条）。
 
 | target | 入口 | 说明 |
 |---|---|---|
@@ -1046,6 +1147,10 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | `OhMyDesignEffects` | `.spin` on `View` | `trigger` 变化时旋转一整圈。 |
 | `OhMyDesignEffects` | `.spray` on `View` | `trigger` 变化时向上喷出一束符号粒子。 |
 | `OhMyDesignEffects` | `.swoosh` on `Transition` | 带动态模糊的穿行转场（默认从右侧进、左侧出）。 |
+| `OhMyDesignShaders` | `.glassOrb` on `View` | 在本视图上放一枚跟手的玻璃珠放大镜。 |
+| `OhMyDesignShaders` | `.glassSymbolStyle` on `View` | 为子树中的所有 `GlassSymbol` 设置外观。 |
+| `OhMyDesignShaders` | `.halftone` on `View` | 把本视图印成半调网屏。 |
+| `OhMyDesignShaders` | `.refractiveGlass` on `View` | 把本视图渲染成一片折射玻璃。 |
 
 
 ---
@@ -1090,11 +1195,11 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | controlsize | 5 | 5 |
 | motion | 4 | 4 |
 | colors | 124 | 124 |
-| components | 93 | 93 |
-| enums | 50 | 50 |
-| enumcases | 169 | 169 |
-| protocols | 6 | 6 |
-| viewext | 47 | 47 |
+| components | 108 | 108 |
+| enums | 69 | 69 |
+| enumcases | 227 | 227 |
+| protocols | 7 | 7 |
+| viewext | 51 | 51 |
 | styleext | 15 | 15 |
-| others | 28 | 28 |
+| others | 31 | 31 |
 

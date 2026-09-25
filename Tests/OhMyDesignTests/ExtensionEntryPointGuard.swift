@@ -80,7 +80,10 @@ struct ExtensionEntryPointGuard {
 
         #expect(!problems(.init(target: "OhMyDesignEffects", host: "NotAHost", member: "confetti",
                                 notes: good.notes)).isEmpty, "非法 host 不会红")
-        #expect(!problems(.init(target: "OhMyDesignShaders", host: "View", member: "confetti",
+        // ⚠️ 反例名集中一处（`#279`）：这里曾写死 `"OhMyDesignShaders"`，该名字在 target
+        // 进根列表当天变成**合法**名、反例成正例（当场判红，不是静默变绿）。
+        #expect(!problems(.init(target: GuardScanRoots.nonexistentFixtureTargetName,
+                                host: "View", member: "confetti",
                                 notes: good.notes)).isEmpty, "不存在的 target 不会红")
         #expect(!problems(.init(target: "OhMyDesign", host: "View", member: "bordered",
                                 notes: good.notes)).isEmpty, "登记在主 target 上不会红")

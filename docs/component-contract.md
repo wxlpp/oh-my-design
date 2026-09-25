@@ -332,6 +332,9 @@
 > ⚠️ **再一次更新（`#312` 收口）**：`OrbitingLogos` 经修订回路翻至出口 1（`R-49`），
 > J-2 定义域 **17** 条、全部满足；五条扩展点全部以形态 D2 落地，`knownMissingExtensionPoints`
 > **收成空集**后连同 `extensionPointFollowUpIssue` 一并删除、`withKnownIssue` 块按到期机制删除。
+> ⚠️ **再一次更新（`#368`）**：`GlassSymbol` 补做步骤 2 枚举后落**出口 1**，扩展点以形态 B
+> （`GlassSymbolStyle`）同 PR 落地 ⇒ J-2 定义域 **16 → 17**（`39fecab` 移除 `Sidebar` / `BottomInputBar` 后为 16）、全部满足；`knownPendingStep2Enumeration`
+> 收成空集、`pendingStep2FollowUpIssue` 置 `nil`（`R-50`）。
 > 上句「全部收口」是 `#65` 当时的记录，按只增不改的成法保留；
 > > #60 已 closed。⇒ `step3` 条目数 **33 → 28**（移出的：`SidebarStatusFooter` /
 > `SidebarUtilityRow` / `SpinningModifier` / `Steps` / `Timeline`）。
@@ -1719,10 +1722,13 @@ PR #297 终审 S-4 实测证伪，本段改写**：按 `ComponentRegistryGuard.t
   ⚠️ **上一版只查 `components` 一个桶，PR #297 终审 S-1 指出 `scanTypes(roots:)` 合并的是
   `components` / `styleImpls` / `entryPoints` 三个**——后两个同样是判据的依据
   （`styleImpls` 判 README 行归宿、`entryPoints` 判入口点行归宿），已改为三个桶一并查。
-- ⚠️ **给 `#279`（`OhMyDesignShaders` 进根列表）的交接**：`#270` 定下的形态是
-  「`componentScanRoots` = `GuardScanRoots.allRoots`」⇒ `#279` **只需把
-  `OhMyDesignShaders` 加进 `GuardScanRoots.targetNames`**，登记表扫描根自动跟随，
-  本文件与 `ComponentRegistryGuard` 都不必再改。`#279` 要在 `#270` 的新值之上叠加的计数是：
+- ⚠️ ~~**给 `#279`（`OhMyDesignShaders` 进根列表）的交接**~~ —— **`#279` 已落地**（本仓
+  `epic/shipswift-shaders` 集成分支的 stage-2 移植）。原文：`#270` 定下的形态是
+  「`componentScanRoots` = `GuardScanRoots.allRoots`」⇒ `#279` 只需把
+  `OhMyDesignShaders` 加进 `GuardScanRoots.targetNames`，登记表扫描根自动跟随，
+  本文件与 `ComponentRegistryGuard` 都不必再改 —— **那句预判成立**：移植里
+  `ComponentRegistryGuard.componentScanRoots` 一个字未动（实测记录见《下游连锁五》）。
+  `#279` 要在 `#270` 的新值之上叠加的计数是：
   `ohmydesign` 条目数 **62**、`registryTextParams` **36**、`covered` **31**、
   `localizedByType` **17**、`carrying` **10**、`by-type` **6**、
   `functionSideBareText` **3 条固定集合**、`unmappedOwners` **2 条固定集合**、
@@ -1735,3 +1741,74 @@ PR #297 终审 S-4 实测证伪，本段改写**：按 `ComponentRegistryGuard.t
   `inspected.count` **17**、全部满足；`knownMissingExtensionPoints` **收成空集**后连同
   `extensionPointFollowUpIssue` 一并删除、`withKnownIssue` 块按到期机制删除。其余八个计数 `#312` 同样没动
   （`OrbitingLogos` 只改 `decidedBy` / `kind` / `needsExtensionPoint` / `styleEnum` / `notes`）。
+
+##### 下游连锁五 · `#279` 实测：Shaders 进根之后哪些计数被顶动
+
+⚠️ **`#279` 正文点名「8 个 shader 类型」，实测进 `components` 的是 6 个** —— 逐条如实记：
+`Starfield` 随 `#281` 整件删除（上游 CC BY-NC-SA 3.0 与 MIT 分发不兼容）；
+`RefractiveGlass` **从来不是 `public struct: View`**（它是 internal 的 `RefractiveGlassModifier`
+加 `public extension View` 上的 `refractiveGlass`）⇒ 结构上不进 `components`、进的是 `entryPoints`。
+⇒ 6 条组件条目 + 1 条入口点条目。
+
+| 断言 | `#270` 定的值 | `#279` 实测 | 为什么 |
+|---|---|---|---|
+| `coredesign` 条目数 | 62 | **62 → 68** | Shaders 根采到 6 个 `public struct: View`（`DotGrid` / `FractalClouds` / `GlassSymbol` / `InkSmoke` / `LiquidChrome` / `Plasma`） |
+| `registryTextParams` | 36 | **不变，仍是 36** | 6 条的 public init 无文本型参数；`GlassSymbol.systemName` 是 SF Symbol 标识符，走 notes 授权豁免而不是 `textParams`（与 `LabelIcon.systemName` 同一裁决） |
+| `covered` | 31 | **不变，仍是 31** | 同上：没有新的 textParams 条目 ⇒ 没有新的 covered 键 |
+| `localizedByType` | 17 | **不变，仍是 17** | Shaders 侧零 LSK/LSR 参数 |
+| `carrying` | 10 | **10 → 11** | 新增 `OhMyDesignShaders.assertShaderLibraryLoadable#functions`（`[String]`，metallib 加载检查的 `[[stitchable]]` 函数名） |
+| `by-type` 条目数 | 6 | **不变，仍是 6** | 同 `registryTextParams` |
+| `functionSideBareText` 固定集合 | 3 条 | **不变，仍是 3 条** | `View.refractiveGlass` 的四个参数里没有文本型（`CGFloat` / 语义枚举 / `Color` / `Bool`） |
+| `unmappedOwners` 固定集合 | 2 条 | **不变，仍是 2 条** | `GlassSymbol.init#systemName` 一度是第 3 条（`#279` 中途实测），登记 `GlassSymbol` 之后由「域外」变成「已裁决豁免」 |
+| `exemptedByRegistryNotes` 固定集合 | 1 条 | **1 → 2 条** | 新增 `GlassSymbol.init#systemName`，与既有的 `LabelIcon.init#systemName` 同一通道 |
+| J-2 `inspected.count` | 11（⚠️ `#299` 起为 **16**、`#312` 起 `knownMissingExtensionPoints` 为 4 条） | **不变，仍是 16** | 6 条全部 `kind: prescriptive` ⇒ 不给扩展点 ⇒ 不进 J-2 定义域 |
+| `docs/bool-exemptions.json` 条目数 / `sourceSites` | 32 / 35（⚠️ 集成时 main 侧基线为 **35 / 40**） | **36 / 41** | `View.refractiveGlass#isEnabled` 第一次进入 J-1 射程（它在 `#261` 就存在，只是那时 Shaders 不在任何扫描根里）；`perTarget` 新增一条 `OhMyDesignShaders: 1/1` |
+| `GuardScanRootsGuard.moduleBundleOwnership` 的判据形态 | 「`resources:` ⇔ `Sources/<t>/Resources/` 目录」 | **改成逐条路径与磁盘同进同退** | `OhMyDesignShaders` 声明的是**单个文件** `.process("OhMyDesignShaders.metal")`，原判据把资源声明写死成了「目录名恰为 `Resources`」这一种形态，会红在一个并不存在的问题上。新形态覆盖目录与文件两种，且比原判据严（原判据抓不到声明里写错的文件名） |
+
+⚠️ **`decidedBy` 的分账（与 `#270` 同一条纪律）**：6 条里
+- **5 条 `tiebreaker`**（`DotGrid` / `FractalClouds` / `InkSmoke` / `LiquidChrome` / `Plasma`）——
+  它们都是 `ProceduralBackground` 的**单层全幅装饰**，`colorEffect` 套在一个 `Color` 上、
+  **零个承载内容的子视图** ⇒ 三分法的「槽」与「排布」两个轴在它们上面**结构上为空**，
+  任何候选形态只能落**装饰** ⇒ 不计入 ≥2 ⇒ 正当落步骤 4。
+  ⚠️ 补充规则 3（组件与周围内容的空间关系改变也算排布）已逐条考虑并判**不适用**：
+  这五件自身不决定尺寸，「全幅底 ↔ 行内一小块」由调用方的 `.frame` / `.ignoresSafeArea` 决定，
+  那条轴今天已完全在调用方手里。
+- **1 条 `pendingStep2`**（`GlassSymbol`）—— 与那五个背景件的区别**不在今天的 body**：
+  `GlassSymbol.swift` 的 `body` 是**一个** `Image(systemName:)` 加若干 modifier，
+  **没有任何 `@ViewBuilder` 槽**，四个入参是 `String` / `Color` / 枚举 / `Text?`
+  （⚠️ 本段上一版逐字写「它**有真实的槽**（符号本体 + 渐变背衬）」——**与源码不符**，
+  PR #301 终审 S-5 更正；那种写法会让后来人一查源码发现字面为假、顺手把它「改正」成
+  `tiebreaker`，而那正是本台账要防的漂移）。站得住的区分是**候选形态**：
+  它自陈用例含「成就徽章」，该形态在业界确有「加等级环 / 加绶带文字」这类
+  **会引入承载内容的子视图**的候选（按三分法属槽差异，本该计入 ≥2）；
+  而那五个背景件的候选无论如何都引入不了子视图（`colorEffect` 套在一个 `Color` 上）。
+  ⇒ 差别是「候选**会**引入真实的槽」，不是「今天**有**槽」。
+  而 `#279` 是扫描根收口 task、**没做**停止规则要求的候选枚举与来源核验 ⇒ 与 `#270` 那 6 条同因，
+  同挂承接 issue **`#299`**，`knownPendingStep2Enumeration` 由 6 条变 7 条。
+  ⚠️ **更新（`#368`）**：`GlassSymbol` 已补做枚举并落出口 1（`step2` / `semantic` / 形态 B
+  `GlassSymbolStyle`），`pendingStep2` 台账现为空集；本段按只增不改保留，判定见 `R-50`。
+
+⚠️ **「6 条组件 + 1 条入口点」不等于「公开面数完了」**（PR #301 终审 S-3 补记）：
+`OhMyDesignShaders` 里还有一个**没有任何登记表归宿**的 public API ——
+`OhMyDesignShaders.assertShaderLibraryLoadable(functions:)`
+（`Sources/OhMyDesignShaders/OhMyDesignShaders.swift`）。它两个桶都进不去，逐条说明：
+- 不是 `public struct: View` ⇒ `PublicTypeCollector` 结构上不采 ⇒ **不进 `components`**；
+- 它所在的 `extension OhMyDesignShaders` 既不是 `public extension`、host 也不在
+  `ExtensionEntryPointGuard.entryPointHostTypes`（实测 = `["View", "Transition", "AnyTransition"]`）
+  ⇒ **不进 `entryPoints`**。
+它唯一被机器看见的部分是**参数**：`functions:` 让 `carrying` 从 10 变 11（见上表）；
+**函数本身没有**。⇒ 射程限制本身是既存的（`#246` 立表时就只覆盖这两种形态，`#265` 复核过），
+`#279` 没有扩大它；但 `OhMyDesignShaders` 是**第一个**带这种形态 public API 的新 target，
+故在这里如实记一笔，免得后人把上面那两个数读成「本 target 的公开面已全部有归宿」。
+⚠️ 同族的还有本次实测的 9 个 public enum（8 个 `public nonisolated enum`：
+`DotGrid.Spacing` / `FractalClouds.Density` / `InkSmoke.Density` / `LiquidChrome.Density` /
+`Plasma.Density` / `ShaderMotion` / `RefractiveGlassStrength` / `ShaderLibraryError`，
+加命名空间本身 `public enum OhMyDesignShaders`）与它的 `public static let moduleName` ——
+结构上都不是 components / entryPoints，与 Effects / Charts 既有口径一致，不另记条目。
+
+⚠️ **README 索引落点**：`#279` 在 `## 动效与图表索引` 这一节下新开
+`### Shader 背景与效果 / Shaders（import OhMyDesignShaders）` 子表（9 行 = 6 个类型 + 3 个入口点，`#283` 的 `glassOrb` / `halftone` 已并入），
+沿用《下游连锁三》按 `import` 分组的可读性口径；该子表落在 `readmeIndexRows` 已有的第 2 段解析范围
+（`## 动效与图表索引 → ## NFR-1 帧率基准`）内，`readmeIndexSectionsAllParse` 与
+`registryEntriesAreCoveredByReadme` 两个方向因此都覆盖到它。
+逐单位 `components/*.md` 已由 `#368`（`GlassSymbol`）与 `#284`（其余 16 个）落地，子表第三列链到它们；⚠️ 本仓没有「README 里的 md 链接必须存在」这条判据，链接是否悬空不受机器守护。

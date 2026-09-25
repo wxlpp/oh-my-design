@@ -125,7 +125,11 @@ struct ComponentTextParamGuard {
         #expect(result.ghostRegistryParams.isEmpty,
                 "登记表里这些 textParams 在源码里找不到对应参数（改名？改类型？删了？）：\(result.ghostRegistryParams)")
 
-        #expect(Set(result.exemptedByRegistryNotes) == ["LabelIcon.init#systemName"],
+        // ⚠️ **`#279` 起是两条**：`GlassSymbol.init#systemName`（`OhMyDesignShaders`）与
+        // `LabelIcon.init#systemName` 是同一类参数（SF Symbol 标识符，公约 §4「点名收编：
+        // 编译期符号名」），走同一条 notes 授权通道。处置刻意**不是**把它塞进 `textParams`
+        // ——那会把符号标识符错记成界面文案。
+        #expect(Set(result.exemptedByRegistryNotes) == ["GlassSymbol.init#systemName", "LabelIcon.init#systemName"],
                 """
                 notes 授权豁免集合变了：实际 \(result.exemptedByRegistryNotes)。这条通道是 FR-4 唯一的语义豁免入口，\
                 授权者是登记表 notes 而不是判据作者，集合变化必须有人过目
@@ -159,9 +163,9 @@ struct ComponentTextParamGuard {
                 LSK/LSR 由类型判定的键实测 25 条（`#373` 新增 FormField 的 label / description 后由 17 变为 19；`#376` Banner 便利 init 的 title / message 使 19 变为 21；`#420` TimelineItem 的 title / description 使 21 变为 23；`#417` StatefulButton 便利 init 的 titleKey、`#418` SlideToConfirm 便利 init 的 titleKey 使 23 变为 25），实际 \(result.localizedByType.count)：\(result.localizedByType)。\
                 变化意味着有参数在 LSK/LSR 与裸串之间换了类型 —— 要人过目，不能静默
                 """)
-        #expect(result.carrying.count == 7,
+        #expect(result.carrying.count == 8,
                 """
-                text-carrying 键实测 7 条（移除 BottomInputBar 后由 10 变为 7），\
+                text-carrying 键实测 8 条（移除 BottomInputBar 后由 10 变为 7；`#279` 扩根到 OhMyDesignShaders 后新增 assertShaderLibraryLoadable#functions，由 7 变为 8），\
                 实际 \(result.carrying.count)：\(result.carrying)。\
                 本桶（Binding<String> / 回调等）不进主判据，但它是**文案经此进入组件**的通道，\
                 静默增长等于 FR-4 的定义域在无人过目的情况下缩小

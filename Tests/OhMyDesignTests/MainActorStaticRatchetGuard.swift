@@ -26,6 +26,7 @@ struct MainActorStaticRatchetGuard {
 
     nonisolated static let registeredExemptions: Set<String> = [
         "OhMyDesign:CoreElevation.spec(for:)",
+        "OhMyDesignShaders:OhMyDesignShaders.assertShaderLibraryLoadable(functions:)",
     ]
 
     nonisolated static let requiredScriptLiterals: [(literal: String, reason: String)] = [
@@ -487,9 +488,9 @@ struct MainActorStaticRatchetGuard {
     @Test("豁免表与树内登记逐条相符（双向差集）")
     func exemptionTableMatchesRegisteredTable() throws {
         #expect(
-            Self.registeredExemptions.count == 1,
+            Self.registeredExemptions.count == 2,
             """
-            `registeredExemptions` 的条数变了（期望 1，实际 \(Self.registeredExemptions.count)）。
+            `registeredExemptions` 的条数变了（期望 2，实际 \(Self.registeredExemptions.count)）。
             往豁免表里加一行是破例动作：默认处置是给那个成员加 `nonisolated`。
             确实修不掉才登记，并同轮改这个数。
             """

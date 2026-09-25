@@ -16,6 +16,7 @@
 		B3A4B6D28DD4BC63E1E2D51B /* Previews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9992A17738F2872A0E4039C1 /* Previews.swift */; };
 		B8A1311BC9B3C698B221B8B2 /* ComponentData.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBC8619BDF21D1BB28527B29 /* ComponentData.swift */; };
 		BBAF1C6204AB31CD642C1D2E /* OhMyDesignEffects in Frameworks */ = {isa = PBXBuildFile; productRef = F0637438DF78B75736D96E06 /* OhMyDesignEffects */; };
+		A5C81D3F7B2E9046CD15A8E3 /* OhMyDesignShaders in Frameworks */ = {isa = PBXBuildFile; productRef = B7E24F9A1D6C3085AE93C2F7 /* OhMyDesignShaders */; };
 		E1EDF8CE99753F578C535EC5 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 664BDBD9CA1E9907403F1788 /* ContentView.swift */; };
 		F56026993D43D38875295200 /* ComponentDetail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05ED1ECA4D1724AD3ED51E03 /* ComponentDetail.swift */; };
 /* End PBXBuildFile section */
@@ -51,6 +52,7 @@
 				7E6BBCEE46528A7EA45871F5 /* OhMyDesign in Frameworks */,
 				BBAF1C6204AB31CD642C1D2E /* OhMyDesignEffects in Frameworks */,
 				AB4A16BCB4F306B82DA677AB /* OhMyDesignCharts in Frameworks */,
+				A5C81D3F7B2E9046CD15A8E3 /* OhMyDesignShaders in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -152,6 +154,7 @@
 				820E8D08FE8BFC0C5DDE3CD9 /* OhMyDesign */,
 				F0637438DF78B75736D96E06 /* OhMyDesignEffects */,
 				15EE65325819E9711559AB06 /* OhMyDesignCharts */,
+				B7E24F9A1D6C3085AE93C2F7 /* OhMyDesignShaders */,
 			);
 			productName = OhMyDesignPreview;
 			productReference = 2DCF2C20B572DCE3EAA81FE7 /* OhMyDesignPreview.app */;
@@ -483,6 +486,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 3E5E7A9054B716DA0E19BA9B /* XCRemoteSwiftPackageReference "SnapshotPreviews" */;
 			productName = SnapshottingTests;
+		};
+		B7E24F9A1D6C3085AE93C2F7 /* OhMyDesignShaders */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OhMyDesignShaders;
 		};
 		F0637438DF78B75736D96E06 /* OhMyDesignEffects */ = {
 			isa = XCSwiftPackageProductDependency;

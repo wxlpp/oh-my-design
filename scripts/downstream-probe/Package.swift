@@ -24,20 +24,18 @@ let package = Package(
         .package(name: "OhMyDesign", path: "../.."),
     ],
     targets: [
-        // ⚠️ 三个 product 都要接（#247）：本 probe 验的是「下游从 **nonisolated 上下文**
+        // ⚠️ 四个 library product 都要接（#247 / #284）：本 probe 验的是「下游从 **nonisolated 上下文**
         // 能不能用这些类型」，而 `.defaultIsolation(MainActor.self)` 是**逐 target** 生效的
-        // ——只接 `OhMyDesign` 的话，Effects / Charts 的隔离契约在结构上无人验证。
-        //
-        // ⚠️ **`OhMyDesignShaders` 有意未接**：它还不存在（`shipswift-foundation` AD-A：
-        // 该 target 归 `shipswift-shaders` 的 B-1 建，闸不过就不该留一个空 product）。
-        // **manifest 接线与实质调用点都归 B-4**——B-1 那时只有 target 骨架、没有 shader
-        // 类型可调。与根 `Package.swift` 里"有意不预留 Shaders product"那段对称。
+        // ——只接 `OhMyDesign` 的话，其余 target 的隔离契约在结构上无人验证。
+        // ⚠️ `OhMyDesignShaders` 在本 probe 里**只能 build-only**：原生 `swift build` 不编译 `.metal`，
+        // bundle 里没有 metallib，一旦触发渲染只会静默画不出东西 ⇒ 调用点只构造值与视图，不渲染。
         .target(
             name: "DownstreamProbe",
             dependencies: [
                 .product(name: "OhMyDesign", package: "OhMyDesign"),
                 .product(name: "OhMyDesignEffects", package: "OhMyDesign"),
                 .product(name: "OhMyDesignCharts", package: "OhMyDesign"),
+                .product(name: "OhMyDesignShaders", package: "OhMyDesign"),
             ]
         ),
         // ⚠️⚠️ **独立 target，只接 `OhMyDesign` 一个 product——这是承重的，别给它加依赖。**

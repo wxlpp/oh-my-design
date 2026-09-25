@@ -13,7 +13,7 @@ import os
 import re
 import sys
 
-TARGETS = ["OhMyDesign", "OhMyDesignEffects", "OhMyDesignCharts"]
+TARGETS = ["OhMyDesign", "OhMyDesignEffects", "OhMyDesignCharts", "OhMyDesignShaders"]
 
 # 当前钉法是**精确值**，不是留有余量的下界：任何删除即判红，任何新增也判红并要求
 # 有人看一眼再改数。随源码变动时连同 PR 正文写明增减理由。
@@ -23,6 +23,9 @@ FLOORS = {
     # 2026-09-08 设计系统配色回灌：colors +3（inkPrimary / dataAccent / dataAccentSubtle）、
     # components +1（InkSegmentedControlStyle）、viewext +1（View.coreAccent）、
     # styleext +3（SegmentedControlStyle 的 .glass / .plain / .ink 三个静态入口）。
+    # 2026-09-14 shader 集成（stage-2 移植）：TARGETS 加 OhMyDesignShaders ⇒
+    # components 91→97（6 个 public struct: View）、enums 30→41、enumcases 110→144、
+    # viewext 41→44（View.refractiveGlass / glassOrb / halftone）、others 29→30。
     # #312：enums +5（五个 …Layout 配置枚举）、enumcases +18（4 + 4 + 4 + 3 + 3）。
     # #375：enumcases +1（StatusLevel.neutral）。
     # #378：enums +1（AvatarSize）、enumcases +2（.automatic / .fixed）。
@@ -48,8 +51,13 @@ FLOORS = {
     # Timeline.init(layout:progress:content:) 与 EnvironmentValues.timelinePhase 不在任何计数节里。
     # #417：components +1（StatefulButton）、enums +1（StatefulButtonState）、
     # enumcases +4（idle / loading / success / failure）。#418：components +1（SlideToConfirm）。
-    "colors": 124, "components": 93, "enums": 50, "enumcases": 169,
-    "protocols": 6, "viewext": 47, "styleext": 15, "others": 28,
+    # #282 批 A：components +4（Metaballs / DotOrbit / Voronoi / SmokeRing）、enums +4（各一个档位枚举）、enumcases +12（3 × 4）。
+    # #282 批 B：components +4（Swirl / SimplexNoise / ColorPanels / StarNest）、enums +4、enumcases +12（3 × 4）。
+    # #368：protocols +1（GlassSymbolStyle）、components +1（PlainGlassSymbolStyle）、
+    # others +1（GlassSymbolStyleConfiguration）、viewext +1（View.glassSymbolStyle）。
+    # #284：others +1（@_spi(OhMyDesignBenchmark) ShaderRenderProbe）。
+    "colors": 124, "components": 108, "enums": 69, "enumcases": 227,
+    "protocols": 7, "viewext": 51, "styleext": 15, "others": 31,
 }
 
 # 组件判定：conformance 列表里出现这些名字之一，或以 Style 结尾。

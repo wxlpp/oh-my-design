@@ -97,7 +97,11 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 ## 动效与图表索引 / Effects & Charts Index
 
 `OhMyDesignEffects`（36 个）与 `OhMyDesignCharts`（4 个）的 API 单位。由
-`shipswift-effects` epic（#242）落地，逐单位说明见各自的 `components/*.md`。
+`shipswift-effects` epic（#242）落地，逐单位说明见各自的 `components/*.md`；
+**外加 `OhMyDesignShaders` 的 9 个单位**（`#261` 落地 7 个、`#279` 接进登记表，
+`#283` 再加 `glassOrb` / `halftone` 两个），见本节最后一张表。
+⚠️ 那 9 个的 `components/*.md` 尚未落地（逐件文档是一次独立的批量工作），
+本表的「说明」列因此指向源码与 provenance 对账表，而不是不存在的文档链接。
 
 > ⚠️ **落点说明（`#256` 原文 → `#270` 改写）**：`#256` 当时写的是「本节刻意不在
 > 『## 组件索引』之内，因为这 40 个单位不是登记条目，写进去会让
@@ -198,11 +202,42 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 | ActivityHeatmap | `ActivityHeatmap(_:title:tint:calendar:layout:)` | [activity-heatmap.md](components/activity-heatmap.md) |
 | NetworkGraph | `NetworkGraph(nodes:edges:title:tint:layout:)` | [network-graph.md](components/network-graph.md) |
 
+### Shader 背景与效果 / Shaders（`import OhMyDesignShaders`）
+
+⚠️ **本组单位由 `#261` / `#283` / `#282` 落地、`#279` 接进登记表**（`#282` 的 paper 移植背景分批落地）。`#261` 的 8 个里
+`Starfield` 已随 `#281` 撤回（上游 CC BY-NC-SA 3.0 与本仓 MIT 分发不兼容），整件删除
+⇒ 现存单位 = `#261` 的 7 个自有内容 / 重采样单位 + `#283` 的 `glassOrb` / `halftone` + `#282` 的 8 个移植背景（见下表）。
+⚠️ **本组一律不作原创声称**，逐件裁定见 [`shader-provenance.md`](shader-provenance.md)。
+⚠️ 用原生 `swift build` 消费本 product 时须加 `--build-system swiftbuild`：原生构建不编译 `.metal`，shader 会静默失效。构建约束见仓根 `CLAUDE.md`。
+
+| 单位 | 入口 | 说明 |
+|---|---|---|
+| Plasma | `Plasma(tint:density:motion:)` | [plasma.md](components/plasma.md)；程序化等离子背景 |
+| FractalClouds | `FractalClouds(tint:density:motion:)` | [fractal-clouds.md](components/fractal-clouds.md)；分形云层，FBM + 域扭曲 |
+| InkSmoke | `InkSmoke(tint:density:motion:)` | [ink-smoke.md](components/ink-smoke.md)；墨烟，两级域扭曲 + 陡对比 |
+| LiquidChrome | `LiquidChrome(tint:density:motion:)` | [liquid-chrome.md](components/liquid-chrome.md)；液态铬带 |
+| DotGrid | `DotGrid(tint:spacing:motion:)` | [dot-grid.md](components/dot-grid.md)；规则点阵，可选同心波呼吸 |
+| GlassSymbol | `GlassSymbol(_:tint:strength:accessibilityLabel:)` | [glass-symbol.md](components/glass-symbol.md)；渲染成折射玻璃的 SF Symbol，外观扩展点 `GlassSymbolStyle` / `.glassSymbolStyle(_:)` |
+| refractiveGlass | `View.refractiveGlass(corner:strength:rim:isEnabled:)` | [refractive-glass.md](components/refractive-glass.md)；把内容渲染成折射玻璃；⚠️ 与系统 `.glassEffect()` 是两回事 |
+| glassOrb | `View.glassOrb(size:magnification:)` | [glass-orb.md](components/glass-orb.md)；跟手的玻璃珠放大镜，圆内随距离衰减地放大；⚠️ 移植自 Inferno 的 `WarpingLoupe.metal`（MIT，须署名） |
+| Metaballs | `Metaballs(tint:count:motion:)` | [metaballs.md](components/metaballs.md)；彩色小球游走并融合成黏连形状；⚠️ 移植自 paper `metaballs.ts`（Apache-2.0，须署名 + 修改标注） |
+| DotOrbit | `DotOrbit(tint:density:motion:)` | [dot-orbit.md](components/dot-orbit.md)；点阵中每个点绕格心公转；⚠️ 移植自 paper `dot-orbit.ts`（Apache-2.0） |
+| Voronoi | `Voronoi(tint:cellSize:motion:)` | [voronoi.md](components/voronoi.md)；漂移的 Voronoi 细胞；⚠️ 移植自 paper `voronoi.ts`（Apache-2.0）→ iq `ldl3W8`（MIT） |
+| SmokeRing | `SmokeRing(tint:thickness:motion:)` | [smoke-ring.md](components/smoke-ring.md)；噪声扰动的烟环；⚠️ 移植自 paper `smoke-ring.ts`（Apache-2.0） |
+| Swirl | `Swirl(tint:bands:motion:)` | [swirl.md](components/swirl.md)；从中心旋出的彩色条带；⚠️ 移植自 paper `swirl.ts`（Apache-2.0）+ Ashima simplex（MIT） |
+| SimplexNoise | `SimplexNoise(tint:banding:motion:)` | [simplex-noise.md](components/simplex-noise.md)；双层 simplex 噪声的阶梯色带；⚠️ 移植自 paper `simplex-noise.ts`（Apache-2.0）+ Ashima simplex（MIT） |
+| ColorPanels | `ColorPanels(tint:style:motion:)` | [color-panels.md](components/color-panels.md)；绕中轴翻转的半透明彩色面板；⚠️ 移植自 paper `color-panels.ts`（Apache-2.0） |
+| StarNest | `StarNest(tint:depth:motion:)` | [star-nest.md](components/star-nest.md)；体积分形星云；⚠️ 移植自 Kali 的「Star Nest」（作者声明 MIT，原页许可头待人工目视核验）；`.deep` 成本高 |
+| halftone | `View.halftone(dot:ink:paper:)` | [halftone.md](components/halftone.md)；半调网屏，按 45° 网格用点的大小表示明暗；⚠️ 移植自 paper `halftone-dots.ts`（Apache-2.0，须署名 + 修改标注） |
+
 ## NFR-1 帧率基准 / Frame-rate benchmark
 
 `./scripts/run-perf-benchmark.sh` 把 Confetti（默认粒子数）与 NetworkGraph（声明的节点 /
 边上限）放进**真实运行的 App** 里，用 `CADisplayLink` 采样帧间隔并按「掉帧率 ≤ 5%」判定。
 第一条腿是**对照组**（每帧主线程死等 40 ms），它必须被判为掉帧 —— 否则这把秤是坏的。
+`#284` 起另有 14 条 shader 腿：13 个程序化背景各满屏跑一遍，外加 `StarNest(depth: .deep)`。
+⚠️ shader 腿的 `drawnFrames` 是 `visualEffect` 闭包求值次数，不是帧数；`dropped` 量的是主线程节奏，
+不是 GPU 帧时间。
 
 每条 `[perf]` 行带三样必须连带看的读数（PR #294 终审 C-1 / C-2 / I-1）：
 
@@ -217,7 +252,7 @@ Run `scripts/run-snapshots.sh` to regenerate preview PNGs for all components wit
 
 ⚠️ **Simulator 上跑绿不构成 NFR-1 达标证据**（PRD 钉的是「iPhone 15 满帧」，
 Simulator 没有真实 GPU 调度）。真机跑法见脚本头部注释。
-⚠️ **截至 `#256` 合入，真机那一次尚未执行。**
+真机已在 `#284` 跑过（iPhone 15 Pro，全部 17 条腿通过，读数见该 issue）。⚠️ 那次按 60 Hz 调度，120 Hz 下没有量过。
 ⚠️ **本脚本不在任何 CI 腿里**（`App/` 整个不在 CI 里，见 `.github/workflows/ci.yml`）
 —— 上面那类回归只能靠有人手跑它才会被发现。
 

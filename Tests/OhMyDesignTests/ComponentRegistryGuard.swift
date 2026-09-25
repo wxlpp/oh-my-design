@@ -319,8 +319,8 @@ struct ComponentRegistryGuard {
         #expect(Set(entries.map(\.component)).count == entries.count,
                 "登记表存在重名 component 条目——差集判据会把重名静默吞掉")
 
-        #expect(entries.filter { $0.repo == "ohmydesign" }.count == 61,
-                "OhMyDesign 侧条目数不是 61（`#380` 新增 TagGroup 后由 56 变为 57，`#422` 新增 Tree 后变为 58，`#420` TimelineItem 成为公开 View 后变为 59，`#417` StatefulButton、`#418` SlideToConfirm 各 +1 后变为 61）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
+        #expect(entries.filter { $0.repo == "ohmydesign" }.count == 75,
+                "OhMyDesign 侧条目数不是 75（`#270` / `#279` 扩扫描根到 Effects / Charts / Shaders 并按判定法补录；`#380` 新增 TagGroup 后由 56 变为 57，`#422` 新增 Tree 后变为 58，`#420` TimelineItem 成为公开 View 后变为 59，`#417` StatefulButton、`#418` SlideToConfirm 各 +1；与 shaders epic 合并后为 67，`#282` 批 A 四个 paper 移植背景使 67 变为 71，批 B 的 Swirl / SimplexNoise / ColorPanels / StarNest 使 71 变为 75）——若为新增属预期变化请同步改这个数字；若无源码变更条目却变了，是静默删条目/改 repo 的信号")
         #expect(entries.filter { $0.repo == "storyui" }.count == 25,
                 "StoryUI 侧条目数不是 25——CI 无法跨仓核对源码，这条固定计数断言是 #43 落地前唯一挡「静默删条目」的机器判据，不得放宽为 print")
 
@@ -344,13 +344,13 @@ struct ComponentRegistryGuard {
         `decidedBy: pendingStep2` 的条目集合变了：实际 \(pendingStep2.sorted())，        已知 \(Self.knownPendingStep2Enumeration.sorted())。
         `pendingStep2` 的含义是「公约步骤 2 的候选枚举与来源核验尚未完成，本条不声称任何出口，        按可逆的一侧（prescriptive / 不给扩展点）缓办登记」——它是**台账**，不是判定结论。
         · 变小：若某条真的补完了枚举，落点应改成 step1/step2/step3/tiebreaker 之一，        并同步从本表移除；若只是把标记删掉，那是把缓办伪装成已判。
-        · 变大：又出现了一条跳过枚举的条目 —— 须在 notes 里写明成因，并挂进一个**尚未关闭**的承接 issue        （`pendingStep2FollowUpIssue`，`#315` 终审 I-6 后为 nil，须当轮显式指定；`#299` 将随 PR #315 关闭，不得复用）。
+        · 变大：又出现了一条跳过枚举的条目 —— 须在 notes 里写明成因，并挂进一个**尚未关闭**的承接 issue        （`pendingStep2FollowUpIssue`，`#315` 终审 I-6 后须当轮显式指定，不得复用已关闭的承接口）。
         """)
 
         for e in entries where e.decidedBy == "pendingStep2" {
             guard let followUp = Self.pendingStep2FollowUpIssue else {
                 Issue.record("""
-                出现了 pendingStep2 条目 \(e.component)，但 pendingStep2FollowUpIssue 仍是 nil。                缓办必须挂在一个**尚未关闭**的承接 issue 上 —— 请先把该常量改成本轮的 issue 号                （⚠️ `#299` 将随 PR #315 关闭，不得复用），再挂条目。
+                出现了 pendingStep2 条目 \(e.component)，但 pendingStep2FollowUpIssue 仍是 nil。                缓办必须挂在一个**尚未关闭**的承接 issue 上 —— 请先把该常量改成本轮的 issue 号                （⚠️ 不得复用已关闭的承接口），再挂条目。
                 """)
                 continue
             }

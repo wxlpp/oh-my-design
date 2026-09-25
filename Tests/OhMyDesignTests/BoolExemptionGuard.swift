@@ -367,8 +367,11 @@ struct BoolExemptionGuard {
     func qualificationValidatorActuallyFires() {
         #expect(!Self.qualificationProblems(ofKey: "OhMyDesign/Foo.init#flag").isEmpty,
                 "主 target 的显式前缀不会红 —— 上面那条判据在现存 32 个裸形键上从不执行")
-        #expect(!Self.qualificationProblems(ofKey: "OhMyDesignShaders/Foo.init#flag").isEmpty,
-                "不存在的 target 前缀不会红")
+        // ⚠️ 反例名集中一处（`#279`）：这里曾写死 `"OhMyDesignShaders"`，该名字在 target
+        // 进根列表当天变成**合法**名、反例成正例（失效形态是当场判红，不是静默变绿）。
+        #expect(!Self.qualificationProblems(
+            ofKey: "\(GuardScanRoots.nonexistentFixtureTargetName)/Foo.init#flag"
+        ).isEmpty, "不存在的 target 前缀不会红")
         #expect(Self.qualificationProblems(ofKey: "OhMyDesignEffects/Foo.init#flag").isEmpty,
                 "合法的新 target 前缀被误报")
         #expect(Self.qualificationProblems(ofKey: "Badge.init#outlined").isEmpty,
@@ -505,6 +508,7 @@ struct BoolExemptionGuard {
             "OhMyDesign": .init(exemptions: 2, sourceSites: 2),
             "OhMyDesignEffects": .init(exemptions: 0, sourceSites: 0),
             "OhMyDesignCharts": .init(exemptions: 0, sourceSites: 0),
+            "OhMyDesignShaders": .init(exemptions: 0, sourceSites: 0),
         ]
         let hedged = Self.perTargetProblems(
             perTarget: baseline,

@@ -48,6 +48,11 @@ struct EffectsColorLiteralGuard {
         return out
     }
 
+    /// ⚠️ **`.metal` 不在射程内（AD-F）**：本守卫是 SwiftSyntax 解析器，只认 `.swift` ⇒
+    /// `Sources/OhMyDesignShaders/OhMyDesignShaders.metal` 里写死的色它一个都看不见。
+    /// 那一层**登记为已知无机器判据、由评审覆盖**；Shaders 侧的「`.metal` 一律零硬编码色」
+    /// 靠实现纪律（颜色经 `ShaderRamp` 从调用方 `tint` 推导后用 `.color(...)` 传进去），
+    /// 留痕见 `ShadersScanRootGuard.shadersRootYieldsFiles` 打出的 `.metal` 计数。
     @Test("新 target 里零色相字面量")
     func noColorLiteralsInNewTargets() throws {
         #expect(GuardScanRoots.assertRootsExist(GuardScanRoots.newTargetRoots))

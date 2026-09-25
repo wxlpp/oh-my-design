@@ -11,7 +11,15 @@ nonisolated enum GuardScanRoots {
 
     static let primaryTargetName = "OhMyDesign"
 
-    static let targetNames: [String] = ["OhMyDesign", "OhMyDesignEffects", "OhMyDesignCharts"]
+    static let targetNames: [String] = ["OhMyDesign", "OhMyDesignEffects", "OhMyDesignCharts", "OhMyDesignShaders"]
+
+    /// 合成 fixture 专用的**保证不存在**的 target 名（`#279`）。
+    ///
+    /// ⚠️ `BoolExemptionGuard` / `ExtensionEntryPointGuard` 两处「前缀指向不存在的 target ⇒ 判红」
+    /// 的变红自证曾把 `"OhMyDesignShaders"` 写死当反例 —— 该名字在 target 进本列表的当天变成
+    /// **合法**名，反例遂成正例、两条自证**当场判红**（不是静默变绿）。⇒ 名字集中这里，
+    /// 并由 `nonexistentFixtureTargetIsReallyAbsent` 钉住「它真的不存在」这条性质。
+    static let nonexistentFixtureTargetName = "OhMyDesignNoSuchTargetFixture"
 
     static var newTargetNames: [String] { Self.targetNames.filter { $0 != Self.primaryTargetName } }
 
@@ -154,6 +162,13 @@ nonisolated enum GuardScanRoots {
         let name: String
         let isLibrary: Bool
         let hasResources: Bool
+        /// 块内 `.process("…")` / `.copy("…")` 逐条写出的资源路径（相对 `Sources/<name>/`）。
+        ///
+        /// ⚠️ **`#279` 新增**：此前 `moduleBundleOwnership` 只凭 `hasResources` 断言
+        /// 「有 `resources:` ⇔ `Sources/<t>/Resources/` 目录在」——把资源声明写死成了一种形态。
+        /// `OhMyDesignShaders` 声明的是单个文件 `.process("OhMyDesignShaders.metal")`
+        /// ⇒ 改逐条核对磁盘存在性，覆盖目录与文件两种形态，且比原判据更严。
+        let resourcePaths: [String]
     }
 
     static func declaredTargets(sourceLocation: SourceLocation = #_sourceLocation) throws -> [DeclaredTarget] {
@@ -178,6 +193,7 @@ nonisolated enum GuardScanRoots {
         var currentName: String?
         var currentIsLibrary = false
         var currentHasResources = false
+        var currentResourcePaths: [String] = []
         var currentHasPath = false
         var awaitingName = false
 
@@ -194,7 +210,10 @@ nonisolated enum GuardScanRoots {
                     与 `sourcesURL(of:)` 让根列表读得到 `path:`。**不要**直接删本断言。
                     """, sourceLocation: sourceLocation)
                 }
-                out.append(.init(name: name, isLibrary: currentIsLibrary, hasResources: currentHasResources))
+                out.append(.init(
+                    name: name, isLibrary: currentIsLibrary,
+                    hasResources: currentHasResources, resourcePaths: currentResourcePaths
+                ))
             } else {
                 Issue.record("""
                 Package.swift:\(openedAtLine) 的 target 块解析不出 name（name 可能不是字符串字面量）
@@ -208,6 +227,7 @@ nonisolated enum GuardScanRoots {
             currentName = nil
             currentIsLibrary = false
             currentHasResources = false
+            currentResourcePaths = []
             currentHasPath = false
             awaitingName = false
         }
@@ -229,11 +249,37 @@ nonisolated enum GuardScanRoots {
                 awaitingName = false
             }
             if code.contains("resources:") { currentHasResources = true }
+            // ⚠️ 逐条收 `.process("…")` / `.copy("…")` 的实参（`#279`）。**只在块内收**
+            // ——`open` 为真时才走到这里，故不会把 manifest 别处的同名调用记到本块上。
+            currentResourcePaths.append(contentsOf: Self.resourceRuleArguments(in: code))
             if code.contains("path:") { currentHasPath = true }
             depth += Self.parenDelta(of: code)
             if depth <= 0 { flush() }
         }
         flush()
+        return out
+    }
+
+    /// 取出一行代码里 `.process("…")` / `.copy("…")` 的字符串实参（`#279`）。
+    ///
+    /// ⚠️ **只认字面量实参**：`.process(someVar)` 取不到、静默略过 —— 那不是洞：
+    /// `moduleBundleOwnership` 的 ① 会替它红（`hasResources` 走 `resources:` 标签、
+    /// 与本函数无关 ⇒ 变量形态就是「声明侧为真、路径侧为空」）。
+    /// 残余形态是**误取**（拼接实参被截成前半截字面量），记在该测试的文档里。
+    static func resourceRuleArguments(in code: String) -> [String] {
+        var out: [String] = []
+        for marker in [".process(", ".copy("] {
+            var searchFrom = code.startIndex
+            while let start = code.range(of: marker, range: searchFrom ..< code.endIndex) {
+                searchFrom = start.upperBound
+                let rest = code[start.upperBound...]
+                guard let openQuote = rest.firstIndex(of: "\"") else { continue }
+                guard rest[rest.startIndex ..< openQuote].allSatisfy({ $0 == " " }) else { continue }
+                let after = rest.index(after: openQuote)
+                guard let closeQuote = rest[after...].firstIndex(of: "\"") else { continue }
+                out.append(String(rest[after ..< closeQuote]))
+            }
+        }
         return out
     }
 
@@ -632,8 +678,11 @@ struct GuardScanRootsGuard {
         #expect(clean.map(\.name) == ["Foo", "FooTests"], "无 path: 的合成 manifest 解析结果变了")
     }
 
-    @Test("`Sources/OhMyDesignShaders/` 尚不存在，因此**不得**进根列表（防 fail-open）")
-    func shadersRootIsDeliberatelyAbsent() {
+    /// ⚠️ **`#279` 起两侧都为真**（`OhMyDesignShaders` 已进 `targetNames`）；等式本身一个字没放松。
+    /// ⚠️ 本条只对 Shaders 一个 target 逐字成立：全表那条是 `libraryTargetsAreCoveredByScanRoots`
+    /// （与 `Package.swift` 双向差集），它看不到磁盘上有没有那棵树 —— 本条补的正是这一格。
+    @Test("`Sources/OhMyDesignShaders/` 与根列表同进同退（`#279` 起两侧都为真）")
+    func shadersRootIsListedAlongsideItsDirectory() {
         let shaders = GuardScanRoots.sourcesURL(of: "OhMyDesignShaders")
         let exists = FileManager.default.fileExists(atPath: shaders.path)
         let listed = GuardScanRoots.targetNames.contains("OhMyDesignShaders")
@@ -642,8 +691,12 @@ struct GuardScanRootsGuard {
         · 目录不存在却进了列表 ⇒ 「每个根断言目录存在」会红（fail-closed，符合预期）；
         · 目录存在却没进列表 ⇒ 该 target 的源码**完全不受守卫覆盖**，且所有 grep 判据
           在它上面无命中即绿（fail-open）。处置：把 `OhMyDesignShaders` 加进
-          `GuardScanRoots.targetNames`（`shipswift-shaders` 的 B-1）。
+          `GuardScanRoots.targetNames`。
         """)
+        // ⚠️ **承重半句**：上面那条等式在「两侧都为 false」时同样成立
+        // ——即「把 target 从 manifest、根列表、磁盘上一起删干净」也绿，现状必须有判据钉着。
+        #expect(exists, "`Sources/OhMyDesignShaders/` 不见了 —— 上面那条对称等式会在「两侧都为 false」时静默变绿")
+        #expect(listed, "`OhMyDesignShaders` 不在 `GuardScanRoots.targetNames` 里 —— 同上")
     }
 
     // MARK: - NFR-4：零 `@unchecked Sendable`
@@ -701,6 +754,18 @@ struct GuardScanRootsGuard {
 
     // MARK: - 台账键的 target 前缀
 
+    /// ⚠️ **`#279`**：两处变红自证（`BoolExemptionGuard` / `ExtensionEntryPointGuard`）共用
+    /// `nonexistentFixtureTargetName` 当反例，它必须真的不在根列表里，否则那两条自证会
+    /// 退化成「反例其实是正例」。
+    @Test("合成 fixture 用的「不存在的 target 名」真的不存在")
+    func nonexistentFixtureTargetIsReallyAbsent() {
+        let name = GuardScanRoots.nonexistentFixtureTargetName
+        #expect(!GuardScanRoots.targetNames.contains(name),
+                "`nonexistentFixtureTargetName`（\(name)）竟然在 `targetNames` 里 —— 以它为反例的两条变红自证会退化成正例。处置：换一个真的不存在的名字，**不要**删这条断言")
+        #expect(!FileManager.default.fileExists(atPath: GuardScanRoots.sourcesURL(of: name).path),
+                "磁盘上竟然有 `Sources/\(name)/` —— 同上")
+    }
+
     @Test("台账键前缀：主 target 走裸形，新 target 必须带前缀")
     func qualifiedKeyShape() {
         #expect(GuardScanRoots.qualifiedKey(target: "OhMyDesign", base: "Badge.init#outlined")
@@ -716,30 +781,89 @@ struct GuardScanRootsGuard {
                 != GuardScanRoots.qualifiedKey(target: "OhMyDesignCharts", base: "Foo.init#flag"))
     }
 
-    @Test("`.module` 归属：manifest 的 `resources:` 与 `Resources/` 目录同进同退")
-    func moduleBundleOwnership() {
+    /// ⚠️ **`#279` 起逐条路径核对**：此前断言「`resources:` ⇔ `Sources/<t>/Resources/` 目录在」，
+    /// 把资源声明写死成一种形态 —— `OhMyDesignShaders` 声明的是单个文件
+    /// `.process("OhMyDesignShaders.metal")`，原判据会红在一个并不存在的问题上。
+    /// 新形态覆盖目录与文件两种，且比原判据更严（原判据抓不到声明里写错的文件名）。
+    /// ⚠️ 残余形态是**误取**（`resourceRuleArguments` 把拼接实参截成前半截字面量 ⇒ 对着错的
+    /// 路径判绿），这条缝没堵、如实记在这里；兜底的是 SwiftPM 自己（声明指向不存在的路径会构建失败）。
+    @Test("`.module` 归属：manifest 的 `resources:` 逐条路径与磁盘同进同退")
+    func moduleBundleOwnership() throws {
         #expect(GuardScanRoots.ownsResourceBundle("OhMyDesign"),
                 "Package.swift 里 OhMyDesign 的 `resources:` 声明不见了 —— a11y 守卫的 `bundle: .module` 放行条失去依据")
 
+        let declaredTargets = try GuardScanRoots.declaredTargets()
+        // ⚠️ 非空前置：解析器失效 ⇒ 空表 ⇒ 下面整个循环空转 ⇒ 静默变绿。
+        #expect(declaredTargets.count >= GuardScanRoots.targetNames.count,
+                "manifest 只解析出 \(declaredTargets.count) 个 target —— 解析器可能失效，下面的逐条核对会空转")
+
+        var checkedPaths = 0
         for target in GuardScanRoots.targetNames {
             let declared = GuardScanRoots.ownsResourceBundle(target)
+            let root = GuardScanRoots.sourcesURL(of: target)
+            let paths = declaredTargets.first { $0.name == target }?.resourcePaths ?? []
+
+            // ① `hasResources` 与「逐条路径」必须同步 —— 解析器两半自洽。
+            #expect(declared == !paths.isEmpty, """
+            \(target)：`hasResources`=\(declared) 而解析到的资源路径是 \(paths) —— 两者必须同步。
+            出现分歧说明 `resources:` 用了 `resourceRuleArguments` 认不出的形态
+            （非字面量实参、或 `.process` / `.copy` 之外的规则）。
+            """)
+
+            // ② 声明侧 ⇒ 磁盘：每条路径都必须真的存在。
+            for path in paths {
+                let url = root.appendingPathComponent(path)
+                checkedPaths += 1
+                #expect(FileManager.default.fileExists(atPath: url.path), """
+                \(target)：Package.swift 声明了资源 `\(path)`，而 `Sources/\(target)/\(path)` 不存在
+                —— SwiftPM 会直接构建失败；本条只是把它在测试里先说清楚。
+                """)
+            }
+
+            // ③ 磁盘 ⇒ 声明：`Resources/` 目录存在就必须被某条声明覆盖（原判据里承重的半句）。
             var isDirectory: ObjCBool = false
             let dirExists = FileManager.default.fileExists(
-                atPath: GuardScanRoots.sourcesURL(of: target).appendingPathComponent("Resources").path,
-                isDirectory: &isDirectory
+                atPath: root.appendingPathComponent("Resources").path, isDirectory: &isDirectory
             ) && isDirectory.boolValue
-            #expect(declared == dirExists, """
-            \(target)：Package.swift 声明了 `resources:`=\(declared)，而
-            `Sources/\(target)/Resources/` 目录存在=\(dirExists) —— 两者必须一致：
-            · 有目录没声明 ⇒ SwiftPM 只报 unhandled resource 警告、**不合成 `Bundle.module`**，
-              但写 `bundle: .module` 的文本判据会把它当「已本地化」放行（假绿）；
-            · 有声明没目录 ⇒ SwiftPM 构建直接失败。
-            处置：两样一起加，或两样一起删。
-            """)
+            if dirExists {
+                #expect(paths.contains("Resources"), """
+                \(target)：磁盘上有 `Sources/\(target)/Resources/`，而 `resources:` 里没有对应的
+                `.process("Resources")` / `.copy("Resources")`（实际是 \(paths)）—— SwiftPM 只报
+                unhandled resource 警告、**不合成 `Bundle.module`**，而写 `bundle: .module` 的
+                文本判据会把它当「已本地化」放行（假绿）。
+                """)
+            }
+
             if declared, target != GuardScanRoots.primaryTargetName {
-                print("【.module 归属】\(target) 现在拥有自己的资源包 —— 请复核 `AccessibilityStringLiteralGuard` 的按 target 放行逻辑。")
+                // ⚠️ 提醒，不是禁令：新 target 有自己的资源包后，a11y 守卫的按 target 放行逻辑值得复核。
+                print("【.module 归属】\(target) 现在拥有资源声明 \(paths) —— 请复核 `AccessibilityStringLiteralGuard` 的按 target 放行逻辑。")
             }
         }
+        // ⚠️ **下界锚在 `targetNames.count`，不是写死现状条数**：`resourceRuleArguments` 若漏掉
+        // 某几条声明，② 就在被截断的定义域上恒真。锚点必须独立于解析器 —— 由 `declaredTargets()`
+        // 派生的下界会被 ① 蕴含，循环整体空转时一起失效；`targetNames` 是手写常量。
+        #expect(checkedPaths >= GuardScanRoots.targetNames.count, """
+        只核对了 \(checkedPaths) 条资源路径，少于根列表里的 \(GuardScanRoots.targetNames.count) 个 target
+        —— 四个 library target 各声明了一条 `resources:`。低于此数说明 `resourceRuleArguments`
+        漏了声明，②「逐条都在」是在**被截断的定义域**上恒真。⚠️ 若确实新增了不声明资源的 target，
+        见本断言上方注释：要重判出处，不是调小下界。
+        """)
+    }
+
+    /// ⚠️ **`resourceRuleArguments` 的变红自证**（`#279`）：`moduleBundleOwnership` 在提交态
+    /// 数据自洽时自然沉默 ⇒ 「提取器永远返回空」这类退化它测不出活性（②与 `checkedPaths`
+    /// 下界会一起空转）。合成输入把两条都钉住。
+    @Test("资源路径提取器真的会开火（合成输入变红自证）")
+    func resourceRuleArgumentExtraction() {
+        #expect(GuardScanRoots.resourceRuleArguments(in: #".process("Resources")"#) == ["Resources"])
+        #expect(GuardScanRoots.resourceRuleArguments(in: #".copy("a.metal")"#) == ["a.metal"])
+        #expect(Set(GuardScanRoots.resourceRuleArguments(
+            in: #"resources: [.process("Resources"), .copy("x.metal")]"#
+        )) == ["Resources", "x.metal"])
+        // 非字面量实参：取不到（已知缝，见 `moduleBundleOwnership` 文档）。
+        #expect(GuardScanRoots.resourceRuleArguments(in: ".process(pathVar)").isEmpty)
+        // 不是资源规则的调用不许误收。
+        #expect(GuardScanRoots.resourceRuleArguments(in: #".product(name: "Foo", package: "p")"#).isEmpty)
     }
 
     // MARK: - manifest 解析器自身的变红自证（PR #265 终审 S-4）

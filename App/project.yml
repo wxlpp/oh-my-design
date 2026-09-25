@@ -47,6 +47,9 @@ targets:
         product: OhMyDesignEffects
       - package: OhMyDesign
         product: OhMyDesignCharts
+      # ⚠️ `ComponentData.swift` 的 `shaderEntries` 依赖本条（#284 的画廊切片）。
+      - package: OhMyDesign
+        product: OhMyDesignShaders
     settings:
       base:
         SWIFT_VERSION: "6.0"

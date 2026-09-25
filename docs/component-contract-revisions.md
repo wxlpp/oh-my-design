@@ -2295,3 +2295,15 @@ CommonMark 里前导 ≤3 空格**仍是合法表格**（≥4 才进代码块）
   变异实证两条（删掉 `RadarChart` 的 `styleEnum` / 把 `RingChartLayout` 的枚举声明改名，
   各判红一次、还原后判绿），输出见 PR 正文。⚠️ 给 `prescriptive` 条目填 `styleEnum`
   **今天不判红**（无此判据，见 `D-312-1`），不作为变异项。
+
+### R-50｜`#368`：`GlassSymbol` 补做步骤 2 枚举后按公约判定（`pendingStep2` → 出口 1）
+
+- **来源试点**：`#368`（`#279` / PR #301 挂的承接 issue，原承接口 `#299` 已随 PR #315 关闭）。
+- **撞上公约哪一条**：步骤 2 停止规则与来源义务、三分法（补充规则 1 / 4）、作用域三条件、步骤 3 门槛「(A) 不成立 ⇒ 重跑步骤 2」、Tiebreaker 小节下「⚠️ `pendingStep2`」、§2 形态 D 成立条件与 A > B > D > C 优先序。
+- **本条不是公约条文的修订，是一次按现行条文执行的判定。** `pendingStep2` 语义是「还没判」⇒ 本轮为首次判定，不适用「只能补强、不得翻转」；落点变动仍留痕于此。
+- **判定结果**：候选族 A（分级 / 计分文本标签：GitHub / Xbox / PlayStation，槽）+ 候选 B（进度层：Google Play Games / Apple Watch / Xbox，槽）= 2；候选 C（角标：Ant / Material / Fluent，槽，两可）；装饰不计：渲染模式 / 渐变 / 三风格四轴 / Regular–Filled / app-tile 底板。⇒ **出口 1** `step2` / `semantic` / `true`。
+- **改动前（逐字）**：公约《下游连锁五》「**1 条 `pendingStep2`**（`GlassSymbol`）」段；`ComponentRegistryGuard.knownPendingStep2Enumeration = ["GlassSymbol"]`、`pendingStep2FollowUpIssue = "#368"`。
+- **改动后（逐字）**：原段一字不动，追加「⚠️ 再一次更新（`#368`）…」注记；集合收成 `[]`、常量置 `nil`（沿 `#299` 先例，不删）。
+- **落点**：`docs/component-contract.md`（J-2 红名单现状注记 + 下游连锁五注记）。
+- **连带改动**：`docs/component-registry.json`（三字段 + `customStyleProtocol` + `notes`）；`ComponentRegistryGuard.swift`（两处）；`ComponentExtensionPointGuard.swift`（`inspected.count` 16 → 17 + B 臂正向断言）；`ComponentJudgeScannerTests.swift`（自有样式协议集合加 `GlassSymbolStyle`）；`ShadersScanRootGuard.swift`（`realTreeEntryPoints` 加 `View.glassSymbolStyle`）；登记表 `entryPoints[]` 新增 `OhMyDesignShaders/View.glassSymbolStyle`；`CLAUDE.md` / `AGENTS.md` 计数；新增 `Sources/OhMyDesignShaders/GlassSymbolStyle.swift` 与 `Tests/OhMyDesignShadersTests/GlassSymbolStyleTests.swift`；新建 `docs/components/glass-symbol.md`；`docs/README.md` 行；`docs/design-digest.md` 重生成；`docs/contract-defects.md` 新增 `## #368` / `D-368-1`。
+- **验证**：见 PR 正文（变异实证与各腿读数）。
