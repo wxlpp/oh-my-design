@@ -299,8 +299,8 @@ License: MIT
   ```
 
 - ⚠️ **待人工目视核验**：`https://www.shadertoy.com/view/XlfGRj` 原页源码头（`shadertoy.com` 对自动访问全站 403）。
-  核验后照抄**当天页面上的实际写法**替换上面的源码头；未核验前本件**不随 `epic → main` 合入**
-  （见 `docs/shader-provenance.md`《须用户人工完成的核验》第 1 项）。
+  核验后照抄**当天页面上的实际写法**替换上面的源码头（见 `docs/shader-provenance.md`《须用户人工完成的核验》第 1 项）。
+  ⚠️ 原定「未核验前本件不随 `epic → main` 合入」；2026-09-25 仓库所有者明确决定在核验完成前随 epic 合入 `main`，核验仍待做。
 
 ---
 
