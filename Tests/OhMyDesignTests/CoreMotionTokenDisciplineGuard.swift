@@ -64,8 +64,8 @@ struct CoreMotionTokenDisciplineGuard {
             "同 CheckBox：resting / hidden 下为 ContentTransition.identity",
         "Components/Button/StatefulButton.swift|rotationEffect(Self.angle(at: context.date))":
             "转圈层的 TimelineView 只在 spins(_:)（loading 且 .animated）时运行，resting / hidden 下不显示转圈层",
-        "Components/Button/StatefulButton.swift|scaleEffect(self.spins(state) ? Self.hiddenSymbolScale : 1)":
-            "spins(_:) 在 resting / hidden 下恒为假 ⇒ scale 恒为 1",
+        "Components/Button/StatefulButton.swift|scaleEffect(state.isResult ? 1 : StatefulButtonMetrics.hiddenSymbolScale)":
+            "隐藏时缩到 0.4、显示时为 1，与透明度同步切换；resting / hidden 下 transformAnimation 为 nil、直接到位，缩放不可见",
         "Components/Button/StatefulButton.swift|offset(x: dx)":
             "失败抖动由 failureShakes 触发，只在 .animated 下递增；resting / hidden 下 dx 恒为 0",
         "Components/SlideToConfirm/SlideToConfirm.swift|offset(x: offset)":

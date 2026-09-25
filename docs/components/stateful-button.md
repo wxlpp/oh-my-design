@@ -36,10 +36,12 @@ public init(_ titleKey: LocalizedStringKey, state: StatefulButtonState, action: 
 （`Sources/OhMyDesign/Components/Button/StatefulButton.swift`），与参考实现
 Aceternity `stateful-button` 的 `delay: 2` 一致；两个停留时长可分别配置。
 
-外观（形状 / 底色 / 内边距 / 前景色）完全由外层 `ButtonStyle` 决定
+外观（形状 / 底色 / 内边距 / 前景色）由外层 `ButtonStyle` 决定
 ——`.solid()` / `.light()` / `.borderless()` / `.circularGlass` 都能用，
-本组件自己只决定配件槽画哪个符号、槽多宽（槽宽取
-`CoreControlMetrics.iconSize(for:)`，随 `controlSize` 变化）。
+本组件自己只决定配件槽画什么、槽多宽（槽宽取
+`CoreControlMetrics.iconSize(for:)`，随 `controlSize` 变化）。唯一例外是结果符号的**圆底**：
+success 取 `Color.success`、failure 取 `Color.danger`；圆里的字形仍走外层前景色，所以在
+`.solid(role: .danger)` 这种红底上圆底隐没，白色的叉照样可见。
 
 ## 状态机
 
@@ -215,13 +217,13 @@ checked continuation 重复 resume 会崩溃。
 | 态 | 配件符号 | 颜色 | 动效（`.animated`） | 触感 |
 |---|---|---|---|---|
 | `loading` | 自绘弧线（`.resting` / `.hidden` 下为 `arrow.triangle.2.circlepath`） | 跟随按钮前景 | 匀速旋转，0.8 s 一圈（`TimelineView` 按时间算角度） | — |
-| `success` | `checkmark.circle.fill` | `Color.success` | 从 0.4 倍放大淡入 | `.success` |
-| `failure` | `exclamationmark.triangle.fill` | `Color.danger` | 从 0.4 倍放大淡入 + 整个按钮左右抖一下 | `.error` |
+| `success` | `checkmark.circle.fill`（palette：字形走前景色、圆底 `Color.success`） | 圆底绿 | 从 0.4 倍放大淡入 | `.success` |
+| `failure` | `xmark.circle.fill`（palette：字形走前景色、圆底 `Color.danger`） | 圆底红 | 从 0.4 倍放大淡入 + 整个按钮左右抖一下 | `.error` |
 
-`.resting` / `.hidden` 下旋转与抖动都关闭，颜色与触感保留。
+`.resting` / `.hidden` 下不画弧线、改画静态循环箭头，所有层直接换图，放大、淡入与抖动都关闭；颜色与触感保留。
 
-转圈层与结果符号层叠在同一个固定尺寸的槽里、两层恒在，只切透明度：离开 `loading` 时转圈立即停，
-槽宽不变，结果符号不会接着转。⚠️ 不要改回 `.symbolEffect(.rotate)`：它每圈带缓动、读作慢，
+转圈层、静态箭头层与结果符号层叠在同一个固定尺寸的槽里、三层恒在，只切透明度与缩放：离开 `loading` 时
+转圈立即停，槽宽不变，结果符号不会接着转。结果层记住上一次的结果，停留期间点击重试时淡出的是对勾 / 叉本身。⚠️ 不要改回 `.symbolEffect(.rotate)`：它每圈带缓动、读作慢，
 且 `isActive` 转假后会把当前这圈转完，替换进来的结果符号会跟着转。
 
 `StatefulButton` 不转发 `Error`：想拿到错误本身就在 action 内 `catch` 处理完再 `throw` 出来，
@@ -258,13 +260,15 @@ checked continuation 重复 resume 会崩溃。
 
 in-flight 采样（macOS 腿，`HostedWindow` + `cacheDisplay` 逐帧取「两端之外」的像素数）两条：
 
-- `idle → loading`（宽度 / 布局过渡）：animated 臂 > 0（经 `observeControlMotion` 重试），
-  resting 臂 == 0。摘掉动效入口、退回 `.coreAnimation`、把无障碍 modifier 改回条件分支、
-  把 `==` 改成恒真，都会让它判红。它证的是「这次布局过渡有中间帧」，不单独区分宽度补间
-  与配件符号的淡入——两者都会产生两端之外的像素。
+- `idle → loading`（宽度 / 布局过渡）：animated 臂 > 0，resting 臂 == 0。
+  ⚠️ animated 臂现在被转圈层占满：弧线在采样窗内持续旋转，每帧都落在两端之外，
+  摘掉宽度动效入口它照样判绿 ⇒ **宽度补间在 animated 下无判据**。仍有效的只是 resting 臂：
+  退回 `.coreAnimation` 会让宽度在 Reduce Motion 下补间，resting 臂判红。
 - `loading → success`（转圈淡出、结果符号放大淡入）：resting 臂 == 0，animated 臂 > 0。
 
 iOS 腿上 `layer.render(in:)` 取的是模型层、拍不到进行中的帧，这两条只在 macOS 腿跑。
+⚠️ `Color.danger` 是资源色，macOS `swift test` 腿上解析为全透明：failure 的红圆底在那条腿上画不出来，
+`fourStatesRenderDistinctBitmaps` 区分 success / failure 靠的是字形（对勾 vs 叉），不是颜色。
 
 ## 无障碍
 

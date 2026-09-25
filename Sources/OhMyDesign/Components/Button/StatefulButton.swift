@@ -28,16 +28,16 @@ extension StatefulButtonState {
         case .idle: nil
         case .loading: "arrow.triangle.2.circlepath"
         case .success: "checkmark.circle.fill"
-        case .failure: "exclamationmark.triangle.fill"
+        case .failure: "xmark.circle.fill"
         }
     }
 
-    var symbolStyle: AnyShapeStyle {
-        switch self {
-        case .success: AnyShapeStyle(Color.success)
-        case .failure: AnyShapeStyle(Color.danger)
-        case .idle, .loading: AnyShapeStyle(HierarchicalShapeStyle.primary)
-        }
+    nonisolated var isResult: Bool {
+        self == .success || self == .failure
+    }
+
+    var badgeColor: Color {
+        self == .failure ? Color.danger : Color.success
     }
 
     var sensoryFeedback: SensoryFeedback? {
@@ -256,6 +256,7 @@ final class StatefulButtonRunner {
 public struct StatefulButton<Label: View>: View {
     @State private var runner = StatefulButtonRunner()
     @State private var failureShakes = 0
+    @State private var lastResult: StatefulButtonState = .success
 
     @Environment(\.coreMotionPresentation) private var motionPresentation
     @Environment(\.controlSize) private var controlSize
@@ -318,15 +319,20 @@ public struct StatefulButton<Label: View>: View {
             )
         } label: {
             HStack(spacing: CoreSpacing.xs) {
-                if let symbol = state.symbolName {
+                if state != .idle {
+                    let result = state.isResult ? state : self.lastResult
                     ZStack {
                         StatefulButtonSpinner(isSpinning: self.spins(state), lineWidth: slot * 0.14)
                             .opacity(self.spins(state) ? 1 : 0)
-                        Image(systemName: symbol)
+                        Image(systemName: "arrow.triangle.2.circlepath")
                             .font(.system(size: slot))
-                            .foregroundStyle(state.symbolStyle)
-                            .opacity(self.spins(state) ? 0 : 1)
-                            .scaleEffect(self.spins(state) ? Self.hiddenSymbolScale : 1)
+                            .opacity(state == .loading && !self.spins(state) ? 1 : 0)
+                        Image(systemName: result.symbolName ?? "")
+                            .font(.system(size: slot))
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(.primary, result.badgeColor)
+                            .opacity(state.isResult ? 1 : 0)
+                            .scaleEffect(state.isResult ? 1 : StatefulButtonMetrics.hiddenSymbolScale)
                     }
                     .frame(width: slot, height: slot)
                     .accessibilityHidden(true)
@@ -335,18 +341,13 @@ public struct StatefulButton<Label: View>: View {
             }
         }
         .animation(CoreMotionToken.press.transformAnimation(for: self.motionPresentation), value: state)
-        .keyframeAnimator(initialValue: CGFloat.zero, trigger: self.failureShakes) { content, dx in
-            content.offset(x: dx)
-        } keyframes: { _ in
-            KeyframeTrack {
-                for dx in Self.shakeOffsets {
-                    CubicKeyframe(dx, duration: CoreMotionToken.reveal.duration / Double(Self.shakeOffsets.count))
-                }
-            }
-        }
+        .modifier(StatefulButtonShake(trigger: self.failureShakes))
         .sensoryFeedback(trigger: state) { _, next in next.sensoryFeedback }
         .modifier(StatefulButtonAccessibility(state: state))
         .onChange(of: state) { _, next in
+            if next.isResult {
+                self.lastResult = next
+            }
             if next == .failure, self.motionPresentation == .animated {
                 self.failureShakes += 1
             }
@@ -359,12 +360,33 @@ public struct StatefulButton<Label: View>: View {
     }
 }
 
-extension StatefulButton {
-    static var shakeOffsets: [CGFloat] { [-6, 6, -4, 4, 0] }
-    static var hiddenSymbolScale: CGFloat { 0.4 }
+nonisolated enum StatefulButtonMetrics {
+    static let shakeOffsets: [CGFloat] = [-6, 6, -4, 4, 0]
+    static let shakeStep: TimeInterval = CoreMotionToken.reveal.duration / Double(shakeOffsets.count)
+    static let hiddenSymbolScale: CGFloat = 0.4
+}
 
+extension StatefulButton {
     func spins(_ state: StatefulButtonState) -> Bool {
         state == .loading && self.motionPresentation == .animated
+    }
+}
+
+// MARK: - Failure shake
+
+struct StatefulButtonShake: ViewModifier {
+    let trigger: Int
+
+    func body(content: Content) -> some View {
+        content.keyframeAnimator(initialValue: CGFloat.zero, trigger: self.trigger) { view, dx in
+            view.offset(x: dx)
+        } keyframes: { _ in
+            KeyframeTrack {
+                for dx in StatefulButtonMetrics.shakeOffsets {
+                    CubicKeyframe(dx, duration: StatefulButtonMetrics.shakeStep)
+                }
+            }
+        }
     }
 }
 
