@@ -175,6 +175,7 @@ Timeline(layout: .alternate) {
 | `View.treeStyle(_:)`（`#429`） | 为子树中的所有 `Tree` 设置行外观。**只写 `.treeStyle(.navigator)` 形态**；不要写 `TreeStyle.navigator`、不要把 `TreeStyle` 存成属性——将来升协议时这两种写法编译不过 |
 | `Tree.rowContextMenu(_:)`（`#429`） | builder 方法，为整行（含缩进区）挂右键菜单，返回改了这一项的同一棵树；`Tree` 仍是三个泛型参数。菜单以目标 ID 集合生成：右键的行已选中时为「选中 ∩ 当前可见行」，否则只是这一行。不调用时不挂菜单 |
 | `Tree.searchFilter(_:text:)`（`#423`） | builder 方法，按调用方持有的搜索词过滤行：留下命中 ∪ 祖先 ∪ 后代，临时展开到每个命中；搜索期间的展开 / 折叠不写 `expanded`，搜索词为空（去首尾空白后）即恢复。匹配规则固定：不区分大小写 / 变音符 / 全半角的子串 |
+| `Tree.searchFilter(_:text:version:)`（`#441`） | `searchFilter(_:text:)` 的重载，多一个调用方给的版本号（`some Hashable`）：搜索词（去首尾空白后）与版本号都没变时复用上一次的过滤结果、可见行（生效展开集合也没变时）与父行复选框的叶后代，选中 / 焦点 / 展开 / 勾选变化引起的重算不再遍历整棵树；可见行与叶后代的缓存**不搜索时也生效**。**数据或文案变了必须换版本号**，否则显示旧数据的过滤结果与行；`content` 收到的是缓存的旧元素，元素上任何字段（即使不在 `text` 投影里，如角标数、图标）改了而没换版本号，行内容显示旧值，搜不搜索都一样；父行复选框按旧的叶后代写 `checked`：已删除叶子的 ID 会被并进 `checked`、新增叶子被漏掉。同一棵 Tree 先后显示不同数据源时，版本号必须跨数据源唯一。不带版本号的原方法行为不变（每次重算都过滤） |
 | `Tree.searchMatches(_:id:children:query:text:)`（`#423`） | `nonisolated` 静态函数，返回搜索词**直接命中**的节点 ID，与 `searchFilter` 同一实现；供宿主算命中数、显示空态、播报结果数。`where RowContent == EmptyView` 上另有免写行内容泛型的同名重载（与 `expandedIDs` 同形） |
 | `Text.init(verbatim:highlighting:)`（`#423`） | 以原文显示并高亮与搜索词匹配的片段（加粗 + `searchMatchBackground` 底色），与 `searchFilter` 同一条匹配规则；仅当传入相同的搜索词与文案时片段与过滤一致 |
 | `Color.searchMatchBackground` / `Color.systemYellow`（`#423`） | 搜索命中底色（第 3 层，系统黄 × 0.35，暗色 × 0.20）与它的第 2 层来源（桥接 `UIColor` / `NSColor.systemYellow`） |

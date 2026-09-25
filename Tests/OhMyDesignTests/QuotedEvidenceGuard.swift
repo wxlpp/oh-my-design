@@ -88,6 +88,7 @@ struct QuotedEvidenceGuard {
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeInteraction.swift", "TreeFocusing.ancestors(of: hidden, in: oldRows)"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeStyle.swift", "public struct TreeStyle {"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/Tree.swift", "func searchFilter(_ query: String, text: @escaping (Data.Element) -> String) -> Tree {"),
+        ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/Tree.swift", "version: some Hashable"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeSearch.swift", "init(verbatim content: String, highlighting query: String) {"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/TreeStyle.swift", "func treeStyle(_ style: TreeStyle) -> some View {"),
         ("docs/component-registry.json", "Sources/OhMyDesign/Components/Tree/Tree.swift", "func rowClickBehavior(_ behavior: TreeRowClickBehavior) -> Tree {"),

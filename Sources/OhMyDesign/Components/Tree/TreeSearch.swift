@@ -54,6 +54,74 @@ nonisolated struct TreeSearchFrame<ID: Hashable> {
     let expansion: TreeExpansionState<ID>
 }
 
+nonisolated struct TreeSearchCacheKey: Hashable {
+    let query: String
+    let version: AnyHashable
+    let id: AnyKeyPath
+    let children: AnyKeyPath
+}
+
+nonisolated struct TreeSearchMemo<ID: Hashable> {
+    private(set) var key: TreeSearchCacheKey?
+    private var cached: TreeSearchResult<ID>?
+
+    mutating func result(for key: TreeSearchCacheKey?, compute: () -> TreeSearchResult<ID>) -> TreeSearchResult<ID> {
+        if let key, key == self.key, let cached = self.cached { return cached }
+        let fresh = compute()
+        self.key = key
+        self.cached = key == nil ? nil : fresh
+        return fresh
+    }
+}
+
+nonisolated struct TreeCheckScopeMemo<ID: Hashable> {
+    private(set) var key: TreeSearchCacheKey?
+    private var scopes: [ID: TreeRowCheckScope<ID>] = [:]
+
+    mutating func scope(of rowID: ID, for key: TreeSearchCacheKey?, compute: () -> TreeRowCheckScope<ID>) -> TreeRowCheckScope<ID> {
+        guard let key else { return compute() }
+        if key != self.key {
+            self.key = key
+            self.scopes = [:]
+        }
+        if let hit = self.scopes[rowID] { return hit }
+        let fresh = compute().indexed()
+        self.scopes[rowID] = fresh
+        return fresh
+    }
+}
+
+nonisolated struct TreeRowsMemo<Element, ID: Hashable> {
+    private(set) var key: TreeSearchCacheKey?
+    private var expanded: Set<ID> = []
+    private var cached: TreeVisibleRows<Element, ID>?
+
+    mutating func rows(
+        for key: TreeSearchCacheKey?,
+        expanded: Set<ID>,
+        compute: () -> [TreeRenderItem<Element, ID>]
+    ) -> TreeVisibleRows<Element, ID> {
+        if let key, key == self.key, expanded == self.expanded, let cached = self.cached { return cached }
+        let items = compute()
+        let fresh = TreeVisibleRows(items: items, rows: items.map(\.row))
+        self.key = key
+        self.expanded = key == nil ? [] : expanded
+        self.cached = key == nil ? nil : fresh
+        return fresh
+    }
+}
+
+nonisolated struct TreeVisibleRows<Element, ID: Hashable> {
+    let items: [TreeRenderItem<Element, ID>]
+    let rows: [TreeRow<ID>]
+}
+
+final class TreeSearchCache<Element, ID: Hashable> {
+    var memo = TreeSearchMemo<ID>()
+    var checkScopes = TreeCheckScopeMemo<ID>()
+    var rows = TreeRowsMemo<Element, ID>()
+}
+
 nonisolated enum TreeSearch {
     static func result<Data: RandomAccessCollection, ID: Hashable>(
         _ data: Data,
@@ -116,10 +184,31 @@ nonisolated enum TreeSearch {
         persisted: Set<ID>,
         session: TreeSearchSession<ID>?
     ) -> TreeSearchFrame<ID> {
+        var memo = TreeSearchMemo<ID>()
+        return Self.frame(
+            data, id: id, children: children, query: rawQuery, text: text,
+            persisted: persisted, session: session, version: nil, memo: &memo
+        )
+    }
+
+    static func frame<Data: RandomAccessCollection, ID: Hashable>(
+        _ data: Data,
+        id: KeyPath<Data.Element, ID>,
+        children: KeyPath<Data.Element, Data?>,
+        query rawQuery: String?,
+        text: ((Data.Element) -> String)?,
+        persisted: Set<ID>,
+        session: TreeSearchSession<ID>?,
+        version: AnyHashable?,
+        memo: inout TreeSearchMemo<ID>
+    ) -> TreeSearchFrame<ID> {
         guard let query = rawQuery.flatMap(TreeSearchMatcher.normalized), let text else {
             return TreeSearchFrame(query: nil, included: nil, expansion: TreeExpansionState(persisted: persisted))
         }
-        let found = Self.result(data, id: id, children: children, query: query, text: text)
+        let key = version.map { TreeSearchCacheKey(query: query, version: $0, id: id, children: children) }
+        let found = memo.result(for: key) {
+            Self.result(data, id: id, children: children, query: query, text: text)
+        }
         return TreeSearchFrame(
             query: query,
             included: found.included,

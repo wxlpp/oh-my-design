@@ -2036,6 +2036,7 @@ struct TreeRenderTests {
             click: { _ in },
             toggleExpansion: { _ in },
             notePointerCheck: {},
+            checkScope: { TreeRowCheckScope.resolve($0, id: \TreeJudgeNode.id, children: \TreeJudgeNode.children, within: nil) },
             rowMenu: nil,
             selectedVisible: [],
             content: { Text(verbatim: $0.id) }

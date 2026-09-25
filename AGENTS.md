@@ -147,6 +147,9 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 - **`scripts/downstream-probe` 是独立 SwiftPM 包**（自带 `Package.swift`），只有 CI 的
   `downstream-probe` job（`cd scripts/downstream-probe && swift build`）覆盖它。任何
   删除/改名公开符号都必须同步这个包，否则本地 `swift build` 全绿而这个 job 会红。
+- **`scripts/tree-search-benchmark` 也是独立 SwiftPM 包**（`#441` 的 Tree 搜索读数 harness），同样只有 CI
+  `downstream-probe` job 里的「Build tree search benchmark」一步（`cd scripts/tree-search-benchmark && swift build`）
+  覆盖它，**只构建、不跑基准**。改 `Tree` 的公开签名后要同步它，否则本地全绿而这一步会红。
 - **`xcodegen generate` 的两个副作用与 worktree 无关**（本条上一版写成 worktree 专属，
   实测两条都不成立）：local package 的 `name` 取 **checkout 目录基名**——规范 checkout
   （目录名 `oh-my-design`）生成的就是提交态那个值，在 worktree 或改过名的目录里生成才要

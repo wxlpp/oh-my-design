@@ -843,6 +843,16 @@ func consumeTree(
             Text(node.id)
         }
         .rowClickBehavior(TreeRowClickBehavior.select)
+        Tree(
+            roots,
+            children: \.children,
+            expanded: expanded,
+            selection: selection,
+            checked: checked
+        ) { node in
+            Text(verbatim: node.id, highlighting: "lea")
+        }
+        .searchFilter("lea", text: \.id, version: roots.count)
         Rectangle().fill(Color.searchMatchBackground)
         Rectangle().fill(Color.systemYellow)
     }

@@ -313,6 +313,9 @@ jobs:
         run: cd scripts/downstream-probe && swift build -Xswiftc -warnings-as-errors
       - name: Self-test the warnings-as-errors gate
         run: scripts/downstream-probe/selftest-warnings-as-errors.sh
+      # Tree 搜索读数 harness（#441）也是独立包，只在这里构建（不跑基准：读数要有显示器的 macOS 会话）。
+      - name: Build tree search benchmark
+        run: cd scripts/tree-search-benchmark && swift build
 
   bool-ratchet:
     name: Bool exemption ratchet
