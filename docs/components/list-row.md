@@ -51,7 +51,17 @@ ListRow {
 
 ## 视觉 Token
 
-- 背景：`View.surface(.canvas)`，hover 态 `Color.surfaceCanvasSubtle`
+- 背景：`View.surface(.canvas)`，hover 态叠 `Color.quaternaryFill`（与 `Tree` `.navigator` 的悬停同一档）。
+  原取 `surfaceCanvasSubtle`，macOS 上与 `surfaceCanvas` 同值、悬停不可见（#435）。实测（canvas 底，sRGB）：
+
+  | | 未悬停 | 悬停 |
+  |---|---|---|
+  | macOS 亮 | 255 | 248 |
+  | macOS 暗 | 30 | 36 |
+  | iOS 亮 | (242, 242, 247) | (232, 232, 237) |
+  | iOS 暗 | 0 | (21, 21, 23) |
+
+  判据 `ListRowTests.hoverIsVisible`（双腿，明 / 暗）：悬停与未悬停的底色逐通道最大差 > 4。
 - 布局：HStack，leading ↔ label 间距 `CoreSpacing.md`，label ↔ trailing 间距 `CoreSpacing.md`
 - 字号 / 横向 padding / 最小高度：`CoreControlMetrics` for `.regular`（`frame(minHeight:)` = 44pt）
 - **竖向 padding：`CoreSpacing.sm`（8pt）**，刻意比 `CoreControlMetrics.verticalPadding(.regular)`（12pt）紧一档。

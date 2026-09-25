@@ -187,9 +187,9 @@ struct PinCodeCell: View {
             }
             .background {
                 if self.isCurrent && appearance == .invalid {
-                    CoreShape.rounded(CoreRadius.medium + CoreBorderWidth.thicker)
-                        .strokeBorder(Color.statusDangerForeground.opacity(0.3), lineWidth: CoreBorderWidth.thicker)
-                        .padding(-CoreBorderWidth.thicker)
+                    CoreShape.rounded(CoreRadius.medium + CoreBorderWidth.thick)
+                        .strokeBorder(Color.statusDangerForeground.opacity(0.3), lineWidth: CoreBorderWidth.thick)
+                        .padding(-CoreBorderWidth.thick)
                 }
             }
     }

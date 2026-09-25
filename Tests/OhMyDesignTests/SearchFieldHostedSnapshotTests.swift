@@ -95,6 +95,33 @@ struct SearchFieldHostedSnapshotTests {
         }
     }
 
+    private static func extremeTextLuminance(_ snapshot: HostedSnapshot, scheme: ColorScheme) -> Int? {
+        guard let frame = snapshot.fieldFrame, frame.width > 80 else { return nil }
+        let s = snapshot.scale
+        var extreme: Int?
+        for y in Int((frame.minY + 4) * s)..<Int((frame.maxY - 4) * s) {
+            for x in Int((frame.minX + 34) * s)..<Int((frame.maxX - 34) * s) where x < snapshot.width {
+                let i = (y * snapshot.width + x) * 4
+                guard i + 2 < snapshot.pixels.count else { continue }
+                let l = Int(snapshot.pixels[i]) + Int(snapshot.pixels[i + 1]) + Int(snapshot.pixels[i + 2])
+                extreme = extreme.map { scheme == .light ? min($0, l) : max($0, l) } ?? l
+            }
+        }
+        return extreme
+    }
+
+    @Test("disabled 时取值文字变淡：文字带最深（亮色）/ 最亮（暗色）像素比启用时向底色靠 ≥ 150（R+G+B，light / dark）")
+    func disabledValueTextDims() throws {
+        for scheme in [ColorScheme.light, .dark] {
+            let enabled = try #require(Self.extremeTextLuminance(HostedSnapshot(SearchField(text: .constant("release")), scheme: scheme), scheme: scheme))
+            let disabled = try #require(Self.extremeTextLuminance(
+                HostedSnapshot(SearchField(text: .constant("release")).disabled(true), scheme: scheme), scheme: scheme
+            ))
+            let shift = scheme == .light ? disabled - enabled : enabled - disabled
+            #expect(shift >= 150, "\(scheme)：启用 \(enabled) → 禁用 \(disabled)，取值文字没有变淡")
+        }
+    }
+
     @Test(
         "invalid 描边贴合原生搜索框 bounds 的四条边；valid 与 disabled + invalid 没有描边（light / dark）",
         .enabled(

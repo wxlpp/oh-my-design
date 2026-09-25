@@ -100,8 +100,9 @@ PinCode(value: $code, length: 6)
 - 非焦点格边框：`Color.borderMuted`，`CoreBorderWidth.thin`
 - 校验态（`.fieldValidation(_:)`，见 `form-field.md`）：invalid 时**每一格**边框取
   `Color.statusDangerForeground`（压过焦点色）；获焦时当前格保留 `CoreBorderWidth.thick`，并在格外
-  再画一圈 `CoreBorderWidth.thicker` 的 `Color.statusDangerForeground` 30% 不透明度的光晕（不占布局），与其他 invalid 格
+  再画一圈 `CoreBorderWidth.thick` 的 `Color.statusDangerForeground` 30% 不透明度的光晕（不占布局），与其他 invalid 格
   可区分。光晕只在 invalid 下出现，valid 获焦格外观不变。
+  光晕原为 `CoreBorderWidth.thicker`（4pt），在 `CoreSpacing.sm` 格距下离相邻格只剩 4pt；收窄到 2pt 后留 6pt（#404）。
   disabled 优先于 invalid——禁用时与禁用 + valid 外观一致。
 - 禁用态文字：`Color.contentDisabled`；正常态：`Color.contentPrimary`
 - 圆角：`CoreRadius.medium`

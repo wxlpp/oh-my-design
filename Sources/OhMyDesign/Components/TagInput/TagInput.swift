@@ -34,11 +34,13 @@ public struct TagInput: View {
     }
 
     public var body: some View {
+        let appearance = FieldAppearance.resolve(isEnabled: self.isEnabled, validation: self.validation, isFocused: false)
         FlowLayout(spacing: CoreSpacing.sm) {
             ForEach(Self.chips(for: self.tags)) { chip in
                 Tag(chip.value, color: self.tagColor, removable: true) {
                     self.tags = Self.removingTag(at: chip.index, from: self.tags)
                 }
+                .opacity(appearance.controlOpacity)
                 .transition(self.motionPresentation.collectionItemTransition)
             }
 
@@ -58,7 +60,7 @@ public struct TagInput: View {
         }
         .animation(CoreMotionToken.reveal.transformAnimation(for: self.motionPresentation), value: self.tags)
         .overlay(alignment: .bottom) {
-            if FieldAppearance.resolve(isEnabled: self.isEnabled, validation: self.validation, isFocused: false) == .invalid {
+            if appearance == .invalid {
                 Rectangle()
                     .fill(Color.statusDangerForeground)
                     .frame(height: CoreBorderWidth.thin)

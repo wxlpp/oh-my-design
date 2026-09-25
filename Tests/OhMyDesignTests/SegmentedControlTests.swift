@@ -84,4 +84,28 @@ struct SegmentedControlTests {
         _ = GlassSegmentedControlStyle().makeBody(configuration: config)
         _ = PlainSegmentedControlStyle().makeBody(configuration: config)
     }
+
+    @MainActor
+    @Test(".plain 的选中滑块与轨道逐通道差 ≥ 8（light / dark，两条腿）", arguments: [ColorScheme.light, .dark])
+    func plainThumbStandsOutFromTrack(_ scheme: ColorScheme) {
+        let inset: CGFloat = 10
+        let width: CGFloat = 300
+        let pixels = TreePixels.render(
+            SegmentedControl(items: ["A", "B", "C"], selection: .constant("A"), title: { $0 })
+                .segmentedControlStyle(.plain)
+                .padding(inset),
+            scheme: scheme,
+            width: width
+        )
+        let segment = (width - inset * 2) / 3
+        let y = Int((inset + 7) * pixels.scale)
+        guard let thumb = pixels.rgb(x: Int((inset + segment / 2) * pixels.scale), y: y),
+              let track = pixels.rgb(x: Int((inset + segment * 1.5) * pixels.scale), y: y)
+        else {
+            Issue.record("\(scheme)：没渲染出来")
+            return
+        }
+        let delta = max(abs(thumb.0 - track.0), abs(thumb.1 - track.1), abs(thumb.2 - track.2))
+        #expect(delta >= 8, "\(scheme)：滑块 \(thumb) 与轨道 \(track) 逐通道最大差 \(delta) < 8，选中段只剩描边与阴影可辨")
+    }
 }

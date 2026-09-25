@@ -67,6 +67,12 @@ public extension Color {
         .tertiaryFill
     }
 
+    /// 选中滑块（分段控件 thumb）的浮起表面，明暗两档都比 `surfaceInteractive` 轨道高一档。
+    /// 别换回 `surfaceCanvasSubtle`：iOS 暗色下它与轨道几乎同值（28 vs 28）。
+    static var surfaceThumb: Color {
+        .tertiarySystemBackground
+    }
+
     /// 贴底的静态面板容器背景（服务 `.surface(.panel)`）。⚠️ **不服务菜单 / popover**
     /// —— iOS 实测 α 约 0.078 / 0.180、无模糊，叠在文字上会 ghosting（`#238`）。
     static var surfacePanel: Color {

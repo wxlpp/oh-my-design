@@ -44,12 +44,7 @@ public struct ListRow<Leading: View, Trailing: View, Label: View>: View {
         .padding(.vertical, CoreSpacing.sm)
         .frame(minHeight: CoreControlMetrics.height(for: .regular))
         .contentShape(Rectangle())
-        .background {
-            if self.isHovered {
-                Color.surfaceCanvasSubtle
-            }
-        }
-        .surface(.canvas)
+        .modifier(ListRowSurface(isHovered: self.isHovered))
         .onHover { hovering in
             self.isHovered = hovering
         }
@@ -62,6 +57,22 @@ public struct ListRow<Leading: View, Trailing: View, Label: View>: View {
     private let label: Label
 
     @State private var isHovered: Bool = false
+}
+
+// MARK: - Surface / 底色与悬停
+
+struct ListRowSurface: ViewModifier {
+    let isHovered: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                if self.isHovered {
+                    Color.quaternaryFill
+                }
+            }
+            .surface(.canvas)
+    }
 }
 
 // MARK: - Convenience inits (only fill missing slots)
