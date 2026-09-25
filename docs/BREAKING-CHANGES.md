@@ -20,6 +20,20 @@
 > 随后又停在 `v0.8.0`、漏了已发布的 `v0.9.0`（#240）。⇒ **发 tag 时同步本行与对应章节是同一个动作**，
 > 只补一行 tag 而不补章节，会让「清单完整」这个表象更具误导性。
 
+## 未发布（相对 `v0.11.0`）——Issue #435 / #404：悬停、滑块、禁用态与光晕的可见性
+
+**视觉变更（无签名破坏，无公开 API 增减）。** 读数为 sRGB 逐通道值。
+
+| 控件 / 状态 | 之前 | 现在 |
+|---|---|---|
+| `ListRow` 悬停底色 | `surfaceCanvasSubtle`：macOS 与行底同值，悬停看不见（亮 255 → 255、暗 30 → 30）；iOS 亮 242 → 255、暗 0 → (28, 28, 30) | `quaternaryFill`，与 `Tree` `.navigator` 同档：macOS 亮 255 → 248、暗 30 → 36；iOS 亮 242 → 232、暗 0 → (21, 21, 23) |
+| `SegmentedControl` `.plain` 选中滑块（SwiftUI 回退路径；iOS 默认的 `.glass` 走原生控件，不受影响） | `surfaceCanvasSubtle`：iOS 暗色 (28, 28, 30)，与轨道 (28, 28, 31) 只差 1；iOS 亮色 255 | `surfaceElevated`：iOS 暗色 (44, 44, 46)，iOS 亮色 (242, 242, 247)（轨道 227）；macOS 两档不变 |
+| `SearchField` 在 `.disabled(true)` 下的取值文字（iOS） | 与启用相同（亮 0 / 暗 255） | `contentDisabled`（亮 202 / 暗 51），比占位文案更淡；macOS 原生本来就变淡，未改 |
+| `TagInput` 在 `.disabled(true)` 下的 chip | 只有删除图标变淡，文字与衬底不变 | chip 整体降到 0.4 不透明度（与 CheckBox / Radio 同档）；输入框未改 |
+| `PinCode` invalid 且获焦那一格的光晕 | 格外 4pt，离相邻格只剩 4pt | 格外 2pt，离相邻格 6pt |
+
+- **迁移**：一般不需要。截图 / 快照基线里含上述状态的下游需要重录。没有恢复旧观感的开关。
+
 ## 未发布（相对 `v0.11.0`）——Issue #282：Shaders 程序化背景接入能耗闸（NFR-7）
 
 **行为变更（无签名破坏）。** `Plasma` / `DotGrid` / `FractalClouds` / `InkSmoke` / `LiquidChrome` 这 5 个程序化背景
@@ -372,7 +386,7 @@ on / mixed / off，本库不新增任何入参（公开 API 无 Bool 入参这�
 | `CheckBoxToggleStyle` / `RadioGroup` 在 `.disabled(true)` 下 | 与 enabled 外观相同 | 整行（图标 + 标题）降到 0.4 不透明度；enabled 外观逐像素不变 |
 | `RadioGroup` invalid 且选中 | 圆环与实心点都取 `statusDangerForeground` | 只有圆环取 danger，实心点保持 `contentPrimary` |
 | `TagInput` invalid | 只在输入框下面画一条 80pt 起的红线 | 整个字段底部一条横跨全宽的红色基线 |
-| `PinCode` invalid 且获焦的那一格 | 2pt 红边 | 2pt 红边 + 格外 4pt `statusDangerForeground` 30% 光晕（不占布局） |
+| `PinCode` invalid 且获焦的那一格 | 2pt 红边 | 2pt 红边 + 格外 2pt `statusDangerForeground` 30% 光晕（不占布局）。原写「格外 4pt」，那是 `0.11.0` 当时的值，未发布的 #435 / #404 跟进已收窄到 2pt，见上 |
 | `PinCode` 有值时（浅色最明显） | 中间两格的空隙里透出淡淡的数字 | 不再透出，获焦编辑与选区高亮时也不透出（隐藏输入框的文字 / 光标取透明色，并在几何上裁掉） |
 | `SearchField` 放进不限高的容器（iOS） | 被纵向拉伸到容器高度 | 取固有高度 44pt；macOS 本来就不拉伸，布局不变 |
 | `SearchField` 由调用方显式给高度，如 `.frame(height: 60)`（iOS） | 原生搜索框（绘制带与命中区）被撑到 60pt | 外层框仍是 60pt，原生搜索框保持 44pt、垂直居中；44pt 之外的上下各 8pt 是空白，点按不聚焦。macOS 前后都是原生固有高度 |

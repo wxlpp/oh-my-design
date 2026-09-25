@@ -115,7 +115,8 @@ TagInput(tags: $tags, placeholder: "Add tag") { committed in
   落在最后一行（chips 与输入框共用的那一行）底部——`FlowLayout` 的宽度取提议宽度，所以基线随字段宽度走；
   disabled 优先于 invalid，禁用时不画。
 - 禁用态（`.disabled(true)`）：chip 整体降到 `FieldAppearance.disabledControlOpacity`（与 CheckBox / Radio 同一档，#404）；
-  输入框不在此列（禁用时通常只剩占位文案，其禁用外观未实测）。改动前禁用只让 chip 上的删除图标变淡，文字与衬底不变。
+  输入框不在此列（禁用时通常只剩占位文案，其禁用外观未实测）。⚠️ 输入框显式取 `Color.contentPrimary`，
+  所以 draft 非空时禁用，已输入的文字不会变淡。改动前禁用只让 chip 上的删除图标变淡，文字与衬底不变。
 
 ## 无障碍
 

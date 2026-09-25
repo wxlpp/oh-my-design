@@ -369,6 +369,7 @@ struct FieldControlFollowUpTests {
         }
     }
 
+    // 回归钉：6 = CoreSpacing.sm − CoreBorderWidth.thick（光晕外扩 2pt）；#404 实测修前 4pt。
     @Test(
         "PinCode 获焦 invalid 格的光晕与相邻格之间留出 ≥ 6pt（light / dark）",
         .enabled(if: assetCatalogIsCompiled, Comment(rawValue: Self.catalogOnly))

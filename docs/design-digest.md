@@ -306,7 +306,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | `Color.statusDoneSubtle` | 完成淡背景。 |
 | `Color.statusNeutralSubtle` | 中性淡背景：不透明的系统灰（`systemGray5`），叠在任何底色上视觉重量都不变。 |
 
-## `SurfaceColors`（16）
+## `SurfaceColors`（15）
 
 | token | 说明 |
 |---|---|
@@ -322,7 +322,6 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | `Color.surfaceCanvas` | 页面级最底层背景，指向 `systemGroupedBackground`。 |
 | `Color.surfaceCanvasSubtle` | 次级内容区背景（侧栏 / 表格头）。 |
 | `Color.surfaceCanvasInset` | 凹陷 well / 输入框内底色，指向 `FillColors.tertiaryFill`。 |
-| `Color.surfaceThumb` | 选中滑块（分段控件 thumb）的浮起表面，明暗两档都比 `surfaceInteractive` 轨道高一档。 |
 | `Color.surfacePanel` | 贴底的静态面板容器背景（服务 `.surface(.panel)`）。 |
 | `Color.surfaceSidebar` | 侧栏 / 导航容器背景，走 `surfaceElevated`——**在 iOS 上**与画布、内容表面拉开三档； macOS 上三者同色（系统无分层背景 API）。 |
 | `Color.surfaceCard` | 卡片容器背景，别名 `surfaceRaised`——**在 iOS 上**浮于画布之上、深色下不与画布塌缩同色； macOS 上与画布同色。 |
@@ -1195,7 +1194,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | elevation | 4 | 4 |
 | controlsize | 5 | 5 |
 | motion | 4 | 4 |
-| colors | 125 | 125 |
+| colors | 124 | 124 |
 | components | 108 | 108 |
 | enums | 69 | 69 |
 | enumcases | 227 | 227 |

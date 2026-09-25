@@ -95,7 +95,6 @@ private struct NativeSearchField: UIViewRepresentable {
         field.delegate = context.coordinator
         field.addTarget(context.coordinator, action: #selector(Coordinator.editingChanged(_:)), for: .editingChanged)
         field.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        context.coordinator.enabledTextColor = field.textColor
         return field
     }
 
@@ -103,9 +102,7 @@ private struct NativeSearchField: UIViewRepresentable {
         context.coordinator.parent = self
         field.placeholder = self.placeholder
         // `UISearchTextField` 禁用时只把底色退灰、取值文字不变，这里补上变淡（macOS `NSSearchField` 自带）。
-        field.textColor = context.environment.isEnabled
-            ? context.coordinator.enabledTextColor
-            : UIColor(Color.contentDisabled)
+        field.textColor = context.environment.isEnabled ? nil : UIColor(Color.contentDisabled)
         // ⚠️ `#222` 的一半：placeholder 为空时系统没有可读的名字，补一个本地化回退。
         // 非空时留 `nil`，让 placeholder 自己充当可访问名（别覆盖调用方的文案）。
         field.accessibilityLabel = self.placeholder.isEmpty
@@ -125,7 +122,6 @@ private struct NativeSearchField: UIViewRepresentable {
     final class Coordinator: NSObject, UITextFieldDelegate {
         var parent: NativeSearchField
         var lastFocusRequest: Int = 0
-        var enabledTextColor: UIColor?
 
         init(_ parent: NativeSearchField) {
             self.parent = parent

@@ -179,7 +179,7 @@ private struct SwiftUISegmentedControl: View {
                 .coreShadow(.small)
         } else {
             shape
-                .fill(Color.surfaceThumb)
+                .fill(Color.surfaceElevated)
                 .overlay(
                     shape.strokeBorder(Color.borderSubtle, lineWidth: CoreBorderWidth.hairline)
                 )

@@ -110,6 +110,7 @@ struct SearchFieldHostedSnapshotTests {
         return extreme
     }
 
+    // 回归钉：#404 实测修前禁用与启用同为 0 / 255（位移 0），修后位移约 600。
     @Test("disabled 时取值文字变淡：文字带最深（亮色）/ 最亮（暗色）像素比启用时向底色靠 ≥ 150（R+G+B，light / dark）")
     func disabledValueTextDims() throws {
         for scheme in [ColorScheme.light, .dark] {

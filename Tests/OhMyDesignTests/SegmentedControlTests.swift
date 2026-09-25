@@ -85,6 +85,7 @@ struct SegmentedControlTests {
         _ = PlainSegmentedControlStyle().makeBody(configuration: config)
     }
 
+    // 回归钉：#435 实测修前 iOS 暗色滑块与轨道只差 1，阈值 8 取在修前与修后最小差之间。
     @MainActor
     @Test(".plain 的选中滑块与轨道逐通道差 ≥ 8（light / dark，两条腿）", arguments: [ColorScheme.light, .dark])
     func plainThumbStandsOutFromTrack(_ scheme: ColorScheme) {
