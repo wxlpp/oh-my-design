@@ -4,10 +4,9 @@
 （`StatefulButtonState`），不是四个 Bool ——任意两态互斥，Bool 组合能表达出
 `loading && success` 这类无意义状态。
 
-配件符号槽在 `idle` 时不存在，在三个非静息态各画一个不同的 SF Symbol；
+配件槽在 `idle` 时不存在，在三个非静息态各画一种不同的内容（loading 的转圈、success / failure 的符号）；
 槽的出现 / 消失让按钮宽度变化，走 `CoreMotionToken.press.transformAnimation(for:)`
-（**布局类入口**，Reduce Motion 下为 `nil`）；槽内符号之间的切换走
-`.contentTransition(.symbolEffect(.replace))`。
+（**布局类入口**，Reduce Motion 下为 `nil`）；槽内两层之间只切透明度与缩放，走同一条入口。
 
 ## API
 
@@ -37,10 +36,12 @@ public init(_ titleKey: LocalizedStringKey, state: StatefulButtonState, action: 
 （`Sources/OhMyDesign/Components/Button/StatefulButton.swift`），与参考实现
 Aceternity `stateful-button` 的 `delay: 2` 一致；两个停留时长可分别配置。
 
-外观（形状 / 底色 / 内边距 / 前景色）完全由外层 `ButtonStyle` 决定
+外观（形状 / 底色 / 内边距 / 前景色）由外层 `ButtonStyle` 决定
 ——`.solid()` / `.light()` / `.borderless()` / `.circularGlass` 都能用，
-本组件自己只决定配件槽画哪个符号、槽多宽（槽宽取
-`CoreControlMetrics.iconSize(for:)`，随 `controlSize` 变化）。
+本组件自己只决定配件槽画什么、槽多宽（槽宽取
+`CoreControlMetrics.iconSize(for:)`，随 `controlSize` 变化）。唯一例外是结果符号的**圆底**：
+success 取 `Color.success`、failure 取 `Color.danger`；圆里的字形仍走外层前景色，所以在
+`.solid(role: .danger)` 这种红底上圆底隐没，取 on-accent 色的叉照样可见。
 
 ## 状态机
 
@@ -206,15 +207,24 @@ checked continuation 重复 resume 会崩溃。
 | 需求 | 用哪个 |
 |---|---|
 | 只要「正在跑」的系统 spinner，结果不需要在按钮上留痕 | `AsyncButton` |
-| 需要连续自转的 spinner | `AsyncButton` |
 | 出错想自动弹 toast / 走 `onError` 回调拿到 `Error` | `AsyncButton` |
 | 需要 success / failure 的视觉回执 | `StatefulButton` |
 | 需要把视觉态交给调用方托管（例如态来自服务端推送） | `StatefulButton` |
 | 需要「过期任务不改外观」这条保证 | `StatefulButton` |
 
-`StatefulButton` **有意不引入常驻自转动效**：`loading` 用一个静态符号占配件槽，
-好让 `loading → success` / `loading → failure` 成为一次真正的符号替换；
-代价是 loading 期间没有连续运动。需要连续运动的场景走 `AsyncButton`。
+## 各态的视觉回执
+
+| 态 | 配件符号 | 颜色 | 动效（`.animated`） | 触感 |
+|---|---|---|---|---|
+| `loading` | 自绘弧线（`.resting` / `.hidden` 下为 `arrow.triangle.2.circlepath`） | 跟随按钮前景 | 匀速旋转，0.8 s 一圈（`TimelineView` 按时间算角度） | — |
+| `success` | `checkmark.circle.fill`（palette：字形走前景色、圆底 `Color.success`） | 圆底绿 | 从 0.4 倍放大淡入 | `.success` |
+| `failure` | `xmark.circle.fill`（palette：字形走前景色、圆底 `Color.danger`） | 圆底红 | 从 0.4 倍放大淡入 + 整个按钮左右抖一下 | `.error` |
+
+`.resting` / `.hidden` 下不画弧线、改画静态循环箭头，所有层直接换图，放大、淡入与抖动都关闭；颜色与触感保留。
+
+转圈层、静态箭头层与结果符号层叠在同一个固定尺寸的槽里、三层恒在，只切透明度与缩放：离开 `loading` 时
+转圈立即停，槽宽不变，结果符号不会接着转。结果层记住上一次的结果，停留期间点击重试时淡出的是对勾 / 叉本身。⚠️ 不要改回 `.symbolEffect(.rotate)`：它每圈带缓动、读作慢，
+且 `isActive` 转假后会把当前这圈转完，替换进来的结果符号会跟着转。
 
 `StatefulButton` 不转发 `Error`：想拿到错误本身就在 action 内 `catch` 处理完再 `throw` 出来，
 失败态照样出现。
@@ -241,24 +251,24 @@ checked continuation 重复 resume 会崩溃。
   宽度过渡在 animated 下也不补间（配件槽直接出现）。`idle` 恒挂同一个 modifier、给空值。
 - 触发值就是 `StatefulButtonState`，所以四个 case 两两不等是**判据保护的不变量**
   （`==` 若被改写成恒真，`.animation(_:value:)` 分辨不出任何两态、永不触发）。
-- 符号槽内的切换走 `.contentTransition(self.motionPresentation.symbolReplacement)`，
-  `.resting` / `.hidden` 下退化为 `ContentTransition.identity`。
+- loading 的旋转、结果符号的放大淡入与 failure 的抖动只在 `.animated` 下发生：转圈层经 `spins(_:)` 门控，
+  抖动由 `failureShakes` 触发，而它只在 `.animated` 下递增。
 - 该文件在 `CoreMotionTokenDisciplineGuard` 的台账里登记为 `.gated`，
-  `contentTransition` 调用点另有逐点登记。
+  `rotationEffect` / `scaleEffect` / `offset` 调用点另有逐点登记。
 
 ### 判据覆盖面
 
 in-flight 采样（macOS 腿，`HostedWindow` + `cacheDisplay` 逐帧取「两端之外」的像素数）两条：
 
-- `idle → loading`（宽度 / 布局过渡）：animated 臂 > 0（经 `observeControlMotion` 重试），
-  resting 臂 == 0。摘掉动效入口、退回 `.coreAnimation`、把无障碍 modifier 改回条件分支、
-  把 `==` 改成恒真，都会让它判红。它证的是「这次布局过渡有中间帧」，不单独区分宽度补间
-  与配件符号的淡入——两者都会产生两端之外的像素。
-- `loading → success`（符号替换）：resting 臂 == 0，animated 臂 > 0。
-  ⚠️ 这条的 animated 臂读数偏低不代表「动得少」：符号替换特效画在 `cacheDisplay` 拍不到的层里，
-  摘掉 `.contentTransition` 后读数反而上升（做过判别实验）。
+- `idle → loading`（宽度 / 布局过渡）：animated 臂 > 0，resting 臂 == 0。
+  ⚠️ animated 臂现在被转圈层占满：弧线在采样窗内持续旋转，每帧都落在两端之外，
+  摘掉宽度动效入口它照样判绿 ⇒ **宽度补间在 animated 下无判据**。仍有效的只是 resting 臂：
+  退回 `.coreAnimation` 会让宽度在 Reduce Motion 下补间，resting 臂判红。
+- `loading → success`（转圈淡出、结果符号放大淡入）：resting 臂 == 0，animated 臂 > 0。
 
 iOS 腿上 `layer.render(in:)` 取的是模型层、拍不到进行中的帧，这两条只在 macOS 腿跑。
+⚠️ `Color.danger` 是资源色，macOS `swift test` 腿上解析为全透明：failure 的红圆底在那条腿上画不出来，
+`fourStatesRenderDistinctBitmaps` 区分 success / failure 靠的是字形（对勾 vs 叉），不是颜色。
 
 ## 无障碍
 

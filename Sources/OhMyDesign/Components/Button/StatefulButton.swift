@@ -28,7 +28,23 @@ extension StatefulButtonState {
         case .idle: nil
         case .loading: "arrow.triangle.2.circlepath"
         case .success: "checkmark.circle.fill"
-        case .failure: "exclamationmark.triangle.fill"
+        case .failure: "xmark.circle.fill"
+        }
+    }
+
+    nonisolated var isResult: Bool {
+        self == .success || self == .failure
+    }
+
+    var badgeColor: Color {
+        self == .failure ? Color.danger : Color.success
+    }
+
+    var sensoryFeedback: SensoryFeedback? {
+        switch self {
+        case .success: .success
+        case .failure: .error
+        case .idle, .loading: nil
         }
     }
 
@@ -239,6 +255,8 @@ final class StatefulButtonRunner {
 /// `AsyncButton`；需要四态回执、无障碍播报与外部托管态时用本组件。
 public struct StatefulButton<Label: View>: View {
     @State private var runner = StatefulButtonRunner()
+    @State private var failureShakes = 0
+    @State private var lastResult: StatefulButtonState = .success
 
     @Environment(\.coreMotionPresentation) private var motionPresentation
     @Environment(\.controlSize) private var controlSize
@@ -301,24 +319,99 @@ public struct StatefulButton<Label: View>: View {
             )
         } label: {
             HStack(spacing: CoreSpacing.xs) {
-                if let symbol = state.symbolName {
-                    Image(systemName: symbol)
-                        .font(.system(size: slot))
-                        .frame(width: slot, height: slot)
-                        .contentTransition(self.motionPresentation.symbolReplacement)
-                        .accessibilityHidden(true)
+                if state != .idle {
+                    let result = state.isResult ? state : self.lastResult
+                    ZStack {
+                        StatefulButtonSpinner(isSpinning: self.spins(state), lineWidth: slot * 0.14)
+                            .opacity(self.spins(state) ? 1 : 0)
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: slot))
+                            .opacity(state == .loading && !self.spins(state) ? 1 : 0)
+                        Image(systemName: result.symbolName ?? "")
+                            .font(.system(size: slot))
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(.primary, result.badgeColor)
+                            .opacity(state.isResult ? 1 : 0)
+                            .scaleEffect(state.isResult ? 1 : StatefulButtonMetrics.hiddenSymbolScale)
+                    }
+                    .frame(width: slot, height: slot)
+                    .accessibilityHidden(true)
                 }
                 self.label
             }
         }
         .animation(CoreMotionToken.press.transformAnimation(for: self.motionPresentation), value: state)
+        .modifier(StatefulButtonShake(trigger: self.failureShakes))
+        .sensoryFeedback(trigger: state) { _, next in next.sensoryFeedback }
         .modifier(StatefulButtonAccessibility(state: state))
+        .onChange(of: state, initial: true) { _, next in
+            if next.isResult {
+                self.lastResult = next
+            }
+        }
         .onChange(of: state) { _, next in
+            if next == .failure, self.motionPresentation == .animated {
+                self.failureShakes += 1
+            }
             guard let text = next.announcement(locale: self.locale) else { return }
             self.poster.post(text)
         }
         .onDisappear {
             self.runner.disappear(host: self.hostState)
+        }
+    }
+}
+
+nonisolated enum StatefulButtonMetrics {
+    static let shakeOffsets: [CGFloat] = [-6, 6, -4, 4, 0]
+    static let shakeStep: TimeInterval = CoreMotionToken.reveal.duration / Double(shakeOffsets.count)
+    static let hiddenSymbolScale: CGFloat = 0.4
+}
+
+extension StatefulButton {
+    func spins(_ state: StatefulButtonState) -> Bool {
+        state == .loading && self.motionPresentation == .animated
+    }
+}
+
+// MARK: - Failure shake
+
+struct StatefulButtonShake: ViewModifier {
+    let trigger: Int
+
+    func body(content: Content) -> some View {
+        content.keyframeAnimator(initialValue: CGFloat.zero, trigger: self.trigger) { view, dx in
+            view.offset(x: dx)
+        } keyframes: { _ in
+            KeyframeTrack {
+                for dx in StatefulButtonMetrics.shakeOffsets {
+                    CubicKeyframe(dx, duration: StatefulButtonMetrics.shakeStep)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Spinner
+
+struct StatefulButtonSpinner: View {
+    let isSpinning: Bool
+    let lineWidth: CGFloat
+
+    static let period: TimeInterval = 0.8
+
+    static func angle(at date: Date) -> Angle {
+        let phase = date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: Self.period) / Self.period
+        return .degrees(phase * 360)
+    }
+
+    var body: some View {
+        TimelineView(.animation(paused: !self.isSpinning)) { context in
+            Circle()
+                .trim(from: 0, to: 0.72)
+                .stroke(.primary, style: StrokeStyle(lineWidth: self.lineWidth, lineCap: .round))
+                .padding(self.lineWidth / 2)
+                .rotationEffect(Self.angle(at: context.date))
         }
     }
 }
