@@ -1368,6 +1368,12 @@
   ],
   "entryPoints": [
     {
+      "target": "OhMyDesign",
+      "host": "View",
+      "member": "underlinedField",
+      "notes": "原生输入的轻量下划线外观；内部 FocusState 观察焦点，使用 coreAccent 和 fieldValidation 错误色，禁用时弱化；不拥有文本、标签或保存动作。私有 ViewModifier，不引入公开组件类型或 Bool 参数。"
+    },
+    {
       "target": "OhMyDesignEffects",
       "host": "View",
       "member": "shake",
