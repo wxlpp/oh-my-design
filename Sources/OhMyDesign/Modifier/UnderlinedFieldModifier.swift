@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - UnderlinedFieldModifier
 
 private struct UnderlinedFieldModifier: ViewModifier {
-    @FocusState private var isFocused: Bool
+    let isFocused: Bool
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.fieldValidation) private var validation
     @Environment(\.coreAccent) private var accent
@@ -17,7 +17,6 @@ private struct UnderlinedFieldModifier: ViewModifier {
         )
         content
             .textFieldStyle(.plain)
-            .focused(self.$isFocused)
             .padding(.vertical, CoreSpacing.md)
             .overlay(alignment: .bottom) {
                 Rectangle()
@@ -37,9 +36,10 @@ public extension View {
     ///
     /// 保留调用方的字体、标签、文本绑定与提交动作；在真实输入节点上使用。
     /// 校验错误沿用 `fieldValidation` 的错误色，错误文案由调用方或 `FormField` 呈现。
+    /// - Parameter isFocused: 调用方原生 FocusState 的当前值；本 modifier 不安装焦点绑定。
     /// - Returns: 带下划线且使用原生 plain 输入外观的视图。
-    func underlinedField() -> some View {
-        self.modifier(UnderlinedFieldModifier())
+    func underlinedField(isFocused: Bool) -> some View {
+        self.modifier(UnderlinedFieldModifier(isFocused: isFocused))
     }
 }
 
@@ -49,18 +49,21 @@ public extension View {
 
 private struct UnderlinedFieldPreview: View {
     @State private var title = ""
+    @FocusState private var focusedField: Int?
 
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.xl) {
             TextField("故事名称", text: self.$title)
                 .coreFont(.title)
-                .underlinedField()
+                .focused(self.$focusedField, equals: 1)
+                .underlinedField(isFocused: self.focusedField == 1)
             TextField("不可编辑", text: .constant("已保存的名称"))
-                .underlinedField()
+                .underlinedField(isFocused: false)
                 .disabled(true)
             FormField("名称") {
                 TextField("输入名称", text: self.$title)
-                    .underlinedField()
+                    .focused(self.$focusedField, equals: 2)
+                    .underlinedField(isFocused: self.focusedField == 2)
                     .fieldAccessibility()
             }
             .fieldValidation(.invalid("名称已被使用"))

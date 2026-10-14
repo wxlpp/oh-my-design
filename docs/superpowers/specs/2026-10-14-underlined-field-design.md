@@ -4,7 +4,7 @@
 
 ## 设计
 
-设计库新增 `.underlinedField()` View modifier：在调用方原生输入控件下绘制 hairline 分隔线；通过局部 FocusState 观察焦点，聚焦使用 coreAccent，禁用保持弱化。复用 fieldValidation 的错误色。无背景、圆角、字体或业务文案；不实现 TextFieldStyle 的私有入口，不包装文本绑定，不更改现有 FormField。
+设计库新增 `.underlinedField(isFocused:)` View modifier：在调用方原生输入控件下绘制 hairline 分隔线；接收调用方 FocusState 的当前值，不安装第二份焦点绑定，聚焦使用 coreAccent，禁用保持弱化。复用 fieldValidation 的错误色。无背景、圆角、字体或业务文案；不实现 TextFieldStyle 的私有入口，不包装文本绑定，不更改现有 FormField。
 
 App 使用原生 TextField + plain style + title 字体 + underlinedField，移除 Form/Section 卡片与 required 星号。单字段的可访问标签保留 Story Title。初始标题为空，placeholder 为 Story title。Saved on this device. 放在字段外。Create 对空白输入禁用，保存、恢复草稿、冲突确认和关闭后导航保持现有契约。
 
