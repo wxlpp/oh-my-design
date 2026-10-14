@@ -1096,7 +1096,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 
 # Modifier / Transition 入口点
 
-共 51 个（按 `Host.member` 去重，含参重载算一条）。
+共 52 个（按 `Host.member` 去重，含参重载算一条）。
 
 | target | 入口 | 说明 |
 |---|---|---|
@@ -1119,6 +1119,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | `OhMyDesign` | `.focusRing` on `View` | 给视图添加一个焦点环。 |
 | `OhMyDesign` | `.spinning` on `View` | 为内容整体叠加加载遮罩。 |
 | `OhMyDesign` | `.surface` on `View` | 一次性施加容器表面 token（背景 + 1pt 描边 + 圆角），并把有效层级写给子树。 |
+| `OhMyDesign` | `.underlinedField` on `View` | 给原生输入控件添加无填充的细下划线，聚焦时使用环境强调色。 |
 | `OhMyDesign` | `.coreShadow` on `View` | 应用 OhMyDesign elevation 阴影。 |
 | `OhMyDesign` | `.coreAnimation` on `View` | 环境感知的 `animation(_:value:)`：按 `coreMotionPresentation` 取 `motion` 的曲线。 |
 | `OhMyDesignEffects` | `.blur` on `Transition` | 失焦转场。 |
@@ -1199,7 +1200,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | enums | 69 | 69 |
 | enumcases | 227 | 227 |
 | protocols | 7 | 7 |
-| viewext | 51 | 51 |
+| viewext | 52 | 52 |
 | styleext | 15 | 15 |
 | others | 31 | 31 |
 

@@ -58,7 +58,7 @@ FLOORS = {
     # others +1（GlassSymbolStyleConfiguration）、viewext +1（View.glassSymbolStyle）。
     # #284：others +1（@_spi(OhMyDesignBenchmark) ShaderRenderProbe）。
     "colors": 124, "components": 108, "enums": 69, "enumcases": 227,
-    "protocols": 7, "viewext": 51, "styleext": 15, "others": 31,
+    "protocols": 7, "viewext": 52, "styleext": 15, "others": 31,
 }
 
 # 组件判定：conformance 列表里出现这些名字之一，或以 Style 结尾。

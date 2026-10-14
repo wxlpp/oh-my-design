@@ -261,3 +261,5 @@ Simulator 没有真实 GPU 调度）。真机跑法见脚本头部注释。
 运行 `scripts/run-preview.sh` 在模拟器中构建并启动 OhMyDesignPreview 应用。
 
 Run `scripts/run-preview.sh` to build and launch the OhMyDesignPreview app in the Simulator.
+
+轻量命名输入可用 [`underlinedField(isFocused:)`](components/underlined-field.md)，在原生 TextField 下添加焦点感知的细线。
