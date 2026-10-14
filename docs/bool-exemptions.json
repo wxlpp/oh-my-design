@@ -1,7 +1,7 @@
 [
   {
     "parameter": "View.underlinedField#isFocused",
-    "reason": "调用方 FocusState 的当前焦点状态描述，对标现有 FieldAppearance.resolve 的 isFocused；不是样式配置开关。由调用方持有唯一焦点绑定，modifier 仅据此画线，避免内部第二份 FocusState 争用原生输入焦点。",
+    "reason": "删除不成立：外观需要知道当前焦点，而内部安装绑定会争用调用方焦点。此参数是调用方 FocusState 的当前焦点状态描述，对标现有 FieldAppearance.resolve 的 isFocused；不是样式配置开关。由调用方持有唯一焦点绑定，modifier 仅据此画线，避免内部第二份 FocusState 争用原生输入焦点。",
     "decidedBy": "Codex",
     "decidedOn": "2026-10-14"
   },
