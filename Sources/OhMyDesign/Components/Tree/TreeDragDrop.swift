@@ -133,12 +133,18 @@ private struct TreeRowDragSource<ID: Hashable>: ViewModifier {
                 #endif
                 return self.configuration.session.itemProvider(for: token)
             }
+            .onDisappear {
+                if let token = self.token { self.configuration.session.end(token) }
+                self.token = nil
+            }
+            #if !canImport(UIKit)
             .onDragSessionUpdated { session in
                 if case .ended = session.phase, let token = self.token {
                     self.configuration.session.end(token)
                     self.token = nil
                 }
             }
+            #endif
     }
 }
 
