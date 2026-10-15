@@ -25,3 +25,10 @@
 ## 验收
 
 纯逻辑覆盖前后插入、末尾、空容器、跨父级、自身后代拒绝、no-op、数据变化及策略拒绝；现有 Tree 回归。iOS 宿主与 macOS 构建；实际模拟器拖动验证并截图评审。公开 API 文档、登记表与 design digest 同步。
+
+## 规划审阅后的精确边界
+
+- 会话开始保存完整结构（ID、父子关系和顺序，不含文案）；每次验证/落放和开始时比较，不同即拒绝，禁止更新快照后继续旧拖动。
+- 容器行上 25% 为 before，下 25% 为 after，中间 50% 为 into；叶行按中点分 before/after，不存在 into。落点都以当前行实际高度计算。根列表底部有独立末尾落点。
+- 已核对 Xcode 26.4 SDK：onDragSessionUpdated 在 iOS/macOS 26 可用；onDropSessionUpdated 仅 macOS 可用，因此不用它，跨平台连续位置用 DropDelegate。dropExited 清理本落点；onDragSessionUpdated 的 ended 清理会话，Tree 消失也清理。拖出范围不改变数据，重新进入可继续，系统取消后不能遗留源 ID 或落点。
+- 单测通过会话 finish 方法断言：开始后结构变化与 canMove 拒绝，perform 调用次数必须为零；有效落放只回调一次。
