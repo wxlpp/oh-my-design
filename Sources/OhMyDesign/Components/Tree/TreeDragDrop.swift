@@ -1,5 +1,4 @@
 import Observation
-import OSLog
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -17,13 +16,11 @@ final class TreeDragSession<ID: Hashable> {
         self.token = token
         self.source = id
         self.original = structure
-        Logger(subsystem: "com.ohmydesign.tree", category: "drag").notice("begin \(String(describing: id), privacy: .public)")
         self.target = nil
         return token
     }
 
     func end(_ token: UUID) {
-        Logger(subsystem: "com.ohmydesign.tree", category: "drag").notice("end")
         if self.token == token { self.cancel() }
     }
 
@@ -39,9 +36,7 @@ final class TreeDragSession<ID: Hashable> {
 
     func accepts(_ providers: [NSItemProvider]) -> Bool {
         guard let token = self.token, providers.count == 1 else { return false }
-        let accepted = providers[0].suggestedName == token.uuidString
-        Logger(subsystem: "com.ohmydesign.tree", category: "drag").notice("validate \(accepted)")
-        return accepted
+        return providers[0].suggestedName == token.uuidString
     }
 
     func proposal(at target: TreeDropTarget<ID>, in structure: TreeStructure<ID>, canMove: (TreeMove<ID>) -> Bool) -> TreeMove<ID>? {
@@ -52,7 +47,6 @@ final class TreeDragSession<ID: Hashable> {
 
     func finish(at target: TreeDropTarget<ID>, in structure: TreeStructure<ID>, canMove: (TreeMove<ID>) -> Bool, perform: (TreeMove<ID>) -> Void) -> Bool {
         let move = self.proposal(at: target, in: structure, canMove: canMove)
-        Logger(subsystem: "com.ohmydesign.tree", category: "drag").notice("finish \(String(describing: target), privacy: .public) move \(move != nil)")
         self.cancel()
         guard let move else { return false }
         perform(move)

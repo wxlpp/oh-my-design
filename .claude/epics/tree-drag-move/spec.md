@@ -29,7 +29,7 @@
 ## 规划审阅后的精确边界
 
 - 会话开始保存完整结构（ID、父子关系和顺序，不含文案）；每次验证/落放和开始时比较，不同即拒绝，禁止更新快照后继续旧拖动。
-- 容器行上 25% 为 before，下 25% 为 after，中间 50% 为 into；叶行按中点分 before/after，不存在 into。落点都以当前行实际高度计算。根列表底部有独立末尾落点。
+- 容器行上 25% 为 before，下 25% 为 after，中间 50% 为 into；叶行按中点分 before/after，不存在 into。落点都以当前行实际高度计算。最后一个根节点下缘即根末尾落点。
 - 实际 iOS 编译发现 onDragSessionUpdated 与 onDropSessionUpdated 均仅 macOS 可用，已纠正最初对 SDK 声明上下文的误读。跨平台连续位置用 DropDelegate。dropExited 清理本落点；系统会话结束回调按 token 清理源状态，Tree 消失也清理；后结束的旧会话不能清理新拖动。拖出范围不改变数据，重新进入可继续，系统取消后不能遗留源 ID 或落点。
 - 单测通过会话 finish 方法断言：开始后结构变化与 canMove 拒绝，perform 调用次数必须为零；有效落放只回调一次。
 
