@@ -284,7 +284,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             movement: frame.included == nil && self.insertion == nil ? self.moveHandler.map { perform in
                 TreeMoveConfiguration(
                     structure: TreeStructure(self.data, id: self.id, children: self.children),
-                    session: self.dragSession, canMove: self.movePolicy, perform: perform
+                    session: self.dragSession, canMove: self.movePolicy, perform: perform, source: self.moveSource
                 )
             } : nil,
             content: self.content
@@ -299,6 +299,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     private let onActivate: ((ID) -> Void)?
     private let content: (Data.Element) -> RowContent
     private var insertion: TreeInsertion<ID>?
+    private var moveSource: TreeDragSource = .handle
     private var moveHandler: ((TreeMove<ID>) -> Void)?
     private var movePolicy: (TreeMove<ID>) -> Bool = { _ in true }
     private var rowMenu: ((Set<ID>) -> AnyView)?
@@ -328,17 +329,19 @@ public extension Tree {
 // MARK: - 拖动移动 / Drag movement
 
 public extension Tree {
-    /// 启用行尾手柄的同树单节点拖动；上/下缘插入，容器中央移入，最后一个根节点的下缘移到根末尾。
+    /// 启用同树单节点拖动；上/下缘插入，容器中央移入，最后一个根节点的下缘移到根末尾。
     ///
     /// children 非 nil 的节点可容纳子项；空数组也可接收。搜索期间禁用拖动。
     /// 拖动不修改数据、选中或展开；调用方在 perform 内保存并更新数据。
     /// ID、父子关系或顺序在拖动期间改变时拒绝落放。只接收本 Tree 发起的拖动。
     /// - Parameters:
+    ///   - source: 拖动起点，默认保留行尾手柄；`.row` 从整行长按起拖且不显示手柄。
     ///   - canMove: 业务许可检查，在悬停和提交时调用；不得修改状态。
     ///   - perform: 合法落放时调用一次；失败或取消不调用。
     /// - Returns: 启用拖动的同一棵树，置于普通 View modifier 之前。
-    func onMove(canMove: @escaping (TreeMove<ID>) -> Bool = { _ in true }, perform: @escaping (TreeMove<ID>) -> Void) -> Tree {
+    func onMove(source: TreeDragSource = .handle, canMove: @escaping (TreeMove<ID>) -> Bool = { _ in true }, perform: @escaping (TreeMove<ID>) -> Void) -> Tree {
         var tree = self
+        tree.moveSource = source
         tree.movePolicy = canMove
         tree.moveHandler = perform
         return tree

@@ -66,6 +66,7 @@ struct TreeMoveConfiguration<ID: Hashable> {
     let session: TreeDragSession<ID>
     let canMove: (TreeMove<ID>) -> Bool
     let perform: (TreeMove<ID>) -> Void
+    var source: TreeDragSource = .handle
 }
 
 struct TreeDragRow<ID: Hashable>: ViewModifier {
@@ -80,21 +81,28 @@ struct TreeDragRow<ID: Hashable>: ViewModifier {
 
     func body(content: Content) -> some View {
         if let configuration, self.isEnabled {
-            HStack(spacing: 0) {
-                content
-                #if canImport(UIKit)
-                    TreeDragHandle(id: self.id, configuration: configuration, preview: self.preview)
-                        .frame(width: 44, height: 44)
-                        .accessibilityLabel(Text("Move item", bundle: .module))
-                #else
-                    TreeDragHandle(id: self.id, configuration: configuration)
-                        .frame(width: 44, height: 44)
-                        .accessibilityLabel(Text("Move item", bundle: .module))
-                #endif
+            Group {
+                switch configuration.source {
+                case .handle:
+                    HStack(spacing: 0) {
+                        content
+                        #if canImport(UIKit)
+                            TreeDragHandle(id: self.id, configuration: configuration, preview: self.preview)
+                                .frame(width: 44, height: 44)
+                                .accessibilityLabel(Text("Move item", bundle: .module))
+                        #else
+                            TreeDragHandle(id: self.id, configuration: configuration)
+                                .frame(width: 44, height: 44)
+                                .accessibilityLabel(Text("Move item", bundle: .module))
+                        #endif
+                    }
+                    #if canImport(UIKit)
+                    .background { TreeDragPreviewAnchor(preview: self.preview).allowsHitTesting(false) }
+                    #endif
+                case .row:
+                    content.modifier(TreeRowDragSource(id: self.id, configuration: configuration))
+                }
             }
-            #if canImport(UIKit)
-            .background { TreeDragPreviewAnchor(preview: self.preview).allowsHitTesting(false) }
-            #endif
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { self.height = $0 }
             .overlay { TreeDropIndicator(target: configuration.session.target, id: self.id) }
             .onDrop(of: [configuration.session.contentType], delegate: TreeDropDelegate(
@@ -106,6 +114,31 @@ struct TreeDragRow<ID: Hashable>: ViewModifier {
         } else {
             content
         }
+    }
+}
+
+/// 让系统从真正的源行生成预览，保留触点相对位置，不用透明覆盖层拦截行内按钮。
+private struct TreeRowDragSource<ID: Hashable>: ViewModifier {
+    let id: ID
+    let configuration: TreeMoveConfiguration<ID>
+    @State private var token: UUID?
+
+    func body(content: Content) -> some View {
+        content
+            .onDrag {
+                let token = self.configuration.session.begin(self.id, in: self.configuration.structure)
+                self.token = token
+                #if canImport(UIKit)
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                #endif
+                return self.configuration.session.itemProvider(for: token)
+            }
+            .onDragSessionUpdated { session in
+                if case .ended = session.phase, let token = self.token {
+                    self.configuration.session.end(token)
+                    self.token = nil
+                }
+            }
     }
 }
 
