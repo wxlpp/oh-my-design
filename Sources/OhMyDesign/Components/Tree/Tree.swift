@@ -314,13 +314,13 @@ struct TreeSearchSpec<Element> {
 
 public extension Tree {
     /// 在根末尾或已展开父节点的子树末尾显示一行临时编辑内容。
-    /// 调用方持有草稿、焦点与保存逻辑。此行不参与选中和数据拓扑。
+    /// 内容为 nil 时不插入行。调用方持有草稿、焦点与保存逻辑。此行不参与选中和数据拓扑。
     /// 呈现期间暂停普通行交互、拖动及 Tree 键盘导航，让输入控件处理按键。
     /// 父节点须存在且已展开；搜索期间不显示，不自动降级到根目录。
-    func insertionRow<Content: View>(in parentID: ID? = nil, isPresented: Bool = true,
-                                    @ViewBuilder content: () -> Content) -> Tree {
+    func insertionRow<Content: View>(in parentID: ID? = nil,
+                                    @ViewBuilder content: () -> Content?) -> Tree {
         var tree = self
-        tree.insertion = isPresented ? TreeInsertion(parentID: parentID, content: AnyView(content())) : nil
+        tree.insertion = content().map { TreeInsertion(parentID: parentID, content: AnyView($0)) }
         return tree
     }
 }
