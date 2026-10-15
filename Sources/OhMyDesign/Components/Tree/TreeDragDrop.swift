@@ -1,4 +1,5 @@
 import Observation
+import OSLog
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -21,6 +22,7 @@ final class TreeDragSession<ID: Hashable> {
     }
 
     func end(_ token: UUID) {
+        Logger(subsystem: "com.ohmydesign.tree", category: "drag").notice("end source=\(self.source != nil) target=\(String(describing: self.target), privacy: .public)")
         if self.token == token { self.cancel() }
     }
 
