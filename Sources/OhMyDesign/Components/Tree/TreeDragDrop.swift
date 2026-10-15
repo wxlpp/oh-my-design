@@ -264,13 +264,8 @@ struct TreeDropIndicator<ID: Hashable>: View {
                 self.liftedPreview = self.preview.makePreview()
                 self.liftFeedback.prepare()
                 let item = UIDragItem(itemProvider: self.configuration.session.itemProvider(for: token))
-                item.previewProvider = { [preview = self.liftedPreview] in
-                    guard let preview else { return nil }
-                    let parameters = UIDragPreviewParameters()
-                    parameters.backgroundColor = preview.parameters.backgroundColor
-                    parameters.visiblePath = preview.parameters.visiblePath
-                    return UIDragPreview(view: preview.view, parameters: parameters)
-                }
+                // 保留 targeted lift preview 与触点的相对位置。
+                // previewProvider 会替换为无目标的预览，导致整行中心跳到手指下。
                 return [item]
             }
 
