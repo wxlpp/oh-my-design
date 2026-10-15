@@ -185,10 +185,12 @@ struct TreeDropIndicator<ID: Hashable>: View {
             let rect = anchor.convert(anchor.bounds, to: window)
             guard rect.width > 0, rect.height > 0 else { return nil }
             // 固定为当前行的位图，避免窗口快照在拖动层里复用底层渲染内容。
+            var rendered = false
             let image = UIGraphicsImageRenderer(size: rect.size).image { context in
                 context.cgContext.translateBy(x: -rect.minX, y: -rect.minY)
-                window.drawHierarchy(in: window.bounds, afterScreenUpdates: false)
+                rendered = window.drawHierarchy(in: window.bounds, afterScreenUpdates: false)
             }
+            guard rendered else { return nil }
             let snapshot = UIImageView(image: image)
             snapshot.isAccessibilityElement = false
             let parameters = UIDragPreviewParameters()
