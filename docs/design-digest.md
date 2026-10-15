@@ -684,6 +684,10 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
   - `.select` — 只选中（默认）：展开 / 折叠只经 chevron 与 `←` / `→`。
   - `.selectAndToggleExpansion` — 选中并切换展开（VS Code Explorer 式）：单击父行同时取反该行的展开态。
 
+### `Components/Tree/TreeMove.swift`
+
+- *struct* **`TreeMove`** — 同一 Tree 内一次移动：移除源节点后，插入目标父节点的 beforeID 之前或末尾。
+
 ### `Components/Tree/TreeStyle.swift`
 
 - *struct* **`TreeStyle`** — `Tree` 的行外观预设：`.automatic`（默认）或 `.navigator`。
@@ -1202,5 +1206,5 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | protocols | 7 | 7 |
 | viewext | 52 | 52 |
 | styleext | 15 | 15 |
-| others | 31 | 31 |
+| others | 32 | 32 |
 

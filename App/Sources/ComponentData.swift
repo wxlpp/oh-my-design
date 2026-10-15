@@ -2440,6 +2440,8 @@ private struct TreePreview: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: CoreSpacing.lg) {
+            TreeDragPreview()
+
             VStack(alignment: .leading, spacing: CoreSpacing.xs) {
                 Text(verbatim: "单选 / single").coreFont(.footnote).foregroundStyle(Color.contentSecondary)
                 Tree(
@@ -2736,4 +2738,61 @@ private struct SlideToConfirmPreview: View {
 
 private struct SlideToConfirmPreviewError: LocalizedError {
     var errorDescription: String? { "Demo failure" }
+}
+
+private struct TreeDragPreview: View {
+    private struct Node: Identifiable {
+        let id: String
+        var children: [Node]?
+    }
+
+    @State private var nodes = [
+        Node(id: "第一卷", children: [Node(id: "第一章", children: nil), Node(id: "第二章", children: nil)]),
+        Node(id: "空卷", children: []),
+        Node(id: "独立章节", children: nil),
+    ]
+    @State private var expanded: Set<String> = ["第一卷", "空卷"]
+    @State private var selection: Set<String> = []
+    @State private var lastMove = "长按拖动：行间排序，拖到文件夹中央移入"
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            Text("拖动排序与层级移动").coreFont(.headline)
+            Tree(self.nodes, children: \.children, expanded: self.$expanded, selection: self.$selection) { node in
+                Label(node.id, systemImage: node.children == nil ? "doc.text" : "folder")
+                    .coreFont(.body)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            }
+            .onMove(perform: self.move)
+            .treeStyle(.navigator)
+            Text(self.lastMove).coreFont(.caption).foregroundStyle(Color.contentSecondary)
+        }
+    }
+
+    private func move(_ move: TreeMove<String>) {
+        func remove(_ id: String, from nodes: inout [Node]) -> Node? {
+            if let index = nodes.firstIndex(where: { $0.id == id }) { return nodes.remove(at: index) }
+            for index in nodes.indices {
+                if var children = nodes[index].children, let node = remove(id, from: &children) {
+                    nodes[index].children = children
+                    return node
+                }
+            }
+            return nil
+        }
+        func insert(_ node: Node, in nodes: inout [Node], parentID: String?) {
+            if parentID == nil {
+                nodes.insert(node, at: move.beforeID.flatMap { before in nodes.firstIndex { $0.id == before } } ?? nodes.count)
+                return
+            }
+            for index in nodes.indices {
+                guard var children = nodes[index].children else { continue }
+                insert(node, in: &children, parentID: nodes[index].id == parentID ? nil : parentID)
+                nodes[index].children = children
+            }
+        }
+        guard let node = remove(move.id, from: &self.nodes) else { return }
+        insert(node, in: &self.nodes, parentID: move.parentID)
+        self.lastMove = "已移动 \(move.id) → \(move.parentID ?? "根目录")"
+    }
 }
