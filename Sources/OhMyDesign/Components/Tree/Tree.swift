@@ -73,13 +73,14 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         let items = visible.items
         let rows = visible.rows
         let metrics = TreeRowMetrics.resolve(self.controlSize)
-        return TreeRowStack(items: items, context: self.context(rows: rows, metrics: metrics, frame: frame))
+        return TreeRowStack(items: items, context: self.context(rows: rows, metrics: metrics, frame: frame), insertion: frame.included == nil ? self.insertion : nil)
             .frame(maxWidth: .infinity, alignment: .leading)
             .sensoryFeedback(.selection, trigger: self.dragSession.target) { old, new in
                 new != nil && old != new
             }
             .onDisappear { self.dragSession.cancel() }
-            .focusable()
+            .onChange(of: self.insertion != nil) { self.dragSession.cancel() }
+            .focusable(self.insertion == nil)
             .focused(self.$isFocused)
             .onKeyPress(phases: .down) { press in self.handle(press, items: items, frame: frame) }
             .onChange(of: rows) { oldRows, newRows in
@@ -158,6 +159,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         items: [TreeRenderItem<Data.Element, ID>],
         frame: TreeSearchFrame<ID>
     ) -> KeyPress.Result {
+        guard self.insertion == nil else { return .ignored }
         let outcome = TreeInteractionReducer.key(
             TreeKeyboard.key(for: press.key),
             modifiers: press.modifiers,
@@ -279,7 +281,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             selectedVisible: self.rowMenu == nil
                 ? []
                 : TreeContextMenu.selectedVisible(self.selection, visibleIDs: Set(rows.map(\.id))),
-            movement: frame.included == nil ? self.moveHandler.map { perform in
+            movement: frame.included == nil && self.insertion == nil ? self.moveHandler.map { perform in
                 TreeMoveConfiguration(
                     structure: TreeStructure(self.data, id: self.id, children: self.children),
                     session: self.dragSession, canMove: self.movePolicy, perform: perform
@@ -296,6 +298,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
     private let checked: Binding<Set<ID>>?
     private let onActivate: ((ID) -> Void)?
     private let content: (Data.Element) -> RowContent
+    private var insertion: TreeInsertion<ID>?
     private var moveHandler: ((TreeMove<ID>) -> Void)?
     private var movePolicy: (TreeMove<ID>) -> Bool = { _ in true }
     private var rowMenu: ((Set<ID>) -> AnyView)?
@@ -307,6 +310,19 @@ struct TreeSearchSpec<Element> {
     let query: String
     let text: (Element) -> String
     let version: AnyHashable?
+}
+
+public extension Tree {
+    /// 在根末尾或已展开父节点的子树末尾显示一行临时编辑内容。
+    /// 调用方持有草稿、焦点与保存逻辑。此行不参与选中和数据拓扑。
+    /// 呈现期间暂停普通行交互、拖动及 Tree 键盘导航，让输入控件处理按键。
+    /// 父节点须存在且已展开；搜索期间不显示，不自动降级到根目录。
+    func insertionRow<Content: View>(in parentID: ID? = nil, isPresented: Bool = true,
+                                    @ViewBuilder content: () -> Content) -> Tree {
+        var tree = self
+        tree.insertion = isPresented ? TreeInsertion(parentID: parentID, content: AnyView(content())) : nil
+        return tree
+    }
 }
 
 // MARK: - 拖动移动 / Drag movement
@@ -555,8 +571,10 @@ struct TreeContext<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
 struct TreeRowStack<Data: RandomAccessCollection, ID: Hashable, RowContent: View>: View {
     let items: [TreeRenderItem<Data.Element, ID>]
     let context: TreeContext<Data, ID, RowContent>
+    let insertion: TreeInsertion<ID>?
 
     var body: some View {
+        let position = insertion.flatMap { TreeInsertionPosition(parentID: $0.parentID, rows: items.map(\.row), expanded: context.expanded) }
         LazyVStack(alignment: .leading, spacing: self.context.metrics.rowSpacing) {
             ForEach(self.items) { item in
                 TreeRowHost(
@@ -565,6 +583,14 @@ struct TreeRowStack<Data: RandomAccessCollection, ID: Hashable, RowContent: View
                     hasChildren: item.row.hasChildren,
                     context: self.context
                 )
+                .disabled(insertion != nil)
+                .allowsHitTesting(insertion == nil)
+                if let insertion, let position, position.afterID == item.id {
+                    TreeInsertionRow(content: insertion.content, level: position.level, metrics: context.metrics)
+                }
+            }
+            if items.isEmpty, let insertion, let position {
+                TreeInsertionRow(content: insertion.content, level: position.level, metrics: context.metrics)
             }
         }
         .onChange(of: self.context.movement?.structure) { self.context.movement?.session.cancel() }
