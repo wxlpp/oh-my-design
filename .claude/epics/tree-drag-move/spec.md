@@ -16,7 +16,7 @@
 
 `TreeMove<ID>` 是值类型，含 `id`、`parentID`、`beforeID`；parentID=nil 为根，beforeID=nil 为目标末尾，位置在移除源节点之后解释。
 `Tree.onMove(canMove:perform:)` 可选启用，canMove 判断调用方业务规则，perform 接收已验证移动请求。Tree 使用最新拓扑验证；调用方持久化失败时保持原数据，负责错误提示。不强迫 ID Codable/Transferable。
-实现通过系统 onDrag/onDrop DropDelegate 取得连续落点；以每实例唯一 UTType 和 ownProcess provider 限制同树，provider 生命周期回收清理结束。
+实现通过系统拖动源与 DropDelegate 取得连续落点；以每实例唯一 UTType 和 ownProcess provider 限制同树。iOS 通过 UIDragInteractionDelegate、macOS 通过 onDragSessionUpdated 确定会话结束。
 
 ## App 集成
 
@@ -30,10 +30,10 @@
 
 - 会话开始保存完整结构（ID、父子关系和顺序，不含文案）；每次验证/落放和开始时比较，不同即拒绝，禁止更新快照后继续旧拖动。
 - 容器行上 25% 为 before，下 25% 为 after，中间 50% 为 into；叶行按中点分 before/after，不存在 into。落点都以当前行实际高度计算。根列表底部有独立末尾落点。
-- 实际 iOS 编译发现 onDragSessionUpdated 与 onDropSessionUpdated 均仅 macOS 可用，已纠正最初对 SDK 声明上下文的误读。跨平台连续位置用 DropDelegate。dropExited 清理本落点；provider 持有的生命周期对象在 provider 释放后按会话 token 清理源状态，Tree 消失也清理；后结束的旧会话不能清理新拖动。拖出范围不改变数据，重新进入可继续，系统取消后不能遗留源 ID 或落点。
+- 实际 iOS 编译发现 onDragSessionUpdated 与 onDropSessionUpdated 均仅 macOS 可用，已纠正最初对 SDK 声明上下文的误读。跨平台连续位置用 DropDelegate。dropExited 清理本落点；系统会话结束回调按 token 清理源状态，Tree 消失也清理；后结束的旧会话不能清理新拖动。拖出范围不改变数据，重新进入可继续，系统取消后不能遗留源 ID 或落点。
 - 单测通过会话 finish 方法断言：开始后结构变化与 canMove 拒绝，perform 调用次数必须为零；有效落放只回调一次。
 
 ## 实施审阅修订
 
 - 拖动源限定为行尾 44pt 手柄；标题、展开控件和行内按钮不安装拖动交互，避免争抢。
-- 不依赖 provider 释放来判定拖动取消。iOS 用 UIDragInteractionDelegate.didEndWith 的确定回调，macOS 用 onDragSessionUpdated.ended；每次 session token 独立，旧结束不能清掉新会话。落放必须匹配 provider token，旧 provider 不能参与新拖动。此条替代上文 provider 生命周期方案。
+- 不依赖 provider 释放来判定拖动取消。iOS 用 UIDragInteractionDelegate.didEndWith 的确定回调，macOS 用 onDragSessionUpdated.ended；每次 session token 独立，旧结束不能清掉新会话。落放必须匹配 provider token，旧 provider 不能参与新拖动。
