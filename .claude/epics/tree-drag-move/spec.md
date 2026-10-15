@@ -37,3 +37,7 @@
 
 - 拖动源限定为行尾 44pt 手柄；标题、展开控件和行内按钮不安装拖动交互，避免争抢。
 - 不依赖 provider 释放来判定拖动取消。iOS 用 UIDragInteractionDelegate.didEndWith 的确定回调，macOS 用 onDragSessionUpdated.ended；每次 session token 独立，旧结束不能清掉新会话。落放必须匹配 provider token，旧 provider 不能参与新拖动。
+
+## 落区布局修订
+
+实际验证移除了独立根末尾空白落区：根末尾由最后一个根节点下缘表达。拖动期间不插入额外占位，避免影响系统拖放。

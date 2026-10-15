@@ -9,7 +9,6 @@ final class TreeDragSession<ID: Hashable> {
     private var source: ID?
     private var original: TreeStructure<ID>?
     var target: TreeDropTarget<ID>?
-    var isDragging: Bool { self.source != nil }
 
     @discardableResult
     func begin(_ id: ID, in structure: TreeStructure<ID>) -> UUID {
@@ -159,28 +158,6 @@ struct TreeDropIndicator<ID: Hashable>: View {
 
     private var line: some View {
         Rectangle().fill(self.accent).frame(height: CoreBorderWidth.thin)
-    }
-}
-
-struct TreeRootDropZone<ID: Hashable>: View {
-    let configuration: TreeMoveConfiguration<ID>
-    @Environment(\.coreAccent) private var accent
-    @Environment(\.isEnabled) private var isEnabled
-
-    var body: some View {
-        Color.clear
-            .frame(height: self.configuration.session.isDragging ? 44 : 0)
-            .contentShape(Rectangle())
-            .overlay(alignment: .top) {
-                if self.configuration.session.target == .rootEnd {
-                    Rectangle().fill(self.accent).frame(height: CoreBorderWidth.thin)
-                }
-            }
-            .onDrop(of: [self.configuration.session.contentType], delegate: TreeDropDelegate(
-                configuration: self.configuration, target: { _ in .rootEnd },
-            ))
-            .allowsHitTesting(self.isEnabled)
-            .accessibilityHidden(true)
     }
 }
 

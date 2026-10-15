@@ -309,7 +309,7 @@ struct TreeSearchSpec<Element> {
 // MARK: - 拖动移动 / Drag movement
 
 public extension Tree {
-    /// 启用行尾手柄的同树单节点拖动；上/下缘插入，容器中央移入，底部空白移到根末尾。
+    /// 启用行尾手柄的同树单节点拖动；上/下缘插入，容器中央移入，最后一个根节点的下缘移到根末尾。
     ///
     /// children 非 nil 的节点可容纳子项；空数组也可接收。搜索期间禁用拖动。
     /// 拖动不修改数据、选中或展开；调用方在 perform 内保存并更新数据。
@@ -562,9 +562,6 @@ struct TreeRowStack<Data: RandomAccessCollection, ID: Hashable, RowContent: View
                     hasChildren: item.row.hasChildren,
                     context: self.context
                 )
-            }
-            if let movement = self.context.movement {
-                TreeRootDropZone(configuration: movement)
             }
         }
         .onChange(of: self.context.movement?.structure) { self.context.movement?.session.cancel() }
