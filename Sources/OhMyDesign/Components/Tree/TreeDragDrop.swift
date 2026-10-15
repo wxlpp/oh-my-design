@@ -183,9 +183,14 @@ struct TreeDropIndicator<ID: Hashable>: View {
         func makePreview() -> UITargetedDragPreview? {
             guard let anchor, let window = anchor.window else { return nil }
             let rect = anchor.convert(anchor.bounds, to: window)
-            guard rect.width > 0, rect.height > 0,
-                  let snapshot = window.resizableSnapshotView(from: rect, afterScreenUpdates: false, withCapInsets: .zero)
-            else { return nil }
+            guard rect.width > 0, rect.height > 0 else { return nil }
+            // 固定为当前行的位图，避免窗口快照在拖动层里复用底层渲染内容。
+            let image = UIGraphicsImageRenderer(size: rect.size).image { context in
+                context.cgContext.translateBy(x: -rect.minX, y: -rect.minY)
+                window.drawHierarchy(in: window.bounds, afterScreenUpdates: false)
+            }
+            let snapshot = UIImageView(image: image)
+            snapshot.isAccessibilityElement = false
             let parameters = UIDragPreviewParameters()
             parameters.backgroundColor = UIColor(Color.surfaceRaised)
             parameters.visiblePath = UIBezierPath(roundedRect: CGRect(origin: .zero, size: rect.size), cornerRadius: CoreRadius.small)
