@@ -919,7 +919,7 @@ struct Explorer: View {
 
 ## 拖动排序与层级移动（#467）
 
-在 Tree 上调用 `.onMove(canMove:perform:)` 启用本地单节点拖动。`TreeMove` 提供 `id`、`parentID` 与 `beforeID`；位置按移除源节点后的目标列表解释，nil 父节点表示根，nil 后继表示末尾。
+在 Tree 上调用 `.onMove(canMove:perform:)` 启用本地单节点拖动，行尾显示 44pt 拖动手柄，保留行内按钮操作。`TreeMove` 提供 `id`、`parentID` 与 `beforeID`；位置按移除源节点后的目标列表解释，nil 父节点表示根，nil 后继表示末尾。
 
 容器行上/下四分之一对应插入前/后，中央对应移入末尾；叶行按上下半区插入。`children != nil` 是容器，空数组也可接收。列表底部额外 44pt 落区支持移到根末尾。插入线/容器轮廓只在可接受位置出现。
 

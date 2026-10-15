@@ -32,3 +32,8 @@
 - 容器行上 25% 为 before，下 25% 为 after，中间 50% 为 into；叶行按中点分 before/after，不存在 into。落点都以当前行实际高度计算。根列表底部有独立末尾落点。
 - 实际 iOS 编译发现 onDragSessionUpdated 与 onDropSessionUpdated 均仅 macOS 可用，已纠正最初对 SDK 声明上下文的误读。跨平台连续位置用 DropDelegate。dropExited 清理本落点；provider 持有的生命周期对象在 provider 释放后按会话 token 清理源状态，Tree 消失也清理；后结束的旧会话不能清理新拖动。拖出范围不改变数据，重新进入可继续，系统取消后不能遗留源 ID 或落点。
 - 单测通过会话 finish 方法断言：开始后结构变化与 canMove 拒绝，perform 调用次数必须为零；有效落放只回调一次。
+
+## 实施审阅修订
+
+- 拖动源限定为行尾 44pt 手柄；标题、展开控件和行内按钮不安装拖动交互，避免争抢。
+- 不依赖 provider 释放来判定拖动取消。iOS 用 UIDragInteractionDelegate.didEndWith 的确定回调，macOS 用 onDragSessionUpdated.ended；每次 session token 独立，旧结束不能清掉新会话。落放必须匹配 provider token，旧 provider 不能参与新拖动。此条替代上文 provider 生命周期方案。

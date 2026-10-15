@@ -58,13 +58,14 @@ struct TreeMoveTests {
         #expect(TreeDropTarget.row("b", fraction: 0.4, acceptsChildren: false) == .before("b"))
         #expect(TreeDropTarget.row("b", fraction: 0.6, acceptsChildren: false) == .after("b"))
     }
-    @Test func oldProviderReleaseCannotCancelANewerDrag() {
+
+    @Test func `old provider release cannot cancel A newer drag`() {
         let session = TreeDragSession<String>()
         let first = session.begin("x", in: self.structure)
         let second = session.begin("b", in: self.structure)
-        session.release(first)
+        session.end(first)
         #expect(session.proposal(at: .inside("empty"), in: self.structure, canMove: { _ in true })?.id == "b")
-        session.release(second)
+        session.end(second)
         #expect(session.proposal(at: .inside("empty"), in: self.structure, canMove: { _ in true }) == nil)
     }
 }

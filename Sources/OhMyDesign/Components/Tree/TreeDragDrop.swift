@@ -20,8 +20,23 @@ final class TreeDragSession<ID: Hashable> {
         return token
     }
 
-    func release(_ token: UUID) {
+    func end(_ token: UUID) {
         if self.token == token { self.cancel() }
+    }
+
+    func itemProvider(for token: UUID) -> NSItemProvider {
+        let provider = NSItemProvider()
+        provider.suggestedName = token.uuidString
+        provider.registerDataRepresentation(for: self.contentType, visibility: .ownProcess) { completion in
+            completion(Data(), nil)
+            return nil
+        }
+        return provider
+    }
+
+    func accepts(_ providers: [NSItemProvider]) -> Bool {
+        guard let token = self.token, providers.count == 1 else { return false }
+        return providers[0].suggestedName == token.uuidString
     }
 
     func proposal(at target: TreeDropTarget<ID>, in structure: TreeStructure<ID>, canMove: (TreeMove<ID>) -> Bool) -> TreeMove<ID>? {
@@ -61,29 +76,21 @@ struct TreeDragRow<ID: Hashable>: ViewModifier {
     @Environment(\.isEnabled) private var isEnabled
 
     func body(content: Content) -> some View {
-        if let configuration, isEnabled {
-            content
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { self.height = $0 }
-                .overlay { TreeDropIndicator(target: configuration.session.target, id: self.id) }
-                .onDrag {
-                    let token = configuration.session.begin(self.id, in: configuration.structure)
-                    let session = configuration.session
-                    let lifetime = TreeDragLifetime {
-                        Task { @MainActor in session.release(token) }
-                    }
-                    let provider = NSItemProvider()
-                    provider.registerDataRepresentation(for: configuration.session.contentType, visibility: .ownProcess) { completion in
-                        withExtendedLifetime(lifetime) { completion(Data(), nil) }
-                        return nil
-                    }
-                    return provider
-                }
-                .onDrop(of: [configuration.session.contentType], delegate: TreeDropDelegate(
-                    configuration: configuration,
-                    target: { point in
-                        .row(self.id, fraction: point.y / max(self.height, 1), acceptsChildren: self.acceptsChildren)
-                    },
-                ))
+        if let configuration, self.isEnabled {
+            HStack(spacing: 0) {
+                content
+                TreeDragHandle(id: self.id, configuration: configuration)
+                    .frame(width: 44, height: 44)
+                    .accessibilityLabel(Text("Move item", bundle: .module))
+            }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { self.height = $0 }
+            .overlay { TreeDropIndicator(target: configuration.session.target, id: self.id) }
+            .onDrop(of: [configuration.session.contentType], delegate: TreeDropDelegate(
+                configuration: configuration,
+                target: { point in
+                    .row(self.id, fraction: point.y / max(self.height, 1), acceptsChildren: self.acceptsChildren)
+                },
+            ))
         } else {
             content
         }
@@ -95,7 +102,7 @@ struct TreeDropDelegate<ID: Hashable>: DropDelegate {
     let target: (CGPoint) -> TreeDropTarget<ID>
 
     func validateDrop(info: DropInfo) -> Bool {
-        info.hasItemsConforming(to: [self.configuration.session.contentType])
+        self.configuration.session.accepts(info.itemProviders(for: [self.configuration.session.contentType]))
     }
 
     func dropEntered(info: DropInfo) {
@@ -176,12 +183,82 @@ struct TreeRootDropZone<ID: Hashable>: View {
     }
 }
 
-final nonisolated class TreeDragLifetime: Sendable {
-    private let ended: @Sendable () -> Void
+#if canImport(UIKit)
+    import UIKit
 
-    init(ended: @escaping @Sendable () -> Void) {
-        self.ended = ended
+    struct TreeDragHandle<ID: Hashable>: UIViewRepresentable {
+        let id: ID
+        let configuration: TreeMoveConfiguration<ID>
+
+        func makeCoordinator() -> Coordinator {
+            Coordinator(id: self.id, configuration: self.configuration)
+        }
+
+        func makeUIView(context: Context) -> UIImageView {
+            let view = UIImageView(image: UIImage(systemName: "line.3.horizontal", withConfiguration: UIImage.SymbolConfiguration(pointSize: 17)))
+            view.contentMode = .center
+            view.tintColor = .secondaryLabel
+            view.isUserInteractionEnabled = true
+            let interaction = UIDragInteraction(delegate: context.coordinator)
+            interaction.isEnabled = true
+            view.addInteraction(interaction)
+            return view
+        }
+
+        func updateUIView(_: UIImageView, context: Context) {
+            context.coordinator.id = self.id
+            context.coordinator.configuration = self.configuration
+        }
+
+        final class Coordinator: NSObject, UIDragInteractionDelegate {
+            var id: ID
+            var configuration: TreeMoveConfiguration<ID>
+            private var tokens: [ObjectIdentifier: UUID] = [:]
+
+            init(id: ID, configuration: TreeMoveConfiguration<ID>) {
+                self.id = id
+                self.configuration = configuration
+            }
+
+            func dragInteraction(_: UIDragInteraction, itemsForBeginning session: any UIDragSession) -> [UIDragItem] {
+                let token = self.configuration.session.begin(self.id, in: self.configuration.structure)
+                self.tokens[ObjectIdentifier(session)] = token
+                return [UIDragItem(itemProvider: self.configuration.session.itemProvider(for: token))]
+            }
+
+            func dragInteraction(_: UIDragInteraction, session: any UIDragSession, didEndWith _: UIDropOperation) {
+                if let token = self.tokens.removeValue(forKey: ObjectIdentifier(session)) {
+                    self.configuration.session.end(token)
+                }
+            }
+
+            func dragInteraction(_: UIDragInteraction, sessionIsRestrictedToDraggingApplication _: any UIDragSession) -> Bool {
+                true
+            }
+        }
     }
+#else
+    struct TreeDragHandle<ID: Hashable>: View {
+        let id: ID
+        let configuration: TreeMoveConfiguration<ID>
+        @State private var token: UUID?
 
-    deinit { self.ended() }
-}
+        var body: some View {
+            Image(systemName: "line.3.horizontal")
+                .foregroundStyle(Color.contentSecondary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+                .onDrag {
+                    let token = self.configuration.session.begin(self.id, in: self.configuration.structure)
+                    self.token = token
+                    return self.configuration.session.itemProvider(for: token)
+                }
+                .onDragSessionUpdated { session in
+                    if case .ended = session.phase, let token = self.token {
+                        self.configuration.session.end(token)
+                        self.token = nil
+                    }
+                }
+        }
+    }
+#endif

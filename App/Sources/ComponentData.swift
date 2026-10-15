@@ -2753,7 +2753,7 @@ private struct TreeDragPreview: View {
     ]
     @State private var expanded: Set<String> = ["第一卷", "空卷"]
     @State private var selection: Set<String> = []
-    @State private var lastMove = "长按拖动：行间排序，拖到文件夹中央移入"
+    @State private var lastMove = "拖动行尾手柄：行间排序，拖到文件夹中央移入"
 
     var body: some View {
         VStack(alignment: .leading) {
