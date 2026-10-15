@@ -57,7 +57,7 @@ FLOORS = {
     # #368：protocols +1（GlassSymbolStyle）、components +1（PlainGlassSymbolStyle）、
     # others +1（GlassSymbolStyleConfiguration）、viewext +1（View.glassSymbolStyle）。
     # #284：others +1（@_spi(OhMyDesignBenchmark) ShaderRenderProbe）。
-    "colors": 124, "components": 108, "enums": 69, "enumcases": 227,
+    "colors": 124, "components": 108, "enums": 70, "enumcases": 229,
     "protocols": 7, "viewext": 52, "styleext": 15, "others": 32,
 }
 

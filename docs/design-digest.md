@@ -684,6 +684,12 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
   - `.select` — 只选中（默认）：展开 / 折叠只经 chevron 与 `←` / `→`。
   - `.selectAndToggleExpansion` — 选中并切换展开（VS Code Explorer 式）：单击父行同时取反该行的展开态。
 
+### `Components/Tree/TreeDragSource.swift`
+
+- *enum* **`TreeDragSource`** — Tree 拖动的起点；整行模式适用于没有长按菜单的目录。
+  - `.handle` — 保留行尾拖动手柄，行内容可以拥有独立长按菜单。
+  - `.row` — 从整行长按起拖，不显示手柄；调用方不要再为该行绑定长按菜单。
+
 ### `Components/Tree/TreeMove.swift`
 
 - *struct* **`TreeMove`** — 同一 Tree 内一次移动：移除源节点后，插入目标父节点的 beforeID 之前或末尾。
@@ -1201,8 +1207,8 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | motion | 4 | 4 |
 | colors | 124 | 124 |
 | components | 108 | 108 |
-| enums | 69 | 69 |
-| enumcases | 227 | 227 |
+| enums | 70 | 70 |
+| enumcases | 229 | 229 |
 | protocols | 7 | 7 |
 | viewext | 52 | 52 |
 | styleext | 15 | 15 |
