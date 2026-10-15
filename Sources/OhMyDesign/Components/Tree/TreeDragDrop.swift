@@ -9,6 +9,7 @@ final class TreeDragSession<ID: Hashable> {
     private var source: ID?
     private var original: TreeStructure<ID>?
     var target: TreeDropTarget<ID>?
+    var isDragging: Bool { self.source != nil }
 
     @discardableResult
     func begin(_ id: ID, in structure: TreeStructure<ID>) -> UUID {
@@ -168,7 +169,7 @@ struct TreeRootDropZone<ID: Hashable>: View {
 
     var body: some View {
         Color.clear
-            .frame(height: 44)
+            .frame(height: self.configuration.session.isDragging ? 44 : 0)
             .contentShape(Rectangle())
             .overlay(alignment: .top) {
                 if self.configuration.session.target == .rootEnd {
