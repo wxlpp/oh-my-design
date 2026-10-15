@@ -473,3 +473,8 @@ fail-closed：对一个不在列表里的 target，全部 grep 判据都无命�
 - **`auto-fix-pr-after-implementation`**——`superpowers:finishing-a-development-branch` 创建 PR 之后，轮询 Copilot review 并把反馈喂给 fix-pr 循环。无人值守最多自动运行 3 轮，达到上限后须由用户确认是否继续。遇到构建/测试失败或需要人工判断的 `CHANGES_REQUESTED` 时立即停止。
 
 用户全局配置同时启用了 Context7 MCP 用于查询库文档（`mcp__context7__resolve-library-id` → `query-docs`）——查询外部库 / 框架 / SDK 时优先使用它，而不是 WebSearch。
+
+### 拖动交互验收
+
+- 独立拖动手柄的预览必须展示所拖条目内容，不能默认沿用手柄图标。验证必须包含拖动中的截图或录像，不能仅看落下后的排序结果。
+- 支持触觉的设备应在起拖与有效落点切换时提供克制反馈；相同落点连续更新、无效落点和取消不反复震动。模拟器验证不等于真机触觉验收。

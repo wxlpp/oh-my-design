@@ -73,16 +73,28 @@ struct TreeDragRow<ID: Hashable>: ViewModifier {
     let acceptsChildren: Bool
     let configuration: TreeMoveConfiguration<ID>?
     @State private var height: CGFloat = 44
+    #if canImport(UIKit)
+        @State private var preview = TreeDragPreview()
+    #endif
     @Environment(\.isEnabled) private var isEnabled
 
     func body(content: Content) -> some View {
         if let configuration, self.isEnabled {
             HStack(spacing: 0) {
                 content
-                TreeDragHandle(id: self.id, configuration: configuration)
-                    .frame(width: 44, height: 44)
-                    .accessibilityLabel(Text("Move item", bundle: .module))
+                #if canImport(UIKit)
+                    TreeDragHandle(id: self.id, configuration: configuration, preview: self.preview)
+                        .frame(width: 44, height: 44)
+                        .accessibilityLabel(Text("Move item", bundle: .module))
+                #else
+                    TreeDragHandle(id: self.id, configuration: configuration)
+                        .frame(width: 44, height: 44)
+                        .accessibilityLabel(Text("Move item", bundle: .module))
+                #endif
             }
+            #if canImport(UIKit)
+            .background { TreeDragPreviewAnchor(preview: self.preview).allowsHitTesting(false) }
+            #endif
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { self.height = $0 }
             .overlay { TreeDropIndicator(target: configuration.session.target, id: self.id) }
             .onDrop(of: [configuration.session.contentType], delegate: TreeDropDelegate(
@@ -164,12 +176,48 @@ struct TreeDropIndicator<ID: Hashable>: View {
 #if canImport(UIKit)
     import UIKit
 
+    /// 只记录当前行的范围，不查找 SwiftUI 的私有视图层级。
+    final class TreeDragPreview {
+        weak var anchor: UIView?
+
+        func makePreview() -> UITargetedDragPreview? {
+            guard let anchor, let window = anchor.window else { return nil }
+            let rect = anchor.convert(anchor.bounds, to: window)
+            guard rect.width > 0, rect.height > 0,
+                  let snapshot = window.resizableSnapshotView(from: rect, afterScreenUpdates: false, withCapInsets: .zero)
+            else { return nil }
+            let parameters = UIDragPreviewParameters()
+            parameters.backgroundColor = UIColor(Color.surfaceRaised)
+            parameters.visiblePath = UIBezierPath(roundedRect: CGRect(origin: .zero, size: rect.size), cornerRadius: CoreRadius.small)
+            return UITargetedDragPreview(
+                view: snapshot, parameters: parameters,
+                target: UIDragPreviewTarget(container: window, center: CGPoint(x: rect.midX, y: rect.midY)),
+            )
+        }
+    }
+
+    struct TreeDragPreviewAnchor: UIViewRepresentable {
+        let preview: TreeDragPreview
+
+        func makeUIView(context _: Context) -> UIView {
+            let view = UIView()
+            view.isUserInteractionEnabled = false
+            self.preview.anchor = view
+            return view
+        }
+
+        func updateUIView(_ view: UIView, context _: Context) {
+            self.preview.anchor = view
+        }
+    }
+
     struct TreeDragHandle<ID: Hashable>: UIViewRepresentable {
         let id: ID
         let configuration: TreeMoveConfiguration<ID>
+        let preview: TreeDragPreview
 
         func makeCoordinator() -> Coordinator {
-            Coordinator(id: self.id, configuration: self.configuration)
+            Coordinator(id: self.id, configuration: self.configuration, preview: self.preview)
         }
 
         func makeUIView(context: Context) -> UIImageView {
@@ -186,28 +234,60 @@ struct TreeDropIndicator<ID: Hashable>: View {
         func updateUIView(_: UIImageView, context: Context) {
             context.coordinator.id = self.id
             context.coordinator.configuration = self.configuration
+            context.coordinator.preview = self.preview
         }
 
         final class Coordinator: NSObject, UIDragInteractionDelegate {
             var id: ID
             var configuration: TreeMoveConfiguration<ID>
+            var preview: TreeDragPreview
             private var tokens: [ObjectIdentifier: UUID] = [:]
+            private var liftedPreview: UITargetedDragPreview?
+            private let liftFeedback = UIImpactFeedbackGenerator(style: .light)
 
-            init(id: ID, configuration: TreeMoveConfiguration<ID>) {
+            init(id: ID, configuration: TreeMoveConfiguration<ID>, preview: TreeDragPreview) {
                 self.id = id
                 self.configuration = configuration
+                self.preview = preview
             }
 
             func dragInteraction(_: UIDragInteraction, itemsForBeginning session: any UIDragSession) -> [UIDragItem] {
                 let token = self.configuration.session.begin(self.id, in: self.configuration.structure)
                 self.tokens[ObjectIdentifier(session)] = token
-                return [UIDragItem(itemProvider: self.configuration.session.itemProvider(for: token))]
+                self.liftedPreview = self.preview.makePreview()
+                self.liftFeedback.prepare()
+                let item = UIDragItem(itemProvider: self.configuration.session.itemProvider(for: token))
+                item.previewProvider = { [preview = self.liftedPreview] in
+                    guard let preview else { return nil }
+                    let parameters = UIDragPreviewParameters()
+                    parameters.backgroundColor = preview.parameters.backgroundColor
+                    parameters.visiblePath = preview.parameters.visiblePath
+                    return UIDragPreview(view: preview.view, parameters: parameters)
+                }
+                return [item]
+            }
+
+            func dragInteraction(_: UIDragInteraction, previewForLifting _: UIDragItem, session _: any UIDragSession) -> UITargetedDragPreview? {
+                self.liftedPreview
+            }
+
+            func dragInteraction(_: UIDragInteraction, previewForCancelling _: UIDragItem, withDefault defaultPreview: UITargetedDragPreview) -> UITargetedDragPreview? {
+                self.preview.makePreview() ?? defaultPreview
+            }
+
+            func dragInteraction(_: UIDragInteraction, prefersFullSizePreviewsFor _: any UIDragSession) -> Bool {
+                true
+            }
+
+            func dragInteraction(_: UIDragInteraction, sessionWillBegin _: any UIDragSession) {
+                self.liftFeedback.impactOccurred()
             }
 
             func dragInteraction(_: UIDragInteraction, session: any UIDragSession, didEndWith _: UIDropOperation) {
                 if let token = self.tokens.removeValue(forKey: ObjectIdentifier(session)) {
                     self.configuration.session.end(token)
                 }
+                self.liftedPreview = nil
             }
 
             func dragInteraction(_: UIDragInteraction, sessionIsRestrictedToDraggingApplication _: any UIDragSession) -> Bool {

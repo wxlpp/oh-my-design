@@ -75,6 +75,9 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
         let metrics = TreeRowMetrics.resolve(self.controlSize)
         return TreeRowStack(items: items, context: self.context(rows: rows, metrics: metrics, frame: frame))
             .frame(maxWidth: .infinity, alignment: .leading)
+            .sensoryFeedback(.selection, trigger: self.dragSession.target) { old, new in
+                new != nil && old != new
+            }
             .onDisappear { self.dragSession.cancel() }
             .focusable()
             .focused(self.$isFocused)
