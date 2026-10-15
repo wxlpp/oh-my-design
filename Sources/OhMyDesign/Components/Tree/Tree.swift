@@ -268,7 +268,7 @@ public struct Tree<Data: RandomAccessCollection, ID: Hashable, RowContent: View>
             focus: self.focus,
             metrics: metrics,
             showsFocusIndicator: TreeFocusing.showsRing(
-                containerFocused: self.isFocused, lastInteraction: self.lastInteraction
+                containerFocused: self.isFocused && self.insertion == nil, lastInteraction: self.lastInteraction
             ),
             clickBehavior: self.clickBehavior,
             click: { id in self.click(id) },
