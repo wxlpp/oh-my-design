@@ -24,6 +24,12 @@ final class TreeDragSession<ID: Hashable> {
         if self.token == token { self.cancel() }
     }
 
+    /// 系统可在同一次拖动中重复请求 payload；已交出的 provider 身份不能因此失效。
+    func preparePayload(for id: ID, in structure: TreeStructure<ID>) -> UUID {
+        if let token, self.source == id, self.original == structure { return token }
+        return self.begin(id, in: structure)
+    }
+
     func itemProvider(for token: UUID) -> NSItemProvider {
         let provider = NSItemProvider()
         provider.suggestedName = token.uuidString
@@ -122,11 +128,35 @@ private struct TreeRowDragSource<ID: Hashable>: ViewModifier {
     let id: ID
     let configuration: TreeMoveConfiguration<ID>
     @State private var token: UUID?
+    @State private var systemSessions: [DragSession.ID: UUID] = [:]
 
     func body(content: Content) -> some View {
+        if #available(iOS 27.0, visionOS 27.0, *) {
+            self.source(content).onDragSessionUpdated { session in
+                if case .ended = session.phase {
+                    guard let ended = self.systemSessions.removeValue(forKey: session.id) else { return }
+                    self.configuration.session.end(ended)
+                    if self.token == ended { self.token = nil }
+                } else if session.phase == .initial || session.phase == .active {
+                    if self.systemSessions[session.id] == nil, let token = self.token {
+                        self.systemSessions[session.id] = token
+                    }
+                }
+            }
+        } else {
+            self.source(content)
+        }
+    }
+
+    private func source(_ content: Content) -> some View {
         content
             .onDrag {
-                let token = self.configuration.session.begin(self.id, in: self.configuration.structure)
+                let token: UUID
+                if #available(iOS 27.0, visionOS 27.0, *) {
+                    token = self.configuration.session.preparePayload(for: self.id, in: self.configuration.structure)
+                } else {
+                    token = self.configuration.session.begin(self.id, in: self.configuration.structure)
+                }
                 self.token = token
                 #if canImport(UIKit)
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -136,15 +166,8 @@ private struct TreeRowDragSource<ID: Hashable>: ViewModifier {
             .onDisappear {
                 if let token = self.token { self.configuration.session.end(token) }
                 self.token = nil
+                self.systemSessions.removeAll()
             }
-            #if !canImport(UIKit)
-            .onDragSessionUpdated { session in
-                if case .ended = session.phase, let token = self.token {
-                    self.configuration.session.end(token)
-                    self.token = nil
-                }
-            }
-            #endif
     }
 }
 

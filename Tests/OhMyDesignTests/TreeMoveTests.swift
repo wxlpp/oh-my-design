@@ -68,4 +68,29 @@ struct TreeMoveTests {
         session.end(second)
         #expect(session.proposal(at: .inside("empty"), in: self.structure, canMove: { _ in true }) == nil)
     }
+
+    @Test func `repeated payload requests preserve the active provider`() {
+        let session = TreeDragSession<String>()
+        let first = session.preparePayload(for: "b", in: self.structure)
+        let provider = session.itemProvider(for: first)
+        session.target = .inside("empty")
+        #expect(session.preparePayload(for: "b", in: self.structure) == first)
+        #expect(session.accepts([provider]))
+        #expect(session.target == .inside("empty"))
+        var moves: [TreeMove<String>] = []
+        #expect(session.finish(at: .inside("empty"), in: self.structure, canMove: { _ in true }, perform: { moves.append($0) }))
+        #expect(moves == [TreeMove(id: "b", parentID: "empty", beforeID: nil)])
+    }
+
+    @Test func `ended drag cannot authenticate or cancel a later drag of the same row`() {
+        let session = TreeDragSession<String>()
+        let first = session.preparePayload(for: "b", in: self.structure)
+        let provider = session.itemProvider(for: first)
+        session.end(first)
+        let second = session.preparePayload(for: "b", in: self.structure)
+        #expect(second != first)
+        #expect(!session.accepts([provider]))
+        session.end(first)
+        #expect(session.accepts([session.itemProvider(for: second)]))
+    }
 }

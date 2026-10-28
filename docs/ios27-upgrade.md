@@ -35,3 +35,12 @@
 ## CI 命令守卫修正
 
 CI 40769823476 的 iOS 任务检测到摘要同步命令被合并了前置夹具命令，触发既有 DesignDigestSyncGuard。将 Python 夹具拆为独立步骤，保持原同步命令及守卫不变。定向 Swift 测试 12 项通过，Python 夹具 2 项通过，摘要重生成无差异。此增量不改 Swift 产品。
+
+
+## Tree 拖动 payload 重入
+
+iOS27 App 实际跨卷拖动回归失败。无断点事件日志确认：系统同一次拖动多次调用 onDrag，旧 begin 每次更换 token，DropInfo 的 provider 却保留最初 token，导致 accepts 拒绝。延长停留和降低速度均不能解决，挂断点反而改变时序，不能作为修复证据。
+
+新增 preparePayload，在同源、同结构的活动会话中复用 token；独立 begin 仍创建新会话。iOS27/macOS26 通过 onDragSessionUpdated 按系统会话ID回收对应 token，旧会话结束不会取消新会话；iOS26保持原路径与部署门槛。签名以 Xcode27.1 SDK 核对，Context7工具在当前会话不可用。
+
+TreeMoveTests 先记录重复 payload 导致的3条失败断言，修正后7项通过。原坐标、原速度、无断点 App 目录回归首次完整通过（77.742秒），第二次复验仍进行中；取消后重拖与独立定向评审仍待验收。临时诊断日志已移除，未修改下载依赖缓存。
