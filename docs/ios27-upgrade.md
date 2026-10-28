@@ -30,3 +30,8 @@
 ## CI 摘要扫描修复
 
 40765247023 的 SwiftPM 测试与 compiled-resource 测试均通过，最后 design-digest 守卫失败。原因是扫描器漏掉 `nonisolated public struct StarShape` 与 `nonisolated static var maskOpaque`，不是公开 API 被删除。新增两个最小夹具先复现失败，扩展原扫描规则后通过；private 类型/颜色仍排除，FLOORS 未改，生成的 design-digest.md 无差异。CI 摘要步骤先运行夹具回归。该修改只影响文档扫描脚本，不改变已验收 Swift 产品。
+
+
+## CI 命令守卫修正
+
+CI 40769823476 的 iOS 任务检测到摘要同步命令被合并了前置夹具命令，触发既有 DesignDigestSyncGuard。将 Python 夹具拆为独立步骤，保持原同步命令及守卫不变。定向 Swift 测试 12 项通过，Python 夹具 2 项通过，摘要重生成无差异。此增量不改 Swift 产品。
