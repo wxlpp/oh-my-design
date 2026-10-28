@@ -575,6 +575,30 @@ struct SlideToConfirmTests {
         #expect(zip(rtl, rtl.dropFirst()).allSatisfy { $0 > $1 }, "RTL 高光带不是从右往左：\(rtl)")
     }
 
+    @Test("静止流光只绘制一次：明暗和半透明标签与原始单层文字一致")
+    func restingShimmerPreservesSingleLayerText() {
+        for scheme in [ColorScheme.light, .dark] {
+            for opacity in [1.0, 0.4] {
+                let title = Text(verbatim: "Slide to confirm 确认").font(.title)
+                let reference = HostedWindow(
+                    title.foregroundStyle(SlideToConfirmShimmer.style(bandCenter: nil))
+                        .opacity(opacity),
+                    size: CGSize(width: 320, height: 60), scheme: scheme
+                )
+                let actual = HostedWindow(
+                    SlideToConfirmShimmerLabel(label: title.opacity(opacity), bandCenter: nil),
+                    size: CGSize(width: 320, height: 60), scheme: scheme
+                )
+                expectBitmapsEquivalent(
+                    reference.pixels().bytes, actual.pixels().bytes, maxChannelDelta: 2,
+                    "静止文案不应叠画：\(scheme), opacity=\(opacity)"
+                )
+                actual.close()
+                reference.close()
+            }
+        }
+    }
+
     // 通过生产标签验证物理高光方向，防止系统渐变 RTL 镜像与几何换算叠加。
     @Test("流光方向随布局方向：同一进度下 LTR 高光在文案左半、RTL 在右半")
     func shimmerDirectionRendersWithLayoutDirection() {

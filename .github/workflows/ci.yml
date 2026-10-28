@@ -53,6 +53,7 @@ jobs:
             # `ColorAssetGuardTests` 在 swiftbuild 下静默失守）。
             swift test --build-system native --skip 'OhMyDesignShadersTests|ToastPresentationRenderTests'
           }
+          final_log=first.log
           run_tests 2>&1 | tee first.log || {
             # 先落到变量再匹配：`grep -q` 命中即退出并向上游发 SIGPIPE，
             # 而 pipefail 会把 141 提升为整条管道的退出码，使 if 恒假、
@@ -68,8 +69,12 @@ jobs:
               echo "存在已知 flake 之外的失败 → 直接判红"; exit 1
             fi
             echo "仅已知 flake 失败，重跑一次"
+            final_log=second.log
             run_tests 2>&1 | tee second.log
           }
+          # #429：测试进程可能提前退出但返回 0，必须另外确认完整汇总。
+          # 当前 native 为约 1694 项；1600 的下界兼容平台条件，同时拒绝空/小分片。
+          python3 scripts/require-test-summary.py "$final_log" --minimum 1600
 
       - name: Test (swiftbuild) — Shaders and Toast rendering
         # ⚠️ 只有 swiftbuild / xcodebuild 会真正编译 `.metal` 成 metallib；原生
