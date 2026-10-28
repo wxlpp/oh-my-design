@@ -68,18 +68,26 @@ struct ToastPresentationRenderTests {
         return maxX >= minX ? maxX - minX + 1 : nil
     }
 
-    private func overlayInkMinX(_ presentation: ToastPresentation) -> Int? {
+    private func overlayContentMinX(_ presentation: ToastPresentation) -> Int? {
         let host = ToastHost()
-        host.show("Hi", level: .neutral)
+        host.show("Hi", level: .danger)
         guard let bytes = self.pixels(
-            ToastOverlay(host: host, edge: .top, presentation: presentation).frame(width: Self.containerWidth)
+            ToastOverlay(host: host, edge: .top, presentation: presentation)
+                .frame(width: Self.containerWidth)
+                .environment(\.colorScheme, .light)
         ) else { return nil }
         let w = Int(Self.containerWidth), h = bytes.count / (w * 4)
         var minX = w
         for y in 0..<h {
-            for x in 0..<minX where bytes[(y * w + x) * 4 + 3] > 0 {
-                minX = x
-                break
+            for x in 0..<minX {
+                let index = (y * w + x) * 4
+                // danger 的红色图标是内容探针；不把玻璃阴影、外壳或字体 AA 算入边界。
+                if bytes[index + 3] > 128,
+                   Int(bytes[index]) > Int(bytes[index + 1]) + 30,
+                   Int(bytes[index]) > Int(bytes[index + 2]) + 30 {
+                    minX = x
+                    break
+                }
             }
         }
         return minX < w ? minX : nil
@@ -226,13 +234,13 @@ struct ToastPresentationRenderTests {
             #expect(ink != nil, "\(name) ink 量测失败 —— 不得当作通过")
             #expect((ink ?? 0) > 0, "\(name) ink 为 0 —— 渲染为空图，下面的比较会假通过")
         }
-        // banner 外壳在位图里不可见（见 A5b），改量内容的左缘：banner 不留外侧水平边距，只剩内容内边距。
-        let bannerMinX = self.overlayInkMinX(.fullWidthBanner)
-        let capsuleMinX = self.overlayInkMinX(.floatingCapsule)
+        // 统一量内容左缘；玻璃是否进入 ImageRenderer 及其阴影范围随系统版本变化。
+        let bannerMinX = self.overlayContentMinX(.fullWidthBanner)
+        let capsuleMinX = self.overlayContentMinX(.floatingCapsule)
         #expect((Int(CoreSpacing.md)...Int(CoreSpacing.md) + 2).contains(bannerMinX ?? -1),
                 "banner 内容左缘 \(bannerMinX ?? -1) 不在内容内边距 \(Int(CoreSpacing.md)) 处 —— banner 没贴容器边")
-        #expect(abs((capsuleMinX ?? -99) - Int(CoreSpacing.lg)) <= 1,
-                "capsule 左缘 \(capsuleMinX ?? -1) 不在外侧边距 \(Int(CoreSpacing.lg)) 处 —— 上一条的对照失效")
+        #expect((Int(CoreSpacing.lg + CoreSpacing.md)...Int(CoreSpacing.lg + CoreSpacing.md) + 2).contains(capsuleMinX ?? -1),
+                "capsule 内容左缘 \(capsuleMinX ?? -1) 不在外侧+内容边距 \(Int(CoreSpacing.lg + CoreSpacing.md)) 处")
         #expect((hud ?? Int.max) < (capsule ?? 0),
                 "hud 未比 capsule 窄：hud \(hud ?? -1) / capsule \(capsule ?? -1)")
     }
@@ -316,7 +324,7 @@ struct ToastPresentationRenderTests {
     ) -> (width: Int, pixels: Int)? {
         self.redInk(
             Button {} label: { Text(label).fontWeight(.semibold) }
-                .buttonStyle(.light(role: .primary))
+                .buttonStyle(ToastActionButtonStyle())
                 .controlSize(.small)
                 .fixedSize()
                 .coreAccent(Self.probeRed)
@@ -381,7 +389,7 @@ struct ToastPresentationRenderTests {
         let full = self.standaloneActionInk("Undo everything", dynamicTypeSize: .large)
         let squeezed = self.redInk(
             Button {} label: { Text("Undo everything").lineLimit(1) }
-                .buttonStyle(.light(role: .primary))
+                .buttonStyle(ToastActionButtonStyle())
                 .controlSize(.small)
                 .frame(width: 60)
                 .coreAccent(Self.probeRed)

@@ -136,11 +136,19 @@ struct CoreMotionTokenReduceMotionRenderTests {
     @Test("Telegram 玻璃按钮按下：RM 开不缩放只变暗；关掉按压反馈时两者都没有")
     func telegramGlassPressDegrades() throws {
         let moving = coverage(try #require(pixels(self.pressedGlass(reduceMotion: false))))
-        let reduced = coverage(try #require(pixels(self.pressedGlass(reduceMotion: true))))
-        let silent = coverage(try #require(pixels(self.pressedGlass(reduceMotion: true, feedback: false))))
+        let reducedPixels = try #require(pixels(self.pressedGlass(reduceMotion: true)))
+        let silentPixels = try #require(pixels(self.pressedGlass(reduceMotion: true, feedback: false)))
+        let reduced = coverage(reducedPixels)
+        let silent = coverage(silentPixels)
         #expect(moving.covered < silent.covered, "RM 关时按下应缩小：\(moving) vs \(silent)")
         #expect(reduced.covered == silent.covered, "RM 开时按下不得缩放：\(reduced) vs \(silent)")
-        #expect(reduced.meanAlpha < silent.meanAlpha - 30, "RM 开时按下应变暗：\(reduced) vs \(silent)")
+        // 玻璃可以保留不透明底层；中心红色内容的对比度必须降低，不能以整块 alpha 推断反馈。
+        let center = (30 * 100 + 50) * 4 // 上述 fixture 固定为 100 × 60，渲染 scale 为 1。
+        func redContrast(_ bytes: [UInt8]) -> Int {
+            Int(bytes[center]) - max(Int(bytes[center + 1]), Int(bytes[center + 2]))
+        }
+        #expect(redContrast(reducedPixels) < redContrast(silentPixels) - 30,
+                "RM 按压应降低中心内容对比：\(redContrast(reducedPixels)) vs \(redContrast(silentPixels))")
     }
 }
 
