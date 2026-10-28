@@ -6,6 +6,8 @@ import UniformTypeIdentifiers
 final class TreeDragSession<ID: Hashable> {
     let contentType = UTType(exportedAs: "com.ohmydesign.tree." + UUID().uuidString.lowercased(), conformingTo: .data)
     private var token: UUID?
+    private var providerID: UUID?
+    private var systemSessionID: AnyHashable?
     private var source: ID?
     private var original: TreeStructure<ID>?
     var target: TreeDropTarget<ID>?
@@ -14,6 +16,8 @@ final class TreeDragSession<ID: Hashable> {
     func begin(_ id: ID, in structure: TreeStructure<ID>) -> UUID {
         let token = UUID()
         self.token = token
+        self.providerID = token
+        self.systemSessionID = nil
         self.source = id
         self.original = structure
         self.target = nil
@@ -24,10 +28,20 @@ final class TreeDragSession<ID: Hashable> {
         if self.token == token { self.cancel() }
     }
 
-    /// 系统可在同一次拖动中重复请求 payload；已交出的 provider 身份不能因此失效。
-    func preparePayload(for id: ID, in structure: TreeStructure<ID>) -> UUID {
-        if let token, self.source == id, self.original == structure { return token }
-        return self.begin(id, in: structure)
+    /// payload 标识属于行；交易身份由系统会话决定，不能由 payload 的求值次数决定。
+    @discardableResult
+    func activate(systemID: some Hashable, source: ID, providerID: UUID, in structure: TreeStructure<ID>) -> Bool {
+        let key = AnyHashable(systemID)
+        guard self.systemSessionID != key else { return false }
+        self.begin(source, in: structure)
+        self.systemSessionID = key
+        self.providerID = providerID
+        return true
+    }
+
+    func end(systemID: some Hashable) {
+        guard self.systemSessionID == AnyHashable(systemID) else { return }
+        self.cancel()
     }
 
     func itemProvider(for token: UUID) -> NSItemProvider {
@@ -41,8 +55,8 @@ final class TreeDragSession<ID: Hashable> {
     }
 
     func accepts(_ providers: [NSItemProvider]) -> Bool {
-        guard let token = self.token, providers.count == 1 else { return false }
-        return providers[0].suggestedName == token.uuidString
+        guard self.token != nil, let providerID, providers.count == 1 else { return false }
+        return providers[0].suggestedName == providerID.uuidString
     }
 
     func proposal(at target: TreeDropTarget<ID>, in structure: TreeStructure<ID>, canMove: (TreeMove<ID>) -> Bool) -> TreeMove<ID>? {
@@ -61,6 +75,8 @@ final class TreeDragSession<ID: Hashable> {
 
     func cancel() {
         self.token = nil
+        self.providerID = nil
+        // 保留最后一个系统 ID，忽略取消/完成后同一会话迟到的 active 更新。
         self.source = nil
         self.original = nil
         self.target = nil
@@ -86,7 +102,7 @@ struct TreeDragRow<ID: Hashable>: ViewModifier {
     @Environment(\.isEnabled) private var isEnabled
 
     func body(content: Content) -> some View {
-        if let configuration, self.isEnabled {
+        if let configuration, isEnabled {
             Group {
                 switch configuration.source {
                 case .handle:
@@ -128,35 +144,43 @@ private struct TreeRowDragSource<ID: Hashable>: ViewModifier {
     let id: ID
     let configuration: TreeMoveConfiguration<ID>
     @State private var token: UUID?
-    @State private var systemSessions: [DragSession.ID: UUID] = [:]
+    @State private var providerID = UUID()
+    @State private var systemSessionID: DragSession.ID?
 
     func body(content: Content) -> some View {
-        if #available(iOS 27.0, visionOS 27.0, *) {
-            self.source(content).onDragSessionUpdated { session in
-                if case .ended = session.phase {
-                    guard let ended = self.systemSessions.removeValue(forKey: session.id) else { return }
-                    self.configuration.session.end(ended)
-                    if self.token == ended { self.token = nil }
-                } else if session.phase == .initial || session.phase == .active {
-                    if self.systemSessions[session.id] == nil, let token = self.token {
-                        self.systemSessions[session.id] = token
+        #if !canImport(UIKit) || compiler(>=6.4)
+            if #available(iOS 27.0, visionOS 27.0, *) {
+                self.source(content).onDragSessionUpdated { session in
+                    if case .ended = session.phase {
+                        self.configuration.session.end(systemID: session.id)
+                    } else if session.phase == .initial || session.phase == .active {
+                        let began = self.configuration.session.activate(
+                            systemID: session.id, source: self.id, providerID: self.providerID,
+                            in: self.configuration.structure,
+                        )
+                        self.systemSessionID = session.id
+                        #if canImport(UIKit)
+                            if began { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+                        #endif
                     }
                 }
+            } else {
+                self.source(content)
             }
-        } else {
+        #else
             self.source(content)
-        }
+        #endif
     }
 
     private func source(_ content: Content) -> some View {
         content
             .onDrag {
-                let token: UUID
-                if #available(iOS 27.0, visionOS 27.0, *) {
-                    token = self.configuration.session.preparePayload(for: self.id, in: self.configuration.structure)
-                } else {
-                    token = self.configuration.session.begin(self.id, in: self.configuration.structure)
-                }
+                #if !canImport(UIKit) || compiler(>=6.4)
+                    if #available(iOS 27.0, visionOS 27.0, *) {
+                        return self.configuration.session.itemProvider(for: self.providerID)
+                    }
+                #endif
+                let token = self.configuration.session.begin(self.id, in: self.configuration.structure)
                 self.token = token
                 #if canImport(UIKit)
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -166,7 +190,10 @@ private struct TreeRowDragSource<ID: Hashable>: ViewModifier {
             .onDisappear {
                 if let token = self.token { self.configuration.session.end(token) }
                 self.token = nil
-                self.systemSessions.removeAll()
+                if let systemSessionID = self.systemSessionID {
+                    self.configuration.session.end(systemID: systemSessionID)
+                }
+                self.systemSessionID = nil
             }
     }
 }
@@ -325,7 +352,7 @@ struct TreeDropIndicator<ID: Hashable>: View {
                 self.tokens[ObjectIdentifier(session)] = token
                 self.liftedPreview = self.preview.makePreview()
                 self.liftFeedback.prepare()
-                let item = UIDragItem(itemProvider: self.configuration.session.itemProvider(for: token))
+                let item = UIDragItem(itemProvider: configuration.session.itemProvider(for: token))
                 // 保留 targeted lift preview 与触点的相对位置。
                 // previewProvider 会替换为无目标的预览，导致整行中心跳到手指下。
                 return [item]
@@ -348,7 +375,7 @@ struct TreeDropIndicator<ID: Hashable>: View {
             }
 
             func dragInteraction(_: UIDragInteraction, session: any UIDragSession, didEndWith _: UIDropOperation) {
-                if let token = self.tokens.removeValue(forKey: ObjectIdentifier(session)) {
+                if let token = tokens.removeValue(forKey: ObjectIdentifier(session)) {
                     self.configuration.session.end(token)
                 }
                 self.liftedPreview = nil

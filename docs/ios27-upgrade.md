@@ -41,6 +41,8 @@ CI 40769823476 的 iOS 任务检测到摘要同步命令被合并了前置夹具
 
 iOS27 App 实际跨卷拖动回归失败。无断点事件日志确认：系统同一次拖动多次调用 onDrag，旧 begin 每次更换 token，DropInfo 的 provider 却保留最初 token，导致 accepts 拒绝。延长停留和降低速度均不能解决，挂断点反而改变时序，不能作为修复证据。
 
-新增 preparePayload，在同源、同结构的活动会话中复用 token；独立 begin 仍创建新会话。iOS27/macOS26 通过 onDragSessionUpdated 按系统会话ID回收对应 token，旧会话结束不会取消新会话；iOS26保持原路径与部署门槛。签名以 Xcode27.1 SDK 核对，Context7工具在当前会话不可用。
+首轮复用 payload token 让原流程通过两次，但定向评审指出旧系统会话结束迟到的风险；新增取消重拖实测还发现系统缓存 provider，第二次拖动可不再调用 onDrag。该方案已被替换，不能作为最终签收结果。
 
-TreeMoveTests 先记录重复 payload 导致的3条失败断言，修正后7项通过。原坐标、原速度、无断点 App 目录回归首次完整通过（77.742秒），第二次复验仍进行中；取消后重拖与独立定向评审仍待验收。临时诊断日志已移除，未修改下载依赖缓存。
+最终实现将行 provider 标识与交易身份分离：onDrag 只提供稳定的行 payload；onDragSessionUpdated 的 initial/active 按系统 ID 激活交易，重复更新不重启交易，ended 只结束匹配的系统 ID。取消/完成保留最后系统 ID，忽略同会话迟到的 active；新会话可以复用缓存 provider。iOS26与旧SDK保持原begin路径（编译器及runtime双重分支），最低平台仍26。签名以 Xcode27.1 SDK 核对，Context7工具在当前会话不可用。
+
+TreeMoveTests 8项通过，覆盖重复payload、initial在payload前后、缓存provider重拖、B开始后A结束、完成后迟到active。App取消后立即重拖、跨卷、删除、改名、重开完整测试通过（82.204秒，tree-native-lifecycle-ui.xcresult）。临时日志已移除；修改后的独立定向复审与最终远端CI仍待完成。

@@ -69,28 +69,49 @@ struct TreeMoveTests {
         #expect(session.proposal(at: .inside("empty"), in: self.structure, canMove: { _ in true }) == nil)
     }
 
-    @Test func `repeated payload requests preserve the active provider`() {
+    @Test func `repeated payload and phase requests preserve the active transaction`() {
         let session = TreeDragSession<String>()
-        let first = session.preparePayload(for: "b", in: self.structure)
-        let provider = session.itemProvider(for: first)
+        let row = UUID()
+        let provider = session.itemProvider(for: row)
+        #expect(!session.accepts([provider]))
+        #expect(session.activate(systemID: "A", source: "b", providerID: row, in: self.structure))
         session.target = .inside("empty")
-        #expect(session.preparePayload(for: "b", in: self.structure) == first)
+        #expect(!session.activate(systemID: "A", source: "b", providerID: row, in: self.structure))
         #expect(session.accepts([provider]))
+        #expect(session.accepts([session.itemProvider(for: row)]))
         #expect(session.target == .inside("empty"))
         var moves: [TreeMove<String>] = []
         #expect(session.finish(at: .inside("empty"), in: self.structure, canMove: { _ in true }, perform: { moves.append($0) }))
         #expect(moves == [TreeMove(id: "b", parentID: "empty", beforeID: nil)])
+        #expect(!session.activate(systemID: "A", source: "b", providerID: row, in: self.structure))
+        #expect(!session.accepts([provider]))
     }
 
-    @Test func `ended drag cannot authenticate or cancel a later drag of the same row`() {
+    @Test func `late end cannot cancel a newer system session using a cached provider`() {
         let session = TreeDragSession<String>()
-        let first = session.preparePayload(for: "b", in: self.structure)
-        let provider = session.itemProvider(for: first)
-        session.end(first)
-        let second = session.preparePayload(for: "b", in: self.structure)
-        #expect(second != first)
+        let row = UUID()
+        let provider = session.itemProvider(for: row)
+        session.activate(systemID: "A", source: "b", providerID: row, in: self.structure)
+        session.activate(systemID: "B", source: "b", providerID: row, in: self.structure)
+        session.end(systemID: "A")
+        #expect(session.accepts([provider]))
+        session.end(systemID: "B")
         #expect(!session.accepts([provider]))
-        session.end(first)
-        #expect(session.accepts([session.itemProvider(for: second)]))
+        #expect(!session.activate(systemID: "B", source: "b", providerID: row, in: self.structure))
+        session.activate(systemID: "C", source: "b", providerID: row, in: self.structure)
+        #expect(session.accepts([provider]))
+        session.end(systemID: "B")
+        #expect(session.accepts([provider]))
+    }
+
+    @Test func `system session may start before the payload is requested`() {
+        let session = TreeDragSession<String>()
+        let row = UUID()
+        session.activate(systemID: "A", source: "b", providerID: row, in: self.structure)
+        #expect(session.accepts([session.itemProvider(for: row)]))
+        #expect(!session.accepts([session.itemProvider(for: UUID())]))
+        session.cancel()
+        #expect(!session.accepts([session.itemProvider(for: row)]))
+        #expect(!session.activate(systemID: "A", source: "b", providerID: row, in: self.structure))
     }
 }
