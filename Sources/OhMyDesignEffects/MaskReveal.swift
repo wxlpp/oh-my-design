@@ -307,7 +307,7 @@ nonisolated enum MaskReveal {
 
 // MARK: - 绘制 / Drawing
 
-struct MaskRevealShape: Shape {
+nonisolated struct MaskRevealShape: Shape {
     var plan: MaskRevealPlan
 
     var animatableData: Double {
@@ -340,7 +340,7 @@ struct MaskRevealGlareBand: View {
     }
 }
 
-struct MaskRevealGlareShape: Shape {
+nonisolated struct MaskRevealGlareShape: Shape {
     let glare: MaskRevealGlare
 
     func path(in rect: CGRect) -> Path {

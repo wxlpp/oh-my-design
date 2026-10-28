@@ -69,7 +69,7 @@ private func expectLayoutsDifferBeyondNoise(_ a: Data, _ b: Data, _ label: Strin
 
 @Suite("RingChart 布局形态的位图判据（#312）")
 struct RingChartLayoutBitmapTests {
-    private struct Metric: ChartValue {
+    private nonisolated struct Metric: ChartValue {
         let id: Int
         let label: String
         let value: Double

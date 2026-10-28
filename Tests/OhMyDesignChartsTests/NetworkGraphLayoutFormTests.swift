@@ -6,7 +6,7 @@ import Testing
 
 @Suite("NetworkGraph 的布局形态（#312）")
 struct NetworkGraphLayoutFormTests {
-    private struct Node: GraphNode {
+    private nonisolated struct Node: GraphNode {
         let id: String
         let label: String
     }
