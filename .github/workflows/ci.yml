@@ -136,7 +136,7 @@ jobs:
         # ⚠️ 这条 `run:` 被树内判据 `Tests/OhMyDesignTests/DesignDigestSyncGuard.swift`
         # 逐字钉住，要改先改那条判据。生成器基数不符时返回 1、`&&` 短路，所以这一步
         # 同时兜住「基数变了没人看一眼」。
-        run: python3 scripts/design-digest.py && git diff --exit-code -- docs/design-digest.md
+        run: python3 scripts/test_design_digest.py && python3 scripts/design-digest.py && git diff --exit-code -- docs/design-digest.md
 
       - name: Upload test logs
         if: always()
