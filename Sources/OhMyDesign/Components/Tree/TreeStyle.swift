@@ -89,6 +89,11 @@ struct NavigatorTreeRow<Label: View>: View {
     let configuration: TreeRowConfiguration<Label>
     let appearance: TreeAppearance
 
+    init(configuration: TreeRowConfiguration<Label>, appearance: TreeAppearance = .navigator) {
+        self.configuration = configuration
+        self.appearance = appearance
+    }
+
     @Environment(\.coreAccent) private var resolvedAccent
 
     var body: some View {
