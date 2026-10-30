@@ -697,9 +697,10 @@ public struct SlideToConfirm<Label: View>: View {
     }
 
     private func titleText(bandCenter: CGFloat?) -> some View {
-        self.label
-            .coreFont(CoreControlMetrics.fontToken(for: self.controlSize))
-            .foregroundStyle(SlideToConfirmShimmer.style(bandCenter: bandCenter))
+        SlideToConfirmShimmerLabel(
+            label: self.label.coreFont(CoreControlMetrics.fontToken(for: self.controlSize)),
+            bandCenter: bandCenter
+        )
             .lineLimit(1)
     }
 

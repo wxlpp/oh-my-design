@@ -4,7 +4,7 @@ import Testing
 
 @Suite("RingChart 逐环配色")
 struct RingChartColorsGuard {
-    private struct Metric: ChartValue {
+    private nonisolated struct Metric: ChartValue {
         let id: Int
         let label: String
         let value: Double

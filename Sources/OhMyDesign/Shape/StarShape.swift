@@ -1,6 +1,6 @@
 import SwiftUI
 
-public struct StarShape: Shape {
+nonisolated public struct StarShape: Shape {
     public init() {}
 
     public func path(in rect: CGRect) -> Path {

@@ -46,7 +46,7 @@ struct TreeInsertionRow: View {
         )
         switch style.appearance {
         case .automatic: AutomaticTreeRow(configuration: configuration)
-        case .navigator: NavigatorTreeRow(configuration: configuration)
+        case .navigator, .list: NavigatorTreeRow(configuration: configuration, appearance: self.style.appearance)
         }
     }
 }

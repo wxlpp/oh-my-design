@@ -345,7 +345,7 @@ def semantic_colors(root):
             if ext and public_ext_depth is None:
                 public_ext_depth = depth
             if public_ext_depth is not None and depth > public_ext_depth:
-                member = re.match(r"\s*static\s+(?:let|var)\s+(\w+)\s*[:=]", line)
+                member = re.match(r"\s*(?:nonisolated\s+)?static\s+(?:let|var)\s+(\w+)\s*[:=]", line)
                 if member:
                     doc = summarise(doc_above(lines, index), 110)
                     # 没有文档注释时退到**单行别名**：这批 token 几乎全是
@@ -382,7 +382,7 @@ def target_surface(root, target):
             while stack and stack[-1][1] >= depth:
                 stack.pop()
             match = re.match(
-                r"\s*public\s+(?:nonisolated\s+)?(struct|enum|protocol|final class|class)\s+(\w+)(.*)",
+                r"\s*(?:nonisolated\s+public\s+|public\s+(?:nonisolated\s+)?)(struct|enum|protocol|final class|class)\s+(\w+)(.*)",
                 line,
             )
             if match:

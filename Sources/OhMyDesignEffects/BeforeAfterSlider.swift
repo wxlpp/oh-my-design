@@ -125,7 +125,7 @@ nonisolated enum BeforeAfterSweep {
 
 // MARK: - 揭示裁剪（**裁剪**，不是 alpha 遮罩）
 
-struct BeforeAfterRevealClip: Shape {
+nonisolated struct BeforeAfterRevealClip: Shape {
     var width: CGFloat
 
     var animatableData: CGFloat {

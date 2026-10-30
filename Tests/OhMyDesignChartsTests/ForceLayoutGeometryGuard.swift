@@ -4,7 +4,7 @@ import Testing
 
 @Suite("力导向布局的几何分布（#295）")
 struct ForceLayoutGeometryGuard {
-    private struct Node: GraphNode {
+    private nonisolated struct Node: GraphNode {
         let id: String
         let label: String
     }

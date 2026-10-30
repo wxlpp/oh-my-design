@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build
-        run: swift build
+        run: swift build --build-system native
 
       - name: Test
         # ToastHostTests 的三个 timing 用例依赖真实墙钟（Task.sleep + 固定 buffer），
@@ -41,6 +41,8 @@ jobs:
         run: |
           set -o pipefail
           run_tests() {
+            # Toast 像素测试同样放到下方 compiled-resource 腿：内容边界依赖语义色，
+            # native 只复制 xcassets，不能用缺失颜色的渲染结果证明真实 UI 正确。
             # ⚠️ **必须 `--skip OhMyDesignShadersTests`**，且这是**显式跳过、不是静默放过**：
             # 原生 SwiftPM **不编译 `.metal`**（#248 spike 实测），bundle 里不会有
             # metallib，而 `OhMyDesignShaders.assertShaderLibraryLoadable` 是 fail-closed
@@ -49,8 +51,9 @@ jobs:
             # ⚠️ **不要**改成给那个测试加 `.enabled(if:)` 让本腿变绿——那会把"metallib
             # 没编出来"变成静默跳过，正是本仓反复堵的假绿病型（对照 #258 发现的
             # `ColorAssetGuardTests` 在 swiftbuild 下静默失守）。
-            swift test --skip OhMyDesignShadersTests
+            swift test --build-system native --skip 'OhMyDesignShadersTests|ToastPresentationRenderTests'
           }
+          final_log=first.log
           run_tests 2>&1 | tee first.log || {
             # 先落到变量再匹配：`grep -q` 命中即退出并向上游发 SIGPIPE，
             # 而 pipefail 会把 141 提升为整条管道的退出码，使 if 恒假、
@@ -66,10 +69,14 @@ jobs:
               echo "存在已知 flake 之外的失败 → 直接判红"; exit 1
             fi
             echo "仅已知 flake 失败，重跑一次"
+            final_log=second.log
             run_tests 2>&1 | tee second.log
           }
+          # #429：测试进程可能提前退出但返回 0，必须另外确认完整汇总。
+          # 当前 native 为约 1694 项；1600 的下界兼容平台条件，同时拒绝空/小分片。
+          python3 scripts/require-test-summary.py "$final_log" --minimum 1600
 
-      - name: Test (swiftbuild) — OhMyDesignShaders
+      - name: Test (swiftbuild) — Shaders and Toast rendering
         # ⚠️ 只有 swiftbuild / xcodebuild 会真正编译 `.metal` 成 metallib；原生
         # `swift build` 只会把声明为资源的 `.metal` **源码**拷进 bundle（#248 spike）。
         # ⇒ shader 的加载检查只能在这条路径上作数。
@@ -80,14 +87,16 @@ jobs:
         # 「`Resources.xcassets/` 以目录形式存在」（#258 终审 C-1 实测）。
         run: |
           set -o pipefail
-          swift test --build-system swiftbuild --filter OhMyDesignShadersTests 2>&1 \
+          swift test --build-system swiftbuild --filter 'OhMyDesignShadersTests|ToastPresentationRenderTests' 2>&1 \
             | tee shaders.log
           # ⚠️ **filter 命不中的 bundle 会打印「0 tests … passed」且不影响退出码**
           # （#261 第 4 轮实测）。若 test target 改名/拆分导致 `--filter` 匹配为空，
           # 本步骤会**绿**，而上一步的 `--skip OhMyDesignShadersTests` 也一起静默失效
           # ⇒ 整个 metallib 覆盖从 CI 消失、两条腿全绿。
-          grep -qE 'Test run with [1-9][0-9]* tests?' shaders.log \
-            || { echo "::error::swiftbuild 腿一条 shader 测试都没跑（--filter 失配？）"; exit 1; }
+          grep -qE 'Suite ToastPresentationRenderTests passed' shaders.log \
+            || { echo "::error::Toast 渲染测试未执行通过"; exit 1; }
+          grep -qE 'Suite .*OhMyDesignShaders metallib 加载.* passed' shaders.log \
+            || { echo "::error::Shader metallib 加载测试未执行通过"; exit 1; }
 
       - name: MainActor static ratchet
         # ⚠️⚠️ 这一步不是「再多跑一个 lint」，它是 `#290` 那份**一次性人工枚举**唯一的
@@ -119,6 +128,9 @@ jobs:
         # 脚本自己的射程与代价（**不扫第三方模块的扩展块文件**）写在
         # `scripts/mainactor-static-ratchet.sh` 的《范围定案与代价》一节。
         run: bash scripts/mainactor-static-ratchet.sh
+
+      - name: design-digest 解析夹具
+        run: python3 scripts/test_design_digest.py
 
       - name: design-digest 未过期
         # 重跑生成器再与已提交产物比对：`docs/design-digest.md` 是台账，改了组件不重跑

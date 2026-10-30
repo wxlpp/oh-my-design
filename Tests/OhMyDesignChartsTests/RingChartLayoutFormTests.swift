@@ -6,7 +6,7 @@ import Testing
 
 @Suite("RingChart 的布局形态（#312）")
 struct RingChartLayoutFormTests {
-    private struct Metric: ChartValue {
+    private nonisolated struct Metric: ChartValue {
         let id: Int
         let label: String
         let value: Double

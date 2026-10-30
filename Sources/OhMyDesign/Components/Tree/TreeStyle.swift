@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - TreeStyle
 
-/// `Tree` 的行外观预设：`.automatic`（默认）或 `.navigator`。
+/// `Tree` 的行外观预设：`.automatic`（默认）、`.navigator` 或 `.list`。
 ///
 /// 这是一个**封闭**的外观配置，不是样式协议：第三方不能新增外观。
 /// 用 `.treeStyle(.navigator)` 设置；不要写 `TreeStyle.navigator`，也不要把它存成属性。
@@ -12,6 +12,10 @@ public struct TreeStyle {
     /// 默认外观：圆角选中块、内容区起于缩进之后、焦点环。
     nonisolated public static var automatic: TreeStyle { TreeStyle(appearance: .automatic) }
 
+    /// 平级列表外观：根层叶节点不预留展开箭头与额外水平边距。
+    /// 分支和嵌套节点仍保留展开控件，排序、选择和无障碍行为与导航器相同。
+    nonisolated public static var list: TreeStyle { TreeStyle(appearance: .list) }
+
     /// 导航器外观（VS Code Explorer 式）：整行选中、悬停高亮、缩进参考线、中性色 chevron。
     nonisolated public static var navigator: TreeStyle { TreeStyle(appearance: .navigator) }
 }
@@ -19,6 +23,7 @@ public struct TreeStyle {
 nonisolated enum TreeAppearance: Hashable, Sendable {
     case automatic
     case navigator
+    case list
 }
 
 extension EnvironmentValues {
@@ -82,21 +87,29 @@ struct AutomaticTreeRow<Label: View>: View {
 
 struct NavigatorTreeRow<Label: View>: View {
     let configuration: TreeRowConfiguration<Label>
+    let appearance: TreeAppearance
+
+    init(configuration: TreeRowConfiguration<Label>, appearance: TreeAppearance = .navigator) {
+        self.configuration = configuration
+        self.appearance = appearance
+    }
 
     @Environment(\.coreAccent) private var resolvedAccent
 
     var body: some View {
         let configuration = self.configuration
         return HStack(spacing: CoreSpacing.xs) {
-            configuration.disclosure
-                .tint(Color.contentSecondary)
+            if self.appearance != .list || configuration.hasChildren || configuration.level > 1 {
+                configuration.disclosure
+                    .tint(Color.contentSecondary)
+            }
             if let checkBox = configuration.checkBox {
                 checkBox
             }
             configuration.label
         }
         .padding(.leading, CGFloat(configuration.level - 1) * configuration.metrics.indentation)
-        .padding(.horizontal, CoreSpacing.xs)
+        .padding(.horizontal, self.appearance == .list ? 0 : CoreSpacing.xs)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(minHeight: configuration.metrics.rowHeight)
         .background {
