@@ -696,7 +696,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 
 ### `Components/Tree/TreeStyle.swift`
 
-- *struct* **`TreeStyle`** — `Tree` 的行外观预设：`.automatic`（默认）或 `.navigator`。
+- *struct* **`TreeStyle`** — `Tree` 的行外观预设：`.automatic`（默认）、`.navigator` 或 `.list`。
 
 ### `Environment/EnergyPolicy.swift`
 
