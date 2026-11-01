@@ -246,7 +246,7 @@ struct CompositionCraftDemo: View {
                     Spacer()
                     Text("3 / 5 天").font(.caption.monospacedDigit()).foregroundStyle(Color.contentSecondary)
                 }
-                Text("8,420").font(.system(.largeTitle, design: .rounded).weight(.semibold).monospacedDigit())
+                Text("8,420 字").font(.system(.largeTitle, design: .rounded).weight(.semibold).monospacedDigit())
                 ProgressBar(value: 0.6, label: "创作天数")
                 Text("故事在一点一点向前。")
                     .font(.caption).foregroundStyle(Color.contentSecondary)
