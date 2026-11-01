@@ -31,3 +31,9 @@
 ## PR 收尾补查
 
 补齐 design-digest 自动生成台账：SelectionCard 使组件数由 108 增至 109，同步严格计数基线；未放宽检查。解析夹具通过，生成两次逐字一致。此项仅生成索引与计数，复用已有组件代码评审和构建证据。
+
+## CI 失败定位（2026-11-01）
+
+运行 41299456819 的 SwiftPM 与 iOS 两腿均只有同一非预期失败：CoreMotionTokenDisciplineGuard 未登记 SelectionCard（缺条目及双向集合不一致，共 2 条断言）。SelectionCard 自身只改变透明度、颜色及描边，登记为 fadeOnly；按压缩放由已有 PressableButtonStyles 的 gated 策略负责。补齐严格台账，不关闭检查、不改变动画实现。其余报告为原有 known issues。
+
+修复后 `swift test --build-system native --filter 'CoreMotionTokenDisciplineGuard|SelectionCardTests'`：7 项通过；源码未改，复用前述代码/视觉评审，不追加全量评审。仍须等新一轮远端 CI 成功才合并。
