@@ -42,6 +42,7 @@ struct CoreMotionTokenDisciplineGuard {
         "Components/Radio/Radio.swift": .gated,
         "Modifier/AnchoredBadgeModifier.swift": .gated,
         "Components/FormField/FormField.swift": .fadeOnly,
+        "Components/SelectionCard/SelectionCard.swift": .fadeOnly,
         "Components/Skeleton/Skeleton.swift": .gated,
         "Components/Toast/Toast.swift": .gated,
         "Components/TabBar/UnderlinedTabBar.swift": .gated,

@@ -536,6 +536,10 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 - *struct* **`SegmentedControlStyleConfiguration`** — 传给 `SegmentedControlStyle.makeBody` 的上下文：类型擦除的分段数据 + 选择回调。
 - *struct* **`SegmentedControlStyleConfiguration.Segment`** — 单个分段的类型擦除表示。
 
+### `Components/SelectionCard/SelectionCard.swift`
+
+- **`SelectionCard`** *<Value: Equatable, Label: View>: View* — 带说明内容槽的单选卡片，选择状态由调用方绑定持有。
+
 ### `Components/Separator/Separator.swift`
 
 - **`Separator`** *: View* — 可控 inset 的分隔线，默认 hairline 宽度、颜色走 `Color.dividerDefault`。
@@ -1206,7 +1210,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 | controlsize | 5 | 5 |
 | motion | 4 | 4 |
 | colors | 124 | 124 |
-| components | 108 | 108 |
+| components | 109 | 109 |
 | enums | 70 | 70 |
 | enumcases | 229 | 229 |
 | protocols | 7 | 7 |

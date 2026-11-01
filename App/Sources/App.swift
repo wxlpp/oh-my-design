@@ -12,7 +12,8 @@ struct OhMyDesignPreviewApp: App {
             if PerformanceBenchmark.isRequested {
                 PerformanceBenchmarkRunner()
             } else if let id = ProcessInfo.processInfo.environment["PREVIEW_COMPONENT_ID"],
-                      let comp = ComponentMeta.all.first(where: { $0.id == id }) {
+                      let comp = ComponentMeta.all.first(where: { $0.id == id })
+            {
                 Self.directPreview(id: id, comp: comp)
             } else {
                 ContentView()
@@ -27,11 +28,17 @@ struct OhMyDesignPreviewApp: App {
     private static func directPreview(id: String, comp: ComponentMeta) -> some View {
         // 整屏 demo（设置页）自带内边距、全出血渲染;其余是小组件 demo,直达全屏
         // 时补水平边距,避免内容贴屏边、trailing accessory 被裁（视觉终审 #144）。
-        let fullBleed = (id == "settings-screen" || id == "settings-row-in-list" || id.hasPrefix("toast-rich-"))
-        comp.preview()
-            .padding(.horizontal, fullBleed ? 0 : CoreSpacing.lg)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: fullBleed ? .top : .center)
-            .background(Color.surfaceCanvas)
-            .toastHost(edge: .top)
+        let previewWidth = ProcessInfo.processInfo.environment["PREVIEW_WIDTH"].flatMap(Double.init)
+        let fullBleed = (id.hasPrefix("craft-") || id == "settings-screen" || id == "settings-row-in-list" || id.hasPrefix("toast-rich-"))
+        Group {
+            if id.hasPrefix("craft-") { ScrollView {
+                comp.preview()
+                    .frame(width: previewWidth.flatMap { $0.isFinite && $0 >= 200 ? CGFloat($0) : nil })
+            } } else { comp.preview() }
+        }
+        .padding(.horizontal, fullBleed ? 0 : CoreSpacing.lg)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: fullBleed ? .top : .center)
+        .background(Color.surfaceCanvas)
+        .toastHost(edge: .top)
     }
 }

@@ -249,7 +249,7 @@ extension ComponentMeta {
         ComponentMeta(id: "spinning-nonblocking", name: "Spinning · 非阻塞", description: "topBar 顶条 / inline 行内：不铺遮罩、不禁用交互", category: .feedback) {
             SpinningNonBlockingPreview()
         },
-    ] + Self.shipSwiftEntries + Self.shaderEntries
+    ] + Self.shipSwiftEntries + Self.shaderEntries + GalleryCraft.entries
 }
 
 // MARK: - `shipswift-effects` epic 的 40 个 API 单位（#256 串行合并）
@@ -2374,6 +2374,7 @@ private struct ShaderModifierDemo<Effected: View>: View {
 }
 
 /// 被 shader 作用的内容层。
+@MainActor
 private enum ShaderDemoSubject {
     case brand
     case grayscale

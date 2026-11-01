@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		D10100000000000000000001 /* GalleryCraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10100000000000000000002 /* GalleryCraft.swift */; };
 		197074B36F84FE62D13FBFF0 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74C186A9DA567BAB09EC80C3 /* App.swift */; };
 		35047FC2F0F8853BF0CD34CB /* SnapshottingTests in Frameworks */ = {isa = PBXBuildFile; productRef = 999A30BBA01BE68C49E6B66D /* SnapshottingTests */; };
 		3F9FA4F29DC5EFA4BE5BC87E /* SnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ABFE0F6514E771FD2CB108E /* SnapshotTests.swift */; };
@@ -32,6 +33,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		D10100000000000000000002 /* GalleryCraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GalleryCraft.swift; sourceTree = "<group>"; };
 		05ED1ECA4D1724AD3ED51E03 /* ComponentDetail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComponentDetail.swift; sourceTree = "<group>"; };
 		0ABFE0F6514E771FD2CB108E /* SnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotTests.swift; sourceTree = "<group>"; };
 		2DCF2C20B572DCE3EAA81FE7 /* OhMyDesignPreview.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OhMyDesignPreview.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -98,6 +100,7 @@
 			isa = PBXGroup;
 			children = (
 				74C186A9DA567BAB09EC80C3 /* App.swift */,
+				D10100000000000000000002 /* GalleryCraft.swift */,
 				BBC8619BDF21D1BB28527B29 /* ComponentData.swift */,
 				05ED1ECA4D1724AD3ED51E03 /* ComponentDetail.swift */,
 				664BDBD9CA1E9907403F1788 /* ContentView.swift */,
@@ -201,6 +204,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				197074B36F84FE62D13FBFF0 /* App.swift in Sources */,
+				D10100000000000000000001 /* GalleryCraft.swift in Sources */,
 				B8A1311BC9B3C698B221B8B2 /* ComponentData.swift in Sources */,
 				F56026993D43D38875295200 /* ComponentDetail.swift in Sources */,
 				E1EDF8CE99753F578C535EC5 /* ContentView.swift in Sources */,
