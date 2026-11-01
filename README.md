@@ -6,6 +6,10 @@ iOS 26+ / macOS 26+ SwiftUI design system library, distributed as a Swift Packag
 
 See the [Component Index](docs/README.md) for a reference of all 34 documented components plus 3 `.core` control styles and 1 loading-overlay modifier (`View.spinning(_:text:)`), organized by category.
 
+## Gallery 组合样例
+
+新增材质对照、带说明的选择和内容卡片组合。参见 [SelectionCard](docs/components/selection-card.md)。现有默认外观保持不变。
+
 ## Quick Start
 
 ```swift

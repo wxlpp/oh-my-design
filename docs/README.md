@@ -32,6 +32,7 @@ iOS 26+ / macOS 26+ SwiftUI 设计系统，含 33 个 Apple HIG 对齐组件（�
 | Rating | [<img src="snapshots/OhMyDesignPreview_Previews.swift_Rating.png" width="200">](components/rating.md) | [rating.md](components/rating.md) |
 | RatingDisplay | [<img src="snapshots/OhMyDesignPreview_Previews.swift_RatingDisplay.png" width="200">](components/rating-display.md) | [rating-display.md](components/rating-display.md) |
 | PinCode | [<img src="snapshots/OhMyDesignPreview_Previews.swift_PinCode.png" width="200">](components/pin-code.md) | [pin-code.md](components/pin-code.md) |
+| SelectionCard | 原生 Gallery：带说明的选择 | [selection-card.md](components/selection-card.md) |
 | RadioGroup / RadioOption | [<img src="snapshots/OhMyDesignPreview_Previews.swift_Radio_Group.png" width="200">](components/radio.md) | [radio.md](components/radio.md) |
 | TagInput | [<img src="snapshots/OhMyDesignPreview_Previews.swift_TagInput.png" width="200">](components/tag-input.md) | [tag-input.md](components/tag-input.md) |
 | FormField | [<img src="snapshots/OhMyDesignPreview_Previews.swift_FormField.png" width="200">](components/form-field.md) | [form-field.md](components/form-field.md) |
@@ -263,3 +264,7 @@ Simulator 没有真实 GPU 调度）。真机跑法见脚本头部注释。
 Run `scripts/run-preview.sh` to build and launch the OhMyDesignPreview app in the Simulator.
 
 轻量命名输入可用 [`underlinedField(isFocused:)`](components/underlined-field.md)，在原生 TextField 下添加焦点感知的细线。
+
+### SelectionCard
+
+[带说明的单选卡片](components/selection-card.md)，以外部选择绑定与内容槽组合。
