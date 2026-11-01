@@ -244,10 +244,10 @@ struct CompositionCraftDemo: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text("本周落笔").font(.headline)
                     Spacer()
-                    Text("3 / 5 天").font(.caption.monospacedDigit()).foregroundStyle(Color.contentSecondary)
+                    Text("目标 14,000 字").font(.caption.monospacedDigit()).foregroundStyle(Color.contentSecondary)
                 }
                 Text("8,420 字").font(.system(.largeTitle, design: .rounded).weight(.semibold).monospacedDigit())
-                ProgressBar(value: 0.6, label: "创作天数")
+                ProgressBar(value: 8_420.0 / 14_000, label: "目标进度")
                 Text("故事在一点一点向前。")
                     .font(.caption).foregroundStyle(Color.contentSecondary)
             }
