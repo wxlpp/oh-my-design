@@ -5,6 +5,13 @@ import Testing
 @Suite("细弧 loading")
 @MainActor
 struct ActivityRingTests {
+    @Test("渐变遮罩保留不透明头部与柔和尾部")
+    func maskRange() {
+        let colors = ActivityRingMetrics.maskColors.map { $0.resolve(in: EnvironmentValues()).opacity }
+        #expect(abs(colors[0] - 0.4) < 0.001)
+        #expect(colors[1] == 1)
+    }
+
     @Test("尺寸为布局提供稳定占位")
     func sizes() {
         #expect(ActivityRingMetrics.diameter(for: .mini) == 14)

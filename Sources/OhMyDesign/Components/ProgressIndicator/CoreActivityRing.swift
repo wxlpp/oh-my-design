@@ -48,7 +48,7 @@ struct CoreActivityRing<Style: ShapeStyle>: View {
                 .stroke(self.style, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .mask {
                     AngularGradient(
-                        colors: [Color.maskOpaque.opacity(0.4), Color.maskOpaque],
+                        colors: ActivityRingMetrics.maskColors,
                         center: .center, startAngle: .zero, endAngle: .degrees(270)
                     )
                 }
@@ -61,6 +61,8 @@ struct CoreActivityRing<Style: ShapeStyle>: View {
 // MARK: - ActivityRingMetrics
 
 nonisolated enum ActivityRingMetrics {
+    static var maskColors: [Color] { [Color.maskOpaque.opacity(0.4), Color.maskOpaque] }
+
     static func diameter(for size: ControlSize) -> CGFloat {
         switch size {
         case .mini: 14

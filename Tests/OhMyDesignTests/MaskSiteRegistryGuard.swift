@@ -8,6 +8,8 @@ import Testing
 @Suite("新 target 的 .mask 点位台账")
 struct MaskSiteRegistryGuard {
     nonisolated static let registeredSites: [String: String] = [
+        "Sources/OhMyDesign/Components/ProgressIndicator/CoreActivityRing.swift#ring":
+            "核心库细弧的角向 alpha 渐变；基色使用 maskOpaque，尾端40%、头端100%。ActivityRingTests 验证端点量程；透明度分布无法用 clipShape 表达。",
         "Sources/OhMyDesignEffects/AnimatedMeshGradient.swift#body":
             """
             `.tint` 档：`Rectangle().fill(.tint)` + 一张 alpha 网格遮罩。
@@ -75,6 +77,10 @@ struct MaskSiteRegistryGuard {
             scannedFiles += files.count
             found += try Self.scan(root: root.url)
         }
+        let activityRing = GuardScanRoots.sourcesURL(of: "OhMyDesign")
+            .appendingPathComponent("Components/ProgressIndicator/CoreActivityRing.swift")
+        found += try Self.scan(source: String(contentsOf: activityRing, encoding: .utf8),
+                               fileName: GuardScanRoots.relativePath(activityRing))
         #expect(scannedFiles > 0, "新 target 一个源文件都没扫到 —— 「零违规」不可信")
         #expect(!found.isEmpty, """
         新 target 里一处 `.mask` 都没扫到 —— 台账里却登记着 \(Self.registeredSites.count) 条。
