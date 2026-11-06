@@ -15,7 +15,7 @@
 | (none) | - | - | `init()`，不带文案；通过 `.controlSize(_:)` 调整尺寸 |
 | text | `LocalizedStringKey` | - | `init(text:)`，静态文案，在 `Bundle.main` 本地化 |
 | text | `some StringProtocol` | - | `init(text:)`，运行期字符串文案，verbatim 显示（`@_disfavoredOverload`，字面量优先落到 `LocalizedStringKey` 重载） |
-| tint | `Color` | `nil` | spinner 取色。⚠️ **必须走这个参数**——本组件对系统 `ProgressView` 显式设 tint，内层恒胜外层，调用方外加的 `.tint(_:)` 会被**静默吞掉**（实测：外加 `.tint(.orange)` 时 spinner 仍是强调色、橙色零像素） |
+| tint | `Color` | `nil` | spinner 取色。⚠️ **必须走这个参数**——本组件直接给细弧传入颜色，显式参数优先于 coreAccent，调用方外加的 `.tint(_:)` 会被**静默吞掉**（实测：外加 `.tint(.orange)` 不会覆盖这个组件的显式取色） |
 
 三个 init 均保留既有 `accessibilityLabel("Loading")` 语义——带文案时，可视文案对 VoiceOver `.accessibilityHidden(true)`，避免与 label 双重播报。
 
