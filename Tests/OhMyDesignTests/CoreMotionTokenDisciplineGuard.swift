@@ -30,6 +30,7 @@ struct CoreMotionTokenDisciplineGuard {
 
     static let ledger: [String: Strategy] = [
         "Tokens/CoreMotionToken.swift": .tokenSource,
+        "Components/ProgressIndicator/CoreActivityRing.swift": .gated,
         "Modifier/ButtonBackgroundModifier.swift": .gated,
         "Modifier/TelegramGlassButtonModifier.swift": .gated,
         "Modifier/SpinningModifier.swift": .gated,
@@ -57,6 +58,8 @@ struct CoreMotionTokenDisciplineGuard {
     ]
 
     static let transformLedger: [String: String] = [
+        "Components/ProgressIndicator/CoreActivityRing.swift|rotationEffect(angle)":
+            "仅 animated 且可见活跃时由 TimelineView 驱动，否则常量零角度",
         "Tokens/CoreMotionToken.swift|scaleEffect(Self.scale(for: self.presentation, phase: phase))":
             "CollectionItemTransition.scale(for:phase:) 在 resting / hidden 下每一相都是 1",
         "Components/CheckBox/CheckBox.swift|contentTransition(self.motionPresentation.symbolReplacement)":

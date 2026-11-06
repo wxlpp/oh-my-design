@@ -3,10 +3,8 @@ import SwiftUI
 // MARK: - CoreCircularProgressViewStyle
 
 /// 系统 `ProgressView` 的 OhMyDesign 环形外观——确定态画一条从 12 点方向顺时针增长的圆弧，
-/// 强调色经 `ShapeStyle.tint` 取值，所以 `.tint(_:)` 对它生效；不确定态回退系统环形 spinner。
+/// 强调色经 `ShapeStyle.tint` 取值，所以 `.tint(_:)` 对它生效；不确定态使用支持减少动态效果的细弧 loading。
 public struct CoreCircularProgressViewStyle: ProgressViewStyle {
-    @Environment(\.controlSize) private var controlSize
-
     public init() {}
 
     public func makeBody(configuration: Configuration) -> some View {
@@ -33,9 +31,10 @@ public struct CoreCircularProgressViewStyle: ProgressViewStyle {
                 if let label = configuration.label {
                     label
                 }
-                ProgressView()
-                    .progressViewStyle(.circular)
-                    .frame(width: CoreControlMetrics.height(for: self.controlSize), height: CoreControlMetrics.height(for: self.controlSize))
+                CoreActivityRing(style: TintShapeStyle())
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text("Loading", bundle: .module))
+                    .accessibilityHidden(configuration.label != nil)
                 if let currentValueLabel = configuration.currentValueLabel {
                     currentValueLabel
                         .coreFont(.footnote)

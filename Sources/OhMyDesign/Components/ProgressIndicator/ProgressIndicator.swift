@@ -33,10 +33,9 @@ public struct ProgressIndicator: View {
 
     public var body: some View {
         VStack(spacing: CoreSpacing.sm) {
-            ProgressView()
-                .progressViewStyle(.circular)
-                .tint(self.tint ?? self.resolvedAccent)
+            CoreActivityRing(style: self.tint ?? self.resolvedAccent)
                 .controlSize(self.controlSize)
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel(self.text ?? Text("Loading", bundle: .module))
 
             if let text = self.text {

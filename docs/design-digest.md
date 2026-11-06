@@ -595,7 +595,7 @@ Reduce Motion 由 `EnvironmentValues.coreMotionPresentation` 纳入：`.resting`
 
 ### `Components/Style/CoreCircularProgressViewStyle.swift`
 
-- **`CoreCircularProgressViewStyle`** *: ProgressViewStyle* — 系统 `ProgressView` 的 OhMyDesign 环形外观——确定态画一条从 12 点方向顺时针增长的圆弧， 强调色经 `ShapeStyle.tint` 取值，所以 `.tint(_:)` 对它生效；不确定态回退系统环形 spinner。
+- **`CoreCircularProgressViewStyle`** *: ProgressViewStyle* — 系统 `ProgressView` 的 OhMyDesign 环形外观——确定态画一条从 12 点方向顺时针增长的圆弧， 强调色经 `ShapeStyle.tint` 取值，所以 `.tint(_:)` 对它生效；不确定态使用支持减少动态效果的细弧 loading。
 
 ### `Components/Style/CoreDisclosureGroupStyle.swift`
 
