@@ -221,7 +221,7 @@ struct MicroInteractionReduceMotionGuard {
 
     static let energyGatedFiles: Set<String> = [
         "Confetti.swift", "ProcessingSweep.swift", "AnimatedMeshGradient.swift",
-        "SphereSurface.swift", "OrbitingLogos.swift", "SlideToConfirm.swift",
+        "SphereSurface.swift", "OrbitingLogos.swift", "SlideToConfirm.swift", "CoreActivityRing.swift",
     ]
 
     @Test("走能耗闸的文件：reduceMotion 只许喂给 presentation(reduceMotion:) 这一个裁决点")
